@@ -1,0 +1,46 @@
+name: "📚 Documentation Update"
+description: "Add or improve documentation"
+title: "[Docs][Area] Documentation change summary"
+labels: ["documentation"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Documentation Need
+      placeholder: What documentation is missing or incorrect?
+    validations:
+      required: true
+
+  - type: input
+    id: deadline
+    attributes:
+      label: Deadline
+      placeholder: YYYY-MM-DD or "no deadline"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort
+      options: ["XS","S","M","L","XL"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Docs updated
+        - [ ] Examples added
+    validations:
+      required: true
+
+  - type: input
+    id: requirement_link
+    attributes:
+      label: Addresses Requirement / User Story (Optional)
+      placeholder: REQ-12 / issue link / design doc
+

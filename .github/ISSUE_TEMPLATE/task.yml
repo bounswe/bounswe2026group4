@@ -1,0 +1,46 @@
+name: "📋 Task"
+description: "General work item"
+title: "[Task][Area] Clear task description"
+labels: ["task"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      placeholder: Describe the work to be completed.
+    validations:
+      required: true
+
+  - type: input
+    id: deadline
+    attributes:
+      label: Deadline
+      placeholder: YYYY-MM-DD or "no deadline"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort
+      options: ["XS","S","M","L","XL"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Task completed
+        - [ ] Reviewed
+    validations:
+      required: true
+
+  - type: input
+    id: requirement_link
+    attributes:
+      label: Addresses Requirement / User Story (Optional)
+      placeholder: REQ-12 / issue link / design doc
+

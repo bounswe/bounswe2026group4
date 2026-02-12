@@ -1,0 +1,52 @@
+name: "🔧 Refactor"
+description: "Improve code structure without changing behavior"
+title: "[Refactor][Area] What will be improved"
+labels: ["refactor"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Refactor Description
+      placeholder: What needs restructuring and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk / Impact
+      placeholder: Possible risks or affected areas
+
+  - type: input
+    id: deadline
+    attributes:
+      label: Deadline
+      placeholder: YYYY-MM-DD or "no deadline"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort
+      options: ["XS","S","M","L","XL"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] No behavior change
+        - [ ] Tests pass
+    validations:
+      required: true
+
+  - type: input
+    id: requirement_link
+    attributes:
+      label: Addresses Requirement / User Story (Optional)
+      placeholder: REQ-12 / issue link / design doc
+
