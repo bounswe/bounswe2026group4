@@ -1,0 +1,52 @@
+name: "✨ Feature Request"
+description: "Propose a new feature or enhancement"
+title: "[Feature][Area] Clear feature summary"
+labels: ["enhancement"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      placeholder: Describe the functionality and value.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Need
+      placeholder: What user problem does this solve?
+
+  - type: input
+    id: deadline
+    attributes:
+      label: Deadline
+      placeholder: YYYY-MM-DD or "no deadline"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort
+      options: ["XS","S","M","L","XL"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Feature works end-to-end
+        - [ ] Reviewed by team
+    validations:
+      required: true
+
+  - type: input
+    id: requirement_link
+    attributes:
+      label: Addresses Requirement / User Story (Optional)
+      placeholder: REQ-12 / issue link / design doc
+
