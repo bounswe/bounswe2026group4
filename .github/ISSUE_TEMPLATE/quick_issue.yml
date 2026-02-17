@@ -1,0 +1,40 @@
+name: "🧩 Quick Issue"
+description: "Small, simple, or uncategorized work item"
+title: "[Quick][Area] Short description"
+labels: ["quick"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # 🧩 Quick Issue
+        Use this for small or simple items that don't clearly fit other templates.
+        If the issue grows in scope, convert it to a Feature or Task.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Briefly explain what needs to be done. (Required)
+      placeholder: "Small fix, minor cleanup, tiny improvement..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Simple, testable completion criteria. (Required)
+      placeholder: |
+        - [ ] Change implemented
+        - [ ] Verified manually
+    validations:
+      required: true
+
+  - type: textarea
+    id: meta
+    attributes:
+      label: Meta (optional)
+      description: Optional effort, deadline, priority.
+      placeholder: "Effort: XS"
+

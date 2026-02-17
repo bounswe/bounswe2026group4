@@ -1,30 +1,21 @@
 name: "📋 Task"
-description: "General work item"
+description: "General work item that is not a bug or feature"
 title: "[Task][Area] Clear task description"
 labels: ["task"]
 
 body:
+  - type: markdown
+    attributes:
+      value: |
+        # 📋 Task
+        Briefly describe the work to be done.
+
   - type: textarea
     id: description
     attributes:
-      label: Task Description
-      placeholder: Describe the work to be completed.
-    validations:
-      required: true
-
-  - type: input
-    id: deadline
-    attributes:
-      label: Deadline
-      placeholder: YYYY-MM-DD or "no deadline"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: effort
-    attributes:
-      label: Effort
-      options: ["XS","S","M","L","XL"]
+      label: Description
+      description: What needs to be completed? Provide context and desired outcome. (Required)
+      placeholder: "Implement X, update Y, run Z..."
     validations:
       required: true
 
@@ -32,15 +23,17 @@ body:
     id: acceptance
     attributes:
       label: Acceptance Criteria
+      description: Testable checkboxes to declare task completion. (Required)
       placeholder: |
-        - [ ] Task completed
-        - [ ] Reviewed
+        - [ ] Work completed
+        - [ ] Code reviewed / merged
     validations:
       required: true
 
-  - type: input
-    id: requirement_link
+  - type: textarea
+    id: meta
     attributes:
-      label: Addresses Requirement / User Story (Optional)
-      placeholder: REQ-12 / issue link / design doc
+      label: Meta (optional)
+      description: Optional: effort, deadline, priority, notes.
+      placeholder: "Effort: S / Deadline: 2026-02-20 / Priority: P2"
 

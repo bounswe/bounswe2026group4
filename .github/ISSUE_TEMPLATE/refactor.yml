@@ -1,36 +1,21 @@
 name: "🔧 Refactor"
-description: "Improve code structure without changing behavior"
+description: "Improve internal code structure without changing behavior"
 title: "[Refactor][Area] What will be improved"
 labels: ["refactor"]
 
 body:
+  - type: markdown
+    attributes:
+      value: |
+        # 🔧 Refactor
+        Describe the refactor goal and the intended outcome.
+
   - type: textarea
     id: description
     attributes:
-      label: Refactor Description
-      placeholder: What needs restructuring and why?
-    validations:
-      required: true
-
-  - type: textarea
-    id: risk
-    attributes:
-      label: Risk / Impact
-      placeholder: Possible risks or affected areas
-
-  - type: input
-    id: deadline
-    attributes:
-      label: Deadline
-      placeholder: YYYY-MM-DD or "no deadline"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: effort
-    attributes:
-      label: Effort
-      options: ["XS","S","M","L","XL"]
+      label: Description
+      description: What needs restructuring and why? (Required)
+      placeholder: "Refactor module X to improve maintainability..."
     validations:
       required: true
 
@@ -38,15 +23,17 @@ body:
     id: acceptance
     attributes:
       label: Acceptance Criteria
+      description: Testable checkboxes (required).
       placeholder: |
-        - [ ] No behavior change
-        - [ ] Tests pass
+        - [ ] No behavior changed (manual verification or tests)
+        - [ ] Unit & integration tests pass
     validations:
       required: true
 
-  - type: input
-    id: requirement_link
+  - type: textarea
+    id: meta
     attributes:
-      label: Addresses Requirement / User Story (Optional)
-      placeholder: REQ-12 / issue link / design doc
+      label: Meta (optional)
+      description: Optional: effort, expected downtime, deadline, priority.
+      placeholder: "Effort: M / Deadline: 2026-02-28 / Priority: P3"
 

@@ -4,27 +4,18 @@ title: "[Docs][Area] Documentation change summary"
 labels: ["documentation"]
 
 body:
+  - type: markdown
+    attributes:
+      value: |
+        # 📚 Documentation Update
+        Explain what documentation should change and where.
+
   - type: textarea
     id: description
     attributes:
-      label: Documentation Need
-      placeholder: What documentation is missing or incorrect?
-    validations:
-      required: true
-
-  - type: input
-    id: deadline
-    attributes:
-      label: Deadline
-      placeholder: YYYY-MM-DD or "no deadline"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: effort
-    attributes:
-      label: Effort
-      options: ["XS","S","M","L","XL"]
+      label: Description
+      description: What documentation is missing or incorrect? (Required)
+      placeholder: "Doc page, section, or example to add/update..."
     validations:
       required: true
 
@@ -32,15 +23,17 @@ body:
     id: acceptance
     attributes:
       label: Acceptance Criteria
+      description: What success looks like (required).
       placeholder: |
-        - [ ] Docs updated
-        - [ ] Examples added
+        - [ ] Documentation updated in the repo
+        - [ ] Examples and links added
     validations:
       required: true
 
-  - type: input
-    id: requirement_link
+  - type: textarea
+    id: meta
     attributes:
-      label: Addresses Requirement / User Story (Optional)
-      placeholder: REQ-12 / issue link / design doc
+      label: Meta (optional)
+      description: Optional: effort estimate, deadline, priority, related PRs.
+      placeholder: "Effort: XS / Deadline: no-deadline"
 
