@@ -36,5 +36,6 @@ body:
     attributes:
       label: Meta (optional)
       description: Optional effort, deadline, priority.
-      placeholder: "Effort: XS"
+      placeholder: |
+        Effort: XS
 

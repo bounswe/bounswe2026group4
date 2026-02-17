@@ -34,6 +34,10 @@ body:
     id: meta
     attributes:
       label: Meta (optional)
-      description: Optional: effort (S/M/L/hours), deadline, priority, related links.
-      placeholder: "Effort: M / Deadline: no-deadline / Priority: P3"
+      description: |
+        Optional: effort (S/M/L/hours), deadline, priority, related links.
+      placeholder: |
+        Effort: M
+        Deadline: no-deadline 
+        Priority: P3
 

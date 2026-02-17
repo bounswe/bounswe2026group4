@@ -34,6 +34,9 @@ body:
     id: meta
     attributes:
       label: Meta (optional)
-      description: Optional: effort estimate, deadline, priority, related PRs.
-      placeholder: "Effort: XS / Deadline: no-deadline"
+      description: |
+        Optional: effort estimate, deadline, priority, related PRs.
+      placeholder: |
+        Effort: XS
+        Deadline: no-deadline
 

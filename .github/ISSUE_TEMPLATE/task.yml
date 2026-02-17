@@ -34,6 +34,10 @@ body:
     id: meta
     attributes:
       label: Meta (optional)
-      description: Optional: effort, deadline, priority, notes.
-      placeholder: "Effort: S / Deadline: 2026-02-20 / Priority: P2"
+      description: |
+        Optional: effort, deadline, priority, notes.
+      placeholder: |
+        Effort: S
+        Deadline: 2026-02-20
+        Priority: P2
 
