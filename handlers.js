@@ -30,7 +30,7 @@ function onButton6Click() {
 }
 
 function onButton7Click() {
-  console.log("Button 7 clicked -- implement me!");
+  window.location.href = "oguz.html";
 }
 
 function onButton8Click() {
