@@ -27,11 +27,7 @@ function onButton5Click() {
 
 function onButton6Click() {
   console.log("AHMET-CAGDAS-GIRIT button was clicked!");
-  fetch("https://catfact.ninja/fact")
-  .then(res => res.json())
-  .then(data => {
-    console.log(data.fact);
-  });
+  location.href = "catfact.html"; // opens in the same tab
 }
 
 function onButton7Click() {

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cat Fact Page</title>
+  <style>
+    body { font-family: sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f4f8; }
+    #catFact { font-size: 24px; text-align:center; padding:20px; background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+  </style>
+</head>
+<body>
+  <div id="catFact">Loading cat fact...</div>
+
+  <script>
+    // Fetch cat fact and display
+    fetch("https://catfact.ninja/fact")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("catFact").textContent = data.fact;
+      })
+      .catch(err => {
+        console.error("Failed to fetch cat fact:", err);
+        document.getElementById("catFact").textContent = "Could not load cat fact.";
+      });
+  </script>
+</body>
+</html>
