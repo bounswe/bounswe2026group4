@@ -24,3 +24,20 @@ function onButton4Click() {
 function onButton5Click() {
   console.log("Button 5 clicked -- implement me!");
 }
+
+function onButton6Click() {
+  console.log("AHMET-CAGDAS-GIRIT button was clicked!");
+  fetch("https://catfact.ninja/fact")
+  .then(res => res.json())
+  .then(data => {
+    console.log(data.fact);
+  });
+}
+
+function onButton7Click() {
+  console.log("Button 7 clicked -- implement me!");
+}
+
+function onButton8Click() {
+  console.log("Button 8 clicked -- implement me!");
+}
