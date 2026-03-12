@@ -6,7 +6,8 @@
  */
 
 function onButton1Click() {
-  console.log("Button 1 clicked -- implement me!");
+  // Open example.html in a new tab
+  window.location.href = "example.html";
 }
 
 function onButton2Click() {
