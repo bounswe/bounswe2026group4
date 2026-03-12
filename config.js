@@ -14,6 +14,6 @@ const BUTTON_LABELS = [
   "AYSU KESKİN",
   "SEZİN DOĞAN",
   "AHMET ÇAĞDAŞ GİRİT",
-  "OĞUZ SEMİH ARTIK",
+  "OĞUZ SEMİH ARIK",
   "ÖMER FARUK ÇELİK",
 ];
