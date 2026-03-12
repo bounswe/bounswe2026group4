@@ -18,7 +18,7 @@ function onButton3Click() {
 }
 
 function onButton4Click() {
-  console.log("Button 4 clicked -- implement me!");
+  window.location.href = "AysuKeskin/index.html";
 }
 
 function onButton5Click() {
