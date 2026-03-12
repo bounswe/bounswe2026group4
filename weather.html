@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Istanbul Weather</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    text-align: center;
+    padding: 40px;
+  }
+
+  #weatherCard {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    width: 300px;
+    margin: auto;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+
+  h1 {
+    margin-bottom: 10px;
+  }
+
+  .value {
+    font-size: 22px;
+    margin: 8px 0;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Istanbul Weather</h1>
+
+<div id="weatherCard">
+  <div class="value" id="temp">Loading temperature...</div>
+  <div class="value" id="wind"></div>
+  <div class="value" id="time"></div>
+</div>
+
+<script>
+async function getWeather() {
+
+  // Istanbul coordinates
+  const lat = 41.0082;
+  const lon = 28.9784;
+
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const weather = data.current_weather;
+
+    document.getElementById("temp").innerText =
+      "Temperature: " + weather.temperature + "°C";
+
+    document.getElementById("wind").innerText =
+      "Wind Speed: " + weather.windspeed + " km/h";
+
+    document.getElementById("time").innerText =
+      "Time: " + weather.time;
+
+  } catch (error) {
+    document.getElementById("temp").innerText =
+      "Failed to load weather data";
+  }
+}
+
+getWeather();
+</script>
+
+</body>
+</html>
