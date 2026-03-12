@@ -5,12 +5,15 @@
  * Update BUTTON_LABELS to set the text displayed on each button.
  */
 
-const NUM_BUTTONS = 5;
+const NUM_BUTTONS = 8;
 
 const BUTTON_LABELS = [
-  "Button 1",
-  "Button 2",
-  "Button 3",
-  "Button 4",
-  "Button 5",
+  "OSMAN YUSUF TOSUN",
+  "MERT EREN KAPLAN",
+  "KEMAL MAHMUTOĞULLARI",
+  "AYSU KESKİN",
+  "SEZİN DOĞAN",
+  "AHMET ÇAĞDAŞ GİRİT",
+  "OĞUZ SEMİH ARTIK",
+  "ÖMER FARUK ÇELİK",
 ];
