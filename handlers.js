@@ -18,9 +18,21 @@ function onButton3Click() {
 }
 
 function onButton4Click() {
-  console.log("Button 4 clicked -- implement me!");
+  window.location.href = "AysuKeskin/index.html";
 }
 
 function onButton5Click() {
   console.log("Button 5 clicked -- implement me!");
+}
+
+function onButton6Click() {
+  console.log("Button 6 clicked -- implement me!");
+}
+
+function onButton7Click() {
+  console.log("Button 7 clicked -- implement me!");
+}
+
+function onButton8Click() {
+  console.log("Button 8 clicked -- implement me!");
 }
