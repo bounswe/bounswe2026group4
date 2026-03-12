@@ -12,8 +12,8 @@ const BUTTON_LABELS = [
   "MERT EREN KAPLAN",
   "KEMAL MAHMUTOĞULLARI",
   "AYSU KESKİN",
-  "SEZİN DOĞAN",
+  "SEZİN DOĞAN - Istanbul Weather API",
   "AHMET ÇAĞDAŞ GİRİT",
-  "OĞUZ SEMİH ARTIK",
+  "OĞUZ SEMİH ARIK",
   "ÖMER FARUK ÇELİK",
 ];

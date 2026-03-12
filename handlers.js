@@ -18,11 +18,11 @@ function onButton3Click() {
 }
 
 function onButton4Click() {
-  console.log("Button 4 clicked -- implement me!");
+  window.location.href = "AysuKeskin/index.html";
 }
 
 function onButton5Click() {
-  console.log("Button 5 clicked -- implement me!");
+  window.location.href = "weather.html";
 }
 
 function onButton6Click() {
@@ -30,7 +30,7 @@ function onButton6Click() {
 }
 
 function onButton7Click() {
-  console.log("Button 7 clicked -- implement me!");
+  window.location.href = "oguz.html";
 }
 
 function onButton8Click() {
