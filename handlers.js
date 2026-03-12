@@ -14,15 +14,15 @@ function onButton2Click() {
 }
 
 function onButton3Click() {
-    window.location.href = "pokemon.html";    
+  console.log("Button 3 clicked -- implement me!");
 }
 
 function onButton4Click() {
-  window.location.href = "AysuKeskin/index.html";
+  console.log("Button 4 clicked -- implement me!");
 }
 
 function onButton5Click() {
-  window.location.href = "weather.html";
+  console.log("Button 5 clicked -- implement me!");
 }
 
 function onButton6Click() {
@@ -30,9 +30,9 @@ function onButton6Click() {
 }
 
 function onButton7Click() {
-  window.location.href = "oguz.html";
+  console.log("Button 7 clicked -- implement me!");
 }
 
 function onButton8Click() {
-  console.log("Button 8 clicked -- implement me!");
+  window.location.href = "omarreis01.html";
 }
