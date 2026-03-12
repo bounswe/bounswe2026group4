@@ -14,7 +14,7 @@ function onButton2Click() {
 }
 
 function onButton3Click() {
-  console.log("Button 3 clicked -- implement me!");
+    window.location.href = "pokemon.html";    
 }
 
 function onButton4Click() {
