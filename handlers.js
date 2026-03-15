@@ -35,5 +35,5 @@ function onButton7Click() {
 }
 
 function onButton8Click() {
-  console.log("Button 8 clicked -- implement me!");
+  window.location.href = "omarreis01.html";
 }

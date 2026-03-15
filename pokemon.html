@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Output</title>
+  <style>
+    /* Borrowing some styles from your main app for consistency */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+      margin: 0;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      padding: 48px 40px;
+      text-align: center;
+    }
+    .card h1 { font-size: 1.875rem; color: #1e293b; margin-bottom: 16px; }
+    .card p { color: #64748b; margin-bottom: 8px; }
+    img { width: 150px; height: 150px; margin: 0 auto; display: block; }
+    
+    .back-btn {
+      margin-top: 24px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 12px;
+      background-color: #4f46e5;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 150ms;
+    }
+    .back-btn:hover { background-color: #4338ca; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Pokémon Data</h1>
+    
+    <div id="api-result">
+      <p>Loading API data...</p>
+    </div>
+
+    <button class="back-btn" onclick="window.location.href='index.html'">Go Back</button>
+  </div>
+
+  <script>
+    // Fetch data for Pikachu from the public PokéAPI
+    fetch('https://pokeapi.co/api/v2/pokemon/pikachu')
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(data => {
+        // Grab the container element
+        const resultContainer = document.getElementById('api-result');
+        
+        // Build the HTML with the data from the API
+        resultContainer.innerHTML = `
+          <h2 style="text-transform: capitalize; color: #333;">${data.name}</h2>
+          <img src="${data.sprites.front_default}" alt="${data.name}">
+          <p><strong>Height:</strong> ${data.height}</p>
+          <p><strong>Weight:</strong> ${data.weight}</p>
+        `;
+      })
+      .catch(error => {
+        console.error('Error fetching API:', error);
+        document.getElementById('api-result').innerHTML = '<p style="color: red;">Failed to load data.</p>';
+      });
+  </script>
+</body>
+</html>
