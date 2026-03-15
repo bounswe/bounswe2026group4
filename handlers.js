@@ -6,42 +6,34 @@
  */
 
 function onButton1Click() {
-  // Open example.html in a new tab
   window.location.href = "example.html";
-  console.log("Button 1 clicked -- implement me!");
 }
 
 function onButton2Click() {
-  console.log("Button 2 clicked -- implement me!");
-}
-
-
   window.location.href = "mert.html";
 }
+
 function onButton3Click() {
-  console.log("Button 3 clicked -- implement me!");
+  window.location.href = "pokemon.html";
 }
 
 function onButton4Click() {
-  console.log("Button 4 clicked -- implement me!");
+  window.location.href = "AysuKeskin/index.html";
 }
 
 function onButton5Click() {
-  console.log("Button 5 clicked -- implement me!");
+  window.location.href = "weather.html";
 }
 
 function onButton6Click() {
   console.log("AHMET-CAGDAS-GIRIT button was clicked!");
-  location.href = "catfact.html"; // opens in the same tab
-  console.log("Button 6 clicked -- implement me!");
+  window.location.href = "catfact.html"; // opens in the same tab
 }
 
 function onButton7Click() {
-  console.log("Button 7 clicked -- implement me!");
+  window.location.href = "oguz.html";
 }
 
 function onButton8Click() {
-  console.log("Button 8 clicked -- implement me!");
-}
   window.location.href = "omarreis01.html";
 }
