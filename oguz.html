@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oguz Joke Page</title>
+</head>
+<body>
+  <h1>Random Joke Generator</h1>
+  <button onclick="getJoke()">Get Joke</button>
+  <p id="jokeOutput">Click the button to get a joke.</p>
+
+  <script>
+    async function getJoke() {
+      const res = await fetch("https://official-joke-api.appspot.com/random_joke");
+      const data = await res.json();
+      document.getElementById("jokeOutput").innerText =
+        data.setup + " " + data.punchline;
+    }
+  </script>
+</body>
+</html>
