@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Public API Example</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background: #f0f4f8;
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    pre {
+      background: #e2e8f0;
+      padding: 16px;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+      font-size: 1.1rem;
+    }
+    h1 {
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Random Joke from Public API</h1>
+  <pre id="joke-output">Loading joke...</pre>
+
+  <script>
+    async function fetchJoke() {
+      const output = document.getElementById("joke-output");
+      try {
+        const response = await fetch("https://icanhazdadjoke.com/", {
+          headers: { Accept: "application/json" }
+        });
+        const data = await response.json();
+        output.textContent = data.joke;
+      } catch (err) {
+        output.textContent = "Failed to fetch a joke. Please try again!";
+      }
+    }
+
+    // Fetch joke immediately on page load
+    fetchJoke();
+  </script>
+</body>
+</html>

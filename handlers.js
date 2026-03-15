@@ -6,11 +6,15 @@
  */
 
 function onButton1Click() {
+  // Open example.html in a new tab
+  window.location.href = "example.html";
   console.log("Button 1 clicked -- implement me!");
 }
 
 function onButton2Click() {
   console.log("Button 2 clicked -- implement me!");
+}
+
 
   window.location.href = "mert.html";
 }
@@ -35,5 +39,6 @@ function onButton7Click() {
 }
 
 function onButton8Click() {
+  console.log("Button 8 clicked -- implement me!");
   window.location.href = "omarreis01.html";
 }
