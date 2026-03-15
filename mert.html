@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kedi Resmi</title>
+
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial;
+      margin-top: 40px;
+    }
+
+    img {
+      max-width: 500px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Rastgele Kedi 🐱</h1>
+
+  <img id="cat" src="" alt="Kedi yükleniyor..." />
+
+  <script>
+    fetch("https://api.thecatapi.com/v1/images/search")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("cat").src = data[0].url;
+      })
+      .catch(() => {
+        document.body.innerHTML = "Kedi yüklenemedi 😿";
+      });
+  </script>
+
+</body>
+</html>
