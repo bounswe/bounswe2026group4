@@ -31,6 +31,8 @@ function onButton5Click() {
 }
 
 function onButton6Click() {
+  console.log("AHMET-CAGDAS-GIRIT button was clicked!");
+  location.href = "catfact.html"; // opens in the same tab
   console.log("Button 6 clicked -- implement me!");
 }
 
@@ -40,5 +42,6 @@ function onButton7Click() {
 
 function onButton8Click() {
   console.log("Button 8 clicked -- implement me!");
+}
   window.location.href = "omarreis01.html";
 }
