@@ -1,0 +1,1 @@
+# Custom DRF exception handler

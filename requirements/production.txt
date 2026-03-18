@@ -1,0 +1,4 @@
+-r base.txt
+gunicorn==22.*
+sentry-sdk[django]==2.*
+whitenoise==6.*
