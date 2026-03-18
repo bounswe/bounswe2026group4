@@ -1,0 +1,1 @@
+# Shared pagination class

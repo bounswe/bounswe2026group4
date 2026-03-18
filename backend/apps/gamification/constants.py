@@ -1,0 +1,1 @@
+# Points and badge constants
