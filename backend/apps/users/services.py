@@ -46,7 +46,8 @@ def login_user(email: str, password: str) -> dict:
         raise AuthenticationFailed('Invalid credentials.')
 
     if not user.is_active:
-        raise AuthenticationFailed('Account is not active.')
+        # Use the same message as invalid credentials to avoid revealing that the account exists
+        raise AuthenticationFailed('Invalid credentials.')
 
     # Issue JWT tokens and attach custom claims for frontend convenience
     refresh = RefreshToken.for_user(user)

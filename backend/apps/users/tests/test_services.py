@@ -12,7 +12,6 @@ class TestRegisterUser:
             'email': 'user@example.com',
             'username': 'testuser',
             'password': 'Password1',
-            'password_confirmation': 'Password1',
         }
         data.update(overrides)
         return data
@@ -87,6 +86,22 @@ class TestLoginUser:
         self.user.save()
         with pytest.raises(AuthenticationFailed):
             login_user('user@example.com', 'Password1')
+
+    def test_inactive_user_gets_same_error_as_invalid_credentials(self):
+        # Inactive account must not be distinguishable from a non-existent one (req. 1.2.1.10)
+        self.user.is_active = False
+        self.user.save()
+        try:
+            login_user('nobody@example.com', 'Password1')
+        except AuthenticationFailed as e:
+            nonexistent_msg = str(e.detail)
+
+        try:
+            login_user('user@example.com', 'Password1')
+        except AuthenticationFailed as e:
+            inactive_msg = str(e.detail)
+
+        assert nonexistent_msg == inactive_msg
 
 
 @pytest.mark.django_db
