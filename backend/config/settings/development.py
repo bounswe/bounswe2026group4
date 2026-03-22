@@ -22,8 +22,7 @@ INSTALLED_APPS += ['debug_toolbar']  # noqa: F405
 
 MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE  # noqa: F405
 
-# In Docker, requests come from the gateway IP (e.g. 192.168.65.1), not 127.0.0.1.
-# SHOW_TOOLBAR_CALLBACK bypasses INTERNAL_IPS so the toolbar works in both envs.
+
 DEBUG_TOOLBAR_CONFIG = {
     'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,  # noqa: F405
 }
