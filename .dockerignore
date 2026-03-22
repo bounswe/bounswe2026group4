@@ -6,4 +6,7 @@ backend/.env
 backend/.pytest_cache/
 backend/htmlcov/
 backend/*.egg-info/
+frontend/node_modules/
+frontend/dist/
+frontend/.env*.local
 .git/
