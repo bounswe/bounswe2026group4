@@ -1,56 +1,65 @@
 # bounswe2026group4
 CMPE354 Group 4 repository
 
-## Backend Setup
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+
+## Setup
 
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r ../requirements/development.txt
-cp ../.env.example .env  # fill in your values
+cp .env.example .env
 ```
 
-## Database Setup
+Open `.env` and fill in the values (at minimum set a strong `SECRET_KEY`, `DB_PASSWORD`, and `DB_ROOT_PASSWORD`).
 
-Create the development and test databases in MySQL:
-
-```sql
-CREATE DATABASE historystorymap CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE historystorymap_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-Run migrations (from `backend/`):
+## Running the project
 
 ```bash
-# Development database
-python manage.py migrate
-
-# Test database
-python manage.py migrate --settings=config.settings.test
+docker compose up --build
 ```
 
-When a new app is added, generate its migration first:
+On subsequent runs:
 
 ```bash
-python manage.py makemigrations <app_name>
-python manage.py migrate
+docker compose up
 ```
 
-## Running Tests
+The API will be available at `http://localhost:8000`.
 
-All commands must be run from the `backend/` directory with the virtual environment activated.
+To stop:
 
 ```bash
-# All tests
-python -m pytest -v
+docker compose down
+```
 
-# User model tests
-python -m pytest apps/users/tests/test_models.py -v
+## Running tests
 
-# Validator tests
-python -m pytest common/tests/test_validators.py -v
+```bash
+docker compose exec web pytest -v
+```
 
-# Exception handler tests
-python -m pytest common/tests/test_exceptions.py -v
+Single test file:
+
+```bash
+docker compose exec web pytest apps/users/tests/test_models.py -v
+```
+
+## Applying migrations
+
+Migrations run automatically on startup. After adding a new model, generate the migration file and commit it:
+
+```bash
+docker compose exec web python manage.py makemigrations
+```
+
+## Common commands
+
+```bash
+# Open a shell inside the container
+docker compose exec web bash
+
+# Wipe the database and start fresh
+docker compose down -v
+docker compose up
 ```

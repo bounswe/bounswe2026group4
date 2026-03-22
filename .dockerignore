@@ -1,0 +1,9 @@
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/.env
+backend/.pytest_cache/
+backend/htmlcov/
+backend/*.egg-info/
+.git/
