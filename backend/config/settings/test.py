@@ -19,6 +19,12 @@ DATABASES = {
     }
 }
 
+# Ensure debug_toolbar is not active during tests regardless of env vars.
+# The container environment may inject DJANGO_SETTINGS_MODULE=development via .env,
+# which would add the toolbar middleware; this removes it defensively.
+INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'debug_toolbar']  # noqa: F405
+MIDDLEWARE = [m for m in MIDDLEWARE if 'debug_toolbar' not in m]  # noqa: F405
+
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 
 # Disable password hashing for faster tests
