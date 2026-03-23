@@ -41,6 +41,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=RoleChoices.choices,
         default=RoleChoices.REGISTERED_USER,
     )
+    # Whether the username is shown on stories (req. 1.2.2.3)
+    is_username_public = models.BooleanField(default=True)
+    # Cached total points; updated atomically alongside PointTransaction inserts (req. 1.7.1.4)
+    total_points = models.IntegerField(default=0)
     # TODO: set default=False once email verification infra is ready (req. 1.2.1.2)
     is_active = models.BooleanField(default=True)
     # Tracks 6-digit email verification separately from is_active to distinguish "unverified" vs "banned"
@@ -58,6 +62,28 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class UserProfile(models.Model):
+    """
+    Optional profile data kept separate from the auth-critical User row.
+    All fields are optional; privacy flags control public visibility (req. 1.2.2).
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True)
+    birth_date = models.DateField(blank=True, null=True)
+    bio = models.TextField(blank=True)
+    # Per-field visibility toggles (req. 1.2.2.2)
+    is_location_public = models.BooleanField(default=True)
+    is_birth_date_public = models.BooleanField(default=True)
+    is_photo_public = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'user_profiles'
+
+    def __str__(self):
+        return f'Profile({self.user.username})'
 
 
 def _verification_code_expiry():
