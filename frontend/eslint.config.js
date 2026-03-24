@@ -27,6 +27,13 @@ export default defineConfig([
     },
   },
   {
+    // shadcn/ui components export both components and variant helpers (e.g. buttonVariants)
+    files: ['src/components/ui/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
     // Config files run in Node.js, not the browser
     files: ['*.config.js'],
     languageOptions: {
