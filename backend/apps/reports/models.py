@@ -66,15 +66,17 @@ class Report(models.Model):
     class Meta:
         db_table = 'reports'
         constraints = [
-            # Prevent a user from submitting duplicate reports on the same target
+            # Prevent a user from submitting duplicate reports on the same target.
+            # No condition= because MySQL doesn't support partial unique indexes —
+            # it silently drops them. Plain UNIQUE(reporter, story) is safe here
+            # because MySQL allows multiple NULLs in a unique index, so comment
+            # reports (story=NULL) never collide with story reports (comment=NULL).
             models.UniqueConstraint(
                 fields=['reporter', 'story'],
-                condition=models.Q(story__isnull=False),
                 name='unique_story_report',
             ),
             models.UniqueConstraint(
                 fields=['reporter', 'comment'],
-                condition=models.Q(comment__isnull=False),
                 name='unique_comment_report',
             ),
         ]
