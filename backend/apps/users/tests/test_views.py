@@ -125,7 +125,7 @@ class TestLoginView:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_login_wrong_email_and_wrong_password_same_message(self, client, registered_user):
-        # Same error message for both cases to prevent user enumeration (req. 1.2.1.10)
+        # Both failure cases must surface an identical message to prevent user enumeration
         r1 = client.post('/auth/login/', {'email': 'nobody@example.com', 'password': 'Password1'})
         r2 = client.post('/auth/login/', {'email': 'user@example.com', 'password': 'WrongPassword1'})
         assert r1.data['message'] == r2.data['message']

@@ -31,7 +31,7 @@ class TestIsRegisteredUser:
         assert self.permission.has_permission(request, self.view) is True
 
     def test_admin_is_allowed(self):
-        # Admins can do everything registered users can (req. 1.1.3)
+        # Admin role is a superset — they pass registered-user permission checks too
         request = make_request(role='admin')
         assert self.permission.has_permission(request, self.view) is True
 

@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 def validate_password_strength(password: str) -> str:
     """
-    Enforces password rules from req. 1.2.1.4:
+    Enforces minimum password complexity rules:
     - At least 8 characters
     - At least 1 digit
     - At least 1 uppercase letter

@@ -83,7 +83,7 @@ class TestEmailVerificationCode:
         )
 
     def test_generate_code_returns_six_digits(self):
-        # Spec requires a 6-digit code (req. 1.2.1.2)
+        # Six digits are short enough to type manually but long enough to resist brute-force guessing
         code = EmailVerificationCode.generate_code()
         assert len(code) == 6
         assert code.isdigit()

@@ -41,7 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=RoleChoices.choices,
         default=RoleChoices.REGISTERED_USER,
     )
-    # TODO: set default=False once email verification infra is ready (req. 1.2.1.2)
+    # TODO: set default=False once email verification infra is ready
     is_active = models.BooleanField(default=True)
     # Tracks 6-digit email verification separately from is_active to distinguish "unverified" vs "banned"
     is_email_verified = models.BooleanField(default=False)
