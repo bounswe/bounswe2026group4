@@ -37,7 +37,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     'apps.users',
-    # 'apps.stories',
+    'apps.stories',
     # 'apps.interactions',
     # 'apps.media',
     # 'apps.notifications',
