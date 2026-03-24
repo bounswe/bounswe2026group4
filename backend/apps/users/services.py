@@ -34,8 +34,8 @@ def login_user(email: str, password: str) -> dict:
     """
     Authenticates a user and returns JWT tokens.
     Raises AuthenticationFailed for any invalid credentials — intentionally
-    using the same error message for wrong email or wrong password to prevent
-    user enumeration (req. 1.2.1.10).
+    using the same error message for wrong email, wrong password, and inactive
+    accounts to prevent user enumeration attacks.
     """
     try:
         user = User.objects.get(email=email)

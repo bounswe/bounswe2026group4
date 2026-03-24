@@ -13,7 +13,7 @@ from apps.users.services import login_user, logout_user, register_user
 
 
 class RegisterView(APIView):
-    # Guests must be able to register — no authentication required (req. 1.1.1.7)
+    # Anyone can register — no prior authentication required
     permission_classes = [AllowAny]
 
     def post(self, request):

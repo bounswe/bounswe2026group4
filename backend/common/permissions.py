@@ -6,7 +6,7 @@ from apps.users.models import RoleChoices
 class IsRegisteredUser(BasePermission):
     """
     Grants access to any authenticated user regardless of role.
-    Admins pass this check too — they can do everything registered users can (req. 1.1.3).
+    Admins pass this check too — the admin role is a superset of registered user permissions.
     """
 
     message = 'Authentication required.'
