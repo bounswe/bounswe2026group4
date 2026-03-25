@@ -5,17 +5,17 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
-from apps.stories.models import PeriodType, Story, StoryStatus
+from apps.stories.models import Story
 from apps.tags.models import StoryTag, Tag
 from apps.users.models import User
 
 
 def _make_story(user, title='T'):
     return Story.objects.create(
-        author=user, title=title, narrative_text='N',
-        status=StoryStatus.PUBLISHED,
-        latitude=Decimal('0'), longitude=Decimal('0'),
-        place_name='P', period_type=PeriodType.EXACT, start_year=2000,
+        user=user, title=title, narrative='N',
+        status=Story.STATUS_PUBLISHED,
+        location_lat=Decimal('0'), location_lng=Decimal('0'),
+        location_name='P', time_type=Story.TIME_EXACT, year=2000,
     )
 
 

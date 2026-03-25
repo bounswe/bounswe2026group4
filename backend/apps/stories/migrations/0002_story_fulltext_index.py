@@ -1,5 +1,5 @@
 """
-Adds a MySQL FULLTEXT index over title, narrative_text, and place_name.
+Adds a MySQL FULLTEXT index over title, narrative, and location_name.
 
 Django's Index class does not support FULLTEXT indexes, so we use RunSQL.
 The index enables natural-language and boolean-mode full-text search against
@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
         migrations.RunSQL(
             sql=(
                 'ALTER TABLE stories ADD FULLTEXT INDEX story_fulltext_idx '
-                '(title, narrative_text, place_name)'
+                '(title, narrative, location_name)'
             ),
             reverse_sql='ALTER TABLE stories DROP INDEX story_fulltext_idx',
         ),

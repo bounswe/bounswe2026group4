@@ -5,16 +5,16 @@ import pytest
 from django.db import IntegrityError, transaction
 
 from apps.notifications.models import Notification, NotificationPreference, NotificationType
-from apps.stories.models import PeriodType, Story, StoryStatus
+from apps.stories.models import Story
 from apps.users.models import User
 
 
 def _make_story(user):
     return Story.objects.create(
-        author=user, title='T', narrative_text='N',
-        status=StoryStatus.PUBLISHED,
-        latitude=Decimal('0'), longitude=Decimal('0'),
-        place_name='P', period_type=PeriodType.EXACT, start_year=2000,
+        user=user, title='T', narrative='N',
+        status=Story.STATUS_PUBLISHED,
+        location_lat=Decimal('0'), location_lng=Decimal('0'),
+        location_name='P', time_type=Story.TIME_EXACT, year=2000,
     )
 
 
