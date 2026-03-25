@@ -32,9 +32,6 @@ function LoginPage() {
     if (!email.trim()) {
       errors.email = "Email is required";
       isValid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = "Please enter a valid email address";
-      isValid = false;
     }
 
     if (!password) {
@@ -87,7 +84,7 @@ function LoginPage() {
 
         <CardContent>
           {apiError && (
-            <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div role="alert" className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {apiError}
             </div>
           )}

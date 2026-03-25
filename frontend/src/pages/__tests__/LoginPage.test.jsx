@@ -29,6 +29,7 @@ function renderLoginPage() {
 describe("LoginPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   it("renders login form correctly", () => {
@@ -79,7 +80,7 @@ describe("LoginPage", () => {
 
   it("submits form with valid credentials", async () => {
     const user = userEvent.setup();
-    login.mockResolvedValue({ token: "fake-token" });
+    login.mockResolvedValue({ access: "fake-access-token", refresh: "fake-refresh-token" });
     renderLoginPage();
 
     await user.type(screen.getByLabelText("Email"), "test@example.com");
@@ -141,7 +142,7 @@ describe("LoginPage", () => {
 
   it("navigates to home on successful login", async () => {
     const user = userEvent.setup();
-    login.mockResolvedValue({ token: "fake-token" });
+    login.mockResolvedValue({ access: "fake-access-token", refresh: "fake-refresh-token" });
     renderLoginPage();
 
     await user.type(screen.getByLabelText("Email"), "test@example.com");
@@ -151,6 +152,21 @@ describe("LoginPage", () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith("/");
     });
+  });
+
+  it("displays API error with role='alert' for accessibility", async () => {
+    const user = userEvent.setup();
+    const error = new Error("Network error");
+    error.response = { data: { message: "Invalid credentials" } };
+    login.mockRejectedValue(error);
+    renderLoginPage();
+
+    await user.type(screen.getByLabelText("Email"), "test@example.com");
+    await user.type(screen.getByLabelText("Password"), "wrongpassword");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    const alertElement = await screen.findByRole("alert");
+    expect(alertElement).toHaveTextContent(/invalid credentials/i);
   });
 
   it("has link to registration page", () => {
