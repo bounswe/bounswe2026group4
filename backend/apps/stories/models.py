@@ -3,99 +3,115 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
-class StoryStatus(models.TextChoices):
-    DRAFT = 'draft', 'Draft'
-    PUBLISHED = 'published', 'Published'
-    REMOVED = 'removed', 'Removed'
-
-
-class PeriodType(models.TextChoices):
-    EXACT = 'exact', 'Exact Year'
-    RANGE = 'range', 'Year Range'
-    DECADE = 'decade', 'Decade'
-
-
 class Story(models.Model):
-    """
-    Central content entity. Location and time period fields are embedded directly
-    (rather than in separate related models) to avoid joins on every feed/map/timeline
-    query — the 2-second SLA (req. 2.1.1) makes the join overhead worth eliminating.
+    """A user-contributed historical narrative tied to a geographic location and time period."""
 
-    like_count and save_count are denormalized counters kept in sync via Django signals
-    in the interactions app using F() expressions so increments are DB-atomic under
-    concurrent requests (req. 2.1.3 — 100 concurrent users).
+    # --- Status ---
+    STATUS_DRAFT = 'draft'
+    STATUS_PUBLISHED = 'published'
+    STATUS_REMOVED = 'removed'
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, 'Draft'),
+        (STATUS_PUBLISHED, 'Published'),
+        (STATUS_REMOVED, 'Removed'),
+    ]
 
-    author is SET_NULL on user deletion so stories are anonymized, not removed (req.
-    1.1.2.11). The removal_reason field preserves moderation context (req. 1.4.3.3).
-    """
+    # --- Time resolution types ---
+    # Stories can express time at different levels of precision.
+    # exact_year:       story happened in a specific known year   → populate `year`
+    # approximate_year: year is an estimate, not a certain date   → populate `year`
+    # decade:           story is tied to a decade                 → populate `year` as the decade base (e.g. 1980 for "1980s")
+    # year_range:       story spans multiple years                → populate `year_start` and `year_end`
+    TIME_EXACT = 'exact_year'
+    TIME_APPROXIMATE = 'approximate_year'
+    TIME_DECADE = 'decade'
+    TIME_RANGE = 'year_range'
+    TIME_TYPE_CHOICES = [
+        (TIME_EXACT, 'Exact Year'),
+        (TIME_APPROXIMATE, 'Approximate Year'),
+        (TIME_DECADE, 'Decade'),
+        (TIME_RANGE, 'Year Range'),
+    ]
 
-    author = models.ForeignKey(
+    # SET_NULL so that deleting a user account anonymizes their stories instead of removing them.
+    # Stories are community content and should outlive the account that submitted them.
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
         null=True,
-        blank=True,
+        on_delete=models.SET_NULL,
         related_name='stories',
     )
-    title = models.CharField(max_length=255)
-    narrative_text = models.TextField()
-    status = models.CharField(
-        max_length=10,
-        choices=StoryStatus.choices,
-        default=StoryStatus.DRAFT,
-    )
-    removal_reason = models.TextField(blank=True)
 
-    # ── Location fields (req. 1.3.1.1, 1.3.1.2) ──────────────────────────────
-    # DECIMAL(9,6) / DECIMAL(10,6) are exact numeric types — avoids float rounding
-    # in coordinate storage. Composite index enables bounding-box map queries without
-    # the complexity of MySQL spatial extensions (GeoDjango + GDAL dependencies).
-    latitude = models.DecimalField(max_digits=9, decimal_places=6)
-    longitude = models.DecimalField(max_digits=10, decimal_places=6)
-    place_name = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
+    narrative = models.TextField()
+
+    # DECIMAL is used over float to avoid rounding errors in coordinate storage.
+    # Longitude needs max_digits=10 to cover the full value range including negatives like -100.123456.
+    location_lat = models.DecimalField(max_digits=9, decimal_places=6)
+    location_lng = models.DecimalField(max_digits=10, decimal_places=6)
+    # Human-readable name of the venue, building, or place — required alongside coordinates
+    # because multiple distinct locations can share the same geographic point.
+    location_name = models.CharField(max_length=255)
+    # Optional broader region (city, district) to support location-based filtering without
+    # requiring a full coordinate bounding-box query.
     region = models.CharField(max_length=255, blank=True)
 
-    # ── Time period fields (req. 1.4.1.2) ────────────────────────────────────
-    # period_type is a discriminator. Mutual exclusivity is enforced in clean() and
-    # must also be validated at the serializer layer.
-    #   EXACT  → only start_year is meaningful
-    #   RANGE  → start_year + end_year
-    #   DECADE → decade (e.g. 1920 for "1920s")
-    period_type = models.CharField(
-        max_length=6,
-        choices=PeriodType.choices,
-        default=PeriodType.EXACT,
-    )
-    start_year = models.SmallIntegerField()
-    end_year = models.SmallIntegerField(null=True, blank=True)
-    decade = models.SmallIntegerField(null=True, blank=True)
+    time_type = models.CharField(max_length=20, choices=TIME_TYPE_CHOICES)
+    # Populated for exact_year, approximate_year, and decade (e.g. 1980 means "1980s").
+    # Left null for year_range stories, which use year_start and year_end instead.
+    year = models.SmallIntegerField(null=True, blank=True)
+    year_start = models.SmallIntegerField(null=True, blank=True)
+    year_end = models.SmallIntegerField(null=True, blank=True)
 
-    # ── Denormalized engagement counters (req. 1.3.2.4, 1.7.1.2) ────────────
+    # DRAFT is available for future draft-saving UX.
+    # REMOVED is set by moderation with an accompanying moderation_reason.
+    # Default is PUBLISHED because the story submission service will set status explicitly.
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PUBLISHED,
+    )
+    # Stored alongside status so moderators can audit why a story was removed.
+    moderation_reason = models.TextField(blank=True, default='')
+
+    # Users can choose to post anonymously. When False, their username is hidden on the story page.
+    contributor_visible = models.BooleanField(default=True)
+
+    # Denormalized counters kept in sync via signals in the interactions app.
+    # Avoids expensive COUNT aggregates on every feed and profile page load.
+    # Increments must use F() expressions to stay DB-atomic under concurrent requests.
     like_count = models.IntegerField(default=0)
     save_count = models.IntegerField(default=0)
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'stories'
+        ordering = ['-submitted_at']
         indexes = [
-            # Feed: published stories sorted by most recent
-            models.Index(fields=['status', 'created_at'], name='story_status_date_idx'),
-            # Feed: published stories sorted by most popular
+            # Feed: published stories sorted by submission date (sort_by=recent)
+            models.Index(fields=['status', 'submitted_at'], name='story_status_date_idx'),
+            # Feed: published stories sorted by engagement (sort_by=popular)
             models.Index(fields=['status', 'like_count'], name='story_status_likes_idx'),
             # Map: bounding-box coordinate queries
-            models.Index(fields=['latitude', 'longitude'], name='story_coords_idx'),
-            # Timeline: filter/sort by year
-            models.Index(fields=['start_year'], name='story_start_year_idx'),
-            # Profile: user's own story list
-            models.Index(fields=['author', 'status'], name='story_author_status_idx'),
+            models.Index(fields=['location_lat', 'location_lng'], name='story_coords_idx'),
+            # Timeline: filter and sort stories by year
+            models.Index(fields=['year'], name='story_year_idx'),
+            # Profile: list a user's own stories filtered by status
+            models.Index(fields=['user', 'status'], name='story_user_status_idx'),
         ]
 
     def clean(self):
-        if self.period_type == PeriodType.RANGE and not self.end_year:
-            raise ValidationError({'end_year': 'end_year is required for RANGE period type.'})
-        if self.period_type == PeriodType.DECADE and not self.decade:
-            raise ValidationError({'decade': 'decade is required for DECADE period type.'})
+        """Enforce that the correct year fields are populated for the selected time_type."""
+        if self.time_type == self.TIME_RANGE:
+            if not self.year_start:
+                raise ValidationError({'year_start': 'year_start is required for year_range.'})
+            if not self.year_end:
+                raise ValidationError({'year_end': 'year_end is required for year_range.'})
+        elif self.time_type in (self.TIME_EXACT, self.TIME_APPROXIMATE, self.TIME_DECADE):
+            if self.year is None:
+                raise ValidationError({'year': f'year is required for {self.time_type}.'})
 
     def __str__(self):
         return self.title

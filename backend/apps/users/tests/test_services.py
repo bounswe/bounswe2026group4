@@ -31,7 +31,7 @@ class TestRegisterUser:
         assert EmailVerificationCode.objects.filter(user=user).exists()
 
     def test_user_is_active_on_registration(self):
-        # Active by default until email verification is enforced (req. 1.2.1.2 stub)
+        # Active by default — email verification is scaffolded but not yet enforced
         user = register_user(self._data())
         assert user.is_active is True
 
@@ -68,7 +68,7 @@ class TestLoginUser:
             login_user('nobody@example.com', 'Password1')
 
     def test_wrong_email_and_wrong_password_same_error(self):
-        # Both cases must return identical errors to prevent user enumeration (req. 1.2.1.10)
+        # Both failure modes must return identical errors to prevent user enumeration
         try:
             login_user('nobody@example.com', 'Password1')
         except AuthenticationFailed as e:
@@ -88,7 +88,7 @@ class TestLoginUser:
             login_user('user@example.com', 'Password1')
 
     def test_inactive_user_gets_same_error_as_invalid_credentials(self):
-        # Inactive account must not be distinguishable from a non-existent one (req. 1.2.1.10)
+        # An inactive (banned/disabled) account must be indistinguishable from a non-existent one
         self.user.is_active = False
         self.user.save()
         try:
