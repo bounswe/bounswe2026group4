@@ -75,13 +75,15 @@ function RegisterPage() {
       isValid = false;
     }
 
-    const passwordError = validatePasswordStrength(password);
     if (!password) {
       errors.password = "Password is required.";
       isValid = false;
-    } else if (passwordError) {
-      errors.password = passwordError;
-      isValid = false;
+    } else {
+      const passwordError = validatePasswordStrength(password);
+      if (passwordError) {
+        errors.password = passwordError;
+        isValid = false;
+      }
     }
 
     if (!confirmPassword) {
@@ -100,7 +102,6 @@ function RegisterPage() {
     const data = error.response?.data;
     if (!data) return "Registration failed. Please try again.";
 
-    // Handle DRF field-level errors
     const fieldMap = {
       username: "username",
       email: "email",
@@ -108,27 +109,28 @@ function RegisterPage() {
       password_confirmation: "confirmPassword",
     };
 
-    let updatedFields = false;
+    const backendErrors = data.errors || {};
     const newFieldErrors = { ...INITIAL_FIELD_ERRORS };
+    let hasFieldErrors = false;
 
     for (const [apiField, stateField] of Object.entries(fieldMap)) {
-      if (data[apiField]) {
-        const msg = Array.isArray(data[apiField]) ? data[apiField][0] : data[apiField];
+      if (backendErrors[apiField]) {
+        const msg = Array.isArray(backendErrors[apiField])
+          ? backendErrors[apiField][0]
+          : backendErrors[apiField];
         newFieldErrors[stateField] = msg;
-        updatedFields = true;
+        hasFieldErrors = true;
       }
     }
 
-    if (updatedFields) {
+    if (hasFieldErrors) {
       setFieldErrors(newFieldErrors);
       return "";
     }
 
-    // Non-field errors
-    if (data.non_field_errors) {
-      return Array.isArray(data.non_field_errors)
-        ? data.non_field_errors[0]
-        : data.non_field_errors;
+    const nonField = backendErrors.non_field_errors;
+    if (nonField) {
+      return Array.isArray(nonField) ? nonField[0] : nonField;
     }
 
     return data.message || data.detail || "Registration failed. Please try again.";
@@ -188,6 +190,9 @@ function RegisterPage() {
                   type="text"
                   placeholder="your_username"
                   className="pl-9"
+                  autoComplete="username"
+                  aria-invalid={!!fieldErrors.username}
+                  aria-describedby={fieldErrors.username ? "username-error" : undefined}
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value);
@@ -197,7 +202,7 @@ function RegisterPage() {
                 />
               </div>
               {fieldErrors.username && (
-                <p className="text-sm text-destructive">{fieldErrors.username}</p>
+                <p id="username-error" className="text-sm text-destructive">{fieldErrors.username}</p>
               )}
             </div>
 
@@ -211,6 +216,9 @@ function RegisterPage() {
                   type="email"
                   placeholder="you@example.com"
                   className="pl-9"
+                  autoComplete="email"
+                  aria-invalid={!!fieldErrors.email}
+                  aria-describedby={fieldErrors.email ? "email-error" : undefined}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -220,7 +228,7 @@ function RegisterPage() {
                 />
               </div>
               {fieldErrors.email && (
-                <p className="text-sm text-destructive">{fieldErrors.email}</p>
+                <p id="email-error" className="text-sm text-destructive">{fieldErrors.email}</p>
               )}
             </div>
 
@@ -234,6 +242,9 @@ function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a password"
                   className="pl-9 pr-9"
+                  autoComplete="new-password"
+                  aria-invalid={!!fieldErrors.password}
+                  aria-describedby="password-error"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -255,10 +266,10 @@ function RegisterPage() {
                   )}
                 </button>
               </div>
-              {fieldErrors.password && !password && (
-                <p className="text-sm text-destructive">Password is required.</p>
+              {fieldErrors.password && (
+                <p id="password-error" className="text-sm text-destructive">{fieldErrors.password}</p>
               )}
-              <ul className="mt-2 space-y-1">
+              <ul id="password-requirements" className="mt-2 space-y-1">
                 {PASSWORD_RULES.map((rule) => {
                   const passed = rule.test(password);
                   const showRed = !!fieldErrors.password && !passed;
@@ -284,6 +295,9 @@ function RegisterPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Repeat your password"
                   className="pl-9 pr-9"
+                  autoComplete="new-password"
+                  aria-invalid={!!fieldErrors.confirmPassword}
+                  aria-describedby={fieldErrors.confirmPassword ? "confirmPassword-error" : undefined}
                   value={confirmPassword}
                   onChange={(e) => {
                     setConfirmPassword(e.target.value);
@@ -306,7 +320,7 @@ function RegisterPage() {
                 </button>
               </div>
               {fieldErrors.confirmPassword && (
-                <p className="text-sm text-destructive">{fieldErrors.confirmPassword}</p>
+                <p id="confirmPassword-error" className="text-sm text-destructive">{fieldErrors.confirmPassword}</p>
               )}
             </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2, MapPin } from "lucide-react";
 
@@ -19,6 +19,13 @@ function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const registrationSuccess = location.state?.registered === true;
+
+  // Clear the location state so the banner doesn't reappear on back navigation
+  useEffect(() => {
+    if (registrationSuccess) {
+      window.history.replaceState({}, "");
+    }
+  }, [registrationSuccess]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

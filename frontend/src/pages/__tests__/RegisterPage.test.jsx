@@ -116,7 +116,7 @@ describe("RegisterPage", () => {
     await fillForm(user, { password: "Ab1", confirmPassword: "Ab1" });
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(await screen.findByText(/at least 8 characters/i)).toBeInTheDocument();
+    expect(await screen.findByText(/must be at least 8 characters/i)).toBeInTheDocument();
     expect(register).not.toHaveBeenCalled();
   });
 
@@ -127,7 +127,7 @@ describe("RegisterPage", () => {
     await fillForm(user, { password: "password1", confirmPassword: "password1" });
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(await screen.findByText(/uppercase/i)).toBeInTheDocument();
+    expect(await screen.findByText(/must contain an uppercase/i)).toBeInTheDocument();
     expect(register).not.toHaveBeenCalled();
   });
 
@@ -138,7 +138,7 @@ describe("RegisterPage", () => {
     await fillForm(user, { password: "PASSWORD1", confirmPassword: "PASSWORD1" });
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(await screen.findByText(/lowercase/i)).toBeInTheDocument();
+    expect(await screen.findByText(/must contain a lowercase/i)).toBeInTheDocument();
     expect(register).not.toHaveBeenCalled();
   });
 
@@ -149,7 +149,7 @@ describe("RegisterPage", () => {
     await fillForm(user, { password: "Passwordabc", confirmPassword: "Passwordabc" });
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(await screen.findByText(/number/i)).toBeInTheDocument();
+    expect(await screen.findByText(/must contain a number/i)).toBeInTheDocument();
     expect(register).not.toHaveBeenCalled();
   });
 
@@ -256,7 +256,13 @@ describe("RegisterPage", () => {
   it("displays backend field error for duplicate email", async () => {
     const user = userEvent.setup();
     const error = new Error("Conflict");
-    error.response = { data: { email: ["A user with this email already exists."] } };
+    error.response = {
+      data: {
+        success: false,
+        message: "A user with this email already exists.",
+        errors: { email: ["A user with this email already exists."] },
+      },
+    };
     register.mockRejectedValue(error);
     renderRegisterPage();
 
@@ -269,7 +275,13 @@ describe("RegisterPage", () => {
   it("displays backend field error for duplicate username", async () => {
     const user = userEvent.setup();
     const error = new Error("Conflict");
-    error.response = { data: { username: ["A user with this username already exists."] } };
+    error.response = {
+      data: {
+        success: false,
+        message: "A user with this username already exists.",
+        errors: { username: ["A user with this username already exists."] },
+      },
+    };
     register.mockRejectedValue(error);
     renderRegisterPage();
 
