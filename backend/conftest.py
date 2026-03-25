@@ -9,7 +9,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.stories.models import PeriodType, Story, StoryStatus
+from apps.stories.models import Story
 from apps.users.models import User
 
 
@@ -37,13 +37,13 @@ def second_user(db):
 def story(user):
     """Minimal valid published story owned by `user`."""
     return Story.objects.create(
-        author=user,
+        user=user,
         title='A Test Story',
-        narrative_text='Some narrative text.',
-        status=StoryStatus.PUBLISHED,
-        latitude=Decimal('41.015137'),
-        longitude=Decimal('28.979530'),
-        place_name='Istanbul',
-        period_type=PeriodType.EXACT,
-        start_year=1453,
+        narrative='Some narrative text.',
+        status=Story.STATUS_PUBLISHED,
+        location_lat=Decimal('41.015137'),
+        location_lng=Decimal('28.979530'),
+        location_name='Istanbul',
+        time_type=Story.TIME_EXACT,
+        year=1453,
     )
