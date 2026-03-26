@@ -3,12 +3,18 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from apps.stories.models import Story
 from apps.stories.serializers import StorySerializer
+from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
 
 
 class StoryListCreateView(generics.ListCreateAPIView):
-    queryset = Story.objects.all()
     serializer_class = StorySerializer
+    pagination_class = StoryPagination
+
+    def get_queryset(self):
+        # Guests and authenticated users can only browse published stories.
+        # Draft and removed stories are not surfaced through this endpoint.
+        return Story.objects.filter(status=Story.STATUS_PUBLISHED)
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -16,8 +22,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
         return [AllowAny()]
 
     def perform_create(self, serializer):
-        user = self.request.user if self.request.user.is_authenticated else None
-        serializer.save(user=user)
+        serializer.save(user=self.request.user)
 
 
 class StoryDetailView(generics.RetrieveUpdateAPIView):

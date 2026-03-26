@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.stories.models import Story
+from apps.stories.services import create_story, update_story
 
 
 class StorySerializer(serializers.ModelSerializer):
@@ -39,11 +40,15 @@ class StorySerializer(serializers.ModelSerializer):
         ]
 
     def validate_status(self, value):
+        # Only moderation endpoints may set a story to removed — reject it here
         if value == Story.STATUS_REMOVED:
             raise serializers.ValidationError('Removed status can only be set by moderation.')
         return value
 
     def validate(self, attrs):
+        # Build a temporary Story to run model-level clean() validation.
+        # This catches time_type field consistency rules (e.g. year required for exact_year)
+        # before any data reaches the database.
         instance = self.instance
         data = {
             'title': attrs.get('title', getattr(instance, 'title', None)),
@@ -71,3 +76,10 @@ class StorySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(exc.message_dict) from exc
 
         return attrs
+
+    def create(self, validated_data):
+        user = validated_data.pop('user')
+        return create_story(user=user, validated_data=validated_data)
+
+    def update(self, instance, validated_data):
+        return update_story(story=instance, validated_data=validated_data)

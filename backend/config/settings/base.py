@@ -154,6 +154,3 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API for the Local History Story Map platform.',
     'VERSION': '1.0.0',
 }
-DEBUG_TOOLBAR_CONFIG = {
-    "IS_RUNNING_TESTS": False,
-}
