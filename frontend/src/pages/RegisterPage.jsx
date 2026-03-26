@@ -14,6 +14,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { register } from "@/services/authService";
+import { useToast } from "@/hooks/useToast";
 
 const INITIAL_FIELD_ERRORS = {
   username: "",
@@ -43,6 +44,7 @@ function validatePasswordStrength(password) {
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -145,7 +147,8 @@ function RegisterPage() {
     setIsLoading(true);
     try {
       await register(username, email, password, confirmPassword);
-      navigate("/login", { state: { registered: true } });
+      toast.success("Account created! Sign in to continue.");
+      navigate("/login");
     } catch (error) {
       const msg = extractApiErrors(error);
       setApiError(msg);

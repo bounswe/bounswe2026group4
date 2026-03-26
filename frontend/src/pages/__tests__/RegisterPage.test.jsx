@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import RegisterPage from "../RegisterPage";
+import { ToastProvider } from "@/context/ToastContext";
+import { Toaster } from "@/components/ui/toaster";
 
 // Mock authService
 vi.mock("@/services/authService", () => ({
@@ -20,9 +22,12 @@ import { register } from "@/services/authService";
 
 function renderRegisterPage() {
   return render(
-    <BrowserRouter>
-      <RegisterPage />
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <RegisterPage />
+      </BrowserRouter>
+      <Toaster />
+    </ToastProvider>
   );
 }
 
@@ -196,7 +201,7 @@ describe("RegisterPage", () => {
     });
   });
 
-  // 4. Success navigation
+  // 4. Success navigation + toast
   it("navigates to /login on successful registration", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
@@ -206,8 +211,19 @@ describe("RegisterPage", () => {
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/login", { state: { registered: true } });
+      expect(mockNavigate).toHaveBeenCalledWith("/login");
     });
+  });
+
+  it("shows success toast on successful registration", async () => {
+    const user = userEvent.setup();
+    register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    renderRegisterPage();
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(await screen.findByText("Account created! Sign in to continue.")).toBeInTheDocument();
   });
 
   // 5. Loading state
