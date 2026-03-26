@@ -1,1 +1,10 @@
-# urls.py — stories
+from django.urls import path
+
+from apps.stories.views import StoryDetailView, StoryListCreateView
+
+app_name = 'stories'
+
+urlpatterns = [
+    path('', StoryListCreateView.as_view(), name='story-list-create'),
+    path('<int:pk>/', StoryDetailView.as_view(), name='story-detail'),
+]

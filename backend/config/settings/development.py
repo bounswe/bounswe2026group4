@@ -1,9 +1,11 @@
 # Development settings
+import sys
 from datetime import timedelta
 
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
+RUNNING_TESTS = 'test' in sys.argv
 
 SECRET_KEY = env('SECRET_KEY')  # noqa: F405
 
@@ -18,11 +20,14 @@ SIMPLE_JWT = {
 # Print emails to the console instead of sending them
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-INSTALLED_APPS += ['debug_toolbar']  # noqa: F405
+if not RUNNING_TESTS:
+    INSTALLED_APPS += ['debug_toolbar']  # noqa: F405
 
-MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE  # noqa: F405
+if not RUNNING_TESTS:
+    MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE  # noqa: F405
 
 
 DEBUG_TOOLBAR_CONFIG = {
-    'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,  # noqa: F405
+    'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG and not RUNNING_TESTS,  # noqa: F405
+    'IS_RUNNING_TESTS': RUNNING_TESTS,
 }
