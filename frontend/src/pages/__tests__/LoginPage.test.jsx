@@ -9,11 +9,16 @@ vi.mock("@/services/authService", () => ({
   login: vi.fn(),
 }));
 
-// Mock useNavigate
+// Mock useNavigate and useLocation
 const mockNavigate = vi.fn();
+const mockLocation = vi.fn(() => ({ state: null }));
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => mockLocation(),
+  };
 });
 
 import { login } from "@/services/authService";
@@ -174,5 +179,14 @@ describe("LoginPage", () => {
 
     const signUpLink = screen.getByRole("link", { name: /sign up/i });
     expect(signUpLink).toBeInTheDocument();
+  });
+
+  it("shows success banner when redirected from registration", () => {
+    mockLocation.mockReturnValueOnce({ state: { registered: true } });
+    renderLoginPage();
+
+    expect(
+      screen.getByText(/account created successfully/i)
+    ).toBeInTheDocument();
   });
 });

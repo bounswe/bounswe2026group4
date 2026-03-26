@@ -9,3 +9,13 @@ export async function login(email, password) {
   localStorage.setItem("refreshToken", refresh);
   return response.data;
 }
+
+export async function register(username, email, password, passwordConfirmation) {
+  const response = await axios.post(`${API_URL}/auth/register/`, {
+    username,
+    email,
+    password,
+    password_confirmation: passwordConfirmation,
+  });
+  return response.data;
+}
