@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "test:run": "echo 'No frontend tests yet — see issue #206' && exit 0"
+    "preview": "vite preview"
   },
   "dependencies": {
     "axios": "^1.13.6",
