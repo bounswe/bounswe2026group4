@@ -1,1 +1,43 @@
-# views.py — stories
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+
+from apps.stories.serializers import FeedQuerySerializer, StoryFeedSerializer
+from apps.stories.services import get_story_feed
+from common.pagination import StoryPagination
+
+
+class StoryFeedView(APIView):
+    """
+    GET /stories/feed/
+
+    Returns a paginated list of published stories in card format.
+    Guests and authenticated users both have read access.
+
+    Query params:
+      sort_by    — 'recent' (default) or 'popular'
+      year_from  — include stories from this year onwards
+      year_to    — include stories up to and including this year
+      location   — case-insensitive substring match against location_name
+      page       — page number (default 1)
+      page_size  — results per page (default 10, max 100)
+    """
+
+    # Public endpoint — guests must be able to browse stories without logging in
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query_serializer = FeedQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        params = query_serializer.validated_data
+
+        qs = get_story_feed(
+            sort_by=params.get('sort_by', 'recent'),
+            year_from=params.get('year_from'),
+            year_to=params.get('year_to'),
+            location=params.get('location'),
+        )
+
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryFeedSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
