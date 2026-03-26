@@ -18,6 +18,11 @@ SIMPLE_JWT = {
 # Print emails to the console instead of sending them
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# Allow the local Vite dev server to call the API
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+]
+
 INSTALLED_APPS += ['debug_toolbar']  # noqa: F405
 
 MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE  # noqa: F405
