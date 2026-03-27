@@ -1,31 +1,24 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2, MapPin } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
+  Button,
+  Input,
+  Label,
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
   CardFooter,
-} from "@/components/ui/card";
+} from "@/components/ui";
 import { login } from "@/services/authService";
+import { useToast } from "@/hooks/useToast";
 
 function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const registrationSuccess = location.state?.registered === true;
-
-  // Clear the location state so the banner doesn't reappear on back navigation
-  useEffect(() => {
-    if (registrationSuccess) {
-      window.history.replaceState({}, "");
-    }
-  }, [registrationSuccess]);
+  const { toast } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,6 +57,7 @@ function LoginPage() {
 
     try {
       await login(email, password);
+      toast.success("Welcome back!");
       navigate("/");
     } catch (error) {
       const message =
@@ -92,12 +86,6 @@ function LoginPage() {
         </CardHeader>
 
         <CardContent>
-          {registrationSuccess && (
-            <div className="mb-4 rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
-              Account created successfully. Sign in to continue.
-            </div>
-          )}
-
           {apiError && (
             <div role="alert" className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {apiError}

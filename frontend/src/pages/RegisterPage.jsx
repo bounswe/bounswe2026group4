@@ -2,18 +2,19 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2, MapPin, User, Check, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
+  Button,
+  Input,
+  Label,
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
   CardFooter,
-} from "@/components/ui/card";
+} from "@/components/ui";
 import { register } from "@/services/authService";
+import { useToast } from "@/hooks/useToast";
 
 const INITIAL_FIELD_ERRORS = {
   username: "",
@@ -43,6 +44,7 @@ function validatePasswordStrength(password) {
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -145,7 +147,8 @@ function RegisterPage() {
     setIsLoading(true);
     try {
       await register(username, email, password, confirmPassword);
-      navigate("/login", { state: { registered: true } });
+      toast.success("Account created! Sign in to continue.");
+      navigate("/login");
     } catch (error) {
       const msg = extractApiErrors(error);
       setApiError(msg);
