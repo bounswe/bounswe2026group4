@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import LoginPage from "../LoginPage";
+import { ToastProvider } from "@/context/ToastContext";
+import { Toaster } from "@/components/ui/toaster";
 
 // Mock authService
 vi.mock("@/services/authService", () => ({
@@ -13,16 +15,22 @@ vi.mock("@/services/authService", () => ({
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
 });
 
 import { login } from "@/services/authService";
 
 function renderLoginPage() {
   return render(
-    <BrowserRouter>
-      <LoginPage />
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+      <Toaster />
+    </ToastProvider>
   );
 }
 
@@ -174,5 +182,17 @@ describe("LoginPage", () => {
 
     const signUpLink = screen.getByRole("link", { name: /sign up/i });
     expect(signUpLink).toBeInTheDocument();
+  });
+
+  it("shows success toast on successful login", async () => {
+    const user = userEvent.setup();
+    login.mockResolvedValue({ access: "fake-access-token", refresh: "fake-refresh-token" });
+    renderLoginPage();
+
+    await user.type(screen.getByLabelText("Email"), "test@example.com");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText("Welcome back!")).toBeInTheDocument();
   });
 });

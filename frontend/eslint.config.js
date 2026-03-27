@@ -28,7 +28,8 @@ export default defineConfig([
   },
   {
     // shadcn/ui components export both components and variant helpers (e.g. buttonVariants)
-    files: ['src/components/ui/**/*.{js,jsx}'],
+    // Context files export both provider components and hooks
+    files: ['src/components/ui/**/*.{js,jsx}', 'src/context/**/*.{js,jsx}'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

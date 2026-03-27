@@ -2,21 +2,23 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2, MapPin } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
+  Button,
+  Input,
+  Label,
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
   CardFooter,
-} from "@/components/ui/card";
+} from "@/components/ui";
 import { login } from "@/services/authService";
+import { useToast } from "@/hooks/useToast";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,6 +57,7 @@ function LoginPage() {
 
     try {
       await login(email, password);
+      toast.success("Welcome back!");
       navigate("/");
     } catch (error) {
       const message =
