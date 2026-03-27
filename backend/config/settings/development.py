@@ -27,7 +27,6 @@ INSTALLED_APPS += ['debug_toolbar']  # noqa: F405
 
 MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE  # noqa: F405
 
-
 DEBUG_TOOLBAR_CONFIG = {
     'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,  # noqa: F405
 }

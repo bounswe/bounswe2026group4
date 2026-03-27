@@ -10,7 +10,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.users.models import User
+from apps.users.models import RoleChoices, User
 
 
 @pytest.fixture
@@ -30,6 +30,18 @@ def second_user(db):
         email='other@example.com',
         username='otheruser',
         password='Password1',
+    )
+
+
+@pytest.fixture
+def admin_user(db):
+    """Admin user for tests that need elevated permissions."""
+    return User.objects.create_user(
+        email='admin@example.com',
+        username='adminuser',
+        password='Password1',
+        role=RoleChoices.ADMIN,
+        is_staff=True,
     )
 
 
