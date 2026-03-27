@@ -36,7 +36,4 @@ const SkeletonPage = React.forwardRef(({ className, ...props }, ref) => (
 ));
 SkeletonPage.displayName = "SkeletonPage";
 
-// Named alias matching the acceptance criteria
-const LoadingSkeleton = Skeleton;
-
-export { Skeleton, SkeletonCard, SkeletonPage, LoadingSkeleton };
+export { Skeleton, SkeletonCard, SkeletonPage };

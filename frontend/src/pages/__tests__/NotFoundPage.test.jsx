@@ -5,15 +5,6 @@ import { BrowserRouter } from "react-router-dom";
 
 import NotFoundPage from "../NotFoundPage";
 
-const mockNavigate = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
 function renderNotFoundPage() {
   return render(
     <BrowserRouter>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { Skeleton, SkeletonCard, SkeletonPage, LoadingSkeleton } from "../loading-skeleton";
+import { Skeleton, SkeletonCard, SkeletonPage } from "../loading-skeleton";
 
 describe("Skeleton", () => {
   it("renders without crashing", () => {
@@ -37,9 +37,3 @@ describe("SkeletonPage", () => {
   });
 });
 
-describe("LoadingSkeleton", () => {
-  it("is an alias for Skeleton", () => {
-    render(<LoadingSkeleton data-testid="loading-skeleton" />);
-    expect(screen.getByTestId("loading-skeleton")).toHaveClass("animate-pulse");
-  });
-});

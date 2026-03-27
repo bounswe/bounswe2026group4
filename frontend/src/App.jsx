@@ -24,8 +24,8 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        <Toaster />
       </BrowserRouter>
-      <Toaster />
     </ToastProvider>
   );
 }

@@ -7,8 +7,8 @@ import { useToastContext } from "@/context/ToastContext";
 const variantConfig = {
   success: {
     icon: CheckCircle,
-    className: "border-green-200 bg-green-50 text-green-900",
-    iconClassName: "text-green-600",
+    className: "border-success/20 bg-success/10 text-success",
+    iconClassName: "text-success",
   },
   error: {
     icon: XCircle,
@@ -17,8 +17,8 @@ const variantConfig = {
   },
   info: {
     icon: Info,
-    className: "border-blue-200 bg-blue-50 text-blue-900",
-    iconClassName: "text-blue-600",
+    className: "border-info/20 bg-info/10 text-info",
+    iconClassName: "text-info",
   },
   default: {
     icon: null,
@@ -46,6 +46,7 @@ function Toaster() {
             role="status"
             className={cn(
               "pointer-events-auto flex items-start gap-3 rounded-lg border p-4 shadow-lg",
+              "[animation:toast-in_0.2s_ease-out]",
               config.className
             )}
           >

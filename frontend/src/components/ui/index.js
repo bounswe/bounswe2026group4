@@ -4,7 +4,7 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 export { Input } from "./input";
 export { Label } from "./label";
 export { LoadingSpinner } from "./loading-spinner";
-export { Skeleton, SkeletonCard, SkeletonPage, LoadingSkeleton } from "./loading-skeleton";
+export { Skeleton, SkeletonCard, SkeletonPage } from "./loading-skeleton";
 export { ErrorState } from "./error-state";
 export { EmptyState } from "./empty-state";
 export { Toaster } from "./toaster";
