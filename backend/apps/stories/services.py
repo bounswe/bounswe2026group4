@@ -54,3 +54,21 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
     # TODO: add sort_by='popular' ordered by like_count once interactions app is implemented
 
     return qs
+
+
+def get_story_search(q: str):
+    """Return published stories whose title or location_name contains q (case-insensitive).
+
+    Returns an empty queryset if q is blank or whitespace-only — callers should
+    validate q before calling, but the service is safe to call directly.
+    """
+    if not q or not q.strip():
+        return Story.objects.none()
+    return (
+        Story.objects
+        .filter(status=Story.STATUS_PUBLISHED)
+        .filter(
+            Q(title__icontains=q) | Q(location_name__icontains=q)
+        )
+        .order_by('-submitted_at')
+    )

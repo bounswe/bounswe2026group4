@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.services import create_story, get_story_feed, update_story
+from apps.stories.services import create_story, get_story_feed, get_story_search, update_story
 from apps.users.models import User
 
 
@@ -209,3 +209,46 @@ class TestUpdateStory:
         update_story(story=story, validated_data={'status': Story.STATUS_DRAFT})
         story.refresh_from_db()
         assert story.status == Story.STATUS_DRAFT
+
+
+# ── get_story_search ──────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetStorySearch:
+    def test_get_story_search_matches_title(self):
+        make_story(title='The Old Bridge')
+        assert get_story_search('Old Bridge').count() == 1
+
+    def test_get_story_search_matches_location_name(self):
+        make_story(location_name='Galata Bridge')
+        assert get_story_search('Galata').count() == 1
+
+    def test_get_story_search_is_case_insensitive(self):
+        make_story(title='Istanbul Tales')
+        assert get_story_search('istanbul').count() == 1
+        assert get_story_search('ISTANBUL').count() == 1
+
+    def test_get_story_search_with_empty_query_returns_empty(self):
+        make_story(title='Some Story')
+        assert get_story_search('').count() == 0
+
+    def test_get_story_search_with_whitespace_only_query_returns_empty(self):
+        make_story(title='Some Story')
+        assert get_story_search('   ').count() == 0
+
+    def test_get_story_search_excludes_removed_stories(self):
+        make_story(title='Gone Story', status=Story.STATUS_REMOVED)
+        assert get_story_search('Gone').count() == 0
+
+    def test_get_story_search_excludes_draft_stories(self):
+        make_story(title='Draft Story', status=Story.STATUS_DRAFT)
+        assert get_story_search('Draft').count() == 0
+
+    def test_get_story_search_returns_no_results_when_no_match(self):
+        make_story(title='Istanbul Tales')
+        assert get_story_search('Bosphorus').count() == 0
+
+    def test_get_story_search_returns_multiple_matches(self):
+        make_story(title='Istanbul in 1900')
+        make_story(title='Istanbul Today')
+        assert get_story_search('Istanbul').count() == 2
