@@ -1,71 +1,63 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import MockAdapter from "axios-mock-adapter";
 
 import api from "@/services/api";
+import * as tokenStore from "@/services/tokenStore";
+import { navigationRef } from "@/services/navigationRef";
 
 describe("api service", () => {
+  let mock;
+
   beforeEach(() => {
-    localStorage.clear();
-    window.history.pushState({}, "", "/");
+    mock = new MockAdapter(api);
+    tokenStore.clear();
+    navigationRef.navigate = vi.fn();
+    // Reset the event listener side-effect from clear()
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   it("attaches Authorization header when access token exists", async () => {
-    localStorage.setItem("accessToken", "token-123");
-    const requestHandler = api.interceptors.request.handlers.at(-1).fulfilled;
+    tokenStore.setAccessToken("token-123");
+    mock.onGet("/test").reply((config) => {
+      expect(config.headers.Authorization).toBe("Bearer token-123");
+      return [200, { ok: true }];
+    });
 
-    const config = await requestHandler({ headers: {} });
-
-    expect(config.headers.Authorization).toBe("Bearer token-123");
+    await api.get("/test");
   });
 
   it("does not attach Authorization header when no token exists", async () => {
-    const requestHandler = api.interceptors.request.handlers.at(-1).fulfilled;
-
-    const config = await requestHandler({ headers: {} });
-
-    expect(config.headers.Authorization).toBeUndefined();
-  });
-
-  it("clears tokens and redirects to /login on 401 outside auth pages", async () => {
-    localStorage.setItem("accessToken", "access");
-    localStorage.setItem("refreshToken", "refresh");
-    localStorage.setItem("user", JSON.stringify({ username: "alice" }));
-    window.history.pushState({}, "", "/profile");
-
-    const responseErrorHandler = api.interceptors.response.handlers.at(-1).rejected;
-
-    await expect(responseErrorHandler({ response: { status: 401 } })).rejects.toEqual({
-      response: { status: 401 },
+    mock.onGet("/test").reply((config) => {
+      expect(config.headers.Authorization).toBeUndefined();
+      return [200, { ok: true }];
     });
 
-    expect(localStorage.getItem("accessToken")).toBeNull();
-    expect(localStorage.getItem("refreshToken")).toBeNull();
-    expect(localStorage.getItem("user")).toBeNull();
-    expect(window.location.pathname).toBe("/login");
+    await api.get("/test");
   });
 
-  it("does not redirect on 401 when already on /login", async () => {
-    window.history.pushState({}, "", "/login");
-    const responseErrorHandler = api.interceptors.response.handlers.at(-1).rejected;
+  it("clears tokens and navigates to /login on 401", async () => {
+    tokenStore.setAccessToken("access");
+    tokenStore.setRefreshToken("refresh");
 
-    await expect(responseErrorHandler({ response: { status: 401 } })).rejects.toEqual({
-      response: { status: 401 },
-    });
+    mock.onGet("/test").reply(401);
 
-    expect(window.location.pathname).toBe("/login");
+    await expect(api.get("/test")).rejects.toThrow();
+
+    expect(tokenStore.getAccessToken()).toBeNull();
+    expect(tokenStore.getRefreshToken()).toBeNull();
+    expect(navigationRef.navigate).toHaveBeenCalledWith("/login");
   });
 
-  it("does not redirect on 401 when already on /register", async () => {
-    window.history.pushState({}, "", "/register");
-    const responseErrorHandler = api.interceptors.response.handlers.at(-1).rejected;
+  it("does not crash when navigationRef.navigate is null on 401", async () => {
+    navigationRef.navigate = null;
+    mock.onGet("/test").reply(401);
 
-    await expect(responseErrorHandler({ response: { status: 401 } })).rejects.toEqual({
-      response: { status: 401 },
-    });
+    await expect(api.get("/test")).rejects.toThrow();
 
-    expect(window.location.pathname).toBe("/register");
+    expect(tokenStore.getAccessToken()).toBeNull();
   });
 });

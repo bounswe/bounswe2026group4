@@ -1,77 +1,44 @@
-import * as React from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { login as loginService, logout as logoutService } from "@/services/authService";
+import { navigationRef } from "@/services/navigationRef";
 
-import {
-  login as loginService,
-  logout as logoutService,
-  getStoredUser,
-  isTokenExpired,
-} from "@/services/authService";
+export const AuthContext = createContext(null);
 
-const AuthContext = React.createContext(null);
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
-function clearStoredAuth() {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("user");
-}
+  // Set navigationRef for the axios interceptor to use
+  useEffect(() => {
+    navigationRef.navigate = navigate;
+  }, [navigate]);
 
-function AuthProvider({ children }) {
-  const [user, setUser] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
-
-  const isAuthenticated = Boolean(user);
-
-  React.useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-
-    if (!token || isTokenExpired(token)) {
-      clearStoredAuth();
-      setLoading(false);
-      return;
-    }
-
-    const storedUser = getStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
-    } else {
-      clearStoredAuth();
-    }
-
-    setLoading(false);
-  }, []);
-
-  const login = React.useCallback(async (email, password) => {
-    const { user: userData } = await loginService(email, password);
-    setUser(userData);
-    return userData;
-  }, []);
-
-  const logout = React.useCallback(async () => {
-    try {
-      await logoutService();
-    } finally {
+  // Listen for auth:logout events (fired by tokenStore.clear())
+  useEffect(() => {
+    function handleLogout() {
       setUser(null);
-      window.history.pushState({}, "", "/");
-      window.dispatchEvent(new PopStateEvent("popstate"));
     }
+    window.addEventListener("auth:logout", handleLogout);
+    return () => window.removeEventListener("auth:logout", handleLogout);
   }, []);
 
-  const value = React.useMemo(
-    () => ({
-      user,
-      isAuthenticated,
-      loading,
-      login,
-      logout,
-    }),
-    [user, isAuthenticated, loading, login, logout]
-  );
+  const login = useCallback(async (email, password) => {
+    const data = await loginService(email, password);
+    setUser(data.user);
+    return data;
+  }, []);
+
+  const logout = useCallback(async () => {
+    await logoutService();
+    setUser(null);
+    navigate("/login");
+  }, [navigate]);
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export { AuthContext, AuthProvider };

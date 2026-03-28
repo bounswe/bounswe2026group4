@@ -1,18 +1,18 @@
 import axios from "axios";
+import { getAccessToken, clear } from "./tokenStore";
+import { navigationRef } from "./navigationRef";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const api = axios.create({
   baseURL: API_URL,
-  headers: { "Content-Type": "application/json" },
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
+  const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-
   return config;
 });
 
@@ -20,17 +20,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
-
-      const path = window.location.pathname;
-      if (path !== "/login" && path !== "/register") {
-        window.history.pushState({}, "", "/login");
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      }
+      clear();
+      navigationRef.navigate?.("/login");
     }
-
     return Promise.reject(error);
   }
 );

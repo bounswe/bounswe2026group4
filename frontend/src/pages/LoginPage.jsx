@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link, Navigate } from "react-router-dom";
+import { useNavigate, useLocation, Link, Navigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2, MapPin } from "lucide-react";
 
 import {
@@ -12,15 +12,15 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-  LoadingSpinner,
 } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
-  const { login, isAuthenticated, loading } = useAuth();
+  const { login, isAuthenticated } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -60,7 +60,8 @@ function LoginPage() {
     try {
       await login(email, password);
       toast.success("Welcome back!");
-      navigate("/");
+      const from = location.state?.from?.pathname || "/";
+      navigate(from, { replace: true });
     } catch (error) {
       const message =
         error.response?.data?.message ||
@@ -70,10 +71,6 @@ function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  }
-
-  if (loading) {
-    return <LoadingSpinner fullPage message="Checking session..." />;
   }
 
   if (isAuthenticated) {

@@ -1,9 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { AuthContext } from "@/context/AuthContext";
+
+/** Helper that renders location.state.from.pathname so tests can verify redirect state */
+function LoginPageWithState() {
+  const location = useLocation();
+  return <div>{location.state?.from?.pathname ?? "no-state"}</div>;
+}
 
 function renderWithAuth(authValue) {
   return render(
@@ -30,7 +36,6 @@ describe("ProtectedRoute", () => {
     renderWithAuth({
       user: { username: "alice" },
       isAuthenticated: true,
-      loading: false,
       login: vi.fn(),
       logout: vi.fn(),
     });
@@ -42,7 +47,6 @@ describe("ProtectedRoute", () => {
     renderWithAuth({
       user: null,
       isAuthenticated: false,
-      loading: false,
       login: vi.fn(),
       logout: vi.fn(),
     });
@@ -50,16 +54,32 @@ describe("ProtectedRoute", () => {
     expect(screen.getByText("Login Page")).toBeInTheDocument();
   });
 
-  it("shows loading state while auth is loading", () => {
-    renderWithAuth({
-      user: null,
-      isAuthenticated: false,
-      loading: true,
-      login: vi.fn(),
-      logout: vi.fn(),
-    });
+  it("redirects to /login with from state preserving the original path", () => {
+    render(
+      <AuthContext.Provider
+        value={{
+          user: null,
+          isAuthenticated: false,
+          login: vi.fn(),
+          logout: vi.fn(),
+        }}
+      >
+        <MemoryRouter initialEntries={["/dashboard"]}>
+          <Routes>
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <div>Dashboard</div>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/login" element={<LoginPageWithState />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
 
-    expect(screen.getByRole("status")).toBeInTheDocument();
-    expect(screen.queryByText("Protected Content")).not.toBeInTheDocument();
+    expect(screen.getByText("/dashboard")).toBeInTheDocument();
   });
 });

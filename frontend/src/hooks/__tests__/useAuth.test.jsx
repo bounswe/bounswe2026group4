@@ -17,7 +17,6 @@ describe("useAuth", () => {
         value={{
           user: { username: "alice" },
           isAuthenticated: true,
-          loading: false,
           login: async () => {},
           logout: async () => {},
         }}

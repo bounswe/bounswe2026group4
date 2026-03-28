@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, MemoryRouter, Routes, Route } from "react-router-dom";
 
 import LoginPage from "../LoginPage";
 import { ToastProvider } from "@/context/ToastContext";
@@ -43,7 +43,6 @@ describe("LoginPage", () => {
     useAuth.mockReturnValue({
       user: null,
       isAuthenticated: false,
-      loading: false,
       login: mockLogin,
       logout: vi.fn(),
     });
@@ -166,7 +165,7 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/");
+      expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
     });
   });
 
@@ -183,6 +182,30 @@ describe("LoginPage", () => {
 
     const alertElement = await screen.findByRole("alert");
     expect(alertElement).toHaveTextContent(/invalid credentials/i);
+  });
+
+  it("navigates to redirect path from location state after login", async () => {
+    const user = userEvent.setup();
+    mockLogin.mockResolvedValue({ access: "a", refresh: "b", user: { username: "alice" } });
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: { pathname: "/dashboard" } } }]}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </MemoryRouter>
+        <Toaster />
+      </ToastProvider>
+    );
+
+    await user.type(screen.getByLabelText("Email"), "test@example.com");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
+    });
   });
 
   it("has link to registration page", () => {
@@ -204,11 +227,38 @@ describe("LoginPage", () => {
     expect(await screen.findByText("Welcome back!")).toBeInTheDocument();
   });
 
+  it("shows error.response.data.detail when message is absent", async () => {
+    const user = userEvent.setup();
+    const error = new Error("Network error");
+    error.response = { data: { detail: "Account locked" } };
+    mockLogin.mockRejectedValue(error);
+    renderLoginPage();
+
+    await user.type(screen.getByLabelText("Email"), "test@example.com");
+    await user.type(screen.getByLabelText("Password"), "wrongpassword");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText(/account locked/i)).toBeInTheDocument();
+  });
+
+  it("shows hardcoded fallback when no response data is available", async () => {
+    const user = userEvent.setup();
+    mockLogin.mockRejectedValue(new Error("Network error"));
+    renderLoginPage();
+
+    await user.type(screen.getByLabelText("Email"), "test@example.com");
+    await user.type(screen.getByLabelText("Password"), "wrongpassword");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(
+      await screen.findByText(/login failed\. please check your credentials and try again\./i)
+    ).toBeInTheDocument();
+  });
+
   it("redirects away from login page when already authenticated", () => {
     useAuth.mockReturnValue({
       user: { username: "alice" },
       isAuthenticated: true,
-      loading: false,
       login: mockLogin,
       logout: vi.fn(),
     });

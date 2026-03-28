@@ -1,152 +1,101 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import axios from "axios";
 
-vi.mock("@/services/api", () => ({
-  default: {
-    post: vi.fn(),
-  },
+vi.mock("axios");
+
+vi.mock("../tokenStore", () => ({
+  setAccessToken: vi.fn(),
+  setRefreshToken: vi.fn(),
+  getRefreshToken: vi.fn(),
+  clear: vi.fn(),
 }));
 
-import api from "@/services/api";
-import {
-  login,
-  register,
-  logout,
-  getStoredUser,
-  isTokenExpired,
-} from "@/services/authService";
-
-function createJwt(payload) {
-  const header = { alg: "HS256", typ: "JWT" };
-  const encode = (obj) =>
-    btoa(JSON.stringify(obj))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/g, "");
-
-  return `${encode(header)}.${encode(payload)}.signature`;
-}
+import { login, register, logout } from "../authService";
+import { setAccessToken, setRefreshToken, getRefreshToken, clear } from "../tokenStore";
 
 describe("authService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("login stores access, refresh and user in localStorage", async () => {
-    api.post.mockResolvedValue({
-      data: {
+  describe("login", () => {
+    it("calls API and stores tokens via tokenStore", async () => {
+      const responseData = {
         access: "access-token",
         refresh: "refresh-token",
-        user: { id: 1, email: "a@b.com", username: "alice", role: "registered_user" },
-      },
+        user: { id: 1, email: "test@example.com" },
+      };
+      axios.post.mockResolvedValue({ data: responseData });
+
+      const result = await login("test@example.com", "password123");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/login/"),
+        { email: "test@example.com", password: "password123" }
+      );
+      expect(setAccessToken).toHaveBeenCalledWith("access-token");
+      expect(setRefreshToken).toHaveBeenCalledWith("refresh-token");
+      expect(result).toEqual(responseData);
     });
 
-    await login("a@b.com", "Password1");
+    it("does not store tokens on failure", async () => {
+      axios.post.mockRejectedValue(new Error("Network error"));
 
-    expect(localStorage.getItem("accessToken")).toBe("access-token");
-    expect(localStorage.getItem("refreshToken")).toBe("refresh-token");
-    expect(localStorage.getItem("user")).toBe(
-      JSON.stringify({ id: 1, email: "a@b.com", username: "alice", role: "registered_user" })
-    );
-  });
-
-  it("login returns access, refresh and user", async () => {
-    api.post.mockResolvedValue({
-      data: {
-        access: "access-token",
-        refresh: "refresh-token",
-        user: { id: 2, email: "b@c.com", username: "bob", role: "registered_user" },
-      },
-    });
-
-    const result = await login("b@c.com", "Password1");
-
-    expect(result).toEqual({
-      access: "access-token",
-      refresh: "refresh-token",
-      user: { id: 2, email: "b@c.com", username: "bob", role: "registered_user" },
+      await expect(login("test@example.com", "bad")).rejects.toThrow("Network error");
+      expect(setAccessToken).not.toHaveBeenCalled();
     });
   });
 
-  it("register posts to /auth/register/ and returns response data", async () => {
-    api.post.mockResolvedValue({
-      data: {
-        message: "Registration successful",
-      },
+  describe("register", () => {
+    it("calls register endpoint and returns data", async () => {
+      const responseData = { message: "User created" };
+      axios.post.mockResolvedValue({ data: responseData });
+
+      const result = await register("user", "test@example.com", "pass", "pass");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/register/"),
+        {
+          username: "user",
+          email: "test@example.com",
+          password: "pass",
+          password_confirmation: "pass",
+        }
+      );
+      expect(result).toEqual(responseData);
+    });
+  });
+
+  describe("logout", () => {
+    it("calls API with refresh token and clears tokenStore", async () => {
+      getRefreshToken.mockReturnValue("refresh-token");
+      axios.post.mockResolvedValue({});
+
+      await logout();
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/logout/"),
+        { refresh: "refresh-token" }
+      );
+      expect(clear).toHaveBeenCalled();
     });
 
-    const data = await register("alice", "a@b.com", "Password1", "Password1");
+    it("always resolves even if API call fails", async () => {
+      getRefreshToken.mockReturnValue("refresh-token");
+      axios.post.mockRejectedValue(new Error("Network error"));
 
-    expect(api.post).toHaveBeenCalledWith("/auth/register/", {
-      username: "alice",
-      email: "a@b.com",
-      password: "Password1",
-      password_confirmation: "Password1",
+      // Should not throw
+      await expect(logout()).resolves.toBeUndefined();
+      expect(clear).toHaveBeenCalled();
     });
-    expect(data).toEqual({ message: "Registration successful" });
-  });
 
-  it("logout posts refresh token and clears localStorage", async () => {
-    localStorage.setItem("accessToken", "access-token");
-    localStorage.setItem("refreshToken", "refresh-token");
-    localStorage.setItem("user", JSON.stringify({ username: "alice" }));
-    api.post.mockResolvedValue({ status: 204 });
+    it("clears tokenStore even when API fails", async () => {
+      getRefreshToken.mockReturnValue("refresh-token");
+      axios.post.mockRejectedValue(new Error("fail"));
 
-    await logout();
+      await logout();
 
-    expect(api.post).toHaveBeenCalledWith("/auth/logout/", { refresh: "refresh-token" });
-    expect(localStorage.getItem("accessToken")).toBeNull();
-    expect(localStorage.getItem("refreshToken")).toBeNull();
-    expect(localStorage.getItem("user")).toBeNull();
-  });
-
-  it("logout clears localStorage even when API call fails", async () => {
-    localStorage.setItem("accessToken", "access-token");
-    localStorage.setItem("refreshToken", "refresh-token");
-    localStorage.setItem("user", JSON.stringify({ username: "alice" }));
-    api.post.mockRejectedValue(new Error("network"));
-
-    await expect(logout()).rejects.toThrow("network");
-
-    expect(localStorage.getItem("accessToken")).toBeNull();
-    expect(localStorage.getItem("refreshToken")).toBeNull();
-    expect(localStorage.getItem("user")).toBeNull();
-  });
-
-  it("getStoredUser returns parsed user when localStorage has user", () => {
-    localStorage.setItem("user", JSON.stringify({ username: "alice", role: "registered_user" }));
-
-    expect(getStoredUser()).toEqual({ username: "alice", role: "registered_user" });
-  });
-
-  it("getStoredUser falls back to token claims when user key is absent", () => {
-    const token = createJwt({
-      username: "token-user",
-      role: "registered_user",
-      exp: Math.floor(Date.now() / 1000) + 3600,
+      expect(clear).toHaveBeenCalled();
     });
-    localStorage.setItem("accessToken", token);
-
-    expect(getStoredUser()).toEqual({ username: "token-user", role: "registered_user" });
-  });
-
-  it("isTokenExpired returns false for a valid token", () => {
-    const token = createJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
-
-    expect(isTokenExpired(token)).toBe(false);
-  });
-
-  it("isTokenExpired returns true for an expired token", () => {
-    const token = createJwt({ exp: Math.floor(Date.now() / 1000) - 3600 });
-
-    expect(isTokenExpired(token)).toBe(true);
-  });
-
-  it("isTokenExpired returns true for malformed token", () => {
-    expect(isTokenExpired("not-a-token")).toBe(true);
   });
 });
