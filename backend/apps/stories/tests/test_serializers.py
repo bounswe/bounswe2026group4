@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.serializers import StoryFeedSerializer, StorySerializer
+from apps.stories.serializers import SearchQuerySerializer, StoryFeedSerializer, StorySerializer
 from apps.users.models import User
 
 
@@ -214,3 +214,32 @@ class TestStorySerializerUpdate:
         serializer.save()
         story.refresh_from_db()
         assert story.narrative == original_narrative
+
+
+# ── SearchQuerySerializer ─────────────────────────────────────────────────────
+
+class TestSearchQuerySerializer:
+    def test_valid_query_passes(self):
+        s = SearchQuerySerializer(data={'q': 'Istanbul'})
+        assert s.is_valid(), s.errors
+        assert s.validated_data['q'] == 'Istanbul'
+
+    def test_missing_q_fails(self):
+        s = SearchQuerySerializer(data={})
+        assert not s.is_valid()
+        assert 'q' in s.errors
+
+    def test_empty_string_fails(self):
+        s = SearchQuerySerializer(data={'q': ''})
+        assert not s.is_valid()
+        assert 'q' in s.errors
+
+    def test_whitespace_only_fails(self):
+        # DRF CharField strips whitespace before min_length check, so '   ' becomes '' and fails
+        s = SearchQuerySerializer(data={'q': '   '})
+        assert not s.is_valid()
+        assert 'q' in s.errors
+
+    def test_single_character_passes(self):
+        s = SearchQuerySerializer(data={'q': 'a'})
+        assert s.is_valid(), s.errors

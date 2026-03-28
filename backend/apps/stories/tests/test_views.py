@@ -10,6 +10,7 @@ from apps.users.models import RoleChoices, User
 
 FEED_URL = '/stories/feed/'
 LIST_URL = '/stories/'
+SEARCH_URL = '/stories/search/'
 
 
 # ── Fixtures & helpers ────────────────────────────────────────────────────────
@@ -297,3 +298,45 @@ class TestStoryDetailView:
         url = reverse('stories:story-detail', kwargs={'pk': story.pk})
         response = client.patch(url, {'title': 'Guest Update'}, format='json')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+# ── GET /stories/search/ ──────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStorySearchView:
+    def test_search_endpoint_returns_200_for_unauthenticated_user(self, client):
+        response = client.get(SEARCH_URL + '?q=Istanbul')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_search_endpoint_returns_results_matching_title(self, client):
+        make_story(title='Istanbul Chronicles', location_name='Kadikoy')
+        make_story(title='Ankara Stories', location_name='Kizilay')
+        response = client.get(SEARCH_URL + '?q=Istanbul')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Chronicles'
+
+    def test_search_endpoint_returns_results_matching_location_name(self, client):
+        make_story(title='A Story', location_name='Galata Bridge')
+        make_story(title='Another Story', location_name='Bosphorus')
+        response = client.get(SEARCH_URL + '?q=Galata')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'A Story'
+
+    def test_search_endpoint_returns_400_when_q_is_missing(self, client):
+        response = client.get(SEARCH_URL)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_search_endpoint_returns_400_when_q_is_blank(self, client):
+        response = client.get(SEARCH_URL + '?q=')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_search_endpoint_returns_empty_list_when_no_match(self, client):
+        make_story(title='Istanbul Tales')
+        response = client.get(SEARCH_URL + '?q=Bosphorus')
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_search_endpoint_excludes_removed_stories(self, client):
+        make_story(title='Gone Story', status=Story.STATUS_REMOVED)
+        response = client.get(SEARCH_URL + '?q=Gone')
+        assert response.data['count'] == 0

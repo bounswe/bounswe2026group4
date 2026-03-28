@@ -3,8 +3,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.stories.models import Story
-from apps.stories.serializers import FeedQuerySerializer, StoryFeedSerializer, StorySerializer
-from apps.stories.services import get_story_feed
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryFeedSerializer, StorySerializer
+from apps.stories.services import get_story_feed, get_story_search
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
 
@@ -39,6 +39,32 @@ class StoryFeedView(APIView):
             year_to=params.get('year_to'),
             location=params.get('location'),
         )
+
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryFeedSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class StorySearchView(APIView):
+    """
+    GET /stories/search/?q=<query>
+
+    Returns a paginated list of published stories matching the query against
+    title and location_name. Open to guests and authenticated users alike.
+
+    Query params:
+      q — required, min 1 character after stripping whitespace
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query_serializer = SearchQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        q = query_serializer.validated_data['q']
+
+        qs = get_story_search(q)
 
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
