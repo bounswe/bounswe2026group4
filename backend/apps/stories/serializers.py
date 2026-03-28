@@ -160,3 +160,10 @@ class FeedQuerySerializer(serializers.Serializer):
                 {'year_to': 'year_to must be greater than or equal to year_from.'}
             )
         return data
+
+
+class SearchQuerySerializer(serializers.Serializer):
+    """Validates the q query parameter for the story search endpoint."""
+
+    # strip_whitespace=True (default) means a whitespace-only value becomes '' and fails min_length
+    q = serializers.CharField(required=True, min_length=1)
