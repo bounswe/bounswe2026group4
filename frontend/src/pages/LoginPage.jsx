@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link, Navigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2, MapPin } from "lucide-react";
 
 import {
@@ -13,12 +13,14 @@ import {
   CardContent,
   CardFooter,
 } from "@/components/ui";
-import { login } from "@/services/authService";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { login, isAuthenticated } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,7 +60,8 @@ function LoginPage() {
     try {
       await login(email, password);
       toast.success("Welcome back!");
-      navigate("/");
+      const from = location.state?.from?.pathname || "/";
+      navigate(from, { replace: true });
     } catch (error) {
       const message =
         error.response?.data?.message ||
@@ -68,6 +71,10 @@ function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
   }
 
   return (

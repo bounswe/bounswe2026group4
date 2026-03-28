@@ -71,3 +71,6 @@ CLAUDE.md
 dist/
 *.tar.gz
 *.zip
+Project-Requirements.md
+
+docs/
