@@ -1,10 +1,3 @@
-export function getPreview(narrative) {
-  if (!narrative) return "";
-  const words = narrative.split(/\s+/);
-  if (words.length <= 20) return narrative;
-  return words.slice(0, 20).join(" ") + "\u2026";
-}
-
 export function formatTimePeriod(story) {
   const { time_type, year, year_start, year_end } = story;
   switch (time_type) {

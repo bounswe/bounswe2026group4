@@ -229,11 +229,10 @@ describe("FeedPage", () => {
     });
   });
 
-  it("shows 'Most Recent' sort toggle button", async () => {
-    getStories.mockResolvedValue(makeResponse());
+  it("shows 'Most Recent' sort button", () => {
+    getStories.mockReturnValue(new Promise(() => {}));
     renderPage();
 
-    // Button is visible immediately (sort control is in header, not gated on data)
     expect(screen.getByRole("button", { name: /sort: most recent/i })).toBeInTheDocument();
   });
 

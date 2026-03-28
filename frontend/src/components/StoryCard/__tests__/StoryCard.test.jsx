@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 
 import StoryCard from "../StoryCard";
-import { getPreview, formatTimePeriod } from "../storyCardUtils";
+import { formatTimePeriod } from "../storyCardUtils";
 
 function makeStory(overrides = {}) {
   return {
@@ -30,28 +30,6 @@ function renderCard(story) {
 }
 
 // --- Unit tests for helpers ---
-
-describe("getPreview", () => {
-  it("returns full text when 20 words or fewer", () => {
-    const text = "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty";
-    expect(getPreview(text)).toBe(text);
-  });
-
-  it("truncates and appends ellipsis beyond 20 words", () => {
-    const text = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone";
-    const result = getPreview(text);
-    expect(result).toMatch(/\u2026$/);
-    // Ellipsis is appended directly to word 20 (no space), so splitting gives 20 tokens
-    expect(result.split(/\s+/).length).toBe(20);
-    expect(result).not.toContain("twentyone");
-  });
-
-  it("returns empty string for falsy input", () => {
-    expect(getPreview(null)).toBe("");
-    expect(getPreview(undefined)).toBe("");
-    expect(getPreview("")).toBe("");
-  });
-});
 
 describe("formatTimePeriod", () => {
   it("formats exact_year", () => {

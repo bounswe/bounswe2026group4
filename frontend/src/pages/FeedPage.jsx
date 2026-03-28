@@ -98,7 +98,6 @@ function FeedPage() {
             {/* Sort toggle */}
             <Button
               variant="outline"
-              aria-pressed="true"
               aria-label="Sort: Most Recent"
             >
               <Clock aria-hidden="true" />
