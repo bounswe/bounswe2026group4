@@ -89,7 +89,7 @@ def get_public_profile(user_id: int) -> User:
     select_related('profile') pre-fetches the optional UserProfile in the same query
     to avoid an extra DB round-trip in the serializer.
 
-    Raises Http404 when the user does not exist.
+    Raises Http404 when the user does not exist or is inactive (banned).
     """
     from apps.stories.models import Story  # local import to avoid circular imports
 
@@ -103,7 +103,7 @@ def get_public_profile(user_id: int) -> User:
                     filter=Q(stories__status=Story.STATUS_PUBLISHED),
                 )
             )
-            .get(pk=user_id)
+            .get(pk=user_id, is_active=True)
         )
     except User.DoesNotExist:
         raise Http404

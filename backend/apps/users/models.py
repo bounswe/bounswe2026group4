@@ -1,4 +1,4 @@
-import random
+import secrets
 from datetime import timedelta
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
@@ -106,7 +106,7 @@ class EmailVerificationCode(models.Model):
 
     @staticmethod
     def generate_code():
-        return str(random.randint(100000, 999999))
+        return str(secrets.randbelow(900000) + 100000)
 
     def __str__(self):
         return f'{self.user.email} — {self.code}'

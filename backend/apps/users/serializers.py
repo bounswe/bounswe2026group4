@@ -54,11 +54,13 @@ class PublicUserProfileSerializer(serializers.Serializer):
     """
     Read-only serializer for the public user profile endpoint (GET /users/{id}/).
 
-    Visibility rules:
+    Visibility rules (Req. 1.2.3.1):
     - username: shown only when is_username_public is True
-    - profile_photo, location, birth_date: gated by their per-field flags on UserProfile
+    - profile_photo, location, birth_year: gated by their per-field flags on UserProfile
     - bio: no visibility flag — always returned when a profile exists
     - total_points, date_joined, published_story_count: always public
+
+    birth_year returns only the year integer (not the full date) per Req. 1.2.3.1.
     """
 
     id = serializers.IntegerField()
@@ -69,7 +71,7 @@ class PublicUserProfileSerializer(serializers.Serializer):
     profile_photo = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     bio = serializers.SerializerMethodField()
-    birth_date = serializers.SerializerMethodField()
+    birth_year = serializers.SerializerMethodField()
 
     def _profile(self, obj):
         """Return the UserProfile instance or None if the user has no profile yet."""
@@ -97,8 +99,8 @@ class PublicUserProfileSerializer(serializers.Serializer):
         profile = self._profile(obj)
         return profile.bio if profile else None
 
-    def get_birth_date(self, obj):
+    def get_birth_year(self, obj):
         profile = self._profile(obj)
-        if profile and profile.is_birth_date_public:
-            return profile.birth_date
+        if profile and profile.is_birth_date_public and profile.birth_date:
+            return profile.birth_date.year
         return None
