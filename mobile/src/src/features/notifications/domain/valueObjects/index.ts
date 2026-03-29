@@ -1,1 +1,0 @@
-export type NotificationId = string;

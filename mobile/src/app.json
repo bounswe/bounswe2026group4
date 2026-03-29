@@ -1,9 +1,0 @@
-{
-  "expo": {
-    "name": "Local History Story Map",
-    "slug": "local-history-story-map",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "automatic"
-  }
-}
