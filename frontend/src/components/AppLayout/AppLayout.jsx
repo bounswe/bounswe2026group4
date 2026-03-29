@@ -162,24 +162,17 @@ function AppLayout() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        asChild
                         className="justify-start"
+                        onClick={() => { setSheetOpen(false); navigate("/login"); }}
                       >
-                        <Link to="/login" onClick={() => setSheetOpen(false)}>
-                          Login
-                        </Link>
+                        Login
                       </Button>
                       <Button
                         size="sm"
-                        asChild
                         className="justify-start"
+                        onClick={() => { setSheetOpen(false); navigate("/register"); }}
                       >
-                        <Link
-                          to="/register"
-                          onClick={() => setSheetOpen(false)}
-                        >
-                          Register
-                        </Link>
+                        Register
                       </Button>
                     </>
                   )}
