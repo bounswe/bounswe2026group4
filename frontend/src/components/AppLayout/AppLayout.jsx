@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Menu, MapPin, LogOut } from "lucide-react";
+import { Menu, MapPin, LogOut, User, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,10 @@ const publicLinks = [
 ];
 
 const authLinks = [
-  { to: "/submit", label: "Submit Story" },
-  { to: "/profile", label: "Profile" },
+  { to: "/submit", label: "Submit Story", icon: Plus },
 ];
 
-function NavLink({ to, label, pathname, onClick }) {
+function NavLink({ to, label, icon: Icon, pathname, onClick }) {
   const isActive = to === "/" ? pathname === "/" : pathname.startsWith(to);
 
   return (
@@ -31,10 +30,11 @@ function NavLink({ to, label, pathname, onClick }) {
       to={to}
       onClick={onClick}
       className={cn(
-        "text-sm font-medium transition-colors hover:text-primary",
+        "flex items-center gap-1 text-sm font-medium transition-colors hover:text-primary",
         isActive ? "text-primary" : "text-muted-foreground",
       )}
     >
+      {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
       {label}
     </Link>
   );
@@ -78,6 +78,7 @@ function AppLayout() {
                 key={link.to}
                 to={link.to}
                 label={link.label}
+                icon={link.icon}
                 pathname={location.pathname}
               />
             ))}
@@ -88,9 +89,13 @@ function AppLayout() {
             <div className="hidden md:flex items-center space-x-2">
               {isAuthenticated ? (
                 <>
-                  <span className="text-sm text-muted-foreground">
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    <User className="h-4 w-4" aria-hidden="true" />
                     {user?.username}
-                  </span>
+                  </Link>
                   <Button variant="ghost" size="sm" onClick={handleLogout}>
                     <LogOut className="h-4 w-4 mr-1" />
                     Logout
@@ -126,6 +131,7 @@ function AppLayout() {
                       key={link.to}
                       to={link.to}
                       label={link.label}
+                      icon={link.icon}
                       pathname={location.pathname}
                       onClick={() => setSheetOpen(false)}
                     />
@@ -133,9 +139,14 @@ function AppLayout() {
                   <hr className="my-2" />
                   {isAuthenticated ? (
                     <>
-                      <span className="text-sm text-muted-foreground">
+                      <Link
+                        to="/profile"
+                        onClick={() => setSheetOpen(false)}
+                        className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                      >
+                        <User className="h-4 w-4" aria-hidden="true" />
                         {user?.username}
-                      </span>
+                      </Link>
                       <Button
                         variant="ghost"
                         size="sm"

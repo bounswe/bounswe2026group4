@@ -57,7 +57,7 @@ describe("AppLayout", () => {
     expect(screen.queryByText("Submit Story")).not.toBeInTheDocument();
   });
 
-  it("shows username, Logout, Profile, and Submit Story when authenticated", () => {
+  it("shows username linking to profile, Logout, and Submit Story when authenticated", () => {
     mockAuthState = {
       user: { username: "testuser" },
       isAuthenticated: true,
@@ -66,9 +66,12 @@ describe("AppLayout", () => {
 
     renderWithRouter();
 
-    expect(screen.getAllByText("testuser").length).toBeGreaterThan(0);
+    // Username is a link to /profile (no separate "Profile" nav link)
+    const profileLinks = screen.getAllByRole("link", { name: /testuser/i });
+    expect(profileLinks.length).toBeGreaterThan(0);
+    expect(profileLinks[0]).toHaveAttribute("href", "/profile");
     expect(screen.getAllByText("Logout").length).toBeGreaterThan(0);
-    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.queryByText("Profile")).not.toBeInTheDocument();
     expect(screen.getByText("Submit Story")).toBeInTheDocument();
     expect(screen.queryByText("Login")).not.toBeInTheDocument();
     expect(screen.queryByText("Register")).not.toBeInTheDocument();
