@@ -5,8 +5,12 @@ from rest_framework.views import APIView
 
 from apps.interactions.models import Comment
 from apps.interactions.permissions import IsCommentAuthorOrAdmin
-from apps.interactions.serializers import CommentCreateSerializer, CommentResponseSerializer
-from apps.interactions.services import create_comment, delete_comment
+from apps.interactions.serializers import (
+    CommentCreateSerializer,
+    CommentResponseSerializer,
+    LikeResponseSerializer,
+)
+from apps.interactions.services import add_like, create_comment, delete_comment, remove_like
 from common.permissions import IsRegisteredUser
 
 
@@ -38,4 +42,28 @@ class CommentDeleteView(APIView):
         comment = get_object_or_404(Comment, pk=comment_id)
         self.check_object_permissions(request, comment)
         delete_comment(comment)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class StoryLikeView(APIView):
+    """
+    POST   /stories/<story_id>/like/ — like a published story.
+    DELETE /stories/<story_id>/like/ — remove an existing like.
+    Both require authentication.
+    """
+
+    permission_classes = [IsRegisteredUser]
+
+    def post(self, request, story_id):
+        like = add_like(request.user, story_id)
+        return Response(
+            {
+                'message': 'Story liked successfully.',
+                'like': LikeResponseSerializer(like).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def delete(self, request, story_id):
+        remove_like(request.user, story_id)
         return Response(status=status.HTTP_204_NO_CONTENT)

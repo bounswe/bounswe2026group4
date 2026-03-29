@@ -1,8 +1,16 @@
-"""Unit tests for comment serializers."""
+"""Unit tests for interaction serializers."""
+from decimal import Decimal
+
 import pytest
 
-from apps.interactions.models import Comment
-from apps.interactions.serializers import CommentCreateSerializer, CommentResponseSerializer
+from apps.interactions.models import Comment, Like
+from apps.interactions.serializers import (
+    CommentCreateSerializer,
+    CommentResponseSerializer,
+    LikeResponseSerializer,
+)
+from apps.stories.models import Story
+from apps.users.models import User
 
 
 class TestCommentCreateSerializer:
@@ -51,3 +59,36 @@ class TestCommentResponseSerializer:
         data = CommentResponseSerializer(comment).data
         for field in ['id', 'story_id', 'author_username', 'text', 'is_anonymized', 'created_at']:
             assert field in data
+
+
+# ── LikeResponseSerializer ────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestLikeResponseSerializer:
+    def _make_like(self):
+        user = User.objects.create_user(
+            email='likesr@example.com', username='likesr', password='Password1'
+        )
+        story = Story.objects.create(
+            user=user, title='T', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        return Like.objects.create(user=user, story=story)
+
+    def test_contains_expected_fields(self):
+        like = self._make_like()
+        data = LikeResponseSerializer(like).data
+        for field in ['id', 'story_id', 'created_at']:
+            assert field in data
+
+    def test_story_id_matches(self):
+        like = self._make_like()
+        data = LikeResponseSerializer(like).data
+        assert data['story_id'] == like.story_id
+
+    def test_id_matches(self):
+        like = self._make_like()
+        data = LikeResponseSerializer(like).data
+        assert data['id'] == like.pk

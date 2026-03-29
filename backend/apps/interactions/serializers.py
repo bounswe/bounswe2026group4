@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.interactions.models import Comment
+from apps.interactions.models import Comment, Like
 
 
 class CommentCreateSerializer(serializers.Serializer):
@@ -23,3 +23,11 @@ class CommentResponseSerializer(serializers.ModelSerializer):
         if obj.is_anonymized or obj.author is None:
             return None
         return obj.author.username
+
+
+class LikeResponseSerializer(serializers.ModelSerializer):
+    """Read-only representation of a Like returned in API responses."""
+
+    class Meta:
+        model = Like
+        fields = ['id', 'story_id', 'created_at']
