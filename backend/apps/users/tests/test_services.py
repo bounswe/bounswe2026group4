@@ -1,8 +1,12 @@
+from decimal import Decimal
+
 import pytest
+from django.http import Http404
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
 from apps.users.models import EmailVerificationCode, User
-from apps.users.services import login_user, logout_user, register_user
+from apps.users.services import get_public_profile, login_user, logout_user, register_user
+from apps.stories.models import Story
 
 
 @pytest.mark.django_db
@@ -130,3 +134,56 @@ class TestLogoutUser:
     def test_invalid_token_raises_validation_error(self):
         with pytest.raises(ValidationError):
             logout_user('this-is-not-a-valid-token')
+
+
+# ── get_public_profile ────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetPublicProfile:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='profile@example.com',
+            username='profileuser',
+            password='Password1',
+        )
+
+    def test_returns_user_for_valid_id(self):
+        result = get_public_profile(self.user.pk)
+        assert result.pk == self.user.pk
+
+    def test_raises_404_for_nonexistent_user(self):
+        with pytest.raises(Http404):
+            get_public_profile(99999)
+
+    def test_annotates_published_story_count(self):
+        Story.objects.create(
+            user=self.user, title='Pub', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        Story.objects.create(
+            user=self.user, title='Draft', narrative='N',
+            status=Story.STATUS_DRAFT,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2001,
+        )
+        result = get_public_profile(self.user.pk)
+        assert result.published_story_count == 1
+
+    def test_zero_published_stories(self):
+        result = get_public_profile(self.user.pk)
+        assert result.published_story_count == 0
+
+    def test_profile_is_prefetched(self):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(user=self.user, bio='Historian')
+        result = get_public_profile(self.user.pk)
+        # select_related means profile is accessible without an extra query
+        assert result.profile.bio == 'Historian'
+
+    def test_inactive_user_raises_404(self):
+        self.user.is_active = False
+        self.user.save()
+        with pytest.raises(Http404):
+            get_public_profile(self.user.pk)

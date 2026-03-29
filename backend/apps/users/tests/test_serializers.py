@@ -1,7 +1,12 @@
-import pytest
+import datetime
+from decimal import Decimal
 
-from apps.users.models import User
-from apps.users.serializers import LoginSerializer, RegisterSerializer
+import pytest
+from django.db.models import Value
+
+from apps.users.models import User, UserProfile
+from apps.users.serializers import LoginSerializer, PublicUserProfileSerializer, RegisterSerializer
+from apps.stories.models import Story
 
 
 @pytest.mark.django_db
@@ -99,3 +104,105 @@ class TestLoginSerializer:
         serializer = LoginSerializer(data={'email': 'user@example.com', 'password': 'Password1'})
         serializer.is_valid()
         assert 'password' not in serializer.data
+
+
+# ── PublicUserProfileSerializer ───────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestPublicUserProfileSerializer:
+    def _make_user(self, **kwargs):
+        defaults = dict(email='prof@example.com', username='profuser', password='Password1')
+        defaults.update(kwargs)
+        return User.objects.create_user(**defaults)
+
+    def _serialize(self, user, request=None):
+        from apps.users.services import get_public_profile
+        annotated = get_public_profile(user.pk)
+        return PublicUserProfileSerializer(
+            annotated, context={'request': request}
+        ).data
+
+    def test_contains_required_fields(self):
+        user = self._make_user()
+        data = self._serialize(user)
+        for field in ['id', 'username', 'total_points', 'date_joined', 'published_story_count']:
+            assert field in data
+
+    def test_username_visible_when_public(self):
+        user = self._make_user()
+        user.is_username_public = True
+        user.save()
+        data = self._serialize(user)
+        assert data['username'] == user.username
+
+    def test_username_hidden_when_private(self):
+        user = self._make_user()
+        user.is_username_public = False
+        user.save()
+        data = self._serialize(user)
+        assert data['username'] is None
+
+    def test_published_story_count_is_correct(self):
+        user = self._make_user()
+        Story.objects.create(
+            user=user, title='Pub', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        Story.objects.create(
+            user=user, title='Draft', narrative='N',
+            status=Story.STATUS_DRAFT,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2001,
+        )
+        data = self._serialize(user)
+        assert data['published_story_count'] == 1
+
+    def test_location_visible_when_flag_true(self):
+        user = self._make_user()
+        UserProfile.objects.create(user=user, location='Ankara', is_location_public=True)
+        data = self._serialize(user)
+        assert data['location'] == 'Ankara'
+
+    def test_location_hidden_when_flag_false(self):
+        user = self._make_user()
+        UserProfile.objects.create(user=user, location='Ankara', is_location_public=False)
+        data = self._serialize(user)
+        assert data['location'] is None
+
+    def test_bio_always_returned_when_profile_exists(self):
+        user = self._make_user()
+        UserProfile.objects.create(user=user, bio='Historian')
+        data = self._serialize(user)
+        assert data['bio'] == 'Historian'
+
+    def test_birth_year_hidden_when_flag_false(self):
+        user = self._make_user()
+        UserProfile.objects.create(
+            user=user,
+            birth_date=datetime.date(1990, 5, 20),
+            is_birth_date_public=False,
+        )
+        data = self._serialize(user)
+        assert data['birth_year'] is None
+
+    def test_birth_year_returns_integer_year_only(self):
+        # Req. 1.2.3.1: public profile exposes birth *year* only, not full date
+        user = self._make_user()
+        UserProfile.objects.create(
+            user=user,
+            birth_date=datetime.date(1990, 5, 20),
+            is_birth_date_public=True,
+        )
+        data = self._serialize(user)
+        assert data['birth_year'] == 1990
+        assert isinstance(data['birth_year'], int)
+
+    def test_no_profile_returns_null_for_optional_fields(self):
+        user = self._make_user()
+        data = self._serialize(user)
+        assert data['profile_photo'] is None
+        assert data['location'] is None
+        assert data['bio'] is None
+        assert data['birth_year'] is None

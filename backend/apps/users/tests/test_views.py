@@ -154,3 +154,125 @@ class TestLogoutView:
         auth_client.post('/auth/logout/', {'refresh': auth_client.refresh_token})
         response = auth_client.post('/auth/logout/', {'refresh': auth_client.refresh_token})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# ── GET /users/<user_id>/ ─────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUserPublicProfileView:
+    url = '/users/{user_id}/'
+
+    def test_returns_200_for_existing_user(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_404_for_nonexistent_user(self, client):
+        response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_accessible_without_authentication(self, client, registered_user):
+        # Public endpoint — no token required
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_response_contains_expected_fields(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        for field in ['id', 'username', 'total_points', 'date_joined', 'published_story_count']:
+            assert field in response.data
+
+    def test_username_visible_when_public(self, client, registered_user):
+        registered_user.is_username_public = True
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['username'] == registered_user.username
+
+    def test_username_hidden_when_private(self, client, registered_user):
+        registered_user.is_username_public = False
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['username'] is None
+
+    def test_published_story_count_reflects_published_stories(self, client, registered_user):
+        from decimal import Decimal
+        from apps.stories.models import Story
+
+        Story.objects.create(
+            user=registered_user, title='Pub', narrative='n',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('41.0'), location_lng=Decimal('29.0'),
+            location_name='Istanbul', time_type=Story.TIME_EXACT, year=2000,
+        )
+        Story.objects.create(
+            user=registered_user, title='Draft', narrative='n',
+            status=Story.STATUS_DRAFT,
+            location_lat=Decimal('41.0'), location_lng=Decimal('29.0'),
+            location_name='Istanbul', time_type=Story.TIME_EXACT, year=2001,
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['published_story_count'] == 1
+
+    def test_profile_photo_hidden_when_flag_false(self, client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(user=registered_user, is_photo_public=False)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['profile_photo'] is None
+
+    def test_location_hidden_when_flag_false(self, client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(
+            user=registered_user, location='Istanbul', is_location_public=False
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['location'] is None
+
+    def test_location_visible_when_flag_true(self, client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(
+            user=registered_user, location='Istanbul', is_location_public=True
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['location'] == 'Istanbul'
+
+    def test_bio_always_returned_when_profile_exists(self, client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(user=registered_user, bio='A historian.')
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['bio'] == 'A historian.'
+
+    def test_birth_year_hidden_when_flag_false(self, client, registered_user):
+        from apps.users.models import UserProfile
+        import datetime
+        UserProfile.objects.create(
+            user=registered_user,
+            birth_date=datetime.date(1990, 1, 1),
+            is_birth_date_public=False,
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['birth_year'] is None
+
+    def test_birth_year_returns_integer_year_only(self, client, registered_user):
+        # Req. 1.2.3.1: public profile exposes birth *year* only, not full date
+        from apps.users.models import UserProfile
+        import datetime
+        UserProfile.objects.create(
+            user=registered_user,
+            birth_date=datetime.date(1990, 5, 20),
+            is_birth_date_public=True,
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['birth_year'] == 1990
+        assert isinstance(response.data['birth_year'], int)
+
+    def test_inactive_user_returns_404(self, client, registered_user):
+        registered_user.is_active = False
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_no_profile_returns_null_for_optional_fields(self, client, registered_user):
+        # User with no UserProfile row
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['profile_photo'] is None
+        assert response.data['location'] is None
+        assert response.data['bio'] is None
+        assert response.data['birth_year'] is None

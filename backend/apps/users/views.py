@@ -6,10 +6,11 @@ from rest_framework.views import APIView
 from apps.users.serializers import (
     LoginSerializer,
     LogoutSerializer,
+    PublicUserProfileSerializer,
     RegisterSerializer,
     UserResponseSerializer,
 )
-from apps.users.services import login_user, logout_user, register_user
+from apps.users.services import get_public_profile, login_user, logout_user, register_user
 
 
 class RegisterView(APIView):
@@ -51,3 +52,16 @@ class LogoutView(APIView):
         serializer.is_valid(raise_exception=True)
         logout_user(serializer.validated_data['refresh'])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserPublicProfileView(APIView):
+    """GET /users/<user_id>/ — public profile for any user, no authentication required."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        user = get_public_profile(user_id)
+        return Response(
+            PublicUserProfileSerializer(user, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
