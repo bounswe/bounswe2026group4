@@ -8,3 +8,15 @@ export { Skeleton, SkeletonCard, SkeletonPage } from "./loading-skeleton";
 export { ErrorState } from "./error-state";
 export { EmptyState } from "./empty-state";
 export { Toaster } from "./toaster";
+export {
+  Sheet,
+  SheetPortal,
+  SheetOverlay,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from "./sheet";
