@@ -181,3 +181,9 @@ class TestGetPublicProfile:
         result = get_public_profile(self.user.pk)
         # select_related means profile is accessible without an extra query
         assert result.profile.bio == 'Historian'
+
+    def test_inactive_user_raises_404(self):
+        self.user.is_active = False
+        self.user.save()
+        with pytest.raises(Http404):
+            get_public_profile(self.user.pk)

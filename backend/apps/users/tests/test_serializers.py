@@ -177,7 +177,7 @@ class TestPublicUserProfileSerializer:
         data = self._serialize(user)
         assert data['bio'] == 'Historian'
 
-    def test_birth_date_hidden_when_flag_false(self):
+    def test_birth_year_hidden_when_flag_false(self):
         user = self._make_user()
         UserProfile.objects.create(
             user=user,
@@ -185,7 +185,19 @@ class TestPublicUserProfileSerializer:
             is_birth_date_public=False,
         )
         data = self._serialize(user)
-        assert data['birth_date'] is None
+        assert data['birth_year'] is None
+
+    def test_birth_year_returns_integer_year_only(self):
+        # Req. 1.2.3.1: public profile exposes birth *year* only, not full date
+        user = self._make_user()
+        UserProfile.objects.create(
+            user=user,
+            birth_date=datetime.date(1990, 5, 20),
+            is_birth_date_public=True,
+        )
+        data = self._serialize(user)
+        assert data['birth_year'] == 1990
+        assert isinstance(data['birth_year'], int)
 
     def test_no_profile_returns_null_for_optional_fields(self):
         user = self._make_user()
@@ -193,4 +205,4 @@ class TestPublicUserProfileSerializer:
         assert data['profile_photo'] is None
         assert data['location'] is None
         assert data['bio'] is None
-        assert data['birth_date'] is None
+        assert data['birth_year'] is None

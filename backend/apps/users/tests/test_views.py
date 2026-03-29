@@ -239,7 +239,7 @@ class TestUserPublicProfileView:
         response = client.get(self.url.format(user_id=registered_user.pk))
         assert response.data['bio'] == 'A historian.'
 
-    def test_birth_date_hidden_when_flag_false(self, client, registered_user):
+    def test_birth_year_hidden_when_flag_false(self, client, registered_user):
         from apps.users.models import UserProfile
         import datetime
         UserProfile.objects.create(
@@ -248,7 +248,26 @@ class TestUserPublicProfileView:
             is_birth_date_public=False,
         )
         response = client.get(self.url.format(user_id=registered_user.pk))
-        assert response.data['birth_date'] is None
+        assert response.data['birth_year'] is None
+
+    def test_birth_year_returns_integer_year_only(self, client, registered_user):
+        # Req. 1.2.3.1: public profile exposes birth *year* only, not full date
+        from apps.users.models import UserProfile
+        import datetime
+        UserProfile.objects.create(
+            user=registered_user,
+            birth_date=datetime.date(1990, 5, 20),
+            is_birth_date_public=True,
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['birth_year'] == 1990
+        assert isinstance(response.data['birth_year'], int)
+
+    def test_inactive_user_returns_404(self, client, registered_user):
+        registered_user.is_active = False
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_no_profile_returns_null_for_optional_fields(self, client, registered_user):
         # User with no UserProfile row
@@ -256,4 +275,4 @@ class TestUserPublicProfileView:
         assert response.data['profile_photo'] is None
         assert response.data['location'] is None
         assert response.data['bio'] is None
-        assert response.data['birth_date'] is None
+        assert response.data['birth_year'] is None
