@@ -1,9 +1,9 @@
-"""Integration tests for comment endpoints."""
+"""Integration tests for comment and like endpoints."""
 import pytest
 
 from rest_framework.test import APIClient
 
-from apps.interactions.models import Comment
+from apps.interactions.models import Comment, Like
 from apps.stories.models import Story
 from apps.users.models import RoleChoices, User
 
@@ -135,4 +135,88 @@ class TestCommentDelete:
 
     def test_delete_comment_not_found(self, auth_client):
         response = auth_client.delete(self.url.format(comment_id=99999))
+        assert response.status_code == 404
+
+
+# ── POST /stories/<story_id>/like/ ───────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryLike:
+    url = '/stories/{story_id}/like/'
+
+    def test_like_story_success(self, auth_client, story):
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 201
+        assert response.data['like']['story_id'] == story.pk
+        assert Like.objects.filter(story=story).count() == 1
+
+    def test_like_updates_story_like_count(self, auth_client, story):
+        auth_client.post(self.url.format(story_id=story.pk))
+        story.refresh_from_db()
+        assert story.like_count == 1
+
+    def test_like_response_contains_expected_fields(self, auth_client, story):
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 201
+        for field in ['id', 'story_id', 'created_at']:
+            assert field in response.data['like']
+
+    def test_like_story_unauthenticated(self, client, story):
+        response = client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 401
+
+    def test_like_story_not_found(self, auth_client):
+        response = auth_client.post(self.url.format(story_id=99999))
+        assert response.status_code == 404
+
+    def test_like_removed_story_returns_404(self, auth_client, story):
+        story.status = Story.STATUS_REMOVED
+        story.save()
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 404
+
+    def test_duplicate_like_returns_400(self, auth_client, story):
+        auth_client.post(self.url.format(story_id=story.pk))
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 400
+        # like_count must not double-count the rejected duplicate
+        story.refresh_from_db()
+        assert story.like_count == 1
+
+
+# ── DELETE /stories/<story_id>/like/ ─────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryUnlike:
+    url = '/stories/{story_id}/like/'
+
+    def test_unlike_story_success(self, auth_client, user, story):
+        Like.objects.create(user=user, story=story)
+        story.like_count = 1
+        story.save()
+
+        response = auth_client.delete(self.url.format(story_id=story.pk))
+        assert response.status_code == 204
+        assert not Like.objects.filter(user=user, story=story).exists()
+
+    def test_unlike_decrements_like_count(self, auth_client, user, story):
+        Like.objects.create(user=user, story=story)
+        story.like_count = 1
+        story.save()
+
+        auth_client.delete(self.url.format(story_id=story.pk))
+        story.refresh_from_db()
+        assert story.like_count == 0
+
+    def test_unlike_story_unauthenticated(self, client, user, story):
+        Like.objects.create(user=user, story=story)
+        response = client.delete(self.url.format(story_id=story.pk))
+        assert response.status_code == 401
+
+    def test_unlike_story_not_liked_returns_404(self, auth_client, story):
+        response = auth_client.delete(self.url.format(story_id=story.pk))
+        assert response.status_code == 404
+
+    def test_unlike_story_not_found(self, auth_client):
+        response = auth_client.delete(self.url.format(story_id=99999))
         assert response.status_code == 404
