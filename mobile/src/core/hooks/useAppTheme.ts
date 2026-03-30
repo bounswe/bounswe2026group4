@@ -1,5 +1,9 @@
-import { colors, spacing, typography } from '../../app/theme';
+import { useColorScheme } from 'react-native';
+import { darkColors, lightColors, spacing, typography } from '../../app/theme';
 
 export function useAppTheme() {
-  return { colors, spacing, typography };
+  const colorScheme = useColorScheme();
+  const colors = colorScheme === 'dark' ? darkColors : lightColors;
+
+  return { colors, spacing, typography, colorScheme };
 }
