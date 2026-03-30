@@ -1,23 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 
-// Mock react-leaflet before importing the page
-vi.mock("react-leaflet", () => ({
-  MapContainer: ({ children, ...props }) => (
-    <div data-testid="map-container" {...props}>
-      {children}
+// Mock MapPicker directly so we can trigger onChange
+vi.mock("@/components/MapPicker/MapPicker", () => ({
+  default: ({ value, onChange }) => (
+    <div data-testid="map-picker">
+      <button
+        data-testid="mock-map-click"
+        type="button"
+        onClick={() => onChange({ lat: 41.0082, lng: 28.9784 })}
+      >
+        Set Location
+      </button>
+      {value && <span>Selected: {value.lat}, {value.lng}</span>}
     </div>
   ),
-  TileLayer: () => null,
-  Marker: ({ children, ...props }) => (
-    <div data-testid="map-marker" {...props}>
-      {children}
-    </div>
-  ),
-  useMapEvents: () => null,
-  useMap: () => ({ setView: vi.fn() }),
 }));
 
 vi.mock("@/services/storyService", () => ({
@@ -58,7 +57,7 @@ describe("SubmitStoryPage", () => {
     expect(screen.getByLabelText(/narrative/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/place name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/time type/i)).toBeInTheDocument();
-    expect(screen.getByTestId("map-container")).toBeInTheDocument();
+    expect(screen.getByTestId("map-picker")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /submit story/i })
     ).toBeInTheDocument();
@@ -76,11 +75,11 @@ describe("SubmitStoryPage", () => {
     expect(
       screen.getByText(/please select a location on the map/i)
     ).toBeInTheDocument();
+    expect(screen.getByText(/year is required/i)).toBeInTheDocument();
   });
 
   it("shows year input for exact_year time type", () => {
     renderPage();
-    // default is exact_year
     expect(screen.getByLabelText(/^year$/i)).toBeInTheDocument();
   });
 
@@ -92,6 +91,36 @@ describe("SubmitStoryPage", () => {
 
     expect(screen.getByLabelText(/start year/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/end year/i)).toBeInTheDocument();
+  });
+
+  it("validates year range - start must be before end", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(screen.getByLabelText(/time type/i), "year_range");
+    await user.type(screen.getByLabelText(/start year/i), "1500");
+    await user.type(screen.getByLabelText(/end year/i), "1400");
+
+    await user.click(screen.getByTestId("mock-map-click"));
+    await user.type(screen.getByLabelText(/title/i), "My Story");
+    await user.type(screen.getByLabelText(/narrative/i), "A narrative");
+    await user.type(screen.getByLabelText(/place name/i), "Istanbul");
+
+    await user.click(screen.getByRole("button", { name: /submit story/i }));
+
+    expect(screen.getByText(/start year must be before end year/i)).toBeInTheDocument();
+  });
+
+  it("validates year range - both years required", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(screen.getByLabelText(/time type/i), "year_range");
+
+    await user.click(screen.getByRole("button", { name: /submit story/i }));
+
+    expect(screen.getByText(/start year is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/end year is required/i)).toBeInTheDocument();
   });
 
   it("rejects image files that are not JPG/PNG", () => {
@@ -123,7 +152,6 @@ describe("SubmitStoryPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    // Mock URL.createObjectURL
     const mockUrl = "blob:http://localhost/fake-image";
     vi.spyOn(URL, "createObjectURL").mockReturnValue(mockUrl);
 
@@ -148,14 +176,18 @@ describe("SubmitStoryPage", () => {
     await user.type(screen.getByLabelText(/place name/i), "Istanbul");
     await user.type(screen.getByLabelText(/^year$/i), "1453");
 
-    // We can't click the map in tests easily, so we'll test that validation
-    // blocks submission without location. Full integration would need e2e.
+    // Click mock map to set location
+    await user.click(screen.getByTestId("mock-map-click"));
+
     await user.click(screen.getByRole("button", { name: /submit story/i }));
 
-    // Should show location error since we can't click the mocked map
-    expect(
-      screen.getByText(/please select a location on the map/i)
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(createStory).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/");
+    });
+    expect(mockToast.success).toHaveBeenCalledWith("Story submitted successfully!");
   });
 
   it("shows API error message on submission failure", async () => {
@@ -165,17 +197,19 @@ describe("SubmitStoryPage", () => {
     });
     renderPage();
 
-    // Fill required fields (location will still block, but we test error display pattern)
     await user.type(screen.getByLabelText(/title/i), "My Story");
     await user.type(screen.getByLabelText(/narrative/i), "A great narrative");
     await user.type(screen.getByLabelText(/place name/i), "Istanbul");
+    await user.type(screen.getByLabelText(/^year$/i), "1453");
+
+    // Click mock map to set location
+    await user.click(screen.getByTestId("mock-map-click"));
 
     await user.click(screen.getByRole("button", { name: /submit story/i }));
 
-    // Location validation will trigger first
-    expect(
-      screen.getByText(/please select a location on the map/i)
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Server error");
+    });
   });
 
   it("renders tag checkboxes", () => {
@@ -193,7 +227,6 @@ describe("SubmitStoryPage", () => {
     await user.click(screen.getByLabelText(/war/i));
     await user.click(screen.getByLabelText(/culture/i));
 
-    // The 4th checkbox should be disabled
     expect(screen.getByLabelText(/trade/i)).toBeDisabled();
   });
 });

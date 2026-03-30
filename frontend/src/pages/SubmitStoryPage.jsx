@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
@@ -49,12 +49,33 @@ function SubmitStoryPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [imageError, setImageError] = useState("");
 
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
   function validateForm() {
     const errors = {};
     if (!title.trim()) errors.title = "Title is required";
     if (!narrative.trim()) errors.narrative = "Narrative is required";
     if (!placeName.trim()) errors.placeName = "Place name is required";
     if (!location) errors.location = "Please select a location on the map";
+
+    if (timeType === "year_range") {
+      if (!yearStart.toString().trim()) errors.yearStart = "Start year is required";
+      else if (isNaN(Number(yearStart))) errors.yearStart = "Start year must be a valid number";
+      if (!yearEnd.toString().trim()) errors.yearEnd = "End year is required";
+      else if (isNaN(Number(yearEnd))) errors.yearEnd = "End year must be a valid number";
+      if (!errors.yearStart && !errors.yearEnd && Number(yearStart) >= Number(yearEnd)) {
+        errors.yearStart = "Start year must be before end year";
+      }
+    } else {
+      if (!year.toString().trim()) errors.year = "Year is required";
+      else if (isNaN(Number(year))) errors.year = "Year must be a valid number";
+    }
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -86,6 +107,9 @@ function SubmitStoryPage() {
       return;
     }
 
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   }
@@ -262,10 +286,17 @@ function SubmitStoryPage() {
                   id="yearStart"
                   type="number"
                   value={yearStart}
-                  onChange={(e) => setYearStart(e.target.value)}
+                  onChange={(e) => {
+                    setYearStart(e.target.value);
+                    if (fieldErrors.yearStart)
+                      setFieldErrors((prev) => ({ ...prev, yearStart: "" }));
+                  }}
                   placeholder="e.g. 1400"
                   disabled={isSubmitting}
                 />
+                {fieldErrors.yearStart && (
+                  <p className="text-sm text-destructive">{fieldErrors.yearStart}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="yearEnd">End Year</Label>
@@ -273,10 +304,17 @@ function SubmitStoryPage() {
                   id="yearEnd"
                   type="number"
                   value={yearEnd}
-                  onChange={(e) => setYearEnd(e.target.value)}
+                  onChange={(e) => {
+                    setYearEnd(e.target.value);
+                    if (fieldErrors.yearEnd)
+                      setFieldErrors((prev) => ({ ...prev, yearEnd: "" }));
+                  }}
                   placeholder="e.g. 1500"
                   disabled={isSubmitting}
                 />
+                {fieldErrors.yearEnd && (
+                  <p className="text-sm text-destructive">{fieldErrors.yearEnd}</p>
+                )}
               </div>
             </div>
           ) : (
@@ -286,10 +324,17 @@ function SubmitStoryPage() {
                 id="year"
                 type="number"
                 value={year}
-                onChange={(e) => setYear(e.target.value)}
+                onChange={(e) => {
+                  setYear(e.target.value);
+                  if (fieldErrors.year)
+                    setFieldErrors((prev) => ({ ...prev, year: "" }));
+                }}
                 placeholder="e.g. 1453"
                 disabled={isSubmitting}
               />
+              {fieldErrors.year && (
+                <p className="text-sm text-destructive">{fieldErrors.year}</p>
+              )}
             </div>
           )}
 

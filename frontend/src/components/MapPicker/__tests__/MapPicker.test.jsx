@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
+let mapEventHandlers = {};
+
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children, ...props }) => (
     <div data-testid="map-container" {...props}>
@@ -13,7 +15,10 @@ vi.mock("react-leaflet", () => ({
       {children}
     </div>
   ),
-  useMapEvents: () => null,
+  useMapEvents: (handlers) => {
+    mapEventHandlers = handlers;
+    return null;
+  },
   useMap: () => ({ setView: vi.fn() }),
 }));
 
@@ -50,5 +55,14 @@ describe("MapPicker", () => {
     expect(
       screen.getByText(/click on the map to select a location/i)
     ).toBeInTheDocument();
+  });
+
+  it("calls onChange when map is clicked", () => {
+    const onChange = vi.fn();
+    render(<MapPicker value={null} onChange={onChange} />);
+
+    mapEventHandlers.click({ latlng: { lat: 41.0, lng: 29.0 } });
+
+    expect(onChange).toHaveBeenCalledWith({ lat: 41.0, lng: 29.0 });
   });
 });
