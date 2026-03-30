@@ -2,50 +2,52 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
-interface ErrorStateProps {
+interface NotFoundPageProps {
   title?: string;
   message?: string;
-  retryLabel?: string;
-  onRetry?: () => void;
+  actionLabel?: string;
+  onGoBack?: () => void;
   fullScreen?: boolean;
 }
 
-export function ErrorState({
-  title = 'Something went wrong',
-  message = 'Please try again in a moment.',
-  retryLabel = 'Try again',
-  onRetry,
-  fullScreen = false,
-}: ErrorStateProps) {
+export function NotFoundPage({
+  title = 'Page not found',
+  message = "We couldn't find the screen you were looking for.",
+  actionLabel = 'Back to home',
+  onGoBack,
+  fullScreen = true,
+}: NotFoundPageProps) {
   const { colors, spacing, typography } = useAppTheme();
 
   return (
     <View
       style={{
         flex: fullScreen ? 1 : undefined,
-        minHeight: fullScreen ? undefined : 180,
-        padding: spacing.lg,
-        justifyContent: 'center',
-        alignItems: 'center',
+        minHeight: fullScreen ? undefined : 280,
+        padding: spacing.xl,
         backgroundColor: colors.background,
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <View
         style={{
-          width: 52,
-          height: 52,
-          borderRadius: 26,
-          backgroundColor: colors.dangerSurface,
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: colors.danger, fontSize: typography.subtitle }}>!</Text>
+        <Text style={{ fontSize: 30, fontWeight: '700', color: colors.text }}>404</Text>
       </View>
       <Text
         style={{
-          marginTop: spacing.md,
-          fontSize: typography.subtitle,
+          marginTop: spacing.lg,
+          fontSize: typography.title,
           fontWeight: '700',
           color: colors.text,
           textAlign: 'center',
@@ -63,9 +65,9 @@ export function ErrorState({
       >
         {message}
       </Text>
-      {onRetry ? (
+      {onGoBack ? (
         <Pressable
-          onPress={onRetry}
+          onPress={onGoBack}
           style={{
             marginTop: spacing.lg,
             paddingHorizontal: spacing.lg,
@@ -74,7 +76,7 @@ export function ErrorState({
             backgroundColor: colors.primary,
           }}
         >
-          <Text style={{ color: colors.background, fontWeight: '600' }}>{retryLabel}</Text>
+          <Text style={{ color: colors.background, fontWeight: '600' }}>{actionLabel}</Text>
         </Pressable>
       ) : null}
     </View>

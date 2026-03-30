@@ -1,9 +1,21 @@
 import React, { PropsWithChildren } from 'react';
 import { Pressable, Text } from 'react-native';
+import { colors, spacing } from '../../../app/theme';
 
-export function Button({ children }: PropsWithChildren) {
+interface ButtonProps extends PropsWithChildren {
+  onPress?: () => void;
+}
+
+export function Button({ children, onPress }: ButtonProps) {
   return (
-    <Pressable style={{ padding: 12, borderRadius: 8, backgroundColor: '#2E6BE6' }}>
+    <Pressable
+      onPress={onPress}
+      style={{
+        padding: spacing.md - 4,
+        borderRadius: 8,
+        backgroundColor: colors.primary,
+      }}
+    >
       <Text style={{ color: '#FFFFFF' }}>{children ?? 'Button'}</Text>
     </Pressable>
   );
