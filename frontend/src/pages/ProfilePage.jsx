@@ -24,15 +24,24 @@ function ProfilePage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const fetchData = useCallback(async (page) => {
+  const fetchProfile = useCallback(async () => {
+    try {
+      const profileData = await getProfile();
+      setProfile(profileData);
+    } catch (err) {
+      setError(
+        err?.response?.data?.detail ||
+          err?.message ||
+          "Failed to load profile. Please try again."
+      );
+    }
+  }, []);
+
+  const fetchStories = useCallback(async (page) => {
     setLoading(true);
     setError(null);
     try {
-      const [profileData, storiesData] = await Promise.all([
-        getProfile(),
-        getUserStories({ page, pageSize: PAGE_SIZE }),
-      ]);
-      setProfile(profileData);
+      const storiesData = await getUserStories({ page, pageSize: PAGE_SIZE });
       setStories(storiesData.results);
       setTotalCount(storiesData.count);
       setHasNext(Boolean(storiesData.next));
@@ -49,8 +58,12 @@ function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    fetchData(currentPage);
-  }, [currentPage, fetchData]);
+    fetchProfile();
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    fetchStories(currentPage);
+  }, [currentPage, fetchStories]);
 
   function handleNext() {
     if (hasNext) setCurrentPage((p) => p + 1);
@@ -78,7 +91,7 @@ function ProfilePage() {
     return (
       <main className="min-h-screen bg-background">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <ErrorState message={error} onRetry={() => fetchData(currentPage)} />
+          <ErrorState message={error} onRetry={() => { fetchProfile(); fetchStories(currentPage); }} />
         </div>
       </main>
     );
@@ -116,10 +129,7 @@ function ProfilePage() {
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <BookOpen className="h-4 w-4" aria-hidden="true" />
                 <span>
-                  {profile.story_count ?? totalCount ?? stories.length}{" "}
-                  {(profile.story_count ?? totalCount ?? stories.length) === 1
-                    ? "story"
-                    : "stories"}
+                  {totalCount} {totalCount === 1 ? "story" : "stories"}
                 </span>
               </div>
             </div>

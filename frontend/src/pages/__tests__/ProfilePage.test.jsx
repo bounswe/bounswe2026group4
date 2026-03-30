@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 import ProfilePage from "../ProfilePage";
-import { AuthContext } from "@/context/AuthContext";
 
 vi.mock("@/services/userService", () => ({
   getProfile: vi.fn(),
@@ -18,12 +17,6 @@ vi.mock("react-router-dom", async () => {
 });
 
 import { getProfile, getUserStories } from "@/services/userService";
-
-const mockUser = {
-  id: 1,
-  username: "historian",
-  email: "historian@example.com",
-};
 
 const mockProfileData = {
   id: 1,
@@ -59,12 +52,10 @@ function makeStoriesResponse(overrides = {}) {
   };
 }
 
-function renderPage(authValue = { user: mockUser, isAuthenticated: true }) {
+function renderPage() {
   return render(
     <MemoryRouter>
-      <AuthContext.Provider value={authValue}>
-        <ProfilePage />
-      </AuthContext.Provider>
+      <ProfilePage />
     </MemoryRouter>
   );
 }
@@ -247,5 +238,40 @@ describe("ProfilePage", () => {
     });
 
     expect(getUserStories).toHaveBeenCalledWith({ page: 2, pageSize: 12 });
+  });
+
+  it("only calls getProfile once when paginating", async () => {
+    const user = userEvent.setup();
+    getProfile.mockResolvedValue({ ...mockProfileData, story_count: 24 });
+    getUserStories
+      .mockResolvedValueOnce(
+        makeStoriesResponse({
+          count: 24,
+          next: "http://api/users/me/stories/?page=2",
+          previous: null,
+        })
+      )
+      .mockResolvedValueOnce(
+        makeStoriesResponse({
+          count: 24,
+          next: null,
+          previous: "http://api/users/me/stories/?page=1",
+          results: [makeStory(3), makeStory(4)],
+        })
+      );
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    });
+
+    const nextBtn = screen.getByRole("button", { name: /next page/i });
+    await user.click(nextBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+    });
+
+    expect(getProfile).toHaveBeenCalledTimes(1);
   });
 });
