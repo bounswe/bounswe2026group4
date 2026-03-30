@@ -178,4 +178,74 @@ describe("ProfilePage", () => {
 
     expect(mockNavigate).toHaveBeenCalledWith("/stories/new");
   });
+
+  it("displays singular 'story' when story_count is 1", async () => {
+    getProfile.mockResolvedValue({ ...mockProfileData, story_count: 1 });
+    getUserStories.mockResolvedValue(
+      makeStoriesResponse({ count: 1, results: [makeStory(1)] })
+    );
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 story/i)).toBeInTheDocument();
+    });
+    // Make sure it doesn't say "stories"
+    expect(screen.queryByText(/1 stories/i)).not.toBeInTheDocument();
+  });
+
+  it("shows pagination controls with Previous/Next buttons", async () => {
+    getProfile.mockResolvedValue({ ...mockProfileData, story_count: 24 });
+    getUserStories.mockResolvedValue(
+      makeStoriesResponse({
+        count: 24,
+        next: "http://api/users/me/stories/?page=2",
+        previous: null,
+      })
+    );
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    });
+
+    const prevBtn = screen.getByRole("button", { name: /previous page/i });
+    const nextBtn = screen.getByRole("button", { name: /next page/i });
+    expect(prevBtn).toBeDisabled();
+    expect(nextBtn).not.toBeDisabled();
+  });
+
+  it("navigates to next page when Next is clicked", async () => {
+    const user = userEvent.setup();
+    getProfile.mockResolvedValue({ ...mockProfileData, story_count: 24 });
+    getUserStories
+      .mockResolvedValueOnce(
+        makeStoriesResponse({
+          count: 24,
+          next: "http://api/users/me/stories/?page=2",
+          previous: null,
+        })
+      )
+      .mockResolvedValueOnce(
+        makeStoriesResponse({
+          count: 24,
+          next: null,
+          previous: "http://api/users/me/stories/?page=1",
+          results: [makeStory(3), makeStory(4)],
+        })
+      );
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    });
+
+    const nextBtn = screen.getByRole("button", { name: /next page/i });
+    await user.click(nextBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+    });
+
+    expect(getUserStories).toHaveBeenCalledWith({ page: 2, pageSize: 12 });
+  });
 });

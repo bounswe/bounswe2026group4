@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, BookOpen, Mail, CalendarDays } from "lucide-react";
+import { User, BookOpen, Mail, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { SkeletonPage } from "@/components/ui/loading-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import StoryCard from "@/components/StoryCard/StoryCard";
 import { getProfile, getUserStories } from "@/services/userService";
+
+const PAGE_SIZE = 12;
 
 function ProfilePage() {
   const navigate = useNavigate();
@@ -14,17 +17,26 @@ function ProfilePage() {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const fetchData = useCallback(async (page) => {
     setLoading(true);
     setError(null);
     try {
       const [profileData, storiesData] = await Promise.all([
         getProfile(),
-        getUserStories(),
+        getUserStories({ page, pageSize: PAGE_SIZE }),
       ]);
       setProfile(profileData);
       setStories(storiesData.results);
+      setTotalCount(storiesData.count);
+      setHasNext(Boolean(storiesData.next));
+      setHasPrevious(Boolean(storiesData.previous));
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
@@ -37,8 +49,16 @@ function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(currentPage);
+  }, [currentPage, fetchData]);
+
+  function handleNext() {
+    if (hasNext) setCurrentPage((p) => p + 1);
+  }
+
+  function handlePrevious() {
+    if (hasPrevious) setCurrentPage((p) => p - 1);
+  }
 
   if (loading) {
     return (
@@ -58,7 +78,7 @@ function ProfilePage() {
     return (
       <main className="min-h-screen bg-background">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <ErrorState message={error} onRetry={fetchData} />
+          <ErrorState message={error} onRetry={() => fetchData(currentPage)} />
         </div>
       </main>
     );
@@ -96,8 +116,8 @@ function ProfilePage() {
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <BookOpen className="h-4 w-4" aria-hidden="true" />
                 <span>
-                  {profile.story_count ?? stories.length}{" "}
-                  {(profile.story_count ?? stories.length) === 1
+                  {profile.story_count ?? totalCount ?? stories.length}{" "}
+                  {(profile.story_count ?? totalCount ?? stories.length) === 1
                     ? "story"
                     : "stories"}
                 </span>
@@ -118,14 +138,46 @@ function ProfilePage() {
             onAction={() => navigate("/stories/new")}
           />
         ) : (
-          <section
-            className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
-            aria-label="Your stories"
-          >
-            {stories.map((story) => (
-              <StoryCard key={story.id} story={story} />
-            ))}
-          </section>
+          <>
+            <section
+              className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              aria-label="Your stories"
+            >
+              {stories.map((story) => (
+                <StoryCard key={story.id} story={story} />
+              ))}
+            </section>
+
+            {/* Pagination */}
+            <nav
+              className="mt-10 flex items-center justify-center gap-4"
+              aria-label="Pagination"
+            >
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={!hasPrevious}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+                Previous
+              </Button>
+
+              <span className="text-sm text-muted-foreground" aria-live="polite">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                onClick={handleNext}
+                disabled={!hasNext}
+                aria-label="Next page"
+              >
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+              </Button>
+            </nav>
+          </>
         )}
       </div>
     </main>
