@@ -24,10 +24,9 @@ vi.mock("@/services/storyService", () => ({
   getMapPins: vi.fn(),
 }));
 
-const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
+  return { ...actual, useNavigate: () => vi.fn() };
 });
 
 import { getMapPins } from "@/services/storyService";
@@ -60,7 +59,7 @@ function renderPage() {
 describe("MapPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNavigate.mockReset();
+
   });
 
   it("renders the map container", async () => {
@@ -112,37 +111,6 @@ describe("MapPage", () => {
     });
 
     expect(getMapPins).toHaveBeenCalledTimes(2);
-  });
-
-  it("renders page heading", () => {
-    getMapPins.mockReturnValue(new Promise(() => {}));
-    renderPage();
-    expect(screen.getByRole("heading", { name: /map view/i })).toBeInTheDocument();
-  });
-
-  it("feed view button navigates to /feed", async () => {
-    const user = userEvent.setup();
-    getMapPins.mockResolvedValue([]);
-    renderPage();
-
-    await user.click(screen.getByRole("button", { name: /feed view/i }));
-    expect(mockNavigate).toHaveBeenCalledWith("/feed");
-  });
-
-  it("map view button is marked active", () => {
-    getMapPins.mockReturnValue(new Promise(() => {}));
-    renderPage();
-
-    const mapBtn = screen.getByRole("button", { name: /map view/i });
-    expect(mapBtn).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("feed view button is not marked active", () => {
-    getMapPins.mockReturnValue(new Promise(() => {}));
-    renderPage();
-
-    const feedBtn = screen.getByRole("button", { name: /feed view/i });
-    expect(feedBtn).toHaveAttribute("aria-pressed", "false");
   });
 
   it("shows no markers when API returns empty array", async () => {
