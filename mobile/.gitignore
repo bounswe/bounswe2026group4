@@ -1,6 +1,10 @@
 node_modules
 .expo
+.expo-home
+.expo-cache
+.expo-appdata
 .expo-shared
+expo-*.log
 dist
 .env
 npm-debug.log*
