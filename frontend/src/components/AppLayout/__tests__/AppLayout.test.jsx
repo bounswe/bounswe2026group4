@@ -115,4 +115,30 @@ describe("AppLayout", () => {
 
     expect(screen.getByText("Toggle menu")).toBeInTheDocument();
   });
+
+  it("mobile drawer Login button navigates to /login", async () => {
+    const user = userEvent.setup();
+    renderWithRouter();
+
+    // Open the drawer — sheet portals its content into the DOM after this
+    await user.click(screen.getByRole("button", { name: /toggle menu/i }));
+
+    // Two Login buttons now exist (desktop + drawer); click the drawer one (last)
+    const loginButtons = await screen.findAllByRole("button", { name: /^login$/i });
+    await user.click(loginButtons[loginButtons.length - 1]);
+
+    expect(await screen.findByText("Login Content")).toBeInTheDocument();
+  });
+
+  it("mobile drawer Register button navigates to /register", async () => {
+    const user = userEvent.setup();
+    renderWithRouter();
+
+    await user.click(screen.getByRole("button", { name: /toggle menu/i }));
+
+    const registerButtons = await screen.findAllByRole("button", { name: /^register$/i });
+    await user.click(registerButtons[registerButtons.length - 1]);
+
+    expect(await screen.findByText("Register Content")).toBeInTheDocument();
+  });
 });

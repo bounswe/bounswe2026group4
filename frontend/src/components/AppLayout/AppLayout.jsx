@@ -47,11 +47,6 @@ function AppLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
-
-  const handleMobileLogout = () => {
     setSheetOpen(false);
     logout();
     navigate("/");
@@ -103,11 +98,11 @@ function AppLayout() {
                 </>
               ) : (
                 <>
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link to="/login">Login</Link>
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
+                    Login
                   </Button>
-                  <Button size="sm" asChild>
-                    <Link to="/register">Register</Link>
+                  <Button size="sm" onClick={() => navigate("/register")}>
+                    Register
                   </Button>
                 </>
               )}
@@ -150,7 +145,7 @@ function AppLayout() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={handleMobileLogout}
+                        onClick={handleLogout}
                         className="justify-start"
                       >
                         <LogOut className="h-4 w-4 mr-1" />
