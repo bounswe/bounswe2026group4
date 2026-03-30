@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { Clock, ChevronLeft, ChevronRight, Plus, User, Map, List } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SkeletonCard } from "@/components/ui/loading-skeleton";
@@ -12,7 +11,6 @@ import { getStories } from "@/services/storyService";
 const PAGE_SIZE = 12;
 
 function FeedPage() {
-  const navigate = useNavigate();
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -72,29 +70,6 @@ function FeedPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* View toggle: Feed ↔ Map */}
-            <div className="flex rounded-md border border-input overflow-hidden" role="group" aria-label="View toggle">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Feed view"
-                aria-pressed="true"
-                className="rounded-none border-r border-input h-9 w-9 bg-accent"
-              >
-                <List aria-hidden="true" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Map view"
-                aria-pressed="false"
-                className="rounded-none h-9 w-9"
-                onClick={() => navigate("/map")}
-              >
-                <Map aria-hidden="true" />
-              </Button>
-            </div>
-
             {/* Sort toggle */}
             <Button
               variant="outline"
@@ -102,25 +77,6 @@ function FeedPage() {
             >
               <Clock aria-hidden="true" />
               <span className="hidden sm:inline">Most Recent</span>
-            </Button>
-
-            {/* Add story */}
-            <Button
-              size="icon"
-              aria-label="Add story"
-              onClick={() => navigate("/stories/new")}
-            >
-              <Plus aria-hidden="true" />
-            </Button>
-
-            {/* Profile */}
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Profile"
-              onClick={() => navigate("/profile")}
-            >
-              <User aria-hidden="true" />
             </Button>
           </div>
         </div>

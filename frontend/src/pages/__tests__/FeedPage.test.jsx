@@ -9,12 +9,6 @@ vi.mock("@/services/storyService", () => ({
   getStories: vi.fn(),
 }));
 
-const mockNavigate = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
-});
-
 import { getStories } from "@/services/storyService";
 
 function makeStory(id, overrides = {}) {
@@ -54,7 +48,6 @@ function renderPage() {
 describe("FeedPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNavigate.mockReset();
   });
 
   it("shows loading skeletons while fetching", () => {
@@ -253,46 +246,4 @@ describe("FeedPage", () => {
     });
   });
 
-  it("map view button navigates to /map", async () => {
-    const user = userEvent.setup();
-    getStories.mockResolvedValue(makeResponse());
-    renderPage();
-
-    await user.click(screen.getByRole("button", { name: /map view/i }));
-    expect(mockNavigate).toHaveBeenCalledWith("/map");
-  });
-
-  it("add story button navigates to /stories/new", async () => {
-    const user = userEvent.setup();
-    getStories.mockResolvedValue(makeResponse());
-    renderPage();
-
-    await user.click(screen.getByRole("button", { name: /add story/i }));
-    expect(mockNavigate).toHaveBeenCalledWith("/stories/new");
-  });
-
-  it("profile button navigates to /profile", async () => {
-    const user = userEvent.setup();
-    getStories.mockResolvedValue(makeResponse());
-    renderPage();
-
-    await user.click(screen.getByRole("button", { name: /^profile$/i }));
-    expect(mockNavigate).toHaveBeenCalledWith("/profile");
-  });
-
-  it("feed view button is marked active", () => {
-    getStories.mockReturnValue(new Promise(() => {}));
-    renderPage();
-
-    const feedBtn = screen.getByRole("button", { name: /feed view/i });
-    expect(feedBtn).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("map view button is not marked active on feed page", () => {
-    getStories.mockReturnValue(new Promise(() => {}));
-    renderPage();
-
-    const mapBtn = screen.getByRole("button", { name: /map view/i });
-    expect(mapBtn).toHaveAttribute("aria-pressed", "false");
-  });
 });
