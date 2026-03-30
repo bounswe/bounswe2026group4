@@ -274,4 +274,17 @@ describe("ProfilePage", () => {
 
     expect(getProfile).toHaveBeenCalledTimes(1);
   });
+
+  it("shows error state (not crash) when profile fails but stories succeed", async () => {
+    getProfile.mockRejectedValue(new Error("Unauthorized"));
+    getUserStories.mockResolvedValue(makeStoriesResponse());
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+
+    // Should not crash trying to render profile.username
+    expect(screen.queryByText("historian")).not.toBeInTheDocument();
+  });
 });

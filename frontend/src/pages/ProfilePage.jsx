@@ -28,6 +28,7 @@ function ProfilePage() {
     try {
       const profileData = await getProfile();
       setProfile(profileData);
+      setError(null);
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
@@ -39,7 +40,6 @@ function ProfilePage() {
 
   const fetchStories = useCallback(async (page) => {
     setLoading(true);
-    setError(null);
     try {
       const storiesData = await getUserStories({ page, pageSize: PAGE_SIZE });
       setStories(storiesData.results);
@@ -85,6 +85,10 @@ function ProfilePage() {
         </div>
       </main>
     );
+  }
+
+  if (!profile && !loading && !error) {
+    return null;
   }
 
   if (error) {
