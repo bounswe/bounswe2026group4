@@ -3,8 +3,8 @@ import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 
 function StoryPopup({ story }) {
   const timePeriod = formatTimePeriod(story);
-  const previewWords = (story.preview_text || "").split(/\s+/).slice(0, 20).join(" ");
-  const preview = previewWords + (story.preview_text && story.preview_text.split(/\s+/).length > 20 ? "..." : "");
+  const words = (story.preview_text || "").split(/\s+/);
+  const preview = words.slice(0, 20).join(" ") + (words.length > 20 ? "..." : "");
 
   return (
     <div className="max-w-xs">
