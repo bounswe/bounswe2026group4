@@ -7,7 +7,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
-from apps.users.models import EmailVerificationCode, User
+from apps.users.models import EmailVerificationCode, User, UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,42 @@ def logout_user(refresh_token: str) -> None:
     except TokenError:
         # Token is already blacklisted or malformed — treat as already logged out
         raise ValidationError({'refresh': 'Token is invalid or already blacklisted.'})
+
+
+def get_own_profile(user: User) -> User:
+    """
+    Returns the authenticated user with their profile pre-fetched, creating the
+    UserProfile row if it does not yet exist.
+
+    get_or_create guarantees the profile is present so the view and serializer
+    never have to handle a missing profile for the owner.
+    """
+    UserProfile.objects.get_or_create(user=user)
+    return User.objects.select_related('profile').get(pk=user.pk)
+
+
+def update_own_profile(user: User, user_fields: dict, profile_fields: dict) -> User:
+    """
+    Applies partial updates to the user's own User and UserProfile records.
+
+    user_fields maps to User model attributes (username, is_username_public).
+    profile_fields maps to UserProfile attributes (bio, location, birth_date, etc.).
+    The UserProfile row is created via get_or_create when profile_fields is non-empty,
+    so callers do not need to ensure the profile exists beforehand.
+    Returns the updated user with the profile pre-fetched.
+    """
+    if user_fields:
+        for attr, value in user_fields.items():
+            setattr(user, attr, value)
+        user.save(update_fields=list(user_fields.keys()))
+
+    if profile_fields:
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        for attr, value in profile_fields.items():
+            setattr(profile, attr, value)
+        profile.save(update_fields=list(profile_fields.keys()))
+
+    return User.objects.select_related('profile').get(pk=user.pk)
 
 
 def get_public_profile(user_id: int) -> User:
