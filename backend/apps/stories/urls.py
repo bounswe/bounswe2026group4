@@ -1,12 +1,13 @@
 from django.urls import path
 
-from apps.stories.views import StoryDetailView, StoryFeedView, StoryListCreateView, StorySearchView
+from apps.stories.views import StoryDetailView, StoryFeedView, StoryListCreateView, StoryMapView, StorySearchView
 
 app_name = 'stories'
 
 urlpatterns = [
     path('', StoryListCreateView.as_view(), name='story-list-create'),
-    path('<int:pk>/', StoryDetailView.as_view(), name='story-detail'),
     path('feed/', StoryFeedView.as_view(), name='story-feed'),
+    path('map/', StoryMapView.as_view(), name='story-map'),
     path('search/', StorySearchView.as_view(), name='story-search'),
+    path('<int:pk>/', StoryDetailView.as_view(), name='story-detail'),
 ]
