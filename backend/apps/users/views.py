@@ -4,13 +4,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.serializers import (
+    CurrentUserSerializer,
     LoginSerializer,
     LogoutSerializer,
     PublicUserProfileSerializer,
     RegisterSerializer,
+    UpdateCurrentUserSerializer,
     UserResponseSerializer,
 )
-from apps.users.services import get_public_profile, login_user, logout_user, register_user
+from apps.users.services import get_own_profile, get_public_profile, login_user, logout_user, register_user, update_own_profile
+from common.permissions import IsRegisteredUser
 
 
 class RegisterView(APIView):
@@ -52,6 +55,27 @@ class LogoutView(APIView):
         serializer.is_valid(raise_exception=True)
         logout_user(serializer.validated_data['refresh'])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CurrentUserView(APIView):
+    """GET and PATCH /users/me/ — authenticated user's own full profile."""
+
+    permission_classes = [IsRegisteredUser]
+
+    def get(self, request):
+        user = get_own_profile(request.user)
+        serializer = CurrentUserSerializer(user, context={'request': request})
+        return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        serializer = UpdateCurrentUserSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user_fields, profile_fields = serializer.split_validated_data()
+        user = update_own_profile(request.user, user_fields, profile_fields)
+        return Response(
+            {'success': True, 'data': CurrentUserSerializer(user, context={'request': request}).data},
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserPublicProfileView(APIView):

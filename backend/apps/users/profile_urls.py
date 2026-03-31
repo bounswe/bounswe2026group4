@@ -1,12 +1,13 @@
 from django.urls import path
 
-from apps.users.views import UserPublicProfileView
+from apps.users.views import CurrentUserView, UserPublicProfileView
 
 app_name = 'users_profile'
 
-# Registered under 'users/' in config/urls.py, giving GET /users/{id}/.
-# Kept separate from auth/users.urls to avoid namespace conflicts with the
-# existing 'auth/' include.
+# Registered under 'users/' in config/urls.py.
+# 'me/' is listed before '<int:user_id>/' as a matter of convention; Django's
+# int converter already prevents 'me' from matching the parameterised route.
 urlpatterns = [
+    path('me/', CurrentUserView.as_view(), name='current-user'),
     path('<int:user_id>/', UserPublicProfileView.as_view(), name='user-public-profile'),
 ]

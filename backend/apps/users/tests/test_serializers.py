@@ -5,7 +5,13 @@ import pytest
 from django.db.models import Value
 
 from apps.users.models import User, UserProfile
-from apps.users.serializers import LoginSerializer, PublicUserProfileSerializer, RegisterSerializer
+from apps.users.serializers import (
+    CurrentUserSerializer,
+    LoginSerializer,
+    PublicUserProfileSerializer,
+    RegisterSerializer,
+    UpdateCurrentUserSerializer,
+)
 from apps.stories.models import Story
 
 
@@ -206,3 +212,161 @@ class TestPublicUserProfileSerializer:
         assert data['location'] is None
         assert data['bio'] is None
         assert data['birth_year'] is None
+
+
+# ── CurrentUserSerializer ─────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestCurrentUserSerializer:
+    def _make_user(self, **kwargs):
+        defaults = dict(email='me@example.com', username='meuser', password='Password1')
+        defaults.update(kwargs)
+        return User.objects.create_user(**defaults)
+
+    def test_contains_all_expected_fields(self):
+        user = self._make_user()
+        data = CurrentUserSerializer(user).data
+        for field in ['id', 'email', 'username', 'role', 'is_username_public',
+                      'is_email_verified', 'date_joined', 'total_points', 'profile']:
+            assert field in data
+
+    def test_field_values_match_user(self):
+        user = self._make_user()
+        data = CurrentUserSerializer(user).data
+        assert data['email'] == 'me@example.com'
+        assert data['username'] == 'meuser'
+        assert data['role'] == 'registered_user'
+
+    def test_profile_is_none_when_no_profile_exists(self):
+        user = self._make_user()
+        data = CurrentUserSerializer(user).data
+        assert data['profile'] is None
+
+    def test_profile_nested_when_profile_exists(self):
+        user = self._make_user()
+        UserProfile.objects.create(user=user, location='Istanbul', bio='Historian')
+        data = CurrentUserSerializer(user).data
+        assert data['profile'] is not None
+        assert data['profile']['location'] == 'Istanbul'
+        assert data['profile']['bio'] == 'Historian'
+
+    def test_profile_returns_all_privacy_flags_to_owner(self):
+        # Owner always sees privacy flags regardless of their value (no visibility filtering)
+        user = self._make_user()
+        UserProfile.objects.create(user=user, is_location_public=False, is_birth_date_public=False)
+        data = CurrentUserSerializer(user).data
+        assert data['profile']['is_location_public'] is False
+        assert data['profile']['is_birth_date_public'] is False
+
+    def test_profile_birth_date_returned_as_full_date_not_year_only(self):
+        # Unlike the public profile, the owner sees the full birth_date, not just the year
+        user = self._make_user()
+        UserProfile.objects.create(user=user, birth_date=datetime.date(1990, 5, 20))
+        data = CurrentUserSerializer(user).data
+        assert data['profile']['birth_date'] == '1990-05-20'
+
+    def test_profile_photo_none_when_not_set(self):
+        user = self._make_user()
+        UserProfile.objects.create(user=user)
+        data = CurrentUserSerializer(user).data
+        assert data['profile']['profile_photo'] is None
+
+
+# ── UpdateCurrentUserSerializer ───────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUpdateCurrentUserSerializer:
+    def _make_user(self, **kwargs):
+        defaults = dict(email='upd@example.com', username='upduser', password='Password1')
+        defaults.update(kwargs)
+        return User.objects.create_user(**defaults)
+
+    def _make_request(self, user):
+        from unittest.mock import Mock
+        req = Mock()
+        req.user = user
+        return req
+
+    def test_valid_new_username_passes(self):
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={'username': 'newname'}, context={'request': self._make_request(user)}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+    def test_same_username_as_own_passes(self):
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={'username': user.username}, context={'request': self._make_request(user)}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+    def test_duplicate_username_from_other_user_fails(self):
+        user = self._make_user()
+        User.objects.create_user(email='other@example.com', username='takenname', password='Password1')
+        serializer = UpdateCurrentUserSerializer(
+            data={'username': 'takenname'}, context={'request': self._make_request(user)}
+        )
+        assert not serializer.is_valid()
+        assert 'username' in serializer.errors
+
+    def test_username_too_short_fails(self):
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={'username': 'ab'}, context={'request': self._make_request(user)}
+        )
+        assert not serializer.is_valid()
+        assert 'username' in serializer.errors
+
+    def test_empty_data_passes(self):
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={}, context={'request': self._make_request(user)}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+    def test_profile_only_passes(self):
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={'profile': {'bio': 'Bio text', 'location': 'Ankara'}},
+            context={'request': self._make_request(user)},
+        )
+        assert serializer.is_valid(), serializer.errors
+
+    def test_split_validated_data_separates_user_and_profile_fields(self):
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={
+                'username': 'newname',
+                'is_username_public': False,
+                'profile': {'bio': 'A historian', 'location': 'Ankara'},
+            },
+            context={'request': self._make_request(user)},
+        )
+        assert serializer.is_valid(), serializer.errors
+        user_fields, profile_fields = serializer.split_validated_data()
+        assert user_fields == {'username': 'newname', 'is_username_public': False}
+        assert profile_fields == {'bio': 'A historian', 'location': 'Ankara'}
+
+    def test_split_validated_data_empty_profile_when_not_provided(self):
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={'username': 'newname'}, context={'request': self._make_request(user)}
+        )
+        serializer.is_valid()
+        user_fields, profile_fields = serializer.split_validated_data()
+        assert 'username' in user_fields
+        assert profile_fields == {}
+
+    def test_protected_fields_are_silently_ignored(self):
+        # System-managed fields sent in the request body must not appear in validated_data
+        user = self._make_user()
+        serializer = UpdateCurrentUserSerializer(
+            data={'email': 'hacked@example.com', 'role': 'admin', 'total_points': 9999},
+            context={'request': self._make_request(user)},
+        )
+        assert serializer.is_valid(), serializer.errors
+        user_fields, profile_fields = serializer.split_validated_data()
+        assert 'email' not in user_fields
+        assert 'role' not in user_fields
+        assert 'total_points' not in user_fields
