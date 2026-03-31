@@ -1,3 +1,5 @@
+import { StoryEntity } from '../entities';
+
 export interface StoryRepository {
-  placeholder(): Promise<void>;
+  getStory(id: string): Promise<StoryEntity | null>;
 }
