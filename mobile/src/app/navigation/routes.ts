@@ -1,4 +1,5 @@
 export const ROUTES = {
+  AUTH: 'Auth',
   GUEST_HOME: 'GuestHome',
   USER_HOME: 'UserHome',
   ADMIN_HOME: 'AdminHome',
