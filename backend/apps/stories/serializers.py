@@ -162,6 +162,31 @@ class FeedQuerySerializer(serializers.Serializer):
         return data
 
 
+class StoryMapSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer returning only the fields needed to render a map pin.
+
+    Intentionally minimal — the map view only needs coordinates, place name,
+    title, and time info to position a pin and show a preview tooltip.
+    Full story content is loaded separately when a pin is clicked.
+    """
+
+    class Meta:
+        model = Story
+        fields = [
+            'id',
+            'title',
+            'location_name',
+            'location_lat',
+            'location_lng',
+            'time_type',
+            'year',
+            'year_start',
+            'year_end',
+        ]
+        read_only_fields = fields
+
+
 class SearchQuerySerializer(serializers.Serializer):
     """Validates the q query parameter for the story search endpoint."""
 
