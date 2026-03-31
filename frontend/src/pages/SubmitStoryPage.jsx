@@ -137,8 +137,8 @@ function SubmitStoryPage() {
       const formData = new FormData();
       formData.append("title", title.trim());
       formData.append("narrative", narrative.trim());
-      formData.append("location_lat", location.lat);
-      formData.append("location_lng", location.lng);
+      formData.append("location_lat", parseFloat(location.lat.toFixed(6)));
+      formData.append("location_lng", parseFloat(location.lng.toFixed(6)));
       formData.append("location_name", placeName.trim());
       formData.append("time_type", timeType);
 
