@@ -33,7 +33,7 @@ function App() {
                 )}
               />
               <Route
-                path="/submit"
+                path="/submit-story"
                 element={(
                   <ProtectedRoute>
                     <SubmitStoryPage />

@@ -1,14 +1,16 @@
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 // Fix default marker icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
 });
 
 const ISTANBUL_CENTER = [41.0082, 28.9784];
@@ -27,7 +29,7 @@ function MapPicker({ value, onChange }) {
   return (
     <div>
       <MapContainer
-        center={value ? [value.lat, value.lng] : ISTANBUL_CENTER}
+        center={ISTANBUL_CENTER}
         zoom={DEFAULT_ZOOM}
         style={{ height: "300px", width: "100%" }}
         className="rounded-md border"

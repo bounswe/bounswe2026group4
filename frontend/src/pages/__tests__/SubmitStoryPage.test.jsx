@@ -185,7 +185,7 @@ describe("SubmitStoryPage", () => {
       expect(createStory).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/");
+      expect(mockNavigate).toHaveBeenCalledWith("/stories/1");
     });
     expect(mockToast.success).toHaveBeenCalledWith("Story submitted successfully!");
   });

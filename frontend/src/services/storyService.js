@@ -10,8 +10,6 @@ export async function getStories({ page = 1, pageSize = PAGE_SIZE, sortBy = "rec
 }
 
 export async function createStory(formData) {
-  const response = await api.post("/stories/", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const response = await api.post("/stories/", formData);
   return response.data;
 }

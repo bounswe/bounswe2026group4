@@ -127,6 +127,7 @@ function SubmitStoryPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setApiError("");
+    setImageError("");
 
     if (!validateForm()) return;
 
@@ -154,9 +155,9 @@ function SubmitStoryPage() {
         formData.append("image", imageFile);
       }
 
-      await createStory(formData);
+      const story = await createStory(formData);
       toast.success("Story submitted successfully!");
-      navigate("/");
+      navigate(`/stories/${story.id}`);
     } catch (error) {
       const message =
         error.response?.data?.detail ||
