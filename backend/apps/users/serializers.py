@@ -71,9 +71,9 @@ class CurrentUserProfileSerializer(serializers.Serializer):
     """
 
     profile_photo = serializers.SerializerMethodField()
-    location = serializers.CharField()
+    location = serializers.CharField(allow_blank=True)
     birth_date = serializers.DateField()
-    bio = serializers.CharField()
+    bio = serializers.CharField(allow_blank=True)
     is_location_public = serializers.BooleanField()
     is_birth_date_public = serializers.BooleanField()
     is_photo_public = serializers.BooleanField()
