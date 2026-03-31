@@ -1,4 +1,15 @@
+export type AppRole = 'guest' | 'user' | 'admin';
+
+export interface SessionUser {
+  id: number;
+  email: string;
+  username: string;
+  role: AppRole;
+}
+
 export interface Session {
-  accessToken?: string;
-  role?: 'guest' | 'user' | 'admin';
+  accessToken: string;
+  refreshToken: string;
+  role: AppRole;
+  user: SessionUser;
 }
