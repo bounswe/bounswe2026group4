@@ -1,16 +1,20 @@
 import React from 'react';
-import { StatusBar, Text, View } from 'react-native';
+import { StatusBar } from 'react-native';
+import { Screen } from '../../shared/ui/Screen';
+import { StoryScreen } from '../../features/stories';
+import { getStoryIdFromPath } from './linking';
 
-export function RootNavigator() {
+interface RootNavigatorProps {
+  initialPath?: string;
+}
+
+export function RootNavigator({ initialPath = '/stories/story-001' }: RootNavigatorProps) {
+  const storyId = getStoryIdFromPath(initialPath);
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <Screen>
       <StatusBar barStyle="dark-content" />
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Local History Story Map</Text>
-        <Text style={{ marginTop: 8, color: '#4B5563', textAlign: 'center' }}>
-          Mobile skeleton is ready.
-        </Text>
-      </View>
-    </View>
+      <StoryScreen storyId={storyId ?? 'missing-story'} />
+    </Screen>
   );
 }
