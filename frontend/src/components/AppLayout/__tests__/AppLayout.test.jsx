@@ -23,7 +23,7 @@ function renderWithRouter(initialRoute = "/") {
           <Route path="/login" element={<div>Login Content</div>} />
           <Route path="/register" element={<div>Register Content</div>} />
           <Route path="/profile" element={<div>Profile Content</div>} />
-          <Route path="/submit" element={<div>Submit Content</div>} />
+          <Route path="/submit-story" element={<div>Submit Content</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
