@@ -50,6 +50,97 @@ class UserResponseSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class UpdateProfileSerializer(serializers.Serializer):
+    """Validates editable UserProfile fields accepted by PATCH /users/me/."""
+
+    profile_photo = serializers.ImageField(required=False, allow_null=True)
+    location = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    birth_date = serializers.DateField(required=False, allow_null=True)
+    bio = serializers.CharField(required=False, allow_blank=True)
+    is_location_public = serializers.BooleanField(required=False)
+    is_birth_date_public = serializers.BooleanField(required=False)
+    is_photo_public = serializers.BooleanField(required=False)
+
+
+class CurrentUserProfileSerializer(serializers.Serializer):
+    """
+    Serializes all UserProfile fields for the owner's own view (GET /users/me/).
+
+    Unlike PublicUserProfileSerializer, no visibility filtering is applied — the
+    owner always sees all their own data, including privacy flags.
+    """
+
+    profile_photo = serializers.SerializerMethodField()
+    location = serializers.CharField()
+    birth_date = serializers.DateField()
+    bio = serializers.CharField()
+    is_location_public = serializers.BooleanField()
+    is_birth_date_public = serializers.BooleanField()
+    is_photo_public = serializers.BooleanField()
+
+    def get_profile_photo(self, obj):
+        if not obj.profile_photo:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.profile_photo.url)
+        return obj.profile_photo.url
+
+
+class CurrentUserSerializer(serializers.Serializer):
+    """
+    Read-only serializer returning the authenticated user's full own profile for GET /users/me/.
+
+    Returns all fields needed by the frontend profile page and edit-profile form,
+    including private fields and privacy preference flags that are hidden from the
+    public profile endpoint.
+    """
+
+    id = serializers.IntegerField()
+    email = serializers.EmailField()
+    username = serializers.CharField()
+    role = serializers.CharField()
+    is_username_public = serializers.BooleanField()
+    is_email_verified = serializers.BooleanField()
+    date_joined = serializers.DateTimeField()
+    total_points = serializers.IntegerField()
+    profile = serializers.SerializerMethodField()
+
+    def get_profile(self, obj):
+        profile = getattr(obj, 'profile', None)
+        if profile is None:
+            return None
+        return CurrentUserProfileSerializer(profile, context=self.context).data
+
+
+class UpdateCurrentUserSerializer(serializers.Serializer):
+    """
+    Validates PATCH /users/me/ input.
+
+    Only user-editable fields are declared; system-managed fields (email, role,
+    total_points, is_active, is_email_verified, date_joined) are excluded so
+    they are silently ignored even if sent in the request body.
+    """
+
+    username = serializers.CharField(min_length=3, max_length=150, required=False)
+    is_username_public = serializers.BooleanField(required=False)
+    profile = UpdateProfileSerializer(required=False)
+
+    def validate_username(self, value):
+        # Exclude the current user so they can resubmit their own username without error
+        user = self.context['request'].user
+        if User.objects.filter(username__iexact=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError('A user with this username already exists.')
+        return value
+
+    def split_validated_data(self):
+        """Returns (user_fields, profile_fields) dicts for the service layer."""
+        data = self.validated_data
+        user_fields = {k: v for k, v in data.items() if k != 'profile'}
+        profile_fields = data.get('profile', {})
+        return user_fields, profile_fields
+
+
 class PublicUserProfileSerializer(serializers.Serializer):
     """
     Read-only serializer for the public user profile endpoint (GET /users/{id}/).
