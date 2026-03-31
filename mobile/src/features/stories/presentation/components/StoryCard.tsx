@@ -1,10 +1,36 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { useAppTheme } from '../../../../core/hooks/useAppTheme';
+import { StoryEntity } from '../../domain/entities';
 
-export function StoryCard() {
+interface StoryCardProps {
+  story: StoryEntity;
+  onPress?: (storyId: string) => void;
+}
+
+export function StoryCard({ story, onPress }: StoryCardProps) {
+  const { colors, spacing, typography } = useAppTheme();
+
   return (
-    <View style={{ padding: 12 }}>
-      <Text>Story Component Placeholder</Text>
-    </View>
+    <Pressable
+      onPress={() => onPress?.(story.id)}
+      style={{
+        padding: spacing.md,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+      }}
+    >
+      <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
+        {story.title}
+      </Text>
+      <Text style={{ marginTop: spacing.sm, color: colors.muted }}>
+        {story.location.name} · {story.timePeriod}
+      </Text>
+      <Text style={{ marginTop: spacing.sm, color: colors.text }}>
+        {story.narrative[0]}
+      </Text>
+    </Pressable>
   );
 }

@@ -4,8 +4,8 @@ import pytest
 from django.http import Http404
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
-from apps.users.models import EmailVerificationCode, User
-from apps.users.services import get_public_profile, login_user, logout_user, register_user
+from apps.users.models import EmailVerificationCode, User, UserProfile
+from apps.users.services import get_own_profile, get_public_profile, login_user, logout_user, register_user, update_own_profile
 from apps.stories.models import Story
 
 
@@ -187,3 +187,96 @@ class TestGetPublicProfile:
         self.user.save()
         with pytest.raises(Http404):
             get_public_profile(self.user.pk)
+
+
+# ── get_own_profile ───────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetOwnProfile:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='own@example.com',
+            username='ownuser',
+            password='Password1',
+        )
+
+    def test_returns_correct_user(self):
+        result = get_own_profile(self.user)
+        assert result.pk == self.user.pk
+
+    def test_creates_profile_when_not_exists(self):
+        assert not UserProfile.objects.filter(user=self.user).exists()
+        get_own_profile(self.user)
+        assert UserProfile.objects.filter(user=self.user).exists()
+
+    def test_profile_accessible_via_relation(self):
+        result = get_own_profile(self.user)
+        # select_related means profile is loaded without an extra query
+        assert result.profile is not None
+
+    def test_idempotent_when_profile_already_exists(self):
+        UserProfile.objects.create(user=self.user, bio='Existing')
+        result = get_own_profile(self.user)
+        assert result.profile.bio == 'Existing'
+        assert UserProfile.objects.filter(user=self.user).count() == 1
+
+
+# ── update_own_profile ────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUpdateOwnProfile:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='upd@example.com',
+            username='upduser',
+            password='Password1',
+        )
+
+    def test_updates_user_fields(self):
+        result = update_own_profile(self.user, {'username': 'newname'}, {})
+        assert result.username == 'newname'
+        self.user.refresh_from_db()
+        assert self.user.username == 'newname'
+
+    def test_updates_is_username_public(self):
+        result = update_own_profile(self.user, {'is_username_public': False}, {})
+        assert result.is_username_public is False
+
+    def test_updates_profile_fields(self):
+        result = update_own_profile(self.user, {}, {'bio': 'Historian', 'location': 'Istanbul'})
+        assert result.profile.bio == 'Historian'
+        assert result.profile.location == 'Istanbul'
+
+    def test_creates_profile_when_not_exists_on_profile_update(self):
+        assert not UserProfile.objects.filter(user=self.user).exists()
+        update_own_profile(self.user, {}, {'bio': 'New bio'})
+        assert UserProfile.objects.filter(user=self.user).exists()
+
+    def test_updates_both_user_and_profile_fields(self):
+        result = update_own_profile(
+            self.user,
+            {'username': 'combined'},
+            {'bio': 'Both updated'},
+        )
+        assert result.username == 'combined'
+        assert result.profile.bio == 'Both updated'
+
+    def test_returns_user_with_profile_prefetched(self):
+        result = update_own_profile(self.user, {}, {'location': 'Ankara'})
+        assert result.profile.location == 'Ankara'
+
+    def test_empty_fields_returns_user_unchanged(self):
+        result = update_own_profile(self.user, {}, {})
+        assert result.pk == self.user.pk
+        assert result.username == 'upduser'
+
+    def test_does_not_create_profile_when_profile_fields_empty(self):
+        # Profile row should only be created when there is actual profile data to save
+        update_own_profile(self.user, {'is_username_public': False}, {})
+        assert not UserProfile.objects.filter(user=self.user).exists()
+
+    def test_persists_profile_privacy_flags(self):
+        update_own_profile(self.user, {}, {'is_location_public': False, 'is_birth_date_public': False})
+        profile = UserProfile.objects.get(user=self.user)
+        assert profile.is_location_public is False
+        assert profile.is_birth_date_public is False

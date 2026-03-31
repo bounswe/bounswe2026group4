@@ -276,3 +276,132 @@ class TestUserPublicProfileView:
         assert response.data['location'] is None
         assert response.data['bio'] is None
         assert response.data['birth_year'] is None
+
+
+# ── GET /users/me/ and PATCH /users/me/ ──────────────────────────────────────
+
+@pytest.mark.django_db
+class TestCurrentUserView:
+    url = '/users/me/'
+
+    # ── GET ──────────────────────────────────────────────────────────────────
+
+    def test_get_unauthenticated_returns_401(self, client):
+        response = client.get(self.url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_get_authenticated_returns_200(self, auth_client):
+        response = auth_client.get(self.url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_get_response_has_success_and_data_envelope(self, auth_client):
+        response = auth_client.get(self.url)
+        assert response.data['success'] is True
+        assert 'data' in response.data
+
+    def test_get_response_contains_expected_fields(self, auth_client):
+        response = auth_client.get(self.url)
+        data = response.data['data']
+        for field in ['id', 'email', 'username', 'role', 'is_username_public',
+                      'is_email_verified', 'date_joined', 'total_points', 'profile']:
+            assert field in data
+
+    def test_get_returns_private_fields_to_owner(self, auth_client, registered_user):
+        # Owner sees email and privacy flags — fields that are hidden on the public endpoint
+        response = auth_client.get(self.url)
+        data = response.data['data']
+        assert data['email'] == registered_user.email
+        assert 'is_username_public' in data
+
+    def test_get_creates_profile_if_not_exists(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        assert not UserProfile.objects.filter(user=registered_user).exists()
+        auth_client.get(self.url)
+        assert UserProfile.objects.filter(user=registered_user).exists()
+
+    def test_get_profile_nested_when_profile_exists(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(user=registered_user, bio='Historian', location='Istanbul')
+        response = auth_client.get(self.url)
+        profile = response.data['data']['profile']
+        assert profile['bio'] == 'Historian'
+        assert profile['location'] == 'Istanbul'
+
+    def test_get_profile_includes_all_privacy_flags(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(user=registered_user, is_location_public=False)
+        response = auth_client.get(self.url)
+        profile = response.data['data']['profile']
+        # Owner always receives their own privacy flags regardless of value
+        assert profile['is_location_public'] is False
+
+    # ── PATCH ────────────────────────────────────────────────────────────────
+
+    def test_patch_unauthenticated_returns_401(self, client):
+        response = client.patch(self.url, {'username': 'newname'}, format='json')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_patch_username_returns_200(self, auth_client):
+        response = auth_client.patch(self.url, {'username': 'brandnew'}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_patch_username_updates_in_db(self, auth_client, registered_user):
+        auth_client.patch(self.url, {'username': 'brandnew'}, format='json')
+        registered_user.refresh_from_db()
+        assert registered_user.username == 'brandnew'
+
+    def test_patch_response_contains_updated_username(self, auth_client):
+        response = auth_client.patch(self.url, {'username': 'brandnew'}, format='json')
+        assert response.data['data']['username'] == 'brandnew'
+
+    def test_patch_profile_fields_returns_200(self, auth_client):
+        response = auth_client.patch(
+            self.url,
+            {'profile': {'bio': 'A historian', 'location': 'Ankara'}},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_patch_profile_fields_updates_in_db(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        auth_client.patch(
+            self.url,
+            {'profile': {'bio': 'A historian', 'location': 'Ankara'}},
+            format='json',
+        )
+        profile = UserProfile.objects.get(user=registered_user)
+        assert profile.bio == 'A historian'
+        assert profile.location == 'Ankara'
+
+    def test_patch_creates_profile_when_not_exists(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        assert not UserProfile.objects.filter(user=registered_user).exists()
+        auth_client.patch(self.url, {'profile': {'bio': 'New'}}, format='json')
+        assert UserProfile.objects.filter(user=registered_user).exists()
+
+    def test_patch_protected_fields_are_ignored(self, auth_client, registered_user):
+        response = auth_client.patch(
+            self.url,
+            {'email': 'hacked@example.com', 'role': 'admin'},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        registered_user.refresh_from_db()
+        assert registered_user.email == 'user@example.com'
+        assert registered_user.role == 'registered_user'
+
+    def test_patch_duplicate_username_returns_400(self, auth_client):
+        User.objects.create_user(
+            email='other@example.com', username='takenname', password='Password1'
+        )
+        response = auth_client.patch(self.url, {'username': 'takenname'}, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_patch_empty_body_returns_200(self, auth_client):
+        response = auth_client.patch(self.url, {}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_patch_response_has_success_and_data_envelope(self, auth_client):
+        response = auth_client.patch(self.url, {'is_username_public': False}, format='json')
+        assert response.data['success'] is True
+        assert 'data' in response.data

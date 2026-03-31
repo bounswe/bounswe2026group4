@@ -19,7 +19,7 @@ const publicLinks = [
 ];
 
 const authLinks = [
-  { to: "/submit", label: "Submit Story", icon: Plus },
+  { to: "/submit-story", label: "Submit Story", icon: Plus },
 ];
 
 function NavLink({ to, label, icon: Icon, pathname, onClick }) {
