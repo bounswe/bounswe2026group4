@@ -7,12 +7,14 @@ from apps.stories.services import create_story, update_story
 
 class StorySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
+    contributor_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Story
         fields = [
             'id',
             'user',
+            'contributor_name',
             'title',
             'narrative',
             'location_lat',
@@ -33,11 +35,18 @@ class StorySerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id',
             'user',
+            'contributor_name',
             'like_count',
             'save_count',
             'submitted_at',
             'updated_at',
         ]
+
+    def get_contributor_name(self, obj):
+        """Return the author's username, or None if they have chosen to post anonymously."""
+        if obj.contributor_visible and obj.user:
+            return obj.user.username
+        return None
 
     def validate_status(self, value):
         # Only moderation endpoints may set a story to removed — reject it here
