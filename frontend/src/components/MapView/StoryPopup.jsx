@@ -3,8 +3,6 @@ import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 
 function StoryPopup({ story }) {
   const timePeriod = formatTimePeriod(story);
-  const words = (story.preview_text || "").split(/\s+/);
-  const preview = words.slice(0, 20).join(" ") + (words.length > 20 ? "..." : "");
 
   return (
     <div className="max-w-xs">
@@ -14,9 +12,6 @@ function StoryPopup({ story }) {
       )}
       {timePeriod && (
         <p className="text-xs text-muted-foreground mb-1">{timePeriod}</p>
-      )}
-      {preview && (
-        <p className="text-xs mb-2">{preview}</p>
       )}
       <Link
         to={`/stories/${story.id}`}

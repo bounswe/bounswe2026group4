@@ -31,10 +31,10 @@ function MapView({ stories = [], loading = false }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {stories.filter((story) => story.latitude != null && story.longitude != null).map((story) => (
+        {stories.filter((story) => story.location_lat != null && story.location_lng != null).map((story) => (
           <Marker
             key={story.id}
-            position={[story.latitude, story.longitude]}
+            position={[story.location_lat, story.location_lng]}
             data-testid="map-marker"
           >
             <Popup>

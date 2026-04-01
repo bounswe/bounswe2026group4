@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 import MapView from "@/components/MapView/MapView";
-import { getMapPins } from "@/services/storyService";
+import { getMapStories } from "@/services/storyService";
 
 function MapPage() {
   const [stories, setStories] = useState([]);
@@ -12,7 +12,7 @@ function MapPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getMapPins();
+      const data = await getMapStories();
       setStories(data);
     } catch (err) {
       setError(

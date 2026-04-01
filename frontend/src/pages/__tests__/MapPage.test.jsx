@@ -21,7 +21,7 @@ vi.mock("leaflet", () => {
 });
 
 vi.mock("@/services/storyService", () => ({
-  getMapPins: vi.fn(),
+  getMapStories: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -29,21 +29,20 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => vi.fn() };
 });
 
-import { getMapPins } from "@/services/storyService";
+import { getMapStories } from "@/services/storyService";
 import MapPage from "../MapPage";
 
 function makePin(id, overrides = {}) {
   return {
     id,
     title: `Story ${id}`,
-    latitude: 41.0 + id * 0.01,
-    longitude: 28.9 + id * 0.01,
+    location_lat: 41.0 + id * 0.01,
+    location_lng: 28.9 + id * 0.01,
     location_name: `Location ${id}`,
     time_type: "exact_year",
     year: 1900 + id,
     year_start: null,
     year_end: null,
-    preview_text: "A short preview about local history.",
     ...overrides,
   };
 }
@@ -63,19 +62,19 @@ describe("MapPage", () => {
   });
 
   it("renders the map container", async () => {
-    getMapPins.mockResolvedValue([]);
+    getMapStories.mockResolvedValue([]);
     renderPage();
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });
 
   it("shows loading state while fetching", () => {
-    getMapPins.mockReturnValue(new Promise(() => {}));
+    getMapStories.mockReturnValue(new Promise(() => {}));
     renderPage();
     expect(screen.getByLabelText("Loading map pins")).toBeInTheDocument();
   });
 
   it("renders markers after successful fetch", async () => {
-    getMapPins.mockResolvedValue([makePin(1), makePin(2)]);
+    getMapStories.mockResolvedValue([makePin(1), makePin(2)]);
     renderPage();
 
     await waitFor(() => {
@@ -84,7 +83,7 @@ describe("MapPage", () => {
   });
 
   it("shows error alert when API fails", async () => {
-    getMapPins.mockRejectedValue(new Error("Network error"));
+    getMapStories.mockRejectedValue(new Error("Network error"));
     renderPage();
 
     await waitFor(() => {
@@ -94,7 +93,7 @@ describe("MapPage", () => {
 
   it("retry button refetches after error", async () => {
     const user = userEvent.setup();
-    getMapPins
+    getMapStories
       .mockRejectedValueOnce(new Error("fail"))
       .mockResolvedValue([makePin(1)]);
 
@@ -110,11 +109,11 @@ describe("MapPage", () => {
       expect(screen.getByTestId("map-marker")).toBeInTheDocument();
     });
 
-    expect(getMapPins).toHaveBeenCalledTimes(2);
+    expect(getMapStories).toHaveBeenCalledTimes(2);
   });
 
   it("shows no markers when API returns empty array", async () => {
-    getMapPins.mockResolvedValue([]);
+    getMapStories.mockResolvedValue([]);
     renderPage();
 
     await waitFor(() => {

@@ -25,14 +25,13 @@ function makePin(id, overrides = {}) {
   return {
     id,
     title: `Story ${id}`,
-    latitude: 41.0 + id * 0.01,
-    longitude: 28.9 + id * 0.01,
+    location_lat: 41.0 + id * 0.01,
+    location_lng: 28.9 + id * 0.01,
     location_name: `Location ${id}`,
     time_type: "exact_year",
     year: 1900 + id,
     year_start: null,
     year_end: null,
-    preview_text: "A short preview about local history.",
     ...overrides,
   };
 }
