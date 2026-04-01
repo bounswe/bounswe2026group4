@@ -121,8 +121,9 @@ class TestStorySerializerFields:
     def test_serializer_contains_expected_fields(self, story):
         serializer = StorySerializer(story)
         expected = {
-            'id', 'user', 'title', 'narrative', 'location_lat', 'location_lng',
-            'location_name', 'region', 'time_type', 'year', 'year_start', 'year_end',
+            'id', 'user', 'contributor_name', 'title', 'narrative',
+            'location_lat', 'location_lng', 'location_name', 'region',
+            'time_type', 'year', 'year_start', 'year_end',
             'status', 'contributor_visible', 'like_count', 'save_count',
             'user_has_liked', 'user_has_saved', 'submitted_at', 'updated_at',
         }
@@ -134,6 +135,24 @@ class TestStorySerializerFields:
         assert serializer.is_valid(), serializer.errors
         assert 'like_count' not in serializer.validated_data
         assert 'save_count' not in serializer.validated_data
+
+    def test_contributor_name_returns_username_when_visible(self):
+        user = make_user()
+        story = make_story(user=user, contributor_visible=True)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] == user.username
+
+    def test_contributor_name_is_none_when_not_visible(self):
+        user = make_user()
+        story = make_story(user=user, contributor_visible=False)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] is None
+
+    def test_contributor_name_is_none_when_user_is_anonymized(self):
+        # Story whose author account was deleted — user FK is null
+        story = make_story(user=None, contributor_visible=True)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] is None
 
 
 @pytest.mark.django_db
