@@ -410,6 +410,24 @@ class TestStorySerializerUserInteractionFields:
         data = StorySerializer(story, context={'request': request}).data
         assert data['user_has_saved'] is False
 
+    def test_reads_user_has_liked_from_annotation_when_present(self):
+        # When the queryset is annotated (feed/search views), the serializer must
+        # use the pre-computed value instead of firing an extra DB query.
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = True
+        story._user_has_saved = False
+        data = StorySerializer(story).data
+        assert data['user_has_liked'] is True
+        assert data['user_has_saved'] is False
+
+    def test_reads_user_has_saved_from_annotation_when_present(self):
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = False
+        story._user_has_saved = True
+        data = StorySerializer(story).data
+        assert data['user_has_liked'] is False
+        assert data['user_has_saved'] is True
+
 
 # ── user_has_liked / user_has_saved — StoryFeedSerializer ────────────────────
 
@@ -458,3 +476,21 @@ class TestStoryFeedSerializerUserInteractionFields:
         request.user = user
         data = StoryFeedSerializer(story, context={'request': request}).data
         assert data['user_has_saved'] is False
+
+    def test_reads_user_has_liked_from_annotation_when_present(self):
+        # When the queryset is annotated (feed/search views), the serializer must
+        # use the pre-computed value instead of firing an extra DB query.
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = True
+        story._user_has_saved = False
+        data = StoryFeedSerializer(story).data
+        assert data['user_has_liked'] is True
+        assert data['user_has_saved'] is False
+
+    def test_reads_user_has_saved_from_annotation_when_present(self):
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = False
+        story._user_has_saved = True
+        data = StoryFeedSerializer(story).data
+        assert data['user_has_liked'] is False
+        assert data['user_has_saved'] is True

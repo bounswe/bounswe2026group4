@@ -47,14 +47,28 @@ class StorySerializer(serializers.ModelSerializer):
         ]
 
     def get_user_has_liked(self, obj):
-        """Return True if the authenticated request user has liked this story, False otherwise."""
+        """Return True if the authenticated request user has liked this story, False otherwise.
+
+        Reads the pre-computed _user_has_liked annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check for the single-object detail case.
+        """
+        if hasattr(obj, '_user_has_liked'):
+            return obj._user_has_liked
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
 
     def get_user_has_saved(self, obj):
-        """Return True if the authenticated request user has saved this story, False otherwise."""
+        """Return True if the authenticated request user has saved this story, False otherwise.
+
+        Reads the pre-computed _user_has_saved annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check for the single-object detail case.
+        """
+        if hasattr(obj, '_user_has_saved'):
+            return obj._user_has_saved
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return obj.saved_by.filter(user=request.user).exists()
@@ -193,14 +207,28 @@ class StoryFeedSerializer(serializers.ModelSerializer):
         return ' '.join(words[:20])
 
     def get_user_has_liked(self, obj):
-        """Return True if the authenticated request user has liked this story, False otherwise."""
+        """Return True if the authenticated request user has liked this story, False otherwise.
+
+        Reads the pre-computed _user_has_liked annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check when the annotation is absent.
+        """
+        if hasattr(obj, '_user_has_liked'):
+            return obj._user_has_liked
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
 
     def get_user_has_saved(self, obj):
-        """Return True if the authenticated request user has saved this story, False otherwise."""
+        """Return True if the authenticated request user has saved this story, False otherwise.
+
+        Reads the pre-computed _user_has_saved annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check when the annotation is absent.
+        """
+        if hasattr(obj, '_user_has_saved'):
+            return obj._user_has_saved
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return obj.saved_by.filter(user=request.user).exists()
