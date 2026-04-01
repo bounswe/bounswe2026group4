@@ -1,18 +1,21 @@
-import { AuthUser } from '../../../../core/auth/session';
+import { Session } from '../../../../core/auth/session';
+
+export interface AuthUiState {
+  email: string;
+  password: string;
+  isLoading: boolean;
+  error?: string;
+}
 
 export interface AuthState {
   isLoading: boolean;
-  user: AuthUser | null;
-  token: string | null;
-  isAuthenticated: boolean;
+  session: Session | null;
   error?: string;
 }
 
 export function createInitialAuthState(): AuthState {
   return {
     isLoading: true,
-    user: null,
-    token: null,
-    isAuthenticated: false,
+    session: null,
   };
 }

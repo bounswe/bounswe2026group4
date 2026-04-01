@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StatusBar, Text, View } from 'react-native';
-import { Screen } from '../../shared/ui/Screen';
+import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth } from '../../features/auth';
 import { AuthScreen } from '../../features/auth';
@@ -9,6 +9,7 @@ import { ProtectedScreen } from './ProtectedScreen';
 import { FeedScreen } from '../../features/feed';
 import { ProfileScreen } from '../../features/profile';
 import { SubmissionScreen } from '../../features/submissions';
+import { navigationRef } from './navigationRef';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 
@@ -74,10 +75,11 @@ function ScreenShell({
 }
 
 export function RootNavigator() {
-  const { isAuthenticated, logout, user } = useAuth();
+  const { isAuthenticated, loading, logout, user } = useAuth();
   const { colors, spacing } = useAppTheme();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [redirectRoute, setRedirectRoute] = useState<AppRoute>(ROUTES.PROFILE);
+  const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated && protectedRoutes.includes(currentRoute)) {
@@ -85,6 +87,28 @@ export function RootNavigator() {
       setCurrentRoute(ROUTES.AUTH);
     }
   }, [currentRoute, isAuthenticated]);
+
+  useEffect(() => {
+    if (!loading) {
+      setHasResolvedInitialSession(true);
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    navigationRef.redirectToAuth = () => {
+      setRedirectRoute(currentRoute);
+      setCurrentRoute(ROUTES.AUTH);
+    };
+    navigationRef.redirectToPublic = () => {
+      setRedirectRoute(ROUTES.PROFILE);
+      setCurrentRoute(ROUTES.FEED);
+    };
+
+    return () => {
+      navigationRef.redirectToAuth = undefined;
+      navigationRef.redirectToPublic = undefined;
+    };
+  }, [currentRoute]);
 
   const handleNavigate = (route: AppRoute) => {
     if (!isAuthenticated && protectedRoutes.includes(route)) {
@@ -102,8 +126,16 @@ export function RootNavigator() {
 
   const handleLogout = async () => {
     await logout();
-    setCurrentRoute(ROUTES.FEED);
   };
+
+  if (!hasResolvedInitialSession && loading) {
+    return (
+      <Screen>
+        <StatusBar barStyle="dark-content" />
+        <Loader fullScreen message="Restoring session..." />
+      </Screen>
+    );
+  }
 
   let content: React.ReactNode;
 
@@ -118,7 +150,7 @@ export function RootNavigator() {
       >
         <ScreenShell
           title="Your profile"
-          description={`Authenticated as ${user?.name ?? 'Unknown user'}.`}
+          description={`Authenticated as ${user?.username ?? 'Unknown user'}.`}
         >
           <ProfileScreen />
         </ScreenShell>

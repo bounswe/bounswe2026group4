@@ -1,21 +1,35 @@
 import React from 'react';
-import { TextInput } from 'react-native';
+import { KeyboardTypeOptions, StyleProp, TextInput, TextInputProps, TextStyle, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
 interface InputProps {
-  value?: string;
+  value: string;
+  onChangeText: (value: string) => void;
   placeholder?: string;
-  onChangeText?: (value: string) => void;
   secureTextEntry?: boolean;
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  keyboardType?: KeyboardTypeOptions;
+  autoCorrect?: boolean;
+  editable?: boolean;
+  textContentType?: TextInputProps['textContentType'];
+  autoComplete?: TextInputProps['autoComplete'];
+  accessibilityLabel?: string;
+  style?: StyleProp<ViewStyle | TextStyle>;
 }
 
 export function Input({
   value,
-  placeholder,
   onChangeText,
-  secureTextEntry = false,
-  autoCapitalize = 'sentences',
+  placeholder,
+  secureTextEntry,
+  autoCapitalize = 'none',
+  keyboardType = 'default',
+  autoCorrect = false,
+  editable = true,
+  textContentType,
+  autoComplete,
+  accessibilityLabel,
+  style,
 }: InputProps) {
   const { colors, spacing, typography } = useAppTheme();
 
@@ -27,15 +41,25 @@ export function Input({
       onChangeText={onChangeText}
       secureTextEntry={secureTextEntry}
       autoCapitalize={autoCapitalize}
-      style={{
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: spacing.md,
-        borderRadius: 12,
-        color: colors.text,
-        backgroundColor: colors.surface,
-        fontSize: typography.body,
-      }}
+      keyboardType={keyboardType}
+      autoCorrect={autoCorrect}
+      editable={editable}
+      textContentType={textContentType}
+      autoComplete={autoComplete}
+      accessibilityLabel={accessibilityLabel}
+      style={[
+        {
+          borderWidth: 1,
+          borderColor: colors.border,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.md - 2,
+          borderRadius: 12,
+          color: colors.text,
+          backgroundColor: colors.surface,
+          fontSize: typography.body,
+        },
+        style,
+      ]}
     />
   );
 }

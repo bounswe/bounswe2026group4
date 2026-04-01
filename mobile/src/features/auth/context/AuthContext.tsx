@@ -1,13 +1,15 @@
 import React, {
   PropsWithChildren,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import { AuthUser } from '../../../core/auth/session';
+import { navigationRef } from '../../../app/navigation/navigationRef';
+import { AuthUser, Session } from '../../../core/auth/session';
 import { interceptors } from '../../../core/api/interceptors';
 import { authService } from '../application/services';
 import { createInitialAuthState } from '../presentation/state/authUiState';
@@ -19,10 +21,9 @@ interface LoginInput {
 
 interface AuthContextValue {
   user: AuthUser | null;
-  token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (input: LoginInput) => Promise<void>;
+  login: (input: LoginInput) => Promise<Session>;
   logout: () => Promise<void>;
 }
 
@@ -30,11 +31,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState(createInitialAuthState);
-  const tokenRef = useRef<string | null>(null);
+  const sessionRef = useRef<Session | null>(null);
 
   useEffect(() => {
-    tokenRef.current = state.token;
-  }, [state.token]);
+    sessionRef.current = state.session;
+  }, [state.session]);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,9 +49,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         setState({
           isLoading: false,
-          user: session?.user ?? null,
-          token: session?.token ?? null,
-          isAuthenticated: Boolean(session?.token),
+          session,
         });
       })
       .catch(() => {
@@ -60,9 +59,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         setState({
           isLoading: false,
-          user: null,
-          token: null,
-          isAuthenticated: false,
+          session: null,
           error: 'Failed to restore the active session.',
         });
       });
@@ -74,32 +71,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const requestId = interceptors.request.use(async (config) => {
-      if (!tokenRef.current) {
+      const token = sessionRef.current?.accessToken;
+
+      if (!token) {
         return config;
       }
 
-      return {
-        ...config,
-        headers: {
-          ...(config.headers ?? {}),
-          Authorization: `Bearer ${tokenRef.current}`,
-        },
-      };
+        return {
+          ...config,
+          headers: {
+            ...(config.headers ?? {}),
+            Authorization: `Bearer ${token}`,
+          },
+        };
     });
 
     const responseId = interceptors.response.use(undefined, async (error) => {
       const status = (error as { response?: { status?: number } })?.response?.status;
 
       if (status === 401) {
-        await authService.logout();
-        tokenRef.current = null;
+        await authService.clear();
+        sessionRef.current = null;
         setState({
           isLoading: false,
-          user: null,
-          token: null,
-          isAuthenticated: false,
+          session: null,
           error: 'Your session expired. Please sign in again.',
         });
+        navigationRef.redirectToAuth?.('unauthorized');
       }
 
       return error;
@@ -111,37 +109,49 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const login = useCallback(async ({ email, password }: LoginInput) => {
+    setState((current) => ({ ...current, isLoading: true, error: undefined }));
+
+    try {
+      const session = await authService.login(email, password);
+
+      sessionRef.current = session;
+      setState({
+        isLoading: false,
+        session,
+      });
+
+      return session;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        isLoading: false,
+      }));
+      throw error;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    const activeSession = sessionRef.current;
+
+    await authService.logout(activeSession);
+    sessionRef.current = null;
+    setState({
+      isLoading: false,
+      session: null,
+    });
+    navigationRef.redirectToPublic?.();
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: state.user,
-      token: state.token,
-      isAuthenticated: state.isAuthenticated,
+      user: state.session?.user ?? null,
+      isAuthenticated: Boolean(state.session?.accessToken),
       loading: state.isLoading,
-      login: async ({ email, password }) => {
-        setState((current) => ({ ...current, isLoading: true, error: undefined }));
-
-        const session = await authService.login(email, password);
-
-        tokenRef.current = session.token;
-        setState({
-          isLoading: false,
-          user: session.user,
-          token: session.token,
-          isAuthenticated: true,
-        });
-      },
-      logout: async () => {
-        await authService.logout();
-        tokenRef.current = null;
-        setState({
-          isLoading: false,
-          user: null,
-          token: null,
-          isAuthenticated: false,
-        });
-      },
+      login,
+      logout,
     }),
-    [state.isAuthenticated, state.isLoading, state.token, state.user],
+    [login, logout, state.isLoading, state.session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

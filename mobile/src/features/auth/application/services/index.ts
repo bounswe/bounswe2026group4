@@ -10,7 +10,10 @@ export const authService = {
   async restore(): Promise<AuthSessionEntity | null> {
     return repository.restore();
   },
-  async logout(): Promise<void> {
-    return repository.logout();
+  async logout(session?: AuthSessionEntity | null): Promise<void> {
+    return repository.logout(session);
+  },
+  async clear(): Promise<void> {
+    return repository.clear();
   },
 };

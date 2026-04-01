@@ -1,76 +1,109 @@
 import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
-import { Input } from '../../../../shared/ui/Input';
-import { Screen } from '../../../../shared/ui/Screen';
+import { validators } from '../../../../shared/forms/validators';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { useAuth } from '../../context/AuthContext';
+import { AuthCard } from '../components/AuthCard';
+import { AuthUiState } from '../state/authUiState';
 
 interface AuthScreenProps {
   onAuthenticated?: () => void;
 }
 
+const initialState: AuthUiState = {
+  email: '',
+  password: '',
+  isLoading: false,
+};
+
 export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   const { login, loading } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
-  const [email, setEmail] = useState('traveler@example.com');
-  const [password, setPassword] = useState('password123');
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [state, setState] = useState<AuthUiState>(initialState);
 
-  const handleLogin = async () => {
-    try {
-      setError(null);
-      await login({ email, password });
-      onAuthenticated?.();
-    } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : 'Unable to sign in.');
+  const submit = async () => {
+    const email = state.email.trim();
+    const password = state.password;
+
+    if (!validators.required(email) || !validators.required(password)) {
+      setState((current) => ({
+        ...current,
+        error: 'Email and password are required.',
+      }));
+      return;
     }
+
+    if (!validators.email(email)) {
+      setState((current) => ({
+        ...current,
+        error: 'Please enter a valid email address.',
+      }));
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      isLoading: true,
+      error: undefined,
+    }));
+
+    try {
+      const session = await login({ email, password });
+      toast.success(`Welcome back, ${session.user.username}.`);
+      onAuthenticated?.();
+      setState(initialState);
+    } catch (loginError) {
+      const message = loginError instanceof Error ? loginError.message : 'Unable to sign in right now.';
+      setState((current) => ({
+        ...current,
+        isLoading: false,
+        error: message,
+      }));
+      toast.error(message);
+      return;
+    }
+
+    setState(initialState);
   };
 
   return (
-    <Screen>
-      <View style={{ flex: 1, padding: spacing.lg, justifyContent: 'center' }}>
-        <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
-          Sign in to continue
-        </Text>
-        <Text style={{ marginTop: spacing.sm, color: colors.muted }}>
-          Protected mobile features use a shared auth provider and persisted session state.
-        </Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          flexGrow: 1,
+          padding: spacing.lg,
+          justifyContent: 'center',
+        }}
+      >
+        <View style={{ gap: spacing.lg }}>
+          <View style={{ gap: spacing.sm }}>
+            <Text style={{ color: colors.primary, fontWeight: '700' }}>Local History Story Map</Text>
+            <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+              Sign in to the mobile app
+            </Text>
+            <Text style={{ color: colors.muted, fontSize: typography.body }}>
+              Shared auth state restores persisted sessions, protects user-only screens, and
+              attaches your access token to authenticated API requests.
+            </Text>
+          </View>
 
-        <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
-          <Input
-            value={email}
-            placeholder="Email"
-            onChangeText={setEmail}
-            autoCapitalize="none"
-          />
-          <Input
-            value={password}
-            placeholder="Password"
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
+          <AuthCard
+            email={state.email}
+            password={state.password}
+            error={state.error}
+            isLoading={state.isLoading || loading}
+            onEmailChange={(email) => setState((current) => ({ ...current, email }))}
+            onPasswordChange={(password) => setState((current) => ({ ...current, password }))}
+            onSubmit={submit}
           />
         </View>
-
-        {error ? (
-          <Text style={{ marginTop: spacing.md, color: colors.danger }}>{error}</Text>
-        ) : null}
-
-        <Pressable
-          onPress={handleLogin}
-          style={{
-            marginTop: spacing.xl,
-            paddingVertical: spacing.md,
-            borderRadius: 14,
-            backgroundColor: colors.primary,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: colors.background, fontWeight: '700' }}>
-            {loading ? 'Signing in...' : 'Sign in'}
-          </Text>
-        </Pressable>
-      </View>
-    </Screen>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

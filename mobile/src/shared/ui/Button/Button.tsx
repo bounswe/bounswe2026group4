@@ -4,16 +4,19 @@ import { colors, spacing } from '../../../app/theme';
 
 interface ButtonProps extends PropsWithChildren {
   onPress?: () => void;
+  disabled?: boolean;
 }
 
-export function Button({ children, onPress }: ButtonProps) {
+export function Button({ children, onPress, disabled = false }: ButtonProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
       style={{
         padding: spacing.md - 4,
         borderRadius: 8,
-        backgroundColor: colors.primary,
+        backgroundColor: disabled ? colors.border : colors.primary,
+        opacity: disabled ? 0.7 : 1,
       }}
     >
       <Text style={{ color: '#FFFFFF' }}>{children ?? 'Button'}</Text>

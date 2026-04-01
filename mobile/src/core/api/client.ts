@@ -1,13 +1,117 @@
+import { env } from '../../app/config/env';
+import { AppError } from '../errors/AppError';
 import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
+type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
 
-const defaultTransport: ApiTransport = async <T>(_method: HttpMethod, config: ApiRequestConfig) => ({
-  status: 200,
-  data: null as T,
-  config,
-});
+function buildUrl(path: string) {
+  if (!env.apiBaseUrl) {
+    throw new AppError('EXPO_PUBLIC_API_BASE_URL is not configured.');
+  }
+
+  const normalizedBaseUrl = env.apiBaseUrl.replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${normalizedBaseUrl}${normalizedPath}`;
+}
+
+function getErrorMessage(payload: unknown, fallback: string) {
+  if (typeof payload === 'string') {
+    const trimmedPayload = payload.trim();
+
+    if (!trimmedPayload) {
+      return fallback;
+    }
+
+    if (trimmedPayload.includes('DisallowedHost')) {
+      return 'Backend rejected this device host. The mobile app can reach the server, but the server is not configured to accept requests from this network address yet.';
+    }
+
+    if (trimmedPayload.startsWith('<!DOCTYPE') || trimmedPayload.startsWith('<html')) {
+      return 'Server returned an unexpected HTML response instead of JSON.';
+    }
+
+    return trimmedPayload;
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return fallback;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (typeof record.message === 'string') {
+    return record.message;
+  }
+
+  if (typeof record.detail === 'string') {
+    return record.detail;
+  }
+
+  if (Array.isArray(record.non_field_errors) && typeof record.non_field_errors[0] === 'string') {
+    return record.non_field_errors[0];
+  }
+
+  for (const value of Object.values(record)) {
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+      return value[0];
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+  }
+
+  return fallback;
+}
+
+function parseResponseBody(raw: string, contentType: string | null) {
+  if (!raw) {
+    return null;
+  }
+
+  if (contentType?.includes('application/json')) {
+    return JSON.parse(raw) as unknown;
+  }
+
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
+}
+
+const defaultTransport: ApiTransport = async <T>(method: HttpMethod, config: ApiRequestConfig) => {
+  const response = await fetch(buildUrl(config.url ?? ''), {
+    method,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...(config.headers ?? {}),
+    },
+    body: config.data ? JSON.stringify(config.data) : undefined,
+  });
+
+  const raw = await response.text();
+  const payload = parseResponseBody(raw, response.headers.get('content-type'));
+  const apiResponse: ApiResponse<T> = {
+    status: response.status,
+    data: payload as T,
+    config,
+  };
+
+  if (!response.ok) {
+    const error = new AppError(getErrorMessage(payload, 'Request failed.')) as AppError & {
+      response: ApiResponse<unknown>;
+    };
+    error.response = apiResponse;
+    throw error;
+  }
+
+  return apiResponse;
+};
 
 let transport: ApiTransport = defaultTransport;
 
@@ -42,10 +146,48 @@ export function resetApiTransport() {
 }
 
 export const apiClient = {
-  get: async <T>(url: string, config?: Omit<ApiRequestConfig, 'url'>) => request<T>('GET', url, config),
-  post: async <T>(url: string, data?: unknown, config?: Omit<ApiRequestConfig, 'url' | 'data'>) =>
-    request<T>('POST', url, { ...config, data }),
-  put: async <T>(url: string, data?: unknown, config?: Omit<ApiRequestConfig, 'url' | 'data'>) =>
-    request<T>('PUT', url, { ...config, data }),
-  delete: async <T>(url: string, config?: Omit<ApiRequestConfig, 'url'>) => request<T>('DELETE', url, config),
+  get: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
+    request<T>('GET', url, normalizeConfig(tokenOrConfig)),
+  post: async <T>(
+    url: string,
+    data?: unknown,
+    tokenOrConfig?: string | RequestConfigInput,
+  ) =>
+    request<T>('POST', url, { ...normalizeConfig(tokenOrConfig), data }),
+  put: async <T>(
+    url: string,
+    data?: unknown,
+    tokenOrConfig?: string | RequestConfigInput,
+  ) =>
+    request<T>('PUT', url, { ...normalizeConfig(tokenOrConfig), data }),
+  delete: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
+    request<T>('DELETE', url, normalizeConfig(tokenOrConfig)),
 };
+
+function normalizeConfig(tokenOrConfig?: string | RequestConfigInput): Omit<ApiRequestConfig, 'url'> {
+  if (!tokenOrConfig) {
+    return {};
+  }
+
+  if (typeof tokenOrConfig === 'string') {
+    return {
+      headers: {
+        Authorization: `Bearer ${tokenOrConfig}`,
+      },
+    };
+  }
+
+  if (tokenOrConfig.token && typeof tokenOrConfig.token === 'string') {
+    const { token, ...rest } = tokenOrConfig;
+
+    return {
+      ...rest,
+      headers: {
+        ...(rest.headers ?? {}),
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  }
+
+  return tokenOrConfig;
+}

@@ -5,7 +5,10 @@ import { authLocalSource, authRemoteSource } from '../sources';
 
 export class AuthRepositoryImpl implements AuthRepository {
   async login(email: string, password: string): Promise<AuthSessionEntity> {
-    const response = await authRemoteSource.login(email, password);
+    const response = await authRemoteSource.login({
+      email: email.trim().toLowerCase(),
+      password,
+    });
     const session = mapAuth(response);
 
     await authLocalSource.setSession(session);
@@ -14,12 +17,31 @@ export class AuthRepositoryImpl implements AuthRepository {
   }
 
   async restore(): Promise<AuthSessionEntity | null> {
-    const session = await authLocalSource.getSession();
+    const storedSession = await authLocalSource.getSession();
 
-    return session ? mapAuth(session) : null;
+    if (!storedSession) {
+      return null;
+    }
+
+    try {
+      return mapAuth(storedSession);
+    } catch {
+      await authLocalSource.clearSession();
+      return null;
+    }
   }
 
-  async logout(): Promise<void> {
+  async logout(session?: AuthSessionEntity | null): Promise<void> {
+    try {
+      if (session) {
+        await authRemoteSource.logout(session);
+      }
+    } finally {
+      await authLocalSource.clearSession();
+    }
+  }
+
+  async clear(): Promise<void> {
     await authLocalSource.clearSession();
   }
 }

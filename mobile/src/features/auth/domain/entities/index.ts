@@ -1,6 +1,3 @@
-import { AuthUser } from '../../../../core/auth/session';
+import { Session } from '../../../../core/auth/session';
 
-export interface AuthSessionEntity {
-  token: string;
-  user: AuthUser;
-}
+export type AuthSessionEntity = Session;

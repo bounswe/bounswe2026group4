@@ -1,40 +1,69 @@
+import { apiClient } from '../../../../core/api/client';
+import { endpoints } from '../../../../core/api/endpoints';
+import { AppRole, Session } from '../../../../core/auth/session';
 import { storageKeys } from '../../../../core/storage/keys';
 import { storage } from '../../../../core/storage/storage';
-import { AuthSessionEntity } from '../../domain/entities';
 
-function createUserName(email: string) {
-  return email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+export interface LoginPayload {
+  email: string;
+  password: string;
 }
 
-function createToken(email: string) {
-  return `mock-jwt-${email.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+interface BackendUser {
+  id: number;
+  email: string;
+  username: string;
+  role: 'registered_user' | 'admin';
+}
+
+interface LoginResponse {
+  access: string;
+  refresh: string;
+  user: BackendUser;
+}
+
+function mapBackendRole(role: BackendUser['role']): AppRole {
+  return role === 'admin' ? 'admin' : 'user';
+}
+
+function toSession(response: LoginResponse): Session {
+  const role = mapBackendRole(response.user.role);
+
+  return {
+    accessToken: response.access,
+    refreshToken: response.refresh,
+    role,
+    user: {
+      ...response.user,
+      role,
+    },
+  };
 }
 
 export const authRemoteSource = {
-  async login(email: string, password: string): Promise<AuthSessionEntity> {
-    if (!email.includes('@') || password.trim().length < 8) {
-      throw new Error('Invalid credentials. Use a valid email and at least 8 characters.');
+  async login(payload: LoginPayload): Promise<Session> {
+    const response = await apiClient.post<LoginResponse>(`${endpoints.auth}/login/`, payload);
+
+    if (!response) {
+      throw new Error('Login did not return a session payload.');
     }
 
-    const role = email.includes('admin') ? 'admin' : 'user';
-
-    return {
-      token: createToken(email),
-      user: {
-        id: `user-${email.toLowerCase()}`,
-        name: createUserName(email),
-        email: email.toLowerCase(),
-        role,
-      },
-    };
+    return toSession(response);
+  },
+  async logout(session: Session): Promise<void> {
+    await apiClient.post<void>(
+      `${endpoints.auth}/logout/`,
+      { refresh: session.refreshToken },
+      { token: session.accessToken },
+    );
   },
 };
 
 export const authLocalSource = {
   async getSession() {
-    return storage.get<AuthSessionEntity>(storageKeys.authSession);
+    return storage.get<Session>(storageKeys.authSession);
   },
-  async setSession(session: AuthSessionEntity) {
+  async setSession(session: Session) {
     await storage.set(storageKeys.authSession, session);
   },
   async clearSession() {

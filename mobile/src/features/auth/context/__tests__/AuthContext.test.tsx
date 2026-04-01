@@ -7,6 +7,17 @@ import { storageKeys } from '../../../../core/storage/keys';
 import { apiClient, resetApiTransport, setApiTransport } from '../../../../core/api/client';
 import { ApiRequestConfig, interceptors } from '../../../../core/api/interceptors';
 
+const loginResponse = {
+  access: 'access-token-123',
+  refresh: 'refresh-token-123',
+  user: {
+    id: 1,
+    email: 'traveler@example.com',
+    username: 'Traveler',
+    role: 'registered_user' as const,
+  },
+};
+
 function AuthHarness() {
   const { user, isAuthenticated, loading, login, logout } = useAuth();
 
@@ -25,7 +36,11 @@ function AuthHarness() {
       <Text>{loading ? 'loading' : 'ready'}</Text>
       <Text>{isAuthenticated ? 'authenticated' : 'guest'}</Text>
       <Text>{user?.email ?? 'no-user'}</Text>
-      <Pressable onPress={() => login({ email: 'traveler@example.com', password: 'password123' })}>
+      <Pressable
+        onPress={() =>
+          login({ email: 'traveler@example.com', password: 'password123' }).catch(() => undefined)
+        }
+      >
         <Text>login</Text>
       </Pressable>
       <Pressable onPress={() => logout()}>
@@ -38,6 +53,45 @@ function AuthHarness() {
   );
 }
 
+function installAuthTransport(options?: {
+  unauthorizedOnProfile?: boolean;
+  onProfileRequest?: (config: ApiRequestConfig) => void;
+}) {
+  setApiTransport(async (method, config) => {
+    if (method === 'POST' && config.url === '/auth/login/') {
+      return {
+        status: 200,
+        data: loginResponse as never,
+        config,
+      };
+    }
+
+    if (method === 'POST' && config.url === '/auth/logout/') {
+      return {
+        status: 204,
+        data: null as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url === '/profile') {
+      options?.onProfileRequest?.(config);
+
+      if (options?.unauthorizedOnProfile) {
+        throw { response: { status: 401 } };
+      }
+
+      return {
+        status: 200,
+        data: { ok: true } as never,
+        config,
+      };
+    }
+
+    throw new Error(`Unexpected request: ${method} ${config.url}`);
+  });
+}
+
 describe('AuthProvider', () => {
   beforeEach(async () => {
     await storage.clear();
@@ -47,11 +101,13 @@ describe('AuthProvider', () => {
 
   it('restores a persisted session on app launch', async () => {
     await storage.set(storageKeys.authSession, {
-      token: 'persisted-token',
+      accessToken: 'persisted-access-token',
+      refreshToken: 'persisted-refresh-token',
+      role: 'user',
       user: {
-        id: 'user-1',
-        name: 'Traveler',
+        id: 1,
         email: 'traveler@example.com',
+        username: 'Traveler',
         role: 'user',
       },
     });
@@ -67,6 +123,8 @@ describe('AuthProvider', () => {
   });
 
   it('handles login and logout with persistent storage', async () => {
+    installAuthTransport();
+
     render(
       <AuthProvider>
         <AuthHarness />
@@ -80,8 +138,8 @@ describe('AuthProvider', () => {
       expect(screen.getByText('authenticated')).toBeTruthy();
     });
 
-    const storedSession = await storage.get<{ token: string }>(storageKeys.authSession);
-    expect(storedSession?.token).toContain('mock-jwt');
+    const storedSession = await storage.get<{ accessToken: string }>(storageKeys.authSession);
+    expect(storedSession?.accessToken).toBe(loginResponse.access);
 
     fireEvent.press(screen.getByText('logout'));
 
@@ -94,14 +152,10 @@ describe('AuthProvider', () => {
   it('attaches the bearer token to outgoing API requests', async () => {
     let authorizationHeader = '';
 
-    setApiTransport(async (_method, config: ApiRequestConfig) => {
-      authorizationHeader = config.headers?.Authorization ?? '';
-
-      return {
-        status: 200,
-        data: { ok: true } as never,
-        config,
-      };
+    installAuthTransport({
+      onProfileRequest(config) {
+        authorizationHeader = config.headers?.Authorization ?? '';
+      },
     });
 
     render(
@@ -119,14 +173,12 @@ describe('AuthProvider', () => {
     fireEvent.press(screen.getByText('request'));
 
     await waitFor(() => {
-      expect(authorizationHeader).toContain('Bearer mock-jwt');
+      expect(authorizationHeader).toBe(`Bearer ${loginResponse.access}`);
     });
   });
 
   it('clears auth state when the API returns 401', async () => {
-    setApiTransport(async () => {
-      throw { response: { status: 401 } };
-    });
+    installAuthTransport({ unauthorizedOnProfile: true });
 
     render(
       <AuthProvider>
@@ -146,5 +198,29 @@ describe('AuthProvider', () => {
       expect(screen.getByText('guest')).toBeTruthy();
     });
     expect(await storage.get(storageKeys.authSession)).toBeNull();
+  });
+
+  it('resets loading when login fails', async () => {
+    setApiTransport(async (method, config) => {
+      if (method === 'POST' && config.url === '/auth/login/') {
+        throw new Error('Backend rejected this device host.');
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('guest')).toBeTruthy();
+    fireEvent.press(screen.getByText('login'));
+
+    await waitFor(() => {
+      expect(screen.getByText('ready')).toBeTruthy();
+    });
+    expect(screen.getByText('guest')).toBeTruthy();
   });
 });
