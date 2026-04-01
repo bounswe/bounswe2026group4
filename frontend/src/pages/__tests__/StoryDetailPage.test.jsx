@@ -35,12 +35,16 @@ function makeStory(overrides = {}) {
   };
 }
 
-function renderPage(id = "1") {
+function renderPage(id = "1", locationState = undefined) {
+  const initialEntry = locationState
+    ? { pathname: `/stories/${id}`, state: locationState }
+    : `/stories/${id}`;
   return render(
-    <MemoryRouter initialEntries={[`/stories/${id}`]}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/stories/:id" element={<StoryDetailPage />} />
         <Route path="/" element={<div>Feed Page</div>} />
+        <Route path="/map" element={<div>Map Page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -162,7 +166,7 @@ describe("StoryDetailPage", () => {
       expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("link", { name: /stories/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /stories/i })).toBeInTheDocument();
   });
 
   it("stories link is present in not-found state", async () => {
@@ -173,7 +177,7 @@ describe("StoryDetailPage", () => {
       expect(screen.getByText("Story not found")).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("link", { name: /stories/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /stories/i })).toBeInTheDocument();
   });
 
   it("stories link is present in error state", async () => {
@@ -184,7 +188,7 @@ describe("StoryDetailPage", () => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("link", { name: /stories/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /stories/i })).toBeInTheDocument();
   });
 
   it("renders contributor name as a link to their profile", async () => {
@@ -303,5 +307,43 @@ describe("StoryDetailPage", () => {
     await waitFor(() => {
       expect(screen.getByText("1860\u20131880")).toBeInTheDocument();
     });
+  });
+
+  it("back button navigates to map when navigated from map view", async () => {
+    const user = userEvent.setup();
+    getStoryById.mockResolvedValue(makeStory());
+    renderPage("1", { from: "/map" });
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /stories/i }));
+
+    expect(screen.getByText("Map Page")).toBeInTheDocument();
+  });
+
+  it("back button navigates to feed when no from state", async () => {
+    const user = userEvent.setup();
+    getStoryById.mockResolvedValue(makeStory());
+
+    // Seed history so navigate(-1) has an entry to go back to
+    render(
+      <MemoryRouter initialEntries={["/", "/stories/1"]} initialIndex={1}>
+        <Routes>
+          <Route path="/stories/:id" element={<StoryDetailPage />} />
+          <Route path="/" element={<div>Feed Page</div>} />
+          <Route path="/map" element={<div>Map Page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /stories/i }));
+
+    expect(screen.getByText("Feed Page")).toBeInTheDocument();
   });
 });

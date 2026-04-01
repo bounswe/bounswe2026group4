@@ -15,6 +15,7 @@ function StoryPopup({ story }) {
       )}
       <Link
         to={`/stories/${story.id}`}
+        state={{ from: "/map" }}
         className="text-xs font-medium text-primary hover:underline"
       >
         Read more

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { MapPin, Calendar, ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,9 @@ function StoryDetailSkeleton() {
 
 function StoryDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { state: locationState } = useLocation();
+  const handleBack = () => locationState?.from ? navigate(locationState.from) : navigate(-1);
   const [story, setStory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -80,11 +83,9 @@ function StoryDetailPage() {
     return (
       <main className="min-h-screen bg-background">
         <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-          <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
-            <Link to="/">
-              <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-              Stories
-            </Link>
+          <Button variant="ghost" size="sm" className="mb-6 -ml-2" onClick={handleBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+            Stories
           </Button>
           <ErrorState
             title="Story not found"
@@ -99,11 +100,9 @@ function StoryDetailPage() {
     return (
       <main className="min-h-screen bg-background">
         <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-          <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
-            <Link to="/">
-              <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-              Stories
-            </Link>
+          <Button variant="ghost" size="sm" className="mb-6 -ml-2" onClick={handleBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+            Stories
           </Button>
           <ErrorState message={error} onRetry={fetchStory} />
         </div>
@@ -114,11 +113,9 @@ function StoryDetailPage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
-          <Link to="/">
-            <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-            Stories
-          </Link>
+        <Button variant="ghost" size="sm" className="mb-6 -ml-2" onClick={handleBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+          Stories
         </Button>
 
         {loading ? (
