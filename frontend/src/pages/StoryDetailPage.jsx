@@ -83,7 +83,7 @@ function StoryDetailPage() {
           <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
             <Link to="/">
               <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-              Back to feed
+              Stories
             </Link>
           </Button>
           <ErrorState
@@ -102,7 +102,7 @@ function StoryDetailPage() {
           <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
             <Link to="/">
               <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-              Back to feed
+              Stories
             </Link>
           </Button>
           <ErrorState message={error} onRetry={fetchStory} />
@@ -117,15 +117,15 @@ function StoryDetailPage() {
         <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
           <Link to="/">
             <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-            Back to feed
+            Stories
           </Link>
         </Button>
 
         {loading ? (
           <StoryDetailSkeleton />
         ) : (
-          <article>
-            <h1 className="text-3xl font-bold tracking-tight mb-4">
+          <article aria-labelledby="story-title">
+            <h1 id="story-title" className="text-3xl font-bold tracking-tight mb-4">
               {story.title}
             </h1>
 
@@ -159,11 +159,15 @@ function StoryDetailPage() {
             </div>
 
             {/* Location map */}
-            {story.location_lat && story.location_lng && (
-              <div className="mb-8">
-                <StoryDetailMap lat={parseFloat(story.location_lat)} lng={parseFloat(story.location_lng)} />
-              </div>
-            )}
+            {(() => {
+              const lat = parseFloat(story.location_lat);
+              const lng = parseFloat(story.location_lng);
+              return !isNaN(lat) && !isNaN(lng) ? (
+                <div className="mb-8">
+                  <StoryDetailMap lat={lat} lng={lng} />
+                </div>
+              ) : null;
+            })()}
 
             {/* Images — rendered only when the backend returns them */}
             {images.length > 0 && (
