@@ -1,0 +1,124 @@
+import { describe, it, expect } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+
+import { useFilterState } from "../useFilterState";
+
+function makeWrapper(initialEntries = ["/"]) {
+  return function Wrapper({ children }) {
+    return <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>;
+  };
+}
+
+describe("useFilterState", () => {
+  it("returns default values when URL has no params", () => {
+    const { result } = renderHook(() => useFilterState(), { wrapper: makeWrapper() });
+
+    expect(result.current.q).toBe("");
+    expect(result.current.yearFrom).toBe("");
+    expect(result.current.yearTo).toBe("");
+    expect(result.current.location).toBe("");
+    expect(result.current.page).toBe(1);
+    expect(result.current.hasActiveFilters).toBe(false);
+  });
+
+  it("parses URL params correctly", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?q=galata&year_from=1900&year_to=2000&location=Pera&page=3"]),
+    });
+
+    expect(result.current.q).toBe("galata");
+    expect(result.current.yearFrom).toBe(1900);
+    expect(result.current.yearTo).toBe(2000);
+    expect(result.current.location).toBe("Pera");
+    expect(result.current.page).toBe(3);
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it("setFilters updates URL params", () => {
+    const { result } = renderHook(() => useFilterState(), { wrapper: makeWrapper() });
+
+    act(() => {
+      result.current.setFilters({ q: "istanbul" });
+    });
+
+    expect(result.current.q).toBe("istanbul");
+  });
+
+  it("setFilters resets page to 1 when non-page params change", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?page=5"]),
+    });
+
+    expect(result.current.page).toBe(5);
+
+    act(() => {
+      result.current.setFilters({ q: "galata" });
+    });
+
+    expect(result.current.page).toBe(1);
+  });
+
+  it("setFilters does NOT reset page when only page changes", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?q=galata&page=1"]),
+    });
+
+    act(() => {
+      result.current.setFilters({ page: 3 });
+    });
+
+    expect(result.current.page).toBe(3);
+    expect(result.current.q).toBe("galata");
+  });
+
+  it("removeFilter removes a single param and resets page", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?q=galata&location=Pera&page=2"]),
+    });
+
+    act(() => {
+      result.current.removeFilter("q");
+    });
+
+    expect(result.current.q).toBe("");
+    expect(result.current.location).toBe("Pera");
+    expect(result.current.page).toBe(1);
+  });
+
+  it("clearAll removes all params", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?q=galata&year_from=1900&location=Pera&page=3"]),
+    });
+
+    act(() => {
+      result.current.clearAll();
+    });
+
+    expect(result.current.q).toBe("");
+    expect(result.current.yearFrom).toBe("");
+    expect(result.current.location).toBe("");
+    expect(result.current.page).toBe(1);
+    expect(result.current.hasActiveFilters).toBe(false);
+  });
+
+  it("setFilters removes param when value is empty string", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?q=galata"]),
+    });
+
+    act(() => {
+      result.current.setFilters({ q: "" });
+    });
+
+    expect(result.current.q).toBe("");
+  });
+
+  it("hasActiveFilters is true when any filter param is set", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?year_from=1900"]),
+    });
+
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+});
