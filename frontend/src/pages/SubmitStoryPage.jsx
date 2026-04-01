@@ -141,6 +141,7 @@ function SubmitStoryPage() {
       formData.append("location_lng", parseFloat(location.lng.toFixed(6)));
       formData.append("location_name", placeName.trim());
       formData.append("time_type", timeType);
+      formData.append("contributor_visible", true);
 
       if (timeType === "year_range") {
         if (yearStart) formData.append("year_start", yearStart);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { MapPin, Calendar, User, ArrowLeft } from "lucide-react";
+import { MapPin, Calendar, ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/loading-skeleton";
@@ -125,9 +125,21 @@ function StoryDetailPage() {
           <StoryDetailSkeleton />
         ) : (
           <article aria-labelledby="story-title">
-            <h1 id="story-title" className="text-3xl font-bold tracking-tight mb-4">
+            <h1 id="story-title" className="text-3xl font-bold tracking-tight mb-1">
               {story.title}
             </h1>
+
+            {contributorName && (
+              <p className="text-sm text-muted-foreground mb-4">
+                by{" "}
+                <Link
+                  to={`/profile/${story.user}`}
+                  className="hover:underline"
+                >
+                  {contributorName}
+                </Link>
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground mb-6">
               {story.location_name && (
@@ -144,16 +156,9 @@ function StoryDetailPage() {
                 </span>
               )}
 
-              {contributorName && (
-                <span className="flex items-center gap-1.5">
-                  <User className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {contributorName}
-                </span>
-              )}
-
               {submittedDate && (
                 <span className="text-muted-foreground/70">
-                  {submittedDate}
+                  Date added: {submittedDate}
                 </span>
               )}
             </div>

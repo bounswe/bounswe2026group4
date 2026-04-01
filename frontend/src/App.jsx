@@ -41,6 +41,7 @@ function App() {
                   </ProtectedRoute>
                 )}
               />
+              <Route path="/profile/:userId" element={<ProfilePage />} />
               <Route path="/stories/:id" element={<StoryDetailPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

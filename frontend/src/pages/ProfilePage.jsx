@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import { User, BookOpen, CalendarDays, MapPin, Star } from "lucide-react";
 
 import { SkeletonPage } from "@/components/ui/loading-skeleton";
@@ -7,16 +8,18 @@ import { getProfile } from "@/services/userService";
 import { useAuth } from "@/hooks/useAuth";
 
 function ProfilePage() {
+  const { userId: paramUserId } = useParams();
   const { user } = useAuth();
+  const targetUserId = paramUserId ?? user?.id;
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchProfile = useCallback(async () => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     setLoading(true);
     try {
-      const profileData = await getProfile(user.id);
+      const profileData = await getProfile(targetUserId);
       setProfile(profileData);
       setError(null);
     } catch (err) {
@@ -28,7 +31,7 @@ function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, [user.id]);
+  }, [targetUserId]);
 
   useEffect(() => {
     fetchProfile();

@@ -20,6 +20,7 @@ import { getStoryById } from "@/services/storyService";
 function makeStory(overrides = {}) {
   return {
     id: 1,
+    user: 1,
     title: "The Great Fire of Beyoglu",
     narrative: "In the early hours of morning, flames spread through the district.\n\nResidents fled with what little they could carry.",
     location_name: "Beyoglu, Istanbul",
@@ -84,12 +85,12 @@ describe("StoryDetailPage", () => {
     });
   });
 
-  it("renders submitted date", async () => {
+  it("renders submitted date with 'Date added' label", async () => {
     getStoryById.mockResolvedValue(makeStory({ submitted_at: "2025-06-15T10:00:00Z" }));
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText(/june 15, 2025/i)).toBeInTheDocument();
+      expect(screen.getByText(/date added:.*june 15, 2025/i)).toBeInTheDocument();
     });
   });
 
@@ -153,7 +154,7 @@ describe("StoryDetailPage", () => {
     expect(getStoryById).toHaveBeenCalledTimes(2);
   });
 
-  it("back to feed link is present in loaded state", async () => {
+  it("stories link is present in loaded state", async () => {
     getStoryById.mockResolvedValue(makeStory());
     renderPage();
 
@@ -161,10 +162,10 @@ describe("StoryDetailPage", () => {
       expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("link", { name: /back to feed/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /stories/i })).toBeInTheDocument();
   });
 
-  it("back to feed link is present in not-found state", async () => {
+  it("stories link is present in not-found state", async () => {
     getStoryById.mockRejectedValue({ response: { status: 404 } });
     renderPage();
 
@@ -172,10 +173,10 @@ describe("StoryDetailPage", () => {
       expect(screen.getByText("Story not found")).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("link", { name: /back to feed/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /stories/i })).toBeInTheDocument();
   });
 
-  it("back to feed link is present in error state", async () => {
+  it("stories link is present in error state", async () => {
     getStoryById.mockRejectedValue(new Error("fail"));
     renderPage();
 
@@ -183,15 +184,17 @@ describe("StoryDetailPage", () => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("link", { name: /back to feed/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /stories/i })).toBeInTheDocument();
   });
 
-  it("renders contributor name", async () => {
+  it("renders contributor name as a link to their profile", async () => {
     getStoryById.mockResolvedValue(makeStory());
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("historian")).toBeInTheDocument();
+      const link = screen.getByRole("link", { name: "historian" });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute("href", "/profile/1");
     });
   });
 
@@ -203,7 +206,7 @@ describe("StoryDetailPage", () => {
       expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("historian")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "historian" })).not.toBeInTheDocument();
   });
 
   it("renders images when present", async () => {
@@ -272,7 +275,7 @@ describe("StoryDetailPage", () => {
       expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
     });
 
-    expect(screen.queryByText(/june/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/date added/i)).not.toBeInTheDocument();
   });
 
   it("calls getStoryById with the correct id from the URL", async () => {
