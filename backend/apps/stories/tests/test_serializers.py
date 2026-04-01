@@ -3,6 +3,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
+from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
 from apps.stories.serializers import SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
 from apps.users.models import User
@@ -53,7 +54,8 @@ class TestStoryFeedSerializer:
         expected_fields = {
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end',
-            'status', 'contributor_name', 'preview_text', 'submitted_at',
+            'status', 'contributor_name', 'preview_text',
+            'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(data.keys())
 
@@ -122,7 +124,7 @@ class TestStorySerializerFields:
             'id', 'user', 'title', 'narrative', 'location_lat', 'location_lng',
             'location_name', 'region', 'time_type', 'year', 'year_start', 'year_end',
             'status', 'contributor_visible', 'like_count', 'save_count',
-            'submitted_at', 'updated_at',
+            'user_has_liked', 'user_has_saved', 'submitted_at', 'updated_at',
         }
         assert set(serializer.data.keys()) == expected
 
@@ -358,3 +360,101 @@ class TestStoryDetailSerializer:
         data = StoryDetailSerializer(story, context={'request': request}).data
         url = data['media_items'][0]['url']
         assert url.startswith('http')
+
+
+# ── user_has_liked / user_has_saved — StorySerializer ────────────────────────
+
+@pytest.mark.django_db
+class TestStorySerializerUserInteractionFields:
+    def _make_story_and_user(self):
+        user = make_user()
+        story = make_story(user=user)
+        return story, user
+
+    def test_user_has_liked_is_false_when_no_request_context(self):
+        story, _ = self._make_story_and_user()
+        data = StorySerializer(story).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_liked_is_true_when_user_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        Like.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is True
+
+    def test_user_has_liked_is_false_when_user_not_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_saved_is_true_when_user_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        SavedStory.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is True
+
+    def test_user_has_saved_is_false_when_user_not_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is False
+
+
+# ── user_has_liked / user_has_saved — StoryFeedSerializer ────────────────────
+
+@pytest.mark.django_db
+class TestStoryFeedSerializerUserInteractionFields:
+    def _make_story_and_user(self):
+        user = make_user()
+        story = make_story(user=user)
+        return story, user
+
+    def test_user_has_liked_is_false_when_no_request_context(self):
+        story, _ = self._make_story_and_user()
+        data = StoryFeedSerializer(story).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_liked_is_true_when_user_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        Like.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is True
+
+    def test_user_has_liked_is_false_when_user_not_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_saved_is_true_when_user_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        SavedStory.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is True
+
+    def test_user_has_saved_is_false_when_user_not_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is False

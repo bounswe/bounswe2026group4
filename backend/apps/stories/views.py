@@ -42,7 +42,7 @@ class StoryFeedView(APIView):
 
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = StoryFeedSerializer(page, many=True)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -103,7 +103,7 @@ class StorySearchView(APIView):
 
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = StoryFeedSerializer(page, many=True)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
 

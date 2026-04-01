@@ -5,6 +5,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 from apps.users.models import RoleChoices, User
@@ -172,7 +173,8 @@ class TestStoryFeedView:
         expected_fields = {
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end',
-            'status', 'contributor_name', 'preview_text', 'submitted_at',
+            'status', 'contributor_name', 'preview_text',
+            'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(card.keys())
 
@@ -462,3 +464,54 @@ class TestStoryDetailMediaItems:
         assert result['media_type'] == MediaType.IMAGE
         assert result['order'] == 0
         assert result['url'].startswith('http')
+
+
+# ── user_has_liked / user_has_saved — view integration ───────────────────────
+
+def make_user_for_interaction(email='liker@example.com', username='liker'):
+    return User.objects.create_user(email=email, username=username, password='Password1')
+
+
+@pytest.mark.django_db
+class TestStoryDetailUserInteraction:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_user_has_liked_false_for_unauthenticated(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['user_has_liked'] is False
+        assert response.data['user_has_saved'] is False
+
+    def test_user_has_liked_true_after_like(self):
+        user = make_user_for_interaction()
+        story = make_story()
+        Like.objects.create(user=user, story=story)
+        auth_client = APIClient()
+        auth_client.force_authenticate(user=user)
+        response = auth_client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['user_has_liked'] is True
+        assert response.data['user_has_saved'] is False
+
+
+@pytest.mark.django_db
+class TestStoryFeedUserInteraction:
+    def test_feed_user_has_liked_false_for_unauthenticated(self, client):
+        make_story()
+        response = client.get(FEED_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['user_has_liked'] is False
+        assert response.data['results'][0]['user_has_saved'] is False
+
+    def test_feed_user_has_liked_true_after_like(self):
+        user = make_user_for_interaction()
+        story = make_story()
+        Like.objects.create(user=user, story=story)
+        auth_client = APIClient()
+        auth_client.force_authenticate(user=user)
+        response = auth_client.get(FEED_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['user_has_liked'] is True
+        assert response.data['results'][0]['user_has_saved'] is False
