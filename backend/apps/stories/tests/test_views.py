@@ -5,6 +5,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.interactions.models import Like, SavedStory
+from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 from apps.users.models import RoleChoices, User
 
@@ -171,7 +173,8 @@ class TestStoryFeedView:
         expected_fields = {
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end',
-            'status', 'contributor_name', 'preview_text', 'submitted_at',
+            'status', 'contributor_name', 'preview_text',
+            'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(card.keys())
 
@@ -414,3 +417,101 @@ class TestStoryMapView:
         if response.data['count']:
             result = response.data['results'][0]
             assert 'narrative' not in result
+
+
+# ── StoryDetailView — media_items ─────────────────────────────────────────────
+
+def make_media_item(story, order=0):
+    """Create a MediaItem attached to *story* without writing anything to disk.
+
+    FileField stores only a path string in the DB; .url works as long as the
+    name is non-empty — no actual file is needed for integration tests.
+    """
+    return MediaItem.objects.create(
+        story=story,
+        media_type=MediaType.IMAGE,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
+
+@pytest.mark.django_db
+class TestStoryDetailMediaItems:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_get_story_detail_includes_media_items_field(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert 'media_items' in response.data
+
+    def test_get_story_detail_media_items_empty_when_no_media(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.data['media_items'] == []
+
+    def test_get_story_detail_media_items_contains_uploaded_images(self, client):
+        story = make_story()
+        item = make_media_item(story)
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['media_items']) == 1
+        result = response.data['media_items'][0]
+        assert result['id'] == item.id
+        assert result['media_type'] == MediaType.IMAGE
+        assert result['order'] == 0
+        assert result['url'].startswith('http')
+
+
+# ── user_has_liked / user_has_saved — view integration ───────────────────────
+
+def make_user_for_interaction(email='liker@example.com', username='liker'):
+    return User.objects.create_user(email=email, username=username, password='Password1')
+
+
+@pytest.mark.django_db
+class TestStoryDetailUserInteraction:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_user_has_liked_false_for_unauthenticated(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['user_has_liked'] is False
+        assert response.data['user_has_saved'] is False
+
+    def test_user_has_liked_true_after_like(self):
+        user = make_user_for_interaction()
+        story = make_story()
+        Like.objects.create(user=user, story=story)
+        auth_client = APIClient()
+        auth_client.force_authenticate(user=user)
+        response = auth_client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['user_has_liked'] is True
+        assert response.data['user_has_saved'] is False
+
+
+@pytest.mark.django_db
+class TestStoryFeedUserInteraction:
+    def test_feed_user_has_liked_false_for_unauthenticated(self, client):
+        make_story()
+        response = client.get(FEED_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['user_has_liked'] is False
+        assert response.data['results'][0]['user_has_saved'] is False
+
+    def test_feed_user_has_liked_true_after_like(self):
+        user = make_user_for_interaction()
+        story = make_story()
+        Like.objects.create(user=user, story=story)
+        auth_client = APIClient()
+        auth_client.force_authenticate(user=user)
+        response = auth_client.get(FEED_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['user_has_liked'] is True
+        assert response.data['results'][0]['user_has_saved'] is False
