@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.stories.models import Story
-from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
 from apps.stories.services import get_story_feed, get_story_search
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
@@ -114,7 +114,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         # Guests and authenticated users can only browse published stories.
         # Draft and removed stories are not surfaced through this endpoint.
-        return Story.objects.filter(status=Story.STATUS_PUBLISHED)
+        return Story.objects.filter(status=Story.STATUS_PUBLISHED).select_related('user')
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -126,8 +126,9 @@ class StoryListCreateView(generics.ListCreateAPIView):
 
 
 class StoryDetailView(generics.RetrieveUpdateAPIView):
-    queryset = Story.objects.all()
-    serializer_class = StorySerializer
+    # prefetch_related('media_items') avoids N+1 when StoryDetailSerializer renders the nested list
+    queryset = Story.objects.select_related('user').prefetch_related('media_items')
+    serializer_class = StoryDetailSerializer
     http_method_names = ['get', 'patch']
 
     def get_permissions(self):

@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from apps.media.models import MediaItem
 from apps.stories.models import Story
 from apps.stories.services import create_story, update_story
 
@@ -83,6 +84,40 @@ class StorySerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return update_story(story=instance, validated_data=validated_data)
+
+
+class StoryMediaItemSerializer(serializers.ModelSerializer):
+    """Read-only serializer for media items embedded in the story detail response."""
+
+    # Build an absolute URL when a request context is available so clients do
+    # not need to know MEDIA_URL or the server hostname.
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MediaItem
+        fields = ['id', 'url', 'media_type', 'order']
+        read_only_fields = fields
+
+    def get_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
+
+
+class StoryDetailSerializer(StorySerializer):
+    """
+    Extends StorySerializer with nested media items for GET /stories/<pk>/.
+
+    Kept separate from StorySerializer so the list endpoint does not pay
+    the cost of prefetching media on every paginated row.
+    """
+
+    media_items = StoryMediaItemSerializer(many=True, read_only=True)
+
+    class Meta(StorySerializer.Meta):
+        fields = StorySerializer.Meta.fields + ['media_items']
+        read_only_fields = StorySerializer.Meta.read_only_fields + ['media_items']
 
 
 class StoryFeedSerializer(serializers.ModelSerializer):

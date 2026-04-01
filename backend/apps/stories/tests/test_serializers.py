@@ -3,7 +3,8 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.serializers import SearchQuerySerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
+from apps.media.models import MediaItem, MediaType
+from apps.stories.serializers import SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
 from apps.users.models import User
 
 
@@ -301,3 +302,59 @@ class TestStoryMapSerializer:
         assert data['year'] is None
         assert data['year_start'] == 1900
         assert data['year_end'] == 1950
+
+
+# ── StoryDetailSerializer ─────────────────────────────────────────────────────
+
+def make_media_item(story, media_type=MediaType.IMAGE, order=0):
+    """Create a MediaItem attached to *story* without writing anything to disk.
+
+    FileField stores only a path string in the DB; the .url property works as
+    long as we set a non-empty name — no actual file is needed for unit tests.
+    """
+    return MediaItem.objects.create(
+        story=story,
+        media_type=media_type,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
+
+@pytest.mark.django_db
+class TestStoryDetailSerializer:
+    def _make_story(self, **kwargs):
+        user = make_user()
+        return make_story(user=user, **kwargs)
+
+    def test_media_items_is_empty_list_when_no_media(self):
+        story = self._make_story()
+        data = StoryDetailSerializer(story).data
+        assert data['media_items'] == []
+
+    def test_media_items_contains_uploaded_files(self):
+        story = self._make_story()
+        item = make_media_item(story)
+        data = StoryDetailSerializer(story).data
+        assert len(data['media_items']) == 1
+        assert data['media_items'][0]['id'] == item.id
+        assert data['media_items'][0]['media_type'] == MediaType.IMAGE
+        assert data['media_items'][0]['order'] == 0
+
+    def test_media_items_ordered_by_order_field(self):
+        story = self._make_story()
+        make_media_item(story, order=1)
+        make_media_item(story, order=0)
+        data = StoryDetailSerializer(story).data
+        orders = [item['order'] for item in data['media_items']]
+        assert orders == sorted(orders)
+
+    def test_media_item_url_is_absolute_when_request_in_context(self):
+        from rest_framework.test import APIRequestFactory  # noqa: PLC0415
+        story = self._make_story()
+        make_media_item(story)
+        request = APIRequestFactory().get('/')
+        data = StoryDetailSerializer(story, context={'request': request}).data
+        url = data['media_items'][0]['url']
+        assert url.startswith('http')

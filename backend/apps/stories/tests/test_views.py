@@ -5,6 +5,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 from apps.users.models import RoleChoices, User
 
@@ -414,3 +415,50 @@ class TestStoryMapView:
         if response.data['count']:
             result = response.data['results'][0]
             assert 'narrative' not in result
+
+
+# ── StoryDetailView — media_items ─────────────────────────────────────────────
+
+def make_media_item(story, order=0):
+    """Create a MediaItem attached to *story* without writing anything to disk.
+
+    FileField stores only a path string in the DB; .url works as long as the
+    name is non-empty — no actual file is needed for integration tests.
+    """
+    return MediaItem.objects.create(
+        story=story,
+        media_type=MediaType.IMAGE,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
+
+@pytest.mark.django_db
+class TestStoryDetailMediaItems:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_get_story_detail_includes_media_items_field(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert 'media_items' in response.data
+
+    def test_get_story_detail_media_items_empty_when_no_media(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.data['media_items'] == []
+
+    def test_get_story_detail_media_items_contains_uploaded_images(self, client):
+        story = make_story()
+        item = make_media_item(story)
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['media_items']) == 1
+        result = response.data['media_items'][0]
+        assert result['id'] == item.id
+        assert result['media_type'] == MediaType.IMAGE
+        assert result['order'] == 0
+        assert result['url'].startswith('http')
