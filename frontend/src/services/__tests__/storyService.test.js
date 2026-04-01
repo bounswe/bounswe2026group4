@@ -32,7 +32,7 @@ describe("storyService", () => {
       expect(result).toEqual(responseData);
     });
 
-    it("calls GET /stories/feed/ with default params", async () => {
+    it("calls GET /stories/feed/ with default params when no q is provided", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
       await getStories();
@@ -42,7 +42,7 @@ describe("storyService", () => {
       });
     });
 
-    it("passes custom page param to API", async () => {
+    it("passes custom page param to feed API", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
       await getStories({ page: 3 });
@@ -52,7 +52,7 @@ describe("storyService", () => {
       });
     });
 
-    it("passes custom pageSize to API", async () => {
+    it("passes custom pageSize to feed API", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
       await getStories({ pageSize: 6 });
@@ -60,6 +60,64 @@ describe("storyService", () => {
       expect(api.get).toHaveBeenCalledWith("/stories/feed/", {
         params: { page: 1, page_size: 6, sort_by: "recent" },
       });
+    });
+
+    it("passes yearFrom and yearTo filter params to feed API", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ yearFrom: 1900, yearTo: 2000 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/feed/", {
+        params: { page: 1, page_size: 12, sort_by: "recent", year_from: 1900, year_to: 2000 },
+      });
+    });
+
+    it("passes location filter param to feed API", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ location: "Galata" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/feed/", {
+        params: { page: 1, page_size: 12, sort_by: "recent", location: "Galata" },
+      });
+    });
+
+    it("calls GET /stories/search/ with q param when q is provided", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ q: "galata tower" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "galata tower", page: 1, page_size: 12 },
+      });
+    });
+
+    it("trims whitespace from q before calling search API", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ q: "  galata  " });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "galata", page: 1, page_size: 12 },
+      });
+    });
+
+    it("passes year and location filters to search API when q and filters are combined", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ q: "galata", yearFrom: 1900, yearTo: 2000, location: "Pera" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "galata", page: 1, page_size: 12, year_from: 1900, year_to: 2000, location: "Pera" },
+      });
+    });
+
+    it("uses feed API when q is empty string", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ q: "" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/feed/", expect.anything());
     });
 
     it("throws on API error", async () => {
@@ -70,7 +128,7 @@ describe("storyService", () => {
   });
 
   describe("getMapStories", () => {
-    it("calls GET /stories/map/ with default empty params", async () => {
+    it("calls GET /stories/map/ with empty params by default", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
       await getMapStories();
@@ -87,12 +145,41 @@ describe("storyService", () => {
       expect(result).toEqual(stories);
     });
 
-    it("passes filter params through", async () => {
+    it("passes yearFrom, yearTo and location filter params to map API", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
-      await getMapStories({ time_type: "exact_year" });
+      await getMapStories({ yearFrom: 1900, yearTo: 2000, location: "Galata" });
 
-      expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: { time_type: "exact_year" } });
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", {
+        params: { year_from: 1900, year_to: 2000, location: "Galata" },
+      });
+    });
+
+    it("calls search API when q is provided and returns stories with coordinates", async () => {
+      const stories = [
+        { id: 1, title: "Bridge", location_lat: 41.0, location_lng: 28.9 },
+        { id: 2, title: "No location", location_lat: null, location_lng: null },
+      ];
+      api.get.mockResolvedValue({ data: { count: 2, next: null, previous: null, results: stories } });
+
+      const result = await getMapStories({ q: "bridge" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "bridge", page_size: 100 },
+      });
+      // Filters out stories without coordinates
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(1);
+    });
+
+    it("passes year and location filters to search API when q and filters are combined", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getMapStories({ q: "bridge", yearFrom: 1900, yearTo: 2000, location: "Galata" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "bridge", page_size: 100, year_from: 1900, year_to: 2000, location: "Galata" },
+      });
     });
 
     it("throws on API error", async () => {
