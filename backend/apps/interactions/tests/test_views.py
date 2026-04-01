@@ -220,3 +220,81 @@ class TestStoryUnlike:
     def test_unlike_story_not_found(self, auth_client):
         response = auth_client.delete(self.url.format(story_id=99999))
         assert response.status_code == 404
+
+
+# ── GET /stories/<story_id>/comments/ ────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryCommentList:
+    url = '/stories/{story_id}/comments/'
+
+    def test_returns_200_for_unauthenticated(self, client, story):
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.status_code == 200
+
+    def test_returns_200_for_authenticated(self, auth_client, story):
+        response = auth_client.get(self.url.format(story_id=story.pk))
+        assert response.status_code == 200
+
+    def test_response_is_paginated(self, client, story):
+        response = client.get(self.url.format(story_id=story.pk))
+        for key in ['count', 'next', 'previous', 'results']:
+            assert key in response.data
+
+    def test_returns_empty_list_when_no_comments(self, client, story):
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_returns_comments_for_story(self, client, story, user):
+        Comment.objects.create(story=story, author=user, text='First comment')
+        Comment.objects.create(story=story, author=user, text='Second comment')
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.data['count'] == 2
+
+    def test_result_contains_expected_fields(self, client, story, user):
+        Comment.objects.create(story=story, author=user, text='Hello')
+        response = client.get(self.url.format(story_id=story.pk))
+        result = response.data['results'][0]
+        assert set(result.keys()) == {'id', 'story_id', 'author_username', 'text', 'is_anonymized', 'created_at'}
+
+    def test_comments_ordered_oldest_first(self, client, story, user):
+        c1 = Comment.objects.create(story=story, author=user, text='Older')
+        c2 = Comment.objects.create(story=story, author=user, text='Newer')
+        response = client.get(self.url.format(story_id=story.pk))
+        ids = [r['id'] for r in response.data['results']]
+        assert ids == [c1.pk, c2.pk]
+
+    def test_story_not_found_returns_404(self, client):
+        response = client.get(self.url.format(story_id=99999))
+        assert response.status_code == 404
+
+    def test_removed_story_returns_404(self, client, story):
+        story.status = Story.STATUS_REMOVED
+        story.save()
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.status_code == 404
+
+    def test_anonymized_comment_shows_null_author(self, client, story, user):
+        Comment.objects.create(story=story, author=None, text='Anonymous', is_anonymized=True)
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.data['results'][0]['author_username'] is None
+
+    def test_only_returns_comments_for_requested_story(self, client, story, second_user):
+        from decimal import Decimal
+        other_story = Story.objects.create(
+            user=second_user,
+            title='Other Story',
+            narrative='Other narrative.',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Ankara',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+        Comment.objects.create(story=story, author=second_user, text='For first story')
+        Comment.objects.create(story=other_story, author=second_user, text='For other story')
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['text'] == 'For first story'
