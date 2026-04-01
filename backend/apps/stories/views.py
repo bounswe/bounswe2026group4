@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.stories.models import Story
-from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryFeedSerializer, StorySerializer
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
 from apps.stories.services import get_story_feed, get_story_search
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
@@ -46,6 +46,41 @@ class StoryFeedView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+class StoryMapView(APIView):
+    """
+    GET /stories/map/
+
+    Returns a paginated list of published stories with only the fields needed
+    to render map pins: coordinates, place name, title, and time info.
+    Guests and authenticated users both have read access.
+
+    Query params:
+      year_from  — include stories from this year onwards
+      year_to    — include stories up to and including this year
+      location   — case-insensitive substring match against location_name
+      page       — page number (default 1)
+      page_size  — results per page (default 10, max 100)
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query_serializer = FeedQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        params = query_serializer.validated_data
+
+        qs = get_story_feed(
+            year_from=params.get('year_from'),
+            year_to=params.get('year_to'),
+            location=params.get('location'),
+        )
+
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryMapSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
 class StorySearchView(APIView):
     """
     GET /stories/search/?q=<query>
@@ -79,7 +114,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         # Guests and authenticated users can only browse published stories.
         # Draft and removed stories are not surfaced through this endpoint.
-        return Story.objects.filter(status=Story.STATUS_PUBLISHED)
+        return Story.objects.filter(status=Story.STATUS_PUBLISHED).select_related('user')
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -91,7 +126,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
 
 
 class StoryDetailView(generics.RetrieveUpdateAPIView):
-    queryset = Story.objects.all()
+    queryset = Story.objects.select_related('user')
     serializer_class = StorySerializer
     http_method_names = ['get', 'patch']
 

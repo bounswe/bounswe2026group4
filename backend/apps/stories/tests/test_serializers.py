@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.serializers import SearchQuerySerializer, StoryFeedSerializer, StorySerializer
+from apps.stories.serializers import SearchQuerySerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
 from apps.users.models import User
 
 
@@ -118,8 +118,9 @@ class TestStorySerializerFields:
     def test_serializer_contains_expected_fields(self, story):
         serializer = StorySerializer(story)
         expected = {
-            'id', 'user', 'title', 'narrative', 'location_lat', 'location_lng',
-            'location_name', 'region', 'time_type', 'year', 'year_start', 'year_end',
+            'id', 'user', 'contributor_name', 'title', 'narrative',
+            'location_lat', 'location_lng', 'location_name', 'region',
+            'time_type', 'year', 'year_start', 'year_end',
             'status', 'contributor_visible', 'like_count', 'save_count',
             'submitted_at', 'updated_at',
         }
@@ -131,6 +132,24 @@ class TestStorySerializerFields:
         assert serializer.is_valid(), serializer.errors
         assert 'like_count' not in serializer.validated_data
         assert 'save_count' not in serializer.validated_data
+
+    def test_contributor_name_returns_username_when_visible(self):
+        user = make_user()
+        story = make_story(user=user, contributor_visible=True)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] == user.username
+
+    def test_contributor_name_is_none_when_not_visible(self):
+        user = make_user()
+        story = make_story(user=user, contributor_visible=False)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] is None
+
+    def test_contributor_name_is_none_when_user_is_anonymized(self):
+        # Story whose author account was deleted — user FK is null
+        story = make_story(user=None, contributor_visible=True)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] is None
 
 
 @pytest.mark.django_db
@@ -243,3 +262,61 @@ class TestSearchQuerySerializer:
     def test_single_character_passes(self):
         s = SearchQuerySerializer(data={'q': 'a'})
         assert s.is_valid(), s.errors
+
+
+# ── StoryMapSerializer ────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryMapSerializer:
+    MAP_FIELDS = {
+        'id', 'title', 'location_name', 'location_lat', 'location_lng',
+        'time_type', 'year', 'year_start', 'year_end',
+    }
+    EXCLUDED_FIELDS = {
+        'narrative', 'contributor_name', 'preview_text', 'status',
+        'like_count', 'save_count', 'submitted_at', 'updated_at',
+        'region', 'contributor_visible', 'user',
+    }
+
+    def _make_story(self, **kwargs):
+        user = make_user()
+        return make_story(user=user, **kwargs)
+
+    def test_contains_exactly_required_map_fields(self):
+        story = self._make_story()
+        data = StoryMapSerializer(story).data
+        assert set(data.keys()) == self.MAP_FIELDS
+
+    def test_excludes_heavy_fields(self):
+        story = self._make_story()
+        data = StoryMapSerializer(story).data
+        for field in self.EXCLUDED_FIELDS:
+            assert field not in data
+
+    def test_coordinates_are_present_and_correct(self):
+        story = self._make_story(
+            location_lat='41.015137', location_lng='28.979530',
+            location_name='Galata Bridge',
+        )
+        data = StoryMapSerializer(story).data
+        assert str(data['location_lat']) == '41.015137'
+        assert str(data['location_lng']) == '28.979530'
+        assert data['location_name'] == 'Galata Bridge'
+
+    def test_exact_year_story_has_year_set(self):
+        story = self._make_story(time_type=Story.TIME_EXACT, year=1923)
+        data = StoryMapSerializer(story).data
+        assert data['time_type'] == Story.TIME_EXACT
+        assert data['year'] == 1923
+        assert data['year_start'] is None
+        assert data['year_end'] is None
+
+    def test_year_range_story_has_year_start_and_end(self):
+        story = self._make_story(
+            time_type=Story.TIME_RANGE, year=None, year_start=1900, year_end=1950,
+        )
+        data = StoryMapSerializer(story).data
+        assert data['time_type'] == Story.TIME_RANGE
+        assert data['year'] is None
+        assert data['year_start'] == 1900
+        assert data['year_end'] == 1950
