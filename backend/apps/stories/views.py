@@ -114,7 +114,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         # Guests and authenticated users can only browse published stories.
         # Draft and removed stories are not surfaced through this endpoint.
-        return Story.objects.filter(status=Story.STATUS_PUBLISHED)
+        return Story.objects.filter(status=Story.STATUS_PUBLISHED).select_related('user')
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -126,7 +126,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
 
 
 class StoryDetailView(generics.RetrieveUpdateAPIView):
-    queryset = Story.objects.all()
+    queryset = Story.objects.select_related('user')
     serializer_class = StorySerializer
     http_method_names = ['get', 'patch']
 
