@@ -7,6 +7,28 @@ from apps.interactions.models import Comment, Like
 from apps.stories.models import Story
 
 
+def get_story_comments(story_id):
+    """
+    Return a queryset of comments for a published story, ordered oldest-first.
+
+    select_related('author') avoids N+1 when the serializer reads author.username
+    for each comment in the list.
+
+    Raises Http404 if the story does not exist or is not published.
+    """
+    try:
+        story = Story.objects.get(pk=story_id, status=Story.STATUS_PUBLISHED)
+    except Story.DoesNotExist:
+        raise Http404
+
+    return (
+        Comment.objects
+        .filter(story=story)
+        .select_related('author')
+        .order_by('created_at')
+    )
+
+
 def create_comment(user, story_id, text):
     """
     Create and return a Comment on a published story.

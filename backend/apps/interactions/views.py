@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -10,14 +11,28 @@ from apps.interactions.serializers import (
     CommentResponseSerializer,
     LikeResponseSerializer,
 )
-from apps.interactions.services import add_like, create_comment, delete_comment, remove_like
+from apps.interactions.services import add_like, create_comment, delete_comment, get_story_comments, remove_like
+from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
 
 
-class StoryCommentCreateView(APIView):
-    """POST /stories/<story_id>/comments/ — add a comment to a published story."""
+class StoryCommentListCreateView(APIView):
+    """
+    GET  /stories/<story_id>/comments/ — list comments for a published story (public).
+    POST /stories/<story_id>/comments/ — add a comment (registered users only).
+    """
 
-    permission_classes = [IsRegisteredUser]
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsRegisteredUser()]
+        return [AllowAny()]
+
+    def get(self, request, story_id):
+        qs = get_story_comments(story_id)
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = CommentResponseSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request, story_id):
         serializer = CommentCreateSerializer(data=request.data)
