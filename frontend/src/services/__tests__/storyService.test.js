@@ -7,7 +7,7 @@ vi.mock("../api", () => ({
 }));
 
 import api from "../api";
-import { getStories } from "../storyService";
+import { getStories, getMapStories } from "../storyService";
 
 describe("storyService", () => {
   beforeEach(() => {
@@ -66,6 +66,39 @@ describe("storyService", () => {
       api.get.mockRejectedValue(new Error("Network error"));
 
       await expect(getStories()).rejects.toThrow("Network error");
+    });
+  });
+
+  describe("getMapStories", () => {
+    it("calls GET /stories/map/ with default empty params", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getMapStories();
+
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: {} });
+    });
+
+    it("returns the .results array from paginated response", async () => {
+      const stories = [{ id: 1, title: "Story 1" }, { id: 2, title: "Story 2" }];
+      api.get.mockResolvedValue({ data: { count: 2, next: null, previous: null, results: stories } });
+
+      const result = await getMapStories();
+
+      expect(result).toEqual(stories);
+    });
+
+    it("passes filter params through", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getMapStories({ time_type: "exact_year" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: { time_type: "exact_year" } });
+    });
+
+    it("throws on API error", async () => {
+      api.get.mockRejectedValue(new Error("Network error"));
+
+      await expect(getMapStories()).rejects.toThrow("Network error");
     });
   });
 });

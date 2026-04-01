@@ -8,6 +8,7 @@ export function formatTimePeriod(story) {
     case "decade":
       return `${Math.floor(year / 10) * 10}s`;
     case "year_range":
+      if (year_start == null || year_end == null) return "";
       return `${year_start}\u2013${year_end}`;
     default:
       return "";
