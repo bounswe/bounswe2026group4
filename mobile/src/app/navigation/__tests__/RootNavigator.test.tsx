@@ -8,6 +8,32 @@ import { resetApiTransport, setApiTransport } from '../../../core/api/client';
 
 function installAuthTransport() {
   setApiTransport(async (method, config) => {
+    if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
+      return {
+        status: 200,
+        data: {
+          count: 0,
+          next: null,
+          previous: null,
+          results: [],
+        } as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url?.startsWith('/stories/map/')) {
+      return {
+        status: 200,
+        data: {
+          count: 0,
+          next: null,
+          previous: null,
+          results: [],
+        } as never,
+        config,
+      };
+    }
+
     if (method === 'POST' && config.url === '/auth/login/') {
       return {
         status: 200,
@@ -52,7 +78,7 @@ describe('RootNavigator auth flow', () => {
       </AppProviders>,
     );
 
-    expect(await screen.findByText('Story feed')).toBeTruthy();
+    expect(await screen.findByLabelText('Search stories')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Profile'));
 
@@ -81,7 +107,30 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getByText('Log out'));
 
     await waitFor(() => {
-      expect(screen.getByText('Story feed')).toBeTruthy();
+      expect(screen.getByLabelText('Search stories')).toBeTruthy();
     });
+  });
+
+  it('keeps applied feed filters when navigating to map and back', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Search stories');
+    fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
+    fireEvent.press(screen.getByLabelText('Apply search'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
+    });
+
+    fireEvent.press(screen.getByText('Map'));
+    await screen.findByLabelText('Search stories');
+    fireEvent.press(screen.getByText('Feed'));
+
+    await screen.findByLabelText('Search stories');
+    expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
   });
 });

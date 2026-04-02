@@ -4,6 +4,20 @@ import { StoryScreen } from '../StoryScreen';
 import { StoryEntity } from '../../../domain/entities';
 import { Session } from '../../../../../core/auth/session';
 
+jest.mock('react-native-maps', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  const MockMapView = ({ children, testID }: any) => <View testID={testID}>{children}</View>;
+  const MockMarker = () => <View testID="story-location-marker" />;
+
+  return {
+    __esModule: true,
+    default: MockMapView,
+    Marker: MockMarker,
+  };
+});
+
 const baseStory: StoryEntity = {
   id: 'story-001',
   title: 'The Day the Harbor Fell Silent',
@@ -79,6 +93,18 @@ describe('StoryScreen', () => {
     expect(screen.getByLabelText(`${baseStory.title} media`)).toBeTruthy();
     expect(screen.getByText(baseStory.comments[0].body)).toBeTruthy();
     expect(screen.getByText('Story location')).toBeTruthy();
+    expect(screen.getByTestId('story-location-map')).toBeTruthy();
+  });
+
+  it('shows an image fallback message when the media fails to load', async () => {
+    render(<StoryScreen storyId="story-001" getStory={async () => baseStory} />);
+
+    const image = await screen.findByLabelText(`${baseStory.title} media`);
+    fireEvent(image, 'error');
+
+    await waitFor(() => {
+      expect(screen.getByText('Story image unavailable')).toBeTruthy();
+    });
   });
 
   it('toggles likes for authenticated users', async () => {

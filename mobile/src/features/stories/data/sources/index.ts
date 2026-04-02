@@ -6,7 +6,21 @@ const storiesFixture: StoryEntity[] = [];
 
 export const storiesRemoteSource = {
   async getStory(id: string) {
-    return storiesFixture.find((story) => story.id === id) ?? null;
+    try {
+      return (await apiClient.get(`/stories/${id}/`)) ?? storiesFixture.find((story) => story.id === id) ?? null;
+    } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+
+      if (status === 404) {
+        return null;
+      }
+
+      throw error;
+    }
+  },
+
+  async getStoryComments(id: string) {
+    return (await apiClient.get<{ results?: unknown[] }>(`/stories/${id}/comments/`))?.results ?? [];
   },
 
   async getStories(filters: StoryFilters = {}) {

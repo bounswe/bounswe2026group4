@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -74,7 +75,7 @@ function StoryMiniMap({ story }: { story: StoryEntity }) {
         Story location
       </Text>
       <Text style={{ marginTop: spacing.sm, color: colors.muted }}>
-        Static map preview centered on {story.location.name}
+        Map preview centered on {story.location.name}
       </Text>
       <View
         style={{
@@ -84,23 +85,53 @@ function StoryMiniMap({ story }: { story: StoryEntity }) {
           borderWidth: 1,
           borderColor: colors.border,
           backgroundColor: colors.background,
-          justifyContent: 'center',
-          alignItems: 'center',
+          overflow: 'hidden',
         }}
       >
-        <View
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: 9,
-            backgroundColor: colors.primary,
-            marginBottom: spacing.sm,
+        <MapView
+          testID="story-location-map"
+          style={{ flex: 1 }}
+          liteMode
+          scrollEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}
+          zoomEnabled={false}
+          toolbarEnabled={false}
+          initialRegion={{
+            latitude: story.location.latitude,
+            longitude: story.location.longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
           }}
-        />
-        <Text style={{ color: colors.text, fontWeight: '700' }}>{story.location.name}</Text>
-        <Text style={{ marginTop: spacing.xs, color: colors.muted }}>
-          {story.location.latitude.toFixed(4)}, {story.location.longitude.toFixed(4)}
-        </Text>
+        >
+          <Marker
+            coordinate={{
+              latitude: story.location.latitude,
+              longitude: story.location.longitude,
+            }}
+            title={story.location.name}
+            description={`${story.location.latitude.toFixed(4)}, ${story.location.longitude.toFixed(4)}`}
+          />
+        </MapView>
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: spacing.md,
+            right: spacing.md,
+            bottom: spacing.md,
+            padding: spacing.sm,
+            borderRadius: 14,
+            backgroundColor: colors.background,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ color: colors.text, fontWeight: '700' }}>{story.location.name}</Text>
+          <Text style={{ marginTop: spacing.xs, color: colors.muted }}>
+            {story.location.latitude.toFixed(4)}, {story.location.longitude.toFixed(4)}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -151,11 +182,13 @@ export function StoryScreen({
   const [state, setState] = useState(() =>
     createInitialStoryDetailUiState(session?.role !== undefined && session.role !== roles.guest),
   );
+  const [hasImageError, setHasImageError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
     setState(createInitialStoryDetailUiState(session?.role !== undefined && session.role !== roles.guest));
+    setHasImageError(false);
 
     loadStoryDetail(storyId, session?.role, getStory).then((nextState) => {
       if (isMounted) {
@@ -231,17 +264,41 @@ export function StoryScreen({
       </View>
 
       {story.mediaUrl ? (
-        <Image
-          source={{ uri: story.mediaUrl }}
-          style={{
-            marginTop: spacing.xl,
-            width: '100%',
-            height: 220,
-            borderRadius: 20,
-            backgroundColor: colors.surface,
-          }}
-          accessibilityLabel={`${story.title} media`}
-        />
+        hasImageError ? (
+          <View
+            style={{
+              marginTop: spacing.xl,
+              width: '100%',
+              height: 220,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: spacing.lg,
+            }}
+          >
+            <Text style={{ color: colors.text, fontWeight: '700' }}>Story image unavailable</Text>
+            <Text style={{ marginTop: spacing.sm, color: colors.muted, textAlign: 'center' }}>
+              The image URL could not be loaded on this device.
+            </Text>
+          </View>
+        ) : (
+          <Image
+            source={{ uri: story.mediaUrl }}
+            style={{
+              marginTop: spacing.xl,
+              width: '100%',
+              height: 220,
+              borderRadius: 20,
+              backgroundColor: colors.surface,
+            }}
+            resizeMode="cover"
+            accessibilityLabel={`${story.title} media`}
+            onError={() => setHasImageError(true)}
+          />
+        )
       ) : null}
 
       <View style={{ marginTop: spacing.xl }}>

@@ -12,6 +12,7 @@ import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
 import { MapScreen } from '../../features/map';
 import { StoryScreen } from '../../features/stories';
+import { StoryFilters } from '../../features/stories/domain/repositories';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 
@@ -51,34 +52,43 @@ function ScreenShell({
   children,
   framed = true,
   scrollable = false,
+  fillContent = false,
+  hideHeader = false,
 }: {
   title: string;
   description: string;
   children: React.ReactNode;
   framed?: boolean;
   scrollable?: boolean;
+  fillContent?: boolean;
+  hideHeader?: boolean;
 }) {
   const { colors, spacing, typography } = useAppTheme();
 
   const innerContent = (
     <>
-      <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>{title}</Text>
-      <Text style={{ marginTop: spacing.sm, color: colors.muted }}>{description}</Text>
+      {hideHeader ? null : (
+        <>
+          <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>{title}</Text>
+          <Text style={{ marginTop: spacing.sm, color: colors.muted }}>{description}</Text>
+        </>
+      )}
       {framed ? (
         <View
           style={{
-            marginTop: spacing.xl,
+            marginTop: hideHeader ? 0 : spacing.xl,
             borderWidth: 1,
             borderColor: colors.border,
             borderRadius: 20,
             padding: spacing.lg,
             backgroundColor: colors.surface,
+            flex: fillContent ? 1 : undefined,
           }}
         >
           {children}
         </View>
       ) : (
-        <View style={{ marginTop: spacing.xl }}>{children}</View>
+        <View style={{ marginTop: hideHeader ? 0 : spacing.xl, flex: fillContent ? 1 : undefined }}>{children}</View>
       )}
     </>
   );
@@ -110,6 +120,7 @@ export function RootNavigator() {
   const [lastPublicRoute, setLastPublicRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
+  const [feedFilters, setFeedFilters] = useState<StoryFilters>({});
 
   useEffect(() => {
     if (!loading) {
@@ -232,8 +243,15 @@ export function RootNavigator() {
       <ScreenShell
         title="Story feed"
         description="Public screens remain accessible while auth state is shared across the app."
+        framed={false}
+        fillContent
+        hideHeader
       >
-        <FeedScreen />
+        <FeedScreen
+          initialFilters={feedFilters}
+          onFiltersChange={setFeedFilters}
+          onOpenStory={handleOpenStoryDetail}
+        />
       </ScreenShell>
     );
   }

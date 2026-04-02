@@ -1,6 +1,6 @@
 import { StoryEntity, StoryMapPin, StorySummaryEntity } from '../../domain/entities';
 import { StoryFilters, StoryRepository } from '../../domain/repositories';
-import { mapStory, mapStoryMapPin, mapStorySummary } from '../mappers';
+import { mapStory, mapStoryComment, mapStoryMapPin, mapStorySummary } from '../mappers';
 import { storiesLocalSource, storiesRemoteSource } from '../sources';
 import { env } from '../../../../app/config/env';
 
@@ -8,7 +8,23 @@ export class StoryRepositoryImpl implements StoryRepository {
   async getStory(id: string): Promise<StoryEntity | null> {
     const response = await storiesRemoteSource.getStory(id);
 
-    return response ? mapStory(response) : null;
+    if (!response) {
+      return null;
+    }
+
+    try {
+      const [story, comments] = await Promise.all([
+        Promise.resolve(mapStory(response)),
+        storiesRemoteSource.getStoryComments(id).catch(() => []),
+      ]);
+
+      return {
+        ...story,
+        comments: comments.map(mapStoryComment),
+      };
+    } catch {
+      return mapStory(response);
+    }
   }
 
   async getStories(filters: StoryFilters = {}): Promise<StorySummaryEntity[]> {
