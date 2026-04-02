@@ -1,4 +1,5 @@
 export type RootStackParamList = {
+  Auth: undefined;
   GuestHome: undefined;
   UserHome: undefined;
   AdminHome: undefined;

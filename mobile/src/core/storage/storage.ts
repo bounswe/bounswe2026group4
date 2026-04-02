@@ -1,46 +1,114 @@
-const memoryStorage = new Map<string, string>();
+import {
+  deleteAsync,
+  documentDirectory,
+  getInfoAsync,
+  makeDirectoryAsync,
+  readAsStringAsync,
+  writeAsStringAsync,
+} from 'expo-file-system/legacy';
 
-function readFromLocalStorage(key: string) {
-  if (typeof globalThis.localStorage === 'undefined') {
+const storageMap = new Map<string, string>();
+const storageDirectory = documentDirectory ? `${documentDirectory}app-storage/` : null;
+const storageFile = storageDirectory ? `${storageDirectory}storage.json` : null;
+
+function cloneValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+async function readPersistentStore() {
+  if (!storageFile || !storageDirectory) {
     return null;
   }
 
-  return globalThis.localStorage.getItem(key);
+  const directoryInfo = await getInfoAsync(storageDirectory);
+
+  if (!directoryInfo.exists) {
+    await makeDirectoryAsync(storageDirectory, { intermediates: true });
+  }
+
+  const fileInfo = await getInfoAsync(storageFile);
+
+  if (!fileInfo.exists) {
+    return {};
+  }
+
+  try {
+    const raw = await readAsStringAsync(storageFile);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
 }
 
-function writeToLocalStorage(key: string, value: string) {
-  if (typeof globalThis.localStorage === 'undefined') {
+async function writePersistentStore(nextStore: Record<string, string>) {
+  if (!storageFile || !storageDirectory) {
     return;
   }
 
-  globalThis.localStorage.setItem(key, value);
-}
+  const directoryInfo = await getInfoAsync(storageDirectory);
 
-function removeFromLocalStorage(key: string) {
-  if (typeof globalThis.localStorage === 'undefined') {
-    return;
+  if (!directoryInfo.exists) {
+    await makeDirectoryAsync(storageDirectory, { intermediates: true });
   }
 
-  globalThis.localStorage.removeItem(key);
+  await writeAsStringAsync(storageFile, JSON.stringify(nextStore));
+}
+
+async function getStore() {
+  const persistentStore = await readPersistentStore();
+
+  if (persistentStore) {
+    return persistentStore;
+  }
+
+  return Object.fromEntries(storageMap.entries());
+}
+
+async function syncMemoryStore(nextStore: Record<string, string>) {
+  storageMap.clear();
+  Object.entries(nextStore).forEach(([key, value]) => {
+    storageMap.set(key, value);
+  });
 }
 
 export const storage = {
   async get<T>(key: string): Promise<T | null> {
-    const stored = readFromLocalStorage(key) ?? memoryStorage.get(key) ?? null;
+    const store = await getStore();
+    const rawValue = store[key];
 
-    if (!stored) {
+    if (!rawValue) {
       return null;
     }
 
-    return JSON.parse(stored) as T;
+    return cloneValue(JSON.parse(rawValue) as T);
   },
-  async set(key: string, value: unknown) {
-    const serialized = JSON.stringify(value);
-    memoryStorage.set(key, serialized);
-    writeToLocalStorage(key, serialized);
+  async set(key: string, value: unknown): Promise<void> {
+    const store = await getStore();
+    const nextStore = {
+      ...store,
+      [key]: JSON.stringify(value),
+    };
+
+    await syncMemoryStore(nextStore);
+    await writePersistentStore(nextStore);
   },
-  async remove(key: string) {
-    memoryStorage.delete(key);
-    removeFromLocalStorage(key);
+  async remove(key: string): Promise<void> {
+    const store = await getStore();
+    const nextStore = { ...store };
+    delete nextStore[key];
+
+    await syncMemoryStore(nextStore);
+    await writePersistentStore(nextStore);
+  },
+  async clear(): Promise<void> {
+    storageMap.clear();
+
+    if (storageFile) {
+      const fileInfo = await getInfoAsync(storageFile);
+
+      if (fileInfo.exists) {
+        await deleteAsync(storageFile, { idempotent: true });
+      }
+    }
   },
 };

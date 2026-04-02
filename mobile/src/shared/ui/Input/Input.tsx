@@ -55,9 +55,9 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     <TextInput
       ref={ref}
       value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
+      placeholder={placeholder ?? 'Input'}
       placeholderTextColor={colors.muted}
+      onChangeText={onChangeText}
       secureTextEntry={secureTextEntry}
       autoCapitalize={autoCapitalize}
       keyboardType={keyboardType}
@@ -74,11 +74,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         {
           borderWidth: 1,
           borderColor: colors.border,
-          backgroundColor: colors.surface,
-          color: colors.text,
           paddingHorizontal: spacing.md,
           paddingVertical: spacing.md - 2,
           borderRadius: 12,
+          color: colors.text,
+          backgroundColor: colors.surface,
           fontSize: typography.body,
         },
         style,

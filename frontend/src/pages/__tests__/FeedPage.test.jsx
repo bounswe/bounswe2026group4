@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, MemoryRouter } from "react-router-dom";
 
 import FeedPage from "../FeedPage";
 
@@ -37,11 +37,11 @@ function makeResponse(overrides = {}) {
   };
 }
 
-function renderPage() {
+function renderPage(initialEntries = ["/"]) {
   return render(
-    <BrowserRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <FeedPage />
-    </BrowserRouter>
+    </MemoryRouter>
   );
 }
 
@@ -77,6 +77,15 @@ describe("FeedPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("No stories yet")).toBeInTheDocument();
+    });
+  });
+
+  it("shows 'no results' empty state when filters are active and results are empty", async () => {
+    getStories.mockResolvedValue(makeResponse({ count: 0, results: [] }));
+    renderPage(["/?q=nonexistent"]);
+
+    await waitFor(() => {
+      expect(screen.getByText("No results found")).toBeInTheDocument();
     });
   });
 
@@ -246,4 +255,41 @@ describe("FeedPage", () => {
     });
   });
 
+  it("renders the search bar", () => {
+    getStories.mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    expect(screen.getByRole("searchbox", { name: /search stories/i })).toBeInTheDocument();
+  });
+
+  it("calls getStories with q param from URL", async () => {
+    getStories.mockResolvedValue(makeResponse());
+    renderPage(["/?q=galata"]);
+
+    await waitFor(() => {
+      expect(getStories).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "galata" })
+      );
+    });
+  });
+
+  it("calls getStories with year filter params from URL", async () => {
+    getStories.mockResolvedValue(makeResponse());
+    renderPage(["/?year_from=1900&year_to=2000"]);
+
+    await waitFor(() => {
+      expect(getStories).toHaveBeenCalledWith(
+        expect.objectContaining({ yearFrom: 1900, yearTo: 2000 })
+      );
+    });
+  });
+
+  it("shows result count when filters are active and stories exist", async () => {
+    getStories.mockResolvedValue(makeResponse({ count: 5 }));
+    renderPage(["/?q=galata"]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/5 stories found/i)).toBeInTheDocument();
+    });
+  });
 });

@@ -7,6 +7,8 @@ export interface SessionUser {
   role: AppRole;
 }
 
+export type AuthUser = SessionUser;
+
 export interface Session {
   accessToken: string;
   refreshToken: string;
