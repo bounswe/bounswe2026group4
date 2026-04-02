@@ -6,15 +6,18 @@ import { ToastProvider } from '../../shared/toast/ToastProvider';
 import { AuthProvider } from '../../features/auth/context/AuthContext';
 import { SearchFiltersProvider } from '../../features/search/presentation/context/SearchFiltersContext';
 
+const initialMetrics = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 44, right: 0, bottom: 34, left: 0 },
+};
+
 export function AppProviders({ children }: PropsWithChildren) {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialMetrics}>
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
-            <SearchFiltersProvider>
-              <NavigationProvider>{children}</NavigationProvider>
-            </SearchFiltersProvider>
+            <NavigationProvider>{children}</NavigationProvider>
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>
