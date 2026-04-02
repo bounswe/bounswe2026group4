@@ -58,6 +58,58 @@ function asNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function asStringId(value: unknown) {
+  if (typeof value === 'string' && value.length) {
+    return value;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function asNumericValue(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function formatTimePeriod(story: Record<string, unknown>) {
+  const explicitTimePeriod = asString(story.timePeriod) || asString(story.time_period) || asString(story.period);
+
+  if (explicitTimePeriod) {
+    return explicitTimePeriod;
+  }
+
+  const timeType = asString(story.time_type) || asString(story.timeType);
+  const year = asNumericValue(story.year);
+  const yearStart = asNumericValue(story.year_start) ?? asNumericValue(story.yearStart);
+  const yearEnd = asNumericValue(story.year_end) ?? asNumericValue(story.yearEnd);
+
+  if (timeType === 'year_range' && yearStart !== undefined && yearEnd !== undefined) {
+    return `${yearStart}-${yearEnd}`;
+  }
+
+  if (timeType === 'decade' && year !== undefined) {
+    return `${year}s`;
+  }
+
+  if (year !== undefined) {
+    return String(year);
+  }
+
+  return '';
+}
+
 function getNarrativePreview(value: unknown) {
   if (typeof value === 'string') {
     return value;
@@ -120,35 +172,35 @@ export function mapStorySummary(value: unknown): StorySummaryEntity {
   const story = value as Record<string, unknown>;
   const locationRecord =
     story.location && typeof story.location === 'object' ? (story.location as Record<string, unknown>) : undefined;
+  const id = asStringId(story.id);
   const placeName =
     asString(story.placeName) ||
     asString(story.location_name) ||
     asString(story.locationName) ||
     asString(locationRecord?.name);
-  const timePeriod =
-    asString(story.timePeriod) || asString(story.time_period) || asString(story.period);
+  const timePeriod = formatTimePeriod(story);
   const previewText =
     asString(story.previewText) ||
     asString(story.preview_text) ||
     getNarrativePreview(story.narrative) ||
     asString(story.summary);
   const latitude =
-    asNumber(story.latitude) ??
-    asNumber(story.location_lat) ??
-    asNumber(story.locationLat) ??
-    asNumber(locationRecord?.latitude);
+    asNumericValue(story.latitude) ??
+    asNumericValue(story.location_lat) ??
+    asNumericValue(story.locationLat) ??
+    asNumericValue(locationRecord?.latitude);
   const longitude =
-    asNumber(story.longitude) ??
-    asNumber(story.location_lng) ??
-    asNumber(story.locationLng) ??
-    asNumber(locationRecord?.longitude);
+    asNumericValue(story.longitude) ??
+    asNumericValue(story.location_lng) ??
+    asNumericValue(story.locationLng) ??
+    asNumericValue(locationRecord?.longitude);
 
-  if (typeof story.id !== 'string' || typeof story.title !== 'string') {
+  if (!id || typeof story.title !== 'string') {
     throw new Error('Invalid story summary payload.');
   }
 
   return {
-    id: story.id,
+    id,
     title: story.title,
     previewText,
     placeName,
