@@ -83,15 +83,29 @@ function parseResponseBody(raw: string, contentType: string | null) {
   }
 }
 
+function isFormData(value: unknown): value is FormData {
+  return typeof FormData !== 'undefined' && value instanceof FormData;
+}
+
 const defaultTransport: ApiTransport = async <T>(method: HttpMethod, config: ApiRequestConfig) => {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(config.headers ?? {}),
+  };
+
+  let body: BodyInit | undefined;
+
+  if (isFormData(config.data)) {
+    body = config.data;
+  } else if (config.data != null) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(config.data);
+  }
+
   const response = await fetch(buildUrl(config.url ?? ''), {
     method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(config.headers ?? {}),
-    },
-    body: config.data ? JSON.stringify(config.data) : undefined,
+    headers,
+    body,
   });
 
   const raw = await response.text();
