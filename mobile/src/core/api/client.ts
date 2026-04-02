@@ -5,6 +5,7 @@ import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
 type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
+const REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string) {
   if (!env.apiBaseUrl) {
@@ -83,15 +84,29 @@ function parseResponseBody(raw: string, contentType: string | null) {
   }
 }
 
+function isFormData(value: unknown): value is FormData {
+  return typeof FormData !== 'undefined' && value instanceof FormData;
+}
+
 const defaultTransport: ApiTransport = async <T>(method: HttpMethod, config: ApiRequestConfig) => {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(config.headers ?? {}),
+  };
+
+  let body: BodyInit | undefined;
+
+  if (isFormData(config.data)) {
+    body = config.data;
+  } else if (config.data != null) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(config.data);
+  }
+
   const response = await fetch(buildUrl(config.url ?? ''), {
     method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(config.headers ?? {}),
-    },
-    body: config.data ? JSON.stringify(config.data) : undefined,
+    headers,
+    body,
   });
 
   const raw = await response.text();
@@ -132,6 +147,22 @@ async function request<T>(
 
     return (finalResponse.data ?? null) as T | null;
   } catch (error) {
+    const appError = error as AppError & { response?: ApiResponse<unknown> };
+
+    if (!appError.response) {
+      const normalizedError =
+        appError.name === 'AbortError'
+          ? new AppError(
+              'Request timed out. Please check that your phone and computer are on the same Wi-Fi and try again.',
+            )
+          : new AppError(
+              'Unable to reach the backend. Check EXPO_PUBLIC_API_BASE_URL and make sure the backend is running and reachable from your phone.',
+            );
+
+      await interceptors.runResponseError(normalizedError);
+      throw normalizedError;
+    }
+
     await interceptors.runResponseError(error);
     throw error;
   }

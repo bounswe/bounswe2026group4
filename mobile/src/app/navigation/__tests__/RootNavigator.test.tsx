@@ -76,7 +76,7 @@ describe('RootNavigator auth flow', () => {
     await waitFor(() => {
       expect(screen.getByText('Submit a story')).toBeTruthy();
     });
-    expect(screen.getByText('Submission screen placeholder')).toBeTruthy();
+    expect(screen.getByText('Share a place-bound story')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Log out'));
 
