@@ -5,11 +5,14 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.interactions.models import Like, SavedStory
+from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 from apps.users.models import RoleChoices, User
 
 FEED_URL = '/stories/feed/'
 LIST_URL = '/stories/'
+MAP_URL = '/stories/map/'
 SEARCH_URL = '/stories/search/'
 
 
@@ -170,7 +173,8 @@ class TestStoryFeedView:
         expected_fields = {
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end',
-            'status', 'contributor_name', 'preview_text', 'submitted_at',
+            'status', 'contributor_name', 'preview_text',
+            'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(card.keys())
 
@@ -340,3 +344,174 @@ class TestStorySearchView:
         make_story(title='Gone Story', status=Story.STATUS_REMOVED)
         response = client.get(SEARCH_URL + '?q=Gone')
         assert response.data['count'] == 0
+
+
+# ── GET /stories/map/ ─────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryMapView:
+    MAP_FIELDS = {
+        'id', 'title', 'location_name', 'location_lat', 'location_lng',
+        'time_type', 'year', 'year_start', 'year_end',
+    }
+
+    def test_returns_200_without_authentication(self, client):
+        response = client.get(MAP_URL)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_response_is_paginated(self, client):
+        make_story(status=Story.STATUS_PUBLISHED)
+        response = client.get(MAP_URL)
+        for key in ['count', 'next', 'previous', 'results']:
+            assert key in response.data
+
+    def test_result_contains_exactly_map_fields(self, client):
+        make_story(status=Story.STATUS_PUBLISHED)
+        response = client.get(MAP_URL)
+        assert response.data['count'] == 1
+        result = response.data['results'][0]
+        assert set(result.keys()) == self.MAP_FIELDS
+
+    def test_only_published_stories_appear(self, client):
+        make_story(title='Published', status=Story.STATUS_PUBLISHED)
+        make_story(title='Draft', status=Story.STATUS_DRAFT)
+        make_story(title='Removed', status=Story.STATUS_REMOVED)
+        response = client.get(MAP_URL)
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Published'
+
+    def test_empty_result_when_no_published_stories(self, client):
+        make_story(status=Story.STATUS_DRAFT)
+        response = client.get(MAP_URL)
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_year_from_filter_excludes_older_stories(self, client):
+        make_story(title='Old', time_type=Story.TIME_EXACT, year=1800)
+        make_story(title='New', time_type=Story.TIME_EXACT, year=2000)
+        response = client.get(MAP_URL + '?year_from=1900')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'New'
+
+    def test_year_to_filter_excludes_newer_stories(self, client):
+        make_story(title='Old', time_type=Story.TIME_EXACT, year=1800)
+        make_story(title='New', time_type=Story.TIME_EXACT, year=2000)
+        response = client.get(MAP_URL + '?year_to=1900')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Old'
+
+    def test_location_filter_is_case_insensitive(self, client):
+        make_story(title='Istanbul Story', location_name='Galata Bridge')
+        make_story(title='Ankara Story', location_name='Atakule Tower')
+        response = client.get(MAP_URL + '?location=galata')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Story'
+
+    def test_invalid_year_range_returns_400(self, client):
+        response = client.get(MAP_URL + '?year_from=2000&year_to=1900')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_narrative_not_exposed_in_results(self, client):
+        make_story(narrative='Secret text that should not appear.')
+        response = client.get(MAP_URL)
+        if response.data['count']:
+            result = response.data['results'][0]
+            assert 'narrative' not in result
+
+
+# ── StoryDetailView — media_items ─────────────────────────────────────────────
+
+def make_media_item(story, order=0):
+    """Create a MediaItem attached to *story* without writing anything to disk.
+
+    FileField stores only a path string in the DB; .url works as long as the
+    name is non-empty — no actual file is needed for integration tests.
+    """
+    return MediaItem.objects.create(
+        story=story,
+        media_type=MediaType.IMAGE,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
+
+@pytest.mark.django_db
+class TestStoryDetailMediaItems:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_get_story_detail_includes_media_items_field(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert 'media_items' in response.data
+
+    def test_get_story_detail_media_items_empty_when_no_media(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.data['media_items'] == []
+
+    def test_get_story_detail_media_items_contains_uploaded_images(self, client):
+        story = make_story()
+        item = make_media_item(story)
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['media_items']) == 1
+        result = response.data['media_items'][0]
+        assert result['id'] == item.id
+        assert result['media_type'] == MediaType.IMAGE
+        assert result['order'] == 0
+        assert result['url'].startswith('http')
+
+
+# ── user_has_liked / user_has_saved — view integration ───────────────────────
+
+def make_user_for_interaction(email='liker@example.com', username='liker'):
+    return User.objects.create_user(email=email, username=username, password='Password1')
+
+
+@pytest.mark.django_db
+class TestStoryDetailUserInteraction:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_user_has_liked_false_for_unauthenticated(self, client):
+        story = make_story()
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['user_has_liked'] is False
+        assert response.data['user_has_saved'] is False
+
+    def test_user_has_liked_true_after_like(self):
+        user = make_user_for_interaction()
+        story = make_story()
+        Like.objects.create(user=user, story=story)
+        auth_client = APIClient()
+        auth_client.force_authenticate(user=user)
+        response = auth_client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['user_has_liked'] is True
+        assert response.data['user_has_saved'] is False
+
+
+@pytest.mark.django_db
+class TestStoryFeedUserInteraction:
+    def test_feed_user_has_liked_false_for_unauthenticated(self, client):
+        make_story()
+        response = client.get(FEED_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['user_has_liked'] is False
+        assert response.data['results'][0]['user_has_saved'] is False
+
+    def test_feed_user_has_liked_true_after_like(self):
+        user = make_user_for_interaction()
+        story = make_story()
+        Like.objects.create(user=user, story=story)
+        auth_client = APIClient()
+        auth_client.force_authenticate(user=user)
+        response = auth_client.get(FEED_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['user_has_liked'] is True
+        assert response.data['results'][0]['user_has_saved'] is False

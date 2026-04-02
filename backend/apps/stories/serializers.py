@@ -1,18 +1,23 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from apps.media.models import MediaItem
 from apps.stories.models import Story
 from apps.stories.services import create_story, update_story
 
 
 class StorySerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
+    user_has_liked = serializers.SerializerMethodField()
+    user_has_saved = serializers.SerializerMethodField()
+    contributor_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Story
         fields = [
             'id',
             'user',
+            'contributor_name',
             'title',
             'narrative',
             'location_lat',
@@ -27,17 +32,55 @@ class StorySerializer(serializers.ModelSerializer):
             'contributor_visible',
             'like_count',
             'save_count',
+            'user_has_liked',
+            'user_has_saved',
             'submitted_at',
             'updated_at',
         ]
         read_only_fields = [
             'id',
             'user',
+            'contributor_name',
             'like_count',
             'save_count',
+            'user_has_liked',
+            'user_has_saved',
             'submitted_at',
             'updated_at',
         ]
+
+    def get_user_has_liked(self, obj):
+        """Return True if the authenticated request user has liked this story, False otherwise.
+
+        Reads the pre-computed _user_has_liked annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check for the single-object detail case.
+        """
+        if hasattr(obj, '_user_has_liked'):
+            return obj._user_has_liked
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_user_has_saved(self, obj):
+        """Return True if the authenticated request user has saved this story, False otherwise.
+
+        Reads the pre-computed _user_has_saved annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check for the single-object detail case.
+        """
+        if hasattr(obj, '_user_has_saved'):
+            return obj._user_has_saved
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            return obj.saved_by.filter(user=request.user).exists()
+        return False
+    def get_contributor_name(self, obj):
+        """Return the author's username, or None if they have chosen to post anonymously."""
+        if obj.contributor_visible and obj.user:
+            return obj.user.username
+        return None
 
     def validate_status(self, value):
         # Only moderation endpoints may set a story to removed — reject it here
@@ -85,6 +128,40 @@ class StorySerializer(serializers.ModelSerializer):
         return update_story(story=instance, validated_data=validated_data)
 
 
+class StoryMediaItemSerializer(serializers.ModelSerializer):
+    """Read-only serializer for media items embedded in the story detail response."""
+
+    # Build an absolute URL when a request context is available so clients do
+    # not need to know MEDIA_URL or the server hostname.
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MediaItem
+        fields = ['id', 'url', 'media_type', 'order']
+        read_only_fields = fields
+
+    def get_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
+
+
+class StoryDetailSerializer(StorySerializer):
+    """
+    Extends StorySerializer with nested media items for GET /stories/<pk>/.
+
+    Kept separate from StorySerializer so the list endpoint does not pay
+    the cost of prefetching media on every paginated row.
+    """
+
+    media_items = StoryMediaItemSerializer(many=True, read_only=True)
+
+    class Meta(StorySerializer.Meta):
+        fields = StorySerializer.Meta.fields + ['media_items']
+        read_only_fields = StorySerializer.Meta.read_only_fields + ['media_items']
+
+
 class StoryFeedSerializer(serializers.ModelSerializer):
     """
     Read-only serializer for the story feed card format.
@@ -102,6 +179,9 @@ class StoryFeedSerializer(serializers.ModelSerializer):
     # First 20 words of the narrative — enough context without loading the full text.
     preview_text = serializers.SerializerMethodField()
 
+    user_has_liked = serializers.SerializerMethodField()
+    user_has_saved = serializers.SerializerMethodField()
+
     class Meta:
         model = Story
         fields = [
@@ -117,6 +197,8 @@ class StoryFeedSerializer(serializers.ModelSerializer):
             'status',
             'contributor_name',
             'preview_text',
+            'user_has_liked',
+            'user_has_saved',
             'submitted_at',
         ]
         read_only_fields = fields
@@ -131,6 +213,34 @@ class StoryFeedSerializer(serializers.ModelSerializer):
         """Return the first 20 words of the narrative as a short card excerpt."""
         words = obj.narrative.split()
         return ' '.join(words[:20])
+
+    def get_user_has_liked(self, obj):
+        """Return True if the authenticated request user has liked this story, False otherwise.
+
+        Reads the pre-computed _user_has_liked annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check when the annotation is absent.
+        """
+        if hasattr(obj, '_user_has_liked'):
+            return obj._user_has_liked
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_user_has_saved(self, obj):
+        """Return True if the authenticated request user has saved this story, False otherwise.
+
+        Reads the pre-computed _user_has_saved annotation when available (set by
+        annotate_user_interactions in list views) to avoid an extra DB query per story.
+        Falls back to a direct .exists() check when the annotation is absent.
+        """
+        if hasattr(obj, '_user_has_saved'):
+            return obj._user_has_saved
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            return obj.saved_by.filter(user=request.user).exists()
+        return False
 
 
 class FeedQuerySerializer(serializers.Serializer):
@@ -160,6 +270,31 @@ class FeedQuerySerializer(serializers.Serializer):
                 {'year_to': 'year_to must be greater than or equal to year_from.'}
             )
         return data
+
+
+class StoryMapSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer returning only the fields needed to render a map pin.
+
+    Intentionally minimal — the map view only needs coordinates, place name,
+    title, and time info to position a pin and show a preview tooltip.
+    Full story content is loaded separately when a pin is clicked.
+    """
+
+    class Meta:
+        model = Story
+        fields = [
+            'id',
+            'title',
+            'location_name',
+            'location_lat',
+            'location_lng',
+            'time_type',
+            'year',
+            'year_start',
+            'year_end',
+        ]
+        read_only_fields = fields
 
 
 class SearchQuerySerializer(serializers.Serializer):

@@ -3,7 +3,9 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.serializers import SearchQuerySerializer, StoryFeedSerializer, StorySerializer
+from apps.interactions.models import Like, SavedStory
+from apps.media.models import MediaItem, MediaType
+from apps.stories.serializers import SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
 from apps.users.models import User
 
 
@@ -52,7 +54,8 @@ class TestStoryFeedSerializer:
         expected_fields = {
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end',
-            'status', 'contributor_name', 'preview_text', 'submitted_at',
+            'status', 'contributor_name', 'preview_text',
+            'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(data.keys())
 
@@ -118,10 +121,11 @@ class TestStorySerializerFields:
     def test_serializer_contains_expected_fields(self, story):
         serializer = StorySerializer(story)
         expected = {
-            'id', 'user', 'title', 'narrative', 'location_lat', 'location_lng',
-            'location_name', 'region', 'time_type', 'year', 'year_start', 'year_end',
+            'id', 'user', 'contributor_name', 'title', 'narrative',
+            'location_lat', 'location_lng', 'location_name', 'region',
+            'time_type', 'year', 'year_start', 'year_end',
             'status', 'contributor_visible', 'like_count', 'save_count',
-            'submitted_at', 'updated_at',
+            'user_has_liked', 'user_has_saved', 'submitted_at', 'updated_at',
         }
         assert set(serializer.data.keys()) == expected
 
@@ -131,6 +135,24 @@ class TestStorySerializerFields:
         assert serializer.is_valid(), serializer.errors
         assert 'like_count' not in serializer.validated_data
         assert 'save_count' not in serializer.validated_data
+
+    def test_contributor_name_returns_username_when_visible(self):
+        user = make_user()
+        story = make_story(user=user, contributor_visible=True)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] == user.username
+
+    def test_contributor_name_is_none_when_not_visible(self):
+        user = make_user()
+        story = make_story(user=user, contributor_visible=False)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] is None
+
+    def test_contributor_name_is_none_when_user_is_anonymized(self):
+        # Story whose author account was deleted — user FK is null
+        story = make_story(user=None, contributor_visible=True)
+        data = StorySerializer(story).data
+        assert data['contributor_name'] is None
 
 
 @pytest.mark.django_db
@@ -243,3 +265,251 @@ class TestSearchQuerySerializer:
     def test_single_character_passes(self):
         s = SearchQuerySerializer(data={'q': 'a'})
         assert s.is_valid(), s.errors
+
+
+# ── StoryMapSerializer ────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryMapSerializer:
+    MAP_FIELDS = {
+        'id', 'title', 'location_name', 'location_lat', 'location_lng',
+        'time_type', 'year', 'year_start', 'year_end',
+    }
+    EXCLUDED_FIELDS = {
+        'narrative', 'contributor_name', 'preview_text', 'status',
+        'like_count', 'save_count', 'submitted_at', 'updated_at',
+        'region', 'contributor_visible', 'user',
+    }
+
+    def _make_story(self, **kwargs):
+        user = make_user()
+        return make_story(user=user, **kwargs)
+
+    def test_contains_exactly_required_map_fields(self):
+        story = self._make_story()
+        data = StoryMapSerializer(story).data
+        assert set(data.keys()) == self.MAP_FIELDS
+
+    def test_excludes_heavy_fields(self):
+        story = self._make_story()
+        data = StoryMapSerializer(story).data
+        for field in self.EXCLUDED_FIELDS:
+            assert field not in data
+
+    def test_coordinates_are_present_and_correct(self):
+        story = self._make_story(
+            location_lat='41.015137', location_lng='28.979530',
+            location_name='Galata Bridge',
+        )
+        data = StoryMapSerializer(story).data
+        assert str(data['location_lat']) == '41.015137'
+        assert str(data['location_lng']) == '28.979530'
+        assert data['location_name'] == 'Galata Bridge'
+
+    def test_exact_year_story_has_year_set(self):
+        story = self._make_story(time_type=Story.TIME_EXACT, year=1923)
+        data = StoryMapSerializer(story).data
+        assert data['time_type'] == Story.TIME_EXACT
+        assert data['year'] == 1923
+        assert data['year_start'] is None
+        assert data['year_end'] is None
+
+    def test_year_range_story_has_year_start_and_end(self):
+        story = self._make_story(
+            time_type=Story.TIME_RANGE, year=None, year_start=1900, year_end=1950,
+        )
+        data = StoryMapSerializer(story).data
+        assert data['time_type'] == Story.TIME_RANGE
+        assert data['year'] is None
+        assert data['year_start'] == 1900
+        assert data['year_end'] == 1950
+
+
+# ── StoryDetailSerializer ─────────────────────────────────────────────────────
+
+def make_media_item(story, media_type=MediaType.IMAGE, order=0):
+    """Create a MediaItem attached to *story* without writing anything to disk.
+
+    FileField stores only a path string in the DB; the .url property works as
+    long as we set a non-empty name — no actual file is needed for unit tests.
+    """
+    return MediaItem.objects.create(
+        story=story,
+        media_type=media_type,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
+
+@pytest.mark.django_db
+class TestStoryDetailSerializer:
+    def _make_story(self, **kwargs):
+        user = make_user()
+        return make_story(user=user, **kwargs)
+
+    def test_media_items_is_empty_list_when_no_media(self):
+        story = self._make_story()
+        data = StoryDetailSerializer(story).data
+        assert data['media_items'] == []
+
+    def test_media_items_contains_uploaded_files(self):
+        story = self._make_story()
+        item = make_media_item(story)
+        data = StoryDetailSerializer(story).data
+        assert len(data['media_items']) == 1
+        assert data['media_items'][0]['id'] == item.id
+        assert data['media_items'][0]['media_type'] == MediaType.IMAGE
+        assert data['media_items'][0]['order'] == 0
+
+    def test_media_items_ordered_by_order_field(self):
+        story = self._make_story()
+        make_media_item(story, order=1)
+        make_media_item(story, order=0)
+        data = StoryDetailSerializer(story).data
+        orders = [item['order'] for item in data['media_items']]
+        assert orders == sorted(orders)
+
+    def test_media_item_url_is_absolute_when_request_in_context(self):
+        from rest_framework.test import APIRequestFactory  # noqa: PLC0415
+        story = self._make_story()
+        make_media_item(story)
+        request = APIRequestFactory().get('/')
+        data = StoryDetailSerializer(story, context={'request': request}).data
+        url = data['media_items'][0]['url']
+        assert url.startswith('http')
+
+
+# ── user_has_liked / user_has_saved — StorySerializer ────────────────────────
+
+@pytest.mark.django_db
+class TestStorySerializerUserInteractionFields:
+    def _make_story_and_user(self):
+        user = make_user()
+        story = make_story(user=user)
+        return story, user
+
+    def test_user_has_liked_is_false_when_no_request_context(self):
+        story, _ = self._make_story_and_user()
+        data = StorySerializer(story).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_liked_is_true_when_user_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        Like.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is True
+
+    def test_user_has_liked_is_false_when_user_not_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_saved_is_true_when_user_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        SavedStory.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is True
+
+    def test_user_has_saved_is_false_when_user_not_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StorySerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is False
+
+    def test_reads_user_has_liked_from_annotation_when_present(self):
+        # When the queryset is annotated (feed/search views), the serializer must
+        # use the pre-computed value instead of firing an extra DB query.
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = True
+        story._user_has_saved = False
+        data = StorySerializer(story).data
+        assert data['user_has_liked'] is True
+        assert data['user_has_saved'] is False
+
+    def test_reads_user_has_saved_from_annotation_when_present(self):
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = False
+        story._user_has_saved = True
+        data = StorySerializer(story).data
+        assert data['user_has_liked'] is False
+        assert data['user_has_saved'] is True
+
+
+# ── user_has_liked / user_has_saved — StoryFeedSerializer ────────────────────
+
+@pytest.mark.django_db
+class TestStoryFeedSerializerUserInteractionFields:
+    def _make_story_and_user(self):
+        user = make_user()
+        story = make_story(user=user)
+        return story, user
+
+    def test_user_has_liked_is_false_when_no_request_context(self):
+        story, _ = self._make_story_and_user()
+        data = StoryFeedSerializer(story).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_liked_is_true_when_user_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        Like.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is True
+
+    def test_user_has_liked_is_false_when_user_not_liked(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_liked'] is False
+
+    def test_user_has_saved_is_true_when_user_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        SavedStory.objects.create(user=user, story=story)
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is True
+
+    def test_user_has_saved_is_false_when_user_not_saved(self):
+        from rest_framework.test import APIRequestFactory
+        story, user = self._make_story_and_user()
+        request = APIRequestFactory().get('/')
+        request.user = user
+        data = StoryFeedSerializer(story, context={'request': request}).data
+        assert data['user_has_saved'] is False
+
+    def test_reads_user_has_liked_from_annotation_when_present(self):
+        # When the queryset is annotated (feed/search views), the serializer must
+        # use the pre-computed value instead of firing an extra DB query.
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = True
+        story._user_has_saved = False
+        data = StoryFeedSerializer(story).data
+        assert data['user_has_liked'] is True
+        assert data['user_has_saved'] is False
+
+    def test_reads_user_has_saved_from_annotation_when_present(self):
+        story, _ = self._make_story_and_user()
+        story._user_has_liked = False
+        story._user_has_saved = True
+        data = StoryFeedSerializer(story).data
+        assert data['user_has_liked'] is False
+        assert data['user_has_saved'] is True

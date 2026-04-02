@@ -1,6 +1,6 @@
 import React, { PropsWithChildren } from 'react';
 import { Pressable, Text } from 'react-native';
-import { colors, spacing } from '../../../app/theme';
+import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
 interface ButtonProps extends PropsWithChildren {
   onPress?: () => void;
@@ -19,7 +19,9 @@ export function Button({ children, onPress, disabled = false }: ButtonProps) {
         opacity: disabled ? 0.7 : 1,
       }}
     >
-      <Text style={{ color: '#FFFFFF' }}>{children ?? 'Button'}</Text>
+      <Text style={{ color: isPrimary ? '#FFFFFF' : colors.text, fontWeight: '600' }}>
+        {children ?? 'Button'}
+      </Text>
     </Pressable>
   );
 }

@@ -1,12 +1,28 @@
+from django.db.models import Exists, OuterRef
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
+from apps.interactions.models import Like, SavedStory
 from apps.stories.models import Story
-from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryFeedSerializer, StorySerializer
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
 from apps.stories.services import get_story_feed, get_story_search
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
+
+
+def annotate_user_interactions(qs, user):
+    """
+    Annotate a Story queryset with _user_has_liked and _user_has_saved boolean flags
+    for the given authenticated user.
+
+    Uses Exists subqueries so both checks are folded into the main SQL query,
+    avoiding N+1 when serializing paginated lists.
+    """
+    return qs.annotate(
+        _user_has_liked=Exists(Like.objects.filter(story=OuterRef('pk'), user=user)),
+        _user_has_saved=Exists(SavedStory.objects.filter(story=OuterRef('pk'), user=user)),
+    )
 
 
 class StoryFeedView(APIView):
@@ -39,10 +55,47 @@ class StoryFeedView(APIView):
             year_to=params.get('year_to'),
             location=params.get('location'),
         )
+        if request.user.is_authenticated:
+            qs = annotate_user_interactions(qs, request.user)
 
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = StoryFeedSerializer(page, many=True)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class StoryMapView(APIView):
+    """
+    GET /stories/map/
+
+    Returns a paginated list of published stories with only the fields needed
+    to render map pins: coordinates, place name, title, and time info.
+    Guests and authenticated users both have read access.
+
+    Query params:
+      year_from  — include stories from this year onwards
+      year_to    — include stories up to and including this year
+      location   — case-insensitive substring match against location_name
+      page       — page number (default 1)
+      page_size  — results per page (default 10, max 100)
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query_serializer = FeedQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        params = query_serializer.validated_data
+
+        qs = get_story_feed(
+            year_from=params.get('year_from'),
+            year_to=params.get('year_to'),
+            location=params.get('location'),
+        )
+
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryMapSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -65,10 +118,12 @@ class StorySearchView(APIView):
         q = query_serializer.validated_data['q']
 
         qs = get_story_search(q)
+        if request.user.is_authenticated:
+            qs = annotate_user_interactions(qs, request.user)
 
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = StoryFeedSerializer(page, many=True)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -79,7 +134,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         # Guests and authenticated users can only browse published stories.
         # Draft and removed stories are not surfaced through this endpoint.
-        return Story.objects.filter(status=Story.STATUS_PUBLISHED)
+        return Story.objects.filter(status=Story.STATUS_PUBLISHED).select_related('user')
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -91,8 +146,9 @@ class StoryListCreateView(generics.ListCreateAPIView):
 
 
 class StoryDetailView(generics.RetrieveUpdateAPIView):
-    queryset = Story.objects.all()
-    serializer_class = StorySerializer
+    # prefetch_related('media_items') avoids N+1 when StoryDetailSerializer renders the nested list
+    queryset = Story.objects.select_related('user').prefetch_related('media_items')
+    serializer_class = StoryDetailSerializer
     http_method_names = ['get', 'patch']
 
     def get_permissions(self):
