@@ -126,10 +126,14 @@ export function RootNavigator() {
       setRedirectRoute(ROUTES.PROFILE);
       setCurrentRoute(ROUTES.FEED);
     };
+    navigationRef.navigate = (route) => {
+      setCurrentRoute(route);
+    };
 
     return () => {
       navigationRef.redirectToAuth = undefined;
       navigationRef.redirectToPublic = undefined;
+      navigationRef.navigate = undefined;
     };
   }, [currentRoute]);
 
