@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BackHandler, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth } from '../../features/auth';
@@ -15,6 +15,10 @@ import { StoryScreen } from '../../features/stories';
 import { StoryFilters } from '../../features/stories/domain/repositories';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
+interface RouteSnapshot {
+  route: AppRoute;
+  storyId?: string | null;
+}
 
 const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION];
 
@@ -42,6 +46,33 @@ function ShellButton({
       }}
     >
       <Text style={{ color: active ? colors.background : colors.text, fontWeight: '600' }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function BackButton({ onPress }: { onPress: () => void }) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Go back"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>{'<'}</Text>
+      <Text style={{ color: colors.text, fontWeight: '700' }}>Back</Text>
     </Pressable>
   );
 }
@@ -116,11 +147,20 @@ export function RootNavigator() {
   const { isAuthenticated, loading, logout, user } = useAuth();
   const { colors, spacing } = useAppTheme();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
-  const [redirectRoute, setRedirectRoute] = useState<AppRoute>(ROUTES.PROFILE);
-  const [lastPublicRoute, setLastPublicRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [feedFilters, setFeedFilters] = useState<StoryFilters>({});
+  const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
+
+  const currentSnapshot = useMemo<RouteSnapshot>(
+    () => ({
+      route: currentRoute,
+      storyId: currentRoute === ROUTES.STORY_DETAIL ? activeStoryId : null,
+    }),
+    [activeStoryId, currentRoute],
+  );
+  const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
+  const canGoBack = backStack.length > 0;
 
   useEffect(() => {
     if (!loading) {
@@ -128,17 +168,71 @@ export function RootNavigator() {
     }
   }, [loading]);
 
+  const restoreSnapshot = useCallback((snapshot: RouteSnapshot) => {
+    setCurrentRoute(snapshot.route);
+    setActiveStoryId(snapshot.route === ROUTES.STORY_DETAIL ? snapshot.storyId ?? null : null);
+  }, []);
+
+  const navigateToSnapshot = useCallback(
+    (snapshot: RouteSnapshot, options?: { resetStack?: boolean; preserveCurrent?: boolean }) => {
+      if (
+        !options?.resetStack &&
+        snapshot.route === currentSnapshot.route &&
+        snapshot.storyId === currentSnapshot.storyId
+      ) {
+        return;
+      }
+
+      if (options?.resetStack) {
+        setBackStack([]);
+      } else if (options?.preserveCurrent !== false) {
+        setBackStack((current) => {
+          const previous = current[current.length - 1];
+
+          if (
+            previous?.route === currentSnapshot.route &&
+            previous?.storyId === currentSnapshot.storyId
+          ) {
+            return current;
+          }
+
+          return [...current, currentSnapshot];
+        });
+      }
+
+      restoreSnapshot(snapshot);
+    },
+    [currentSnapshot, restoreSnapshot],
+  );
+
+  const handleBack = useCallback(() => {
+    setBackStack((current) => {
+      if (!current.length) {
+        return current;
+      }
+
+      const nextStack = [...current];
+      const previousSnapshot = nextStack.pop();
+
+      if (previousSnapshot) {
+        restoreSnapshot(previousSnapshot);
+      }
+
+      return nextStack;
+    });
+  }, [restoreSnapshot]);
+
   useEffect(() => {
     navigationRef.redirectToAuth = () => {
-      setRedirectRoute(currentRoute);
-      setCurrentRoute(ROUTES.AUTH);
+      setRedirectTarget(currentSnapshot);
+      navigateToSnapshot({ route: ROUTES.AUTH });
     };
     navigationRef.redirectToPublic = () => {
-      setRedirectRoute(ROUTES.PROFILE);
-      setCurrentRoute(ROUTES.FEED);
+      setRedirectTarget({ route: ROUTES.PROFILE });
+      navigateToSnapshot({ route: ROUTES.FEED }, { resetStack: true, preserveCurrent: false });
     };
     navigationRef.navigate = (route) => {
-      setCurrentRoute(route);
+      navigateToSnapshot({ route });
     };
 
     return () => {
@@ -146,24 +240,59 @@ export function RootNavigator() {
       navigationRef.redirectToPublic = undefined;
       navigationRef.navigate = undefined;
     };
-  }, [currentRoute]);
+  }, [currentSnapshot, navigateToSnapshot]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!canGoBack) {
+        return false;
+      }
+
+      handleBack();
+      return true;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [canGoBack, handleBack]);
 
   const handleNavigate = (route: AppRoute) => {
     if (route === ROUTES.FEED || route === ROUTES.MAP) {
-      setLastPublicRoute(route);
-    }
-
-    if (!isAuthenticated && protectedRoutes.includes(route)) {
-      setRedirectRoute(route);
-      setCurrentRoute(route);
+      navigateToSnapshot({ route }, { resetStack: true, preserveCurrent: false });
       return;
     }
 
-    setCurrentRoute(route);
+    if (route === ROUTES.AUTH) {
+      setRedirectTarget(currentSnapshot);
+      navigateToSnapshot({ route });
+      return;
+    }
+
+    if (!isAuthenticated && protectedRoutes.includes(route)) {
+      setRedirectTarget({ route });
+      navigateToSnapshot({ route });
+      return;
+    }
+
+    navigateToSnapshot({ route });
   };
 
   const handleLoginComplete = () => {
-    setCurrentRoute(redirectRoute);
+    setBackStack((current) => {
+      const nextStack = [...current];
+      const previousSnapshot = nextStack[nextStack.length - 1];
+
+      if (
+        previousSnapshot?.route === redirectTarget.route &&
+        previousSnapshot?.storyId === redirectTarget.storyId
+      ) {
+        nextStack.pop();
+      }
+
+      return nextStack;
+    });
+    restoreSnapshot(redirectTarget);
   };
 
   const handleLogout = async () => {
@@ -171,8 +300,7 @@ export function RootNavigator() {
   };
 
   const handleOpenStoryDetail = (storyId: string) => {
-    setActiveStoryId(storyId);
-    setCurrentRoute(ROUTES.STORY_DETAIL);
+    navigateToSnapshot({ route: ROUTES.STORY_DETAIL, storyId });
   };
 
   if (!hasResolvedInitialSession && loading) {
@@ -213,9 +341,9 @@ export function RootNavigator() {
         <ScreenShell
           title="Submit a story"
           description="Authenticated submission flow is ready for future form work."
-      >
-        <SubmissionScreen />
-      </ScreenShell>
+        >
+          <SubmissionScreen />
+        </ScreenShell>
       </ProtectedScreen>
     );
   } else if (currentRoute === ROUTES.MAP) {
@@ -235,7 +363,7 @@ export function RootNavigator() {
         storyId={activeStoryId}
         session={user ? { role: user.role } : undefined}
         onRequestLogin={() => handleNavigate(ROUTES.AUTH)}
-        onGoBack={() => handleNavigate(lastPublicRoute)}
+        onGoBack={handleBack}
       />
     );
   } else {
@@ -270,7 +398,12 @@ export function RootNavigator() {
           gap: spacing.md,
         }}
       >
-        <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800' }}>Local History Story Map</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {canGoBack ? <BackButton onPress={handleBack} /> : null}
+          <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800', flexShrink: 1 }}>
+            Local History Story Map
+          </Text>
+        </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           <ShellButton label="Feed" active={currentRoute === ROUTES.FEED} onPress={() => handleNavigate(ROUTES.FEED)} />
           <ShellButton label="Map" active={currentRoute === ROUTES.MAP} onPress={() => handleNavigate(ROUTES.MAP)} />

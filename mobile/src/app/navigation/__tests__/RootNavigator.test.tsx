@@ -6,16 +6,52 @@ import { storage } from '../../../core/storage/storage';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
 
+const feedResults = [
+  {
+    id: 'story-001',
+    title: 'Harbor Memory',
+    narrative: ['A story about the harbor.'],
+    preview_text: 'A story about the harbor.',
+    location_name: 'Golden Horn',
+    location_lat: 41.02,
+    location_lng: 28.96,
+    time_type: 'exact_year',
+    year: 1978,
+    contributor_name: 'Aylin',
+    submitted_at: '2026-03-18T10:00:00Z',
+    media_items: [],
+    like_count: 0,
+    user_has_liked: false,
+  },
+];
+
+const storyDetail = {
+  id: 'story-001',
+  title: 'Harbor Memory',
+  narrative: ['A story about the harbor.', 'It still lives in local memory.'],
+  location_name: 'Golden Horn',
+  location_lat: 41.02,
+  location_lng: 28.96,
+  time_type: 'exact_year',
+  year: 1978,
+  contributor_name: 'Aylin',
+  submitted_at: '2026-03-18T10:00:00Z',
+  media_items: [],
+  like_count: 0,
+  user_has_liked: false,
+  comments: [],
+};
+
 function installAuthTransport() {
   setApiTransport(async (method, config) => {
     if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
       return {
         status: 200,
         data: {
-          count: 0,
+          count: feedResults.length,
           next: null,
           previous: null,
-          results: [],
+          results: feedResults,
         } as never,
         config,
       };
@@ -25,11 +61,27 @@ function installAuthTransport() {
       return {
         status: 200,
         data: {
-          count: 0,
+          count: feedResults.length,
           next: null,
           previous: null,
-          results: [],
+          results: feedResults,
         } as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url === '/stories/story-001/') {
+      return {
+        status: 200,
+        data: storyDetail as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url === '/stories/story-001/comments/') {
+      return {
+        status: 200,
+        data: { results: [] } as never,
         config,
       };
     }
@@ -132,5 +184,44 @@ describe('RootNavigator auth flow', () => {
 
     await screen.findByLabelText('Search stories');
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
+  });
+
+  it('shows a back button for protected screens and returns to the previous public route', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Search stories');
+    fireEvent.press(screen.getByText('Submission'));
+
+    expect(await screen.findByLabelText('Go back')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Go back'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search stories')).toBeTruthy();
+    });
+  });
+
+  it('returns from story detail to the previous route when back is pressed', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Read story: Harbor Memory');
+    fireEvent.press(screen.getByLabelText('Read story: Harbor Memory'));
+
+    expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+    expect(screen.getByLabelText('Go back')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Go back'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search stories')).toBeTruthy();
+      expect(screen.getByLabelText('Read story: Harbor Memory')).toBeTruthy();
+    });
   });
 });
