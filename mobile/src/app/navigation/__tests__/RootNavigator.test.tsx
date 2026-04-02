@@ -4,13 +4,33 @@ import { RootNavigator } from '../RootNavigator';
 import { storage } from '../../../core/storage/storage';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
-import { AppProviders } from '../../providers/AppProviders';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider } from '../../providers/ThemeProvider';
+import { ToastProvider } from '../../../shared/toast/ToastProvider';
+import { AuthProvider } from '../../../features/auth/context/AuthContext';
+import { SearchFiltersProvider } from '../../../features/search/presentation/context/SearchFiltersContext';
+import { NavigationProvider } from '../../providers/NavigationProvider';
+
+const initialMetrics = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 44, right: 0, bottom: 34, left: 0 },
+};
 
 function renderNavigator() {
   return render(
-    <AppProviders>
-      <RootNavigator />
-    </AppProviders>,
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <SearchFiltersProvider>
+              <NavigationProvider>
+                <RootNavigator />
+              </NavigationProvider>
+            </SearchFiltersProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>,
   );
 }
 
@@ -116,11 +136,7 @@ describe('RootNavigator auth flow', () => {
   });
 
   it('keeps applied feed filters when navigating to map and back', async () => {
-    render(
-      <AppProviders>
-        <RootNavigator />
-      </AppProviders>,
-    );
+    renderNavigator();
 
     await screen.findByLabelText('Search stories');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');

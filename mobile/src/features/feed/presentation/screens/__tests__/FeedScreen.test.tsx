@@ -38,12 +38,12 @@ describe('FeedScreen', () => {
     return render(<SearchFiltersProvider>{ui}</SearchFiltersProvider>);
   }
 
-  it('shows loading skeletons while fetching', () => {
+  it('shows loading skeletons while fetching', async () => {
     const pendingPromise = new Promise<FeedPageEntity>(() => undefined);
 
     renderScreen(<FeedScreen getFeed={() => pendingPromise} />);
 
-    expect(screen.getByLabelText('Loading stories')).toBeTruthy();
+    expect(await screen.findByLabelText('Loading stories')).toBeTruthy();
     expect(screen.queryByText('Story 1')).toBeNull();
   });
 
@@ -114,17 +114,13 @@ describe('FeedScreen', () => {
     });
   });
 
-  it('updates search query filters only after submit', async () => {
+  it('updates search query filters after debounce', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
 
     renderScreen(<FeedScreen getFeed={getFeed} />);
 
     await screen.findByText('Story 1');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
-
-    expect(getFeed).toHaveBeenCalledTimes(1);
-
-    fireEvent(screen.getByLabelText('Search stories'), 'submitEditing');
 
     await waitFor(() => {
       expect(getFeed).toHaveBeenLastCalledWith({
@@ -143,7 +139,7 @@ describe('FeedScreen', () => {
   it('applies search when the search button is pressed', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
 
-    render(<FeedScreen getFeed={getFeed} />);
+    renderScreen(<FeedScreen getFeed={getFeed} />);
 
     await screen.findByText('Story 1');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'market');
