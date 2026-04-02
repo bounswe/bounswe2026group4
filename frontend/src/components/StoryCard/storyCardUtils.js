@@ -1,3 +1,10 @@
+export function truncateAtWord(text, maxChars = 80) {
+  if (text.length <= maxChars) return text;
+  const truncated = text.slice(0, maxChars);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated) + "…";
+}
+
 export function formatTimePeriod(story) {
   const { time_type, year, year_start, year_end } = story;
   switch (time_type) {

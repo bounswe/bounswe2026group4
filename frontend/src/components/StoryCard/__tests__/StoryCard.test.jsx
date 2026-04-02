@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 
 import StoryCard from "../StoryCard";
-import { formatTimePeriod } from "../storyCardUtils";
+import { formatTimePeriod, truncateAtWord } from "../storyCardUtils";
 
 function makeStory(overrides = {}) {
   return {
@@ -16,7 +16,7 @@ function makeStory(overrides = {}) {
     year_start: null,
     year_end: null,
     contributor_name: "historian_01",
-    images: [],
+    user_has_liked: false,
     ...overrides,
   };
 }
@@ -30,6 +30,24 @@ function renderCard(story) {
 }
 
 // --- Unit tests for helpers ---
+
+describe("truncateAtWord", () => {
+  it("returns the original text when within the limit", () => {
+    expect(truncateAtWord("short text", 80)).toBe("short text");
+  });
+
+  it("truncates at a word boundary and appends ellipsis", () => {
+    expect(truncateAtWord("one two three four", 10)).toBe("one two…");
+  });
+
+  it("does not cut mid-word when a space exists before the limit", () => {
+    expect(truncateAtWord("hello world extra", 12)).toBe("hello world…");
+  });
+
+  it("hard-cuts a single long word with no spaces", () => {
+    expect(truncateAtWord("averylongwordwithoutspaces", 10)).toBe("averylongw…");
+  });
+});
 
 describe("formatTimePeriod", () => {
   it("formats exact_year", () => {
@@ -75,8 +93,8 @@ describe("StoryCard", () => {
     expect(screen.getByText("1453")).toBeInTheDocument();
   });
 
-  it("renders preview_text from the feed API", () => {
-    renderCard(makeStory({ preview_text: "A glimpse into the past…" }));
+  it("renders preview_text with a trailing ellipsis", () => {
+    renderCard(makeStory({ preview_text: "A glimpse into the past" }));
     expect(screen.getByText("A glimpse into the past…")).toBeInTheDocument();
   });
 
@@ -88,21 +106,17 @@ describe("StoryCard", () => {
     expect(screen.getByText("The Ancient Bridge")).toBeInTheDocument();
   });
 
-  it("shows media icon when story has images", () => {
-    renderCard(makeStory({ images: [{ id: 1, url: "photo.jpg" }] }));
-    expect(screen.getByLabelText("Has media")).toBeInTheDocument();
+  it("renders the contributor name", () => {
+    renderCard(makeStory({ contributor_name: "historian_01" }));
+    expect(screen.getByText("historian_01")).toBeInTheDocument();
   });
 
-  it("hides media icon when story has no images", () => {
-    renderCard(makeStory({ images: [] }));
-    expect(screen.queryByLabelText("Has media")).not.toBeInTheDocument();
-  });
-
-  it("hides media icon when images is undefined", () => {
+  it("does not render contributor name when absent", () => {
     const story = makeStory();
-    delete story.images;
+    delete story.contributor_name;
     renderCard(story);
-    expect(screen.queryByLabelText("Has media")).not.toBeInTheDocument();
+    // title still renders, no crash
+    expect(screen.getByText("The Ancient Bridge")).toBeInTheDocument();
   });
 
   it("card link points to /stories/:id", () => {
@@ -127,13 +141,13 @@ describe("StoryCard", () => {
     expect(screen.getByText("1450s")).toBeInTheDocument();
   });
 
-  it("does not render like count section when like_count is absent", () => {
+  it("renders heart as not liked by default", () => {
     renderCard(makeStory());
-    expect(screen.queryByText("0")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Not liked")).toBeInTheDocument();
   });
 
-  it("renders like count when positive", () => {
-    renderCard(makeStory({ like_count: 7 }));
-    expect(screen.getByText("7")).toBeInTheDocument();
+  it("renders heart as liked when user_has_liked is true", () => {
+    renderCard(makeStory({ user_has_liked: true }));
+    expect(screen.getByLabelText("Liked")).toBeInTheDocument();
   });
 });

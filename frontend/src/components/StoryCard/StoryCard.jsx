@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { MapPin, Calendar, Image, Heart } from "lucide-react";
+import { MapPin, Calendar, Heart, User } from "lucide-react";
 
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatTimePeriod } from "./storyCardUtils";
 
@@ -9,7 +9,6 @@ const StoryCard = ({ story }) => {
   const location = useLocation();
   const timePeriod = formatTimePeriod(story);
   const preview = story.preview_text ?? "";
-  const hasMedia = story.images?.length > 0;
 
   return (
     <Link
@@ -28,13 +27,17 @@ const StoryCard = ({ story }) => {
             <CardTitle className="text-base line-clamp-2 flex-1">
               {story.title}
             </CardTitle>
-            {hasMedia && (
-              <Image
-                className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5"
-                aria-label="Has media"
-              />
-            )}
+            <Heart
+              className={cn("h-4 w-4 shrink-0 mt-0.5", story.user_has_liked ? "fill-current text-red-500" : "text-muted-foreground")}
+              aria-label={story.user_has_liked ? "Liked" : "Not liked"}
+            />
           </div>
+          {story.contributor_name && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+              <User className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{story.contributor_name}</span>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="pb-2 space-y-2">
@@ -53,20 +56,11 @@ const StoryCard = ({ story }) => {
           )}
 
           {preview && (
-            <p className="text-sm text-foreground/80 leading-relaxed">
-              {preview}
+            <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 break-words">
+              {preview}…
             </p>
           )}
         </CardContent>
-
-        {story.like_count > 0 && (
-          <CardFooter className="pt-0">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Heart className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{story.like_count}</span>
-            </div>
-          </CardFooter>
-        )}
       </Card>
     </Link>
   );
