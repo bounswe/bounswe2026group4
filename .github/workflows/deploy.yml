@@ -1,0 +1,38 @@
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    # Only deploy if CI passed
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            # Ensure swap is active (survives reboots via /etc/fstab, but belt-and-suspenders)
+            swapon /swapfile 2>/dev/null || true
+
+            cd /opt/bounswe2026group4
+
+            # Pull latest code
+            git pull origin main
+
+            # Load production env vars (workaround for docker compose --env-file not reading correctly)
+            set -a && source .env.prod && set +a
+
+            # Rebuild and restart all services
+            docker compose -f docker-compose.prod.yml up -d --build
+
+            echo "Deploy complete at $(date)"
