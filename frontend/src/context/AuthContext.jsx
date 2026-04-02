@@ -21,7 +21,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     function handleLogout() {
       setUser(null);
-      localStorage.removeItem("user");
     }
     window.addEventListener("auth:logout", handleLogout);
     return () => window.removeEventListener("auth:logout", handleLogout);
@@ -37,7 +36,6 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     await logoutService();
     setUser(null);
-    localStorage.removeItem("user");
     navigate("/login");
   }, [navigate]);
 

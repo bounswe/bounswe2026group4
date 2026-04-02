@@ -59,7 +59,7 @@ describe("AuthContext", () => {
         role: "registered_user",
       },
     });
-    logoutService.mockResolvedValue();
+    logoutService.mockImplementation(async () => { tokenStore.clear(); });
   });
 
   afterEach(() => {
