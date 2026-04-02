@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { RefObject } from 'react';
 import { Text, View } from 'react-native';
+import { TextInput } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/Input';
@@ -12,6 +13,7 @@ interface AuthCardProps {
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: () => void;
+  passwordInputRef?: RefObject<TextInput | null>;
 }
 
 export function AuthCard({
@@ -22,6 +24,7 @@ export function AuthCard({
   onEmailChange,
   onPasswordChange,
   onSubmit,
+  passwordInputRef,
 }: AuthCardProps) {
   const { colors, spacing, typography } = useAppTheme();
 
@@ -55,12 +58,17 @@ export function AuthCard({
           textContentType="emailAddress"
           autoComplete="email"
           accessibilityLabel="Email address"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordInputRef?.current?.focus()}
         />
       </View>
 
       <View style={{ gap: spacing.sm }}>
         <Text style={{ color: colors.text, fontWeight: '600' }}>Password</Text>
         <Input
+          ref={passwordInputRef}
           value={password}
           onChangeText={onPasswordChange}
           placeholder="Enter your password"
@@ -68,6 +76,9 @@ export function AuthCard({
           textContentType="password"
           autoComplete="password"
           accessibilityLabel="Password"
+          returnKeyType="done"
+          submitBehavior="blurAndSubmit"
+          onSubmitEditing={onSubmit}
         />
       </View>
 
