@@ -15,6 +15,25 @@ vi.mock("@/components/StoryDetailMap/StoryDetailMap", () => ({
   ),
 }));
 
+vi.mock("@/components/Interactions/LikeButton", () => ({
+  default: ({ storyId, initialLiked, initialCount }) => (
+    <div
+      data-testid="like-button"
+      data-story-id={storyId}
+      data-liked={String(initialLiked)}
+      data-count={initialCount}
+    />
+  ),
+}));
+
+vi.mock("@/components/Interactions/CommentSection", () => ({
+  default: ({ storyId, onCountChange, onUserCommentedChange }) => {
+    onCountChange?.(3);
+    onUserCommentedChange?.(false);
+    return <div data-testid="comment-section" data-story-id={storyId} />;
+  },
+}));
+
 import { getStoryById } from "@/services/storyService";
 
 function makeStory(overrides = {}) {
@@ -297,6 +316,39 @@ describe("StoryDetailPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("1870s")).toBeInTheDocument();
+    });
+  });
+
+  it("renders LikeButton with story like data", async () => {
+    getStoryById.mockResolvedValue(makeStory({ like_count: 7, user_has_liked: true }));
+    renderPage();
+
+    await waitFor(() => {
+      const btn = screen.getByTestId("like-button");
+      expect(btn).toBeInTheDocument();
+      expect(btn).toHaveAttribute("data-story-id", "1");
+      expect(btn).toHaveAttribute("data-liked", "true");
+      expect(btn).toHaveAttribute("data-count", "7");
+    });
+  });
+
+  it("renders comment count from CommentSection next to like button", async () => {
+    getStoryById.mockResolvedValue(makeStory());
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("3")).toBeInTheDocument(); // count reported by mock
+    });
+  });
+
+  it("renders CommentSection with story id", async () => {
+    getStoryById.mockResolvedValue(makeStory());
+    renderPage();
+
+    await waitFor(() => {
+      const section = screen.getByTestId("comment-section");
+      expect(section).toBeInTheDocument();
+      expect(section).toHaveAttribute("data-story-id", "1");
     });
   });
 

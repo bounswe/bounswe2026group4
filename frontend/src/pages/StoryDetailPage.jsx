@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { MapPin, Calendar, ArrowLeft } from "lucide-react";
+import { MapPin, Calendar, ArrowLeft, MessageSquare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/loading-skeleton";
@@ -8,6 +8,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { getStoryById } from "@/services/storyService";
 import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 import StoryDetailMap from "@/components/StoryDetailMap/StoryDetailMap";
+import LikeButton from "@/components/Interactions/LikeButton";
+import CommentSection from "@/components/Interactions/CommentSection";
 
 function formatDate(isoString) {
   if (!isoString) return null;
@@ -47,11 +49,15 @@ function StoryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(null);
+  const [commentCount, setCommentCount] = useState(0);
+  const [userHasCommented, setUserHasCommented] = useState(false);
 
   const fetchStory = useCallback(async () => {
     setLoading(true);
     setError(null);
     setNotFound(false);
+    setCommentCount(0);
+    setUserHasCommented(false);
     try {
       const data = await getStoryById(id);
       setStory(data);
@@ -196,6 +202,30 @@ function StoryDetailPage() {
                 </p>
               ))}
             </div>
+
+            <div className="mt-6 flex items-center gap-4">
+              <LikeButton
+                storyId={story.id}
+                initialLiked={story.user_has_liked ?? false}
+                initialCount={story.like_count ?? 0}
+              />
+              <span
+                className={`flex items-center gap-1.5 text-sm ${userHasCommented ? "text-blue-900" : "text-muted-foreground"}`}
+                aria-label={userHasCommented ? "You have commented on this story" : undefined}
+              >
+                <MessageSquare
+                  className={`h-4 w-4 shrink-0 ${userHasCommented ? "fill-blue-900 stroke-blue-900" : ""}`}
+                  aria-hidden="true"
+                />
+                {commentCount}
+              </span>
+            </div>
+
+            <CommentSection
+              storyId={story.id}
+              onCountChange={setCommentCount}
+              onUserCommentedChange={setUserHasCommented}
+            />
           </article>
         )}
       </div>
