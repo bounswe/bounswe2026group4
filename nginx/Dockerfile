@@ -12,4 +12,8 @@ RUN npm run build
 # Stage 2 — Serve with nginx
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# Store as a template; entrypoint.sh substitutes ${NGINX_HOST} at startup.
+COPY nginx/nginx.conf /etc/nginx/templates/default.conf.template
+COPY nginx/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
