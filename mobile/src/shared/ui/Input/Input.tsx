@@ -5,6 +5,7 @@ import { useAppTheme } from '../../../core/hooks/useAppTheme';
 interface InputProps {
   value: string;
   onChangeText: (value: string) => void;
+  onSubmitEditing?: TextInputProps['onSubmitEditing'];
   placeholder?: string;
   secureTextEntry?: boolean;
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -13,6 +14,7 @@ interface InputProps {
   editable?: boolean;
   textContentType?: TextInputProps['textContentType'];
   autoComplete?: TextInputProps['autoComplete'];
+  returnKeyType?: TextInputProps['returnKeyType'];
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle | TextStyle>;
 }
@@ -20,6 +22,7 @@ interface InputProps {
 export function Input({
   value,
   onChangeText,
+  onSubmitEditing,
   placeholder,
   secureTextEntry,
   autoCapitalize = 'none',
@@ -28,6 +31,7 @@ export function Input({
   editable = true,
   textContentType,
   autoComplete,
+  returnKeyType,
   accessibilityLabel,
   style,
 }: InputProps) {
@@ -39,6 +43,7 @@ export function Input({
       placeholder={placeholder ?? 'Input'}
       placeholderTextColor={colors.muted}
       onChangeText={onChangeText}
+      onSubmitEditing={onSubmitEditing}
       secureTextEntry={secureTextEntry}
       autoCapitalize={autoCapitalize}
       keyboardType={keyboardType}
@@ -46,6 +51,7 @@ export function Input({
       editable={editable}
       textContentType={textContentType}
       autoComplete={autoComplete}
+      returnKeyType={returnKeyType}
       accessibilityLabel={accessibilityLabel}
       style={[
         {
