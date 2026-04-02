@@ -46,6 +46,7 @@ function renderWithRouter() {
 describe("AuthContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     tokenStore.clear();
 
     loginService.mockResolvedValue({
@@ -70,6 +71,18 @@ describe("AuthContext", () => {
 
     expect(screen.getByTestId("is-authenticated")).toHaveTextContent("false");
     expect(screen.getByTestId("username")).toHaveTextContent("");
+  });
+
+  it("restores user from localStorage on mount", () => {
+    localStorage.setItem(
+      "user",
+      JSON.stringify({ id: 1, username: "storeduser", email: "stored@test.com" })
+    );
+
+    renderWithRouter();
+
+    expect(screen.getByTestId("is-authenticated")).toHaveTextContent("true");
+    expect(screen.getByTestId("username")).toHaveTextContent("storeduser");
   });
 
   it("login updates user and authentication state", async () => {
@@ -105,6 +118,36 @@ describe("AuthContext", () => {
     expect(logoutService).toHaveBeenCalledTimes(1);
     expect(tokenStore.getAccessToken()).toBeNull();
     expect(tokenStore.getRefreshToken()).toBeNull();
+  });
+
+  it("login stores user in localStorage", async () => {
+    const user = userEvent.setup();
+    renderWithRouter();
+
+    await user.click(screen.getByRole("button", { name: "Login" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("is-authenticated")).toHaveTextContent("true");
+    });
+
+    const stored = JSON.parse(localStorage.getItem("user"));
+    expect(stored.username).toBe("testuser");
+  });
+
+  it("logout removes user from localStorage", async () => {
+    const user = userEvent.setup();
+    renderWithRouter();
+
+    await user.click(screen.getByRole("button", { name: "Login" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("is-authenticated")).toHaveTextContent("true");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Logout" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("is-authenticated")).toHaveTextContent("false");
+    });
+
+    expect(localStorage.getItem("user")).toBeNull();
   });
 
   it("login failure keeps isAuthenticated false and user null", async () => {

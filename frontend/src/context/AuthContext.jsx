@@ -6,7 +6,10 @@ import { navigationRef } from "@/services/navigationRef";
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem("user");
+    try { return stored ? JSON.parse(stored) : null; } catch { return null; }
+  });
   const navigate = useNavigate();
 
   // Set navigationRef for the axios interceptor to use
@@ -18,6 +21,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     function handleLogout() {
       setUser(null);
+      localStorage.removeItem("user");
     }
     window.addEventListener("auth:logout", handleLogout);
     return () => window.removeEventListener("auth:logout", handleLogout);
@@ -26,12 +30,14 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const data = await loginService(email, password);
     setUser(data.user);
+    localStorage.setItem("user", JSON.stringify(data.user));
     return data;
   }, []);
 
   const logout = useCallback(async () => {
     await logoutService();
     setUser(null);
+    localStorage.removeItem("user");
     navigate("/login");
   }, [navigate]);
 
