@@ -232,20 +232,20 @@ describe("StoryDetailPage", () => {
     expect(screen.queryByRole("link", { name: "historian" })).not.toBeInTheDocument();
   });
 
-  it("renders images when present", async () => {
+  it("renders images from media_items when present", async () => {
     getStoryById.mockResolvedValue(makeStory({
-      images: [
-        { id: 10, url: "http://example.com/img1.jpg", original_filename: "fire.jpg" },
+      media_items: [
+        { id: 10, url: "http://example.com/img1.jpg", media_type: "image", order: 0 },
       ],
     }));
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("img", { name: "fire.jpg" })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Story image 1" })).toBeInTheDocument();
     });
   });
 
-  it("does not render image section when images are absent", async () => {
+  it("does not render image section when media_items are absent", async () => {
     getStoryById.mockResolvedValue(makeStory());
     renderPage();
 
@@ -254,6 +254,25 @@ describe("StoryDetailPage", () => {
     });
 
     expect(screen.queryByLabelText("Story images")).not.toBeInTheDocument();
+  });
+
+  it("only renders image media_type items, not audio or video", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 1, url: "http://example.com/img.jpg", media_type: "image", order: 0 },
+        { id: 2, url: "http://example.com/vid.mp4", media_type: "video", order: 1 },
+        { id: 3, url: "http://example.com/aud.mp3", media_type: "audio", order: 2 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story images")).toBeInTheDocument();
+    });
+
+    const imgs = screen.getAllByRole("img");
+    expect(imgs).toHaveLength(1);
+    expect(imgs[0]).toHaveAttribute("src", "http://example.com/img.jpg");
   });
 
   it("renders map when coordinates are present", async () => {

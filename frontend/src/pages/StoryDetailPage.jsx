@@ -83,7 +83,7 @@ function StoryDetailPage() {
   const timePeriod = story ? formatTimePeriod(story) : null;
   const submittedDate = story ? formatDate(story.submitted_at) : null;
   const contributorName = story?.contributor_name ?? null;
-  const images = story?.images ?? [];
+  const images = (story?.media_items ?? []).filter((m) => m.media_type === "image");
 
   if (notFound) {
     return (
@@ -166,18 +166,7 @@ function StoryDetailPage() {
               )}
             </div>
 
-            {/* Location map */}
-            {(() => {
-              const lat = parseFloat(story.location_lat);
-              const lng = parseFloat(story.location_lng);
-              return !isNaN(lat) && !isNaN(lng) ? (
-                <div className="mb-8">
-                  <StoryDetailMap lat={lat} lng={lng} />
-                </div>
-              ) : null;
-            })()}
-
-            {/* Images — rendered only when the backend returns them */}
+            {/* Images */}
             {images.length > 0 && (
               <div
                 className={`mb-8 grid gap-3 ${images.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}
@@ -187,7 +176,7 @@ function StoryDetailPage() {
                   <figure key={img.id ?? idx} className="overflow-hidden rounded-xl bg-muted">
                     <img
                       src={img.url}
-                      alt={img.original_filename || `Story image ${idx + 1}`}
+                      alt={`Story image ${idx + 1}`}
                       className="w-full object-cover max-h-96"
                     />
                   </figure>
@@ -202,6 +191,17 @@ function StoryDetailPage() {
                 </p>
               ))}
             </div>
+
+            {/* Location map */}
+            {(() => {
+              const lat = parseFloat(story.location_lat);
+              const lng = parseFloat(story.location_lng);
+              return !isNaN(lat) && !isNaN(lng) ? (
+                <div className="mt-8">
+                  <StoryDetailMap lat={lat} lng={lng} />
+                </div>
+              ) : null;
+            })()}
 
             <div className="mt-6 flex items-center gap-4">
               <LikeButton

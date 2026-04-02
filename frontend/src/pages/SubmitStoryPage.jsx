@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 
 import { Button, Input, Label } from "@/components/ui";
 import MapPicker from "@/components/MapPicker/MapPicker";
-import { createStory } from "@/services/storyService";
+import { createStory, uploadStoryImage } from "@/services/storyService";
 import { useToast } from "@/hooks/useToast";
 
 const TAGS = [
@@ -152,12 +152,22 @@ function SubmitStoryPage() {
 
       selectedTags.forEach((tag) => formData.append("tags", tag));
 
+      const story = await createStory(formData);
+
+      let imageUploadFailed = false;
       if (imageFile) {
-        formData.append("image", imageFile);
+        try {
+          await uploadStoryImage(story.id, imageFile);
+        } catch {
+          imageUploadFailed = true;
+        }
       }
 
-      const story = await createStory(formData);
-      toast.success("Story submitted successfully!");
+      if (imageUploadFailed) {
+        toast.error("Story saved, but the image could not be uploaded.");
+      } else {
+        toast.success("Story submitted successfully!");
+      }
       navigate(`/stories/${story.id}`);
     } catch (error) {
       const message =
