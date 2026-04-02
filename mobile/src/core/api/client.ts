@@ -5,6 +5,7 @@ import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
 type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
+const REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string) {
   if (!env.apiBaseUrl) {
@@ -146,6 +147,22 @@ async function request<T>(
 
     return (finalResponse.data ?? null) as T | null;
   } catch (error) {
+    const appError = error as AppError & { response?: ApiResponse<unknown> };
+
+    if (!appError.response) {
+      const normalizedError =
+        appError.name === 'AbortError'
+          ? new AppError(
+              'Request timed out. Please check that your phone and computer are on the same Wi-Fi and try again.',
+            )
+          : new AppError(
+              'Unable to reach the backend. Check EXPO_PUBLIC_API_BASE_URL and make sure the backend is running and reachable from your phone.',
+            );
+
+      await interceptors.runResponseError(normalizedError);
+      throw normalizedError;
+    }
+
     await interceptors.runResponseError(error);
     throw error;
   }

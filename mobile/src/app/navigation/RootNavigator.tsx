@@ -83,13 +83,6 @@ export function RootNavigator() {
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated && protectedRoutes.includes(currentRoute)) {
-      setRedirectRoute(currentRoute);
-      setCurrentRoute(ROUTES.AUTH);
-    }
-  }, [currentRoute, isAuthenticated]);
-
-  useEffect(() => {
     if (!loading) {
       setHasResolvedInitialSession(true);
     }
@@ -118,7 +111,7 @@ export function RootNavigator() {
   const handleNavigate = (route: AppRoute) => {
     if (!isAuthenticated && protectedRoutes.includes(route)) {
       setRedirectRoute(route);
-      setCurrentRoute(ROUTES.AUTH);
+      setCurrentRoute(route);
       return;
     }
 

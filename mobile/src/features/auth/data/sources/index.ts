@@ -9,6 +9,13 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface RegisterPayload {
+  username: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}
+
 interface BackendUser {
   id: number;
   email: string;
@@ -20,6 +27,14 @@ interface LoginResponse {
   access: string;
   refresh: string;
   user: BackendUser;
+}
+
+export interface RegisterResponse {
+  message: string;
+  user: BackendUser & {
+    is_email_verified?: boolean;
+    date_joined?: string;
+  };
 }
 
 function mapBackendRole(role: BackendUser['role']): AppRole {
@@ -49,6 +64,15 @@ export const authRemoteSource = {
     }
 
     return toSession(response);
+  },
+  async register(payload: RegisterPayload): Promise<RegisterResponse> {
+    const response = await apiClient.post<RegisterResponse>(`${endpoints.auth}/register/`, payload);
+
+    if (!response) {
+      throw new Error('Registration did not return a response payload.');
+    }
+
+    return response;
   },
   async logout(session: Session): Promise<void> {
     await apiClient.post<void>(

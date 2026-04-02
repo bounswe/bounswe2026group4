@@ -13,6 +13,7 @@ import { AuthUser, Session } from '../../../core/auth/session';
 import { interceptors } from '../../../core/api/interceptors';
 import { authService } from '../application/services';
 import { createInitialAuthState } from '../presentation/state/authUiState';
+import { RegisterUserInput, RegisterUserResult } from '../domain/repositories';
 
 interface LoginInput {
   email: string;
@@ -24,6 +25,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
   login: (input: LoginInput) => Promise<Session>;
+  register: (input: RegisterUserInput) => Promise<RegisterUserResult>;
   logout: () => Promise<void>;
 }
 
@@ -131,6 +133,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const register = useCallback(async (input: RegisterUserInput) => {
+    setState((current) => ({ ...current, isLoading: true, error: undefined }));
+
+    try {
+      const result = await authService.register(input);
+
+      setState((current) => ({
+        ...current,
+        isLoading: false,
+      }));
+
+      return result;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        isLoading: false,
+      }));
+      throw error;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     const activeSession = sessionRef.current;
 
@@ -149,9 +172,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAuthenticated: Boolean(state.session?.accessToken),
       loading: state.isLoading,
       login,
+      register,
       logout,
     }),
-    [login, logout, state.isLoading, state.session],
+    [login, logout, register, state.isLoading, state.session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

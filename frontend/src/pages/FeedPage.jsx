@@ -6,26 +6,30 @@ import { SkeletonCard } from "@/components/ui/loading-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import StoryCard from "@/components/StoryCard/StoryCard";
+import SearchFilter from "@/components/SearchFilter/SearchFilter";
 import { getStories } from "@/services/storyService";
+import { useFilterState } from "@/hooks/useFilterState";
 
 const PAGE_SIZE = 12;
 
 function FeedPage() {
+  const { q, yearFrom, yearTo, location, page, hasActiveFilters, setFilters } =
+    useFilterState();
+
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const fetchStories = useCallback(async (page) => {
+  const fetchStories = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getStories({ page, pageSize: PAGE_SIZE });
+      const data = await getStories({ q, yearFrom, yearTo, location, page, pageSize: PAGE_SIZE });
       setStories(data.results);
       setTotalCount(data.count);
       setHasNext(Boolean(data.next));
@@ -33,35 +37,40 @@ function FeedPage() {
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
-        err?.message ||
-        "Failed to load stories. Please try again."
+          err?.message ||
+          "Failed to load stories. Please try again."
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [q, yearFrom, yearTo, location, page]);
 
   useEffect(() => {
-    fetchStories(currentPage);
-  }, [currentPage, fetchStories]);
+    fetchStories();
+  }, [fetchStories]);
 
   function handleNext() {
-    if (hasNext) setCurrentPage((p) => p + 1);
+    if (hasNext) setFilters({ page: page + 1 });
   }
 
   function handlePrevious() {
-    if (hasPrevious) setCurrentPage((p) => p - 1);
+    if (hasPrevious) setFilters({ page: page - 1 });
   }
 
   function handleRetry() {
-    fetchStories(currentPage);
+    fetchStories();
   }
+
+  const emptyTitle = hasActiveFilters ? "No results found" : "No stories yet";
+  const emptyMessage = hasActiveFilters
+    ? "Try adjusting your search or removing some filters."
+    : "Be the first to share a story from your community.";
 
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Top nav bar */}
-        <div className="mb-8 flex items-center justify-between gap-4">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Story Feed</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -70,23 +79,30 @@ function FeedPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Sort toggle */}
-            <Button
-              variant="outline"
-              aria-label="Sort: Most Recent"
-            >
+            <Button variant="outline" aria-label="Sort: Most Recent">
               <Clock aria-hidden="true" />
               <span className="hidden sm:inline">Most Recent</span>
             </Button>
           </div>
         </div>
 
+        {/* Search & Filter */}
+        <div className="mb-6">
+          <SearchFilter />
+        </div>
+
+        {/* Result count while searching */}
+        {hasActiveFilters && !loading && !error && (
+          <p className="mb-4 text-sm text-muted-foreground" aria-live="polite">
+            {totalCount === 0
+              ? "No stories match your search."
+              : `${totalCount} ${totalCount === 1 ? "story" : "stories"} found`}
+          </p>
+        )}
+
         {/* Content area */}
         {error ? (
-          <ErrorState
-            message={error}
-            onRetry={handleRetry}
-          />
+          <ErrorState message={error} onRetry={handleRetry} />
         ) : loading ? (
           <div
             className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
@@ -98,10 +114,7 @@ function FeedPage() {
             ))}
           </div>
         ) : stories.length === 0 ? (
-          <EmptyState
-            title="No stories yet"
-            message="Be the first to share a story from your community."
-          />
+          <EmptyState title={emptyTitle} message={emptyMessage} />
         ) : (
           <>
             <section
@@ -129,7 +142,7 @@ function FeedPage() {
               </Button>
 
               <span className="text-sm text-muted-foreground" aria-live="polite">
-                Page {currentPage} of {totalPages}
+                Page {page} of {totalPages}
               </span>
 
               <Button
