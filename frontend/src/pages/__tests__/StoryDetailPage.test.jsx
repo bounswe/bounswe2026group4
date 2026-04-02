@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useEffect } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
@@ -13,6 +14,29 @@ vi.mock("@/components/StoryDetailMap/StoryDetailMap", () => ({
   default: ({ lat, lng }) => (
     <div data-testid="story-detail-map" data-lat={lat} data-lng={lng} />
   ),
+}));
+
+vi.mock("@/components/Interactions/LikeButton", () => ({
+  default: ({ storyId, initialLiked, initialCount }) => (
+    <div
+      data-testid="like-button"
+      data-story-id={storyId}
+      data-liked={String(initialLiked)}
+      data-count={initialCount}
+    />
+  ),
+}));
+
+function MockCommentSection({ storyId, onCountChange, onUserCommentedChange }) {
+  useEffect(() => {
+    onCountChange?.(3);
+    onUserCommentedChange?.(false);
+  }, [onCountChange, onUserCommentedChange]);
+  return <div data-testid="comment-section" data-story-id={storyId} />;
+}
+
+vi.mock("@/components/Interactions/CommentSection", () => ({
+  default: MockCommentSection,
 }));
 
 import { getStoryById } from "@/services/storyService";
@@ -213,20 +237,20 @@ describe("StoryDetailPage", () => {
     expect(screen.queryByRole("link", { name: "historian" })).not.toBeInTheDocument();
   });
 
-  it("renders images when present", async () => {
+  it("renders images from media_items when present", async () => {
     getStoryById.mockResolvedValue(makeStory({
-      images: [
-        { id: 10, url: "http://example.com/img1.jpg", original_filename: "fire.jpg" },
+      media_items: [
+        { id: 10, url: "http://example.com/img1.jpg", media_type: "image", order: 0 },
       ],
     }));
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("img", { name: "fire.jpg" })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Story image 1" })).toBeInTheDocument();
     });
   });
 
-  it("does not render image section when images are absent", async () => {
+  it("does not render image section when media_items are absent", async () => {
     getStoryById.mockResolvedValue(makeStory());
     renderPage();
 
@@ -235,6 +259,25 @@ describe("StoryDetailPage", () => {
     });
 
     expect(screen.queryByLabelText("Story images")).not.toBeInTheDocument();
+  });
+
+  it("only renders image media_type items, not audio or video", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 1, url: "http://example.com/img.jpg", media_type: "image", order: 0 },
+        { id: 2, url: "http://example.com/vid.mp4", media_type: "video", order: 1 },
+        { id: 3, url: "http://example.com/aud.mp3", media_type: "audio", order: 2 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story images")).toBeInTheDocument();
+    });
+
+    const imgs = screen.getAllByRole("img");
+    expect(imgs).toHaveLength(1);
+    expect(imgs[0]).toHaveAttribute("src", "http://example.com/img.jpg");
   });
 
   it("renders map when coordinates are present", async () => {
@@ -297,6 +340,39 @@ describe("StoryDetailPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("1870s")).toBeInTheDocument();
+    });
+  });
+
+  it("renders LikeButton with story like data", async () => {
+    getStoryById.mockResolvedValue(makeStory({ like_count: 7, user_has_liked: true }));
+    renderPage();
+
+    await waitFor(() => {
+      const btn = screen.getByTestId("like-button");
+      expect(btn).toBeInTheDocument();
+      expect(btn).toHaveAttribute("data-story-id", "1");
+      expect(btn).toHaveAttribute("data-liked", "true");
+      expect(btn).toHaveAttribute("data-count", "7");
+    });
+  });
+
+  it("renders comment count from CommentSection next to like button", async () => {
+    getStoryById.mockResolvedValue(makeStory());
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("3")).toBeInTheDocument(); // count reported by mock
+    });
+  });
+
+  it("renders CommentSection with story id", async () => {
+    getStoryById.mockResolvedValue(makeStory());
+    renderPage();
+
+    await waitFor(() => {
+      const section = screen.getByTestId("comment-section");
+      expect(section).toBeInTheDocument();
+      expect(section).toHaveAttribute("data-story-id", "1");
     });
   });
 

@@ -70,3 +70,10 @@ export async function getStoryById(id) {
   const response = await api.get(`/stories/${id}/`);
   return response.data;
 }
+
+export async function uploadStoryImage(storyId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post(`/stories/${storyId}/images/`, formData);
+  return response.data.image;
+}
