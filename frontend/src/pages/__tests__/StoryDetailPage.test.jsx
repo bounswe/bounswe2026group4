@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useEffect } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
@@ -28,8 +29,10 @@ vi.mock("@/components/Interactions/LikeButton", () => ({
 
 vi.mock("@/components/Interactions/CommentSection", () => ({
   default: ({ storyId, onCountChange, onUserCommentedChange }) => {
-    onCountChange?.(3);
-    onUserCommentedChange?.(false);
+    useEffect(() => {
+      onCountChange?.(3);
+      onUserCommentedChange?.(false);
+    }, []);
     return <div data-testid="comment-section" data-story-id={storyId} />;
   },
 }));

@@ -1,15 +1,32 @@
 import api from "./api";
 
 /**
- * Fetch all comments for a story.
+ * Fetch all comments for a story, following pagination until exhausted.
  * The backend returns oldest-first; callers are responsible for reversing if needed.
  * @returns {Promise<Array>} Array of comment objects
  */
 export async function getComments(storyId) {
-  const response = await api.get(`/stories/${storyId}/comments/`, {
-    params: { page_size: 100 },
-  });
-  return response.data.results;
+  const allResults = [];
+  // Start with the relative path; subsequent pages use the absolute `next` URL from the response.
+  let nextUrl = `/stories/${storyId}/comments/`;
+  let isFirstPage = true;
+
+  while (nextUrl) {
+    const response = isFirstPage
+      ? await api.get(nextUrl, { params: { page_size: 100 } })
+      : await api.get(nextUrl);
+    isFirstPage = false;
+
+    const data = response.data;
+    // Defensive: handle both paginated ({ results: [...] }) and flat-array responses.
+    const results = data.results ?? data;
+    if (Array.isArray(results)) {
+      allResults.push(...results);
+    }
+    nextUrl = data.next ?? null;
+  }
+
+  return allResults;
 }
 
 /**
@@ -23,6 +40,8 @@ export async function addComment(storyId, text) {
 
 /**
  * Delete a comment by id.
+ * Note: intentionally uses /comments/{id}/ (not /stories/{storyId}/comments/{id}/)
+ * — this matches the backend URL structure for comment deletion.
  */
 export async function deleteComment(commentId) {
   await api.delete(`/comments/${commentId}/`);

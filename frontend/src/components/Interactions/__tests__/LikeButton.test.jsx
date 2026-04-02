@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 import LikeButton from "../LikeButton";
+import { ToastProvider } from "@/context/ToastContext";
 
 vi.mock("@/hooks/useAuth");
 vi.mock("@/services/interactionService", () => ({
@@ -16,9 +17,11 @@ import { likeStory, unlikeStory } from "@/services/interactionService";
 
 function renderLikeButton(props = {}) {
   return render(
-    <MemoryRouter>
-      <LikeButton storyId={1} initialLiked={false} initialCount={3} {...props} />
-    </MemoryRouter>
+    <ToastProvider>
+      <MemoryRouter>
+        <LikeButton storyId={1} initialLiked={false} initialCount={3} {...props} />
+      </MemoryRouter>
+    </ToastProvider>
   );
 }
 

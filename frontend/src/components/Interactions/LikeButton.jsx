@@ -4,11 +4,13 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useToastContext } from "@/context/ToastContext";
 import { likeStory, unlikeStory } from "@/services/interactionService";
 import { cn } from "@/lib/utils";
 
 function LikeButton({ storyId, initialLiked = false, initialCount = 0 }) {
   const { isAuthenticated } = useAuth();
+  const { addToast } = useToastContext();
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
   const [loading, setLoading] = useState(false);
@@ -31,9 +33,10 @@ function LikeButton({ storyId, initialLiked = false, initialCount = 0 }) {
         await unlikeStory(storyId);
       }
     } catch {
-      // Revert on failure
+      // Revert on failure and notify the user
       setLiked(liked);
       setCount(count);
+      addToast({ message: "Failed to update like. Please try again.", variant: "error" });
     } finally {
       setLoading(false);
     }

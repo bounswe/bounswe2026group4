@@ -210,11 +210,11 @@ function StoryDetailPage() {
                 initialCount={story.like_count ?? 0}
               />
               <span
-                className={`flex items-center gap-1.5 text-sm ${userHasCommented ? "text-blue-900" : "text-muted-foreground"}`}
+                className={`flex items-center gap-1.5 text-sm ${userHasCommented ? "text-primary" : "text-muted-foreground"}`}
                 aria-label={userHasCommented ? "You have commented on this story" : undefined}
               >
                 <MessageSquare
-                  className={`h-4 w-4 shrink-0 ${userHasCommented ? "fill-blue-900 stroke-blue-900" : ""}`}
+                  className={`h-4 w-4 shrink-0 ${userHasCommented ? "fill-primary stroke-primary" : ""}`}
                   aria-hidden="true"
                 />
                 {commentCount}
