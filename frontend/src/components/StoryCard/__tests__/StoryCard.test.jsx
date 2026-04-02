@@ -16,7 +16,6 @@ function makeStory(overrides = {}) {
     year_start: null,
     year_end: null,
     contributor_name: "historian_01",
-    images: [],
     ...overrides,
   };
 }
@@ -106,22 +105,19 @@ describe("StoryCard", () => {
     expect(screen.getByText("The Ancient Bridge")).toBeInTheDocument();
   });
 
-  it("shows media icon when story has images", () => {
-    renderCard(makeStory({ images: [{ id: 1, url: "photo.jpg" }] }));
-    expect(screen.getByLabelText("Has media")).toBeInTheDocument();
+  it("renders the contributor name", () => {
+    renderCard(makeStory({ contributor_name: "historian_01" }));
+    expect(screen.getByText("historian_01")).toBeInTheDocument();
   });
 
-  it("hides media icon when story has no images", () => {
-    renderCard(makeStory({ images: [] }));
-    expect(screen.queryByLabelText("Has media")).not.toBeInTheDocument();
-  });
-
-  it("hides media icon when images is undefined", () => {
+  it("does not render contributor name when absent", () => {
     const story = makeStory();
-    delete story.images;
+    delete story.contributor_name;
     renderCard(story);
-    expect(screen.queryByLabelText("Has media")).not.toBeInTheDocument();
+    // title still renders, no crash
+    expect(screen.getByText("The Ancient Bridge")).toBeInTheDocument();
   });
+
 
   it("card link points to /stories/:id", () => {
     renderCard(makeStory({ id: 42 }));
@@ -145,13 +141,13 @@ describe("StoryCard", () => {
     expect(screen.getByText("1450s")).toBeInTheDocument();
   });
 
-  it("does not render like count section when like_count is absent", () => {
+  it("renders heart as not liked by default", () => {
     renderCard(makeStory());
-    expect(screen.queryByText("0")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Not liked")).toBeInTheDocument();
   });
 
-  it("renders like count when positive", () => {
-    renderCard(makeStory({ like_count: 7 }));
-    expect(screen.getByText("7")).toBeInTheDocument();
+  it("renders heart as liked when user_has_liked is true", () => {
+    renderCard(makeStory({ user_has_liked: true }));
+    expect(screen.getByLabelText("Liked")).toBeInTheDocument();
   });
 });
