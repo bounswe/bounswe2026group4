@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { MapPin, Calendar, Image, Heart } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatTimePeriod } from "./storyCardUtils";
 
 const StoryCard = ({ story }) => {
+  const location = useLocation();
   const timePeriod = formatTimePeriod(story);
   const preview = story.preview_text ?? "";
   const hasMedia = story.images?.length > 0;
@@ -13,6 +14,7 @@ const StoryCard = ({ story }) => {
   return (
     <Link
       to={`/stories/${story.id}`}
+      state={{ from: location.pathname }}
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
       aria-label={`Read story: ${story.title}`}
     >

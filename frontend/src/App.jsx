@@ -12,6 +12,7 @@ import FeedPage from "@/pages/FeedPage";
 import MapPage from "@/pages/MapPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SubmitStoryPage from "@/pages/SubmitStoryPage";
+import StoryDetailPage from "@/pages/StoryDetailPage";
 
 function App() {
   return (
@@ -40,6 +41,8 @@ function App() {
                   </ProtectedRoute>
                 )}
               />
+              <Route path="/profile/:userId" element={<ProfilePage />} />
+              <Route path="/stories/:id" element={<StoryDetailPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>

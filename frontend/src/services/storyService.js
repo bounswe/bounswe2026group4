@@ -64,3 +64,8 @@ export async function createStory(formData) {
   const response = await api.post("/stories/", formData);
   return response.data;
 }
+
+export async function getStoryById(id) {
+  const response = await api.get(`/stories/${id}/`);
+  return response.data;
+}
