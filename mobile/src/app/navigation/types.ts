@@ -11,3 +11,5 @@ export type RootStackParamList = {
   Notifications: undefined;
   Profile: undefined;
 };
+
+export type { AppRoute } from './routes';

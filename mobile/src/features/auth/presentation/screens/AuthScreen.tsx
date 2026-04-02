@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { validators } from '../../../../shared/forms/validators';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { loginWithEmailPassword } from '../../application/useCases';
+import { useAuth } from '../context/AuthContext';
 import { AuthCard } from '../components/AuthCard';
 import { AuthUiState } from '../state/authUiState';
 
@@ -21,7 +22,9 @@ const initialState: AuthUiState = {
 export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
+  const { setSession } = useAuth();
   const [state, setState] = useState<AuthUiState>(initialState);
+  const passwordInputRef = useRef<TextInput>(null);
 
   const submit = async () => {
     const email = state.email.trim();
@@ -52,6 +55,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
     try {
       const session = await loginWithEmailPassword({ email, password });
       toast.success(`Welcome back, ${session.user.username}.`);
+      setSession(session);
       onAuthenticated?.(session);
       setState(initialState);
     } catch (error) {
@@ -71,17 +75,27 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={spacing.md}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="always"
         contentContainerStyle={{
           flexGrow: 1,
           padding: spacing.lg,
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
         }}
       >
-        <View style={{ gap: spacing.lg }}>
+        <View
+          style={{
+            gap: spacing.lg,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.xl,
+          }}
+        >
           <View style={{ gap: spacing.sm }}>
             <Text style={{ color: colors.primary, fontWeight: '700' }}>Local History Story Map</Text>
             <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
@@ -101,6 +115,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             onEmailChange={(email) => setState((current) => ({ ...current, email }))}
             onPasswordChange={(password) => setState((current) => ({ ...current, password }))}
             onSubmit={submit}
+            passwordInputRef={passwordInputRef}
           />
         </View>
       </ScrollView>

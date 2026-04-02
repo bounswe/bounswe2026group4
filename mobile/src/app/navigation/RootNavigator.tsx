@@ -1,36 +1,33 @@
-import React, { useEffect, useState } from 'react';
-import { StatusBar, Text, View } from 'react-native';
-import { Session } from '../../core/auth/session';
+import React, { useEffect } from 'react';
+import { StatusBar } from 'react-native';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
-import { logoutCurrentUser, restoreAuthSession } from '../../features/auth/application/useCases';
 import { AuthScreen } from '../../features/auth/presentation/screens/AuthScreen';
-import { Button, Loader } from '../../shared';
+import { RegisterPromptScreen } from '../../features/auth/presentation/screens/RegisterPromptScreen';
+import { FeedScreen } from '../../features/feed/presentation/screens/FeedScreen';
+import { MapScreen } from '../../features/map/presentation/screens/MapScreen';
+import { ProfileScreen } from '../../features/profile/presentation/screens/ProfileScreen';
+import { SubmissionScreen } from '../../features/submissions/presentation/screens/SubmissionScreen';
+import { Loader } from '../../shared';
+import { useAuth } from '../../features/auth/presentation/context/AuthContext';
+import { AppLayout } from '../layout/AppLayout';
+import { useAppNavigation } from '../providers/NavigationProvider';
+import { isAuthActionRoute, isProtectedRoute } from './routes';
 
 export function RootNavigator() {
-  const { colors, spacing, typography, colorScheme } = useAppTheme();
-  const [session, setSession] = useState<Session | null>(null);
-  const [isRestoring, setIsRestoring] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { colorScheme } = useAppTheme();
+  const { session, isAuthenticated, isRestoring } = useAuth();
+  const { currentRoute, navigate } = useAppNavigation();
 
   useEffect(() => {
-    let isMounted = true;
+    if (!isAuthenticated && isProtectedRoute(currentRoute)) {
+      navigate('login');
+      return;
+    }
 
-    restoreAuthSession()
-      .then((restoredSession) => {
-        if (isMounted) {
-          setSession(restoredSession);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsRestoring(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    if (isAuthenticated && isAuthActionRoute(currentRoute)) {
+      navigate('map');
+    }
+  }, [currentRoute, isAuthenticated, navigate]);
 
   if (isRestoring) {
     return (
@@ -41,63 +38,24 @@ export function RootNavigator() {
     );
   }
 
-  if (!session) {
-    return (
-      <>
-        <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
-        <AuthScreen onAuthenticated={setSession} />
-      </>
-    );
+  let content = <MapScreen />;
+
+  if (currentRoute === 'feed') {
+    content = <FeedScreen />;
+  } else if (currentRoute === 'submission' && session) {
+    content = <SubmissionScreen />;
+  } else if (currentRoute === 'profile' && session) {
+    content = <ProfileScreen />;
+  } else if (currentRoute === 'register' && !session) {
+    content = <RegisterPromptScreen />;
+  } else if (currentRoute === 'login' && !session) {
+    content = <AuthScreen />;
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: colors.background,
-        padding: spacing.lg,
-        justifyContent: 'center',
-      }}
-    >
+    <>
       <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
-      <View
-        style={{
-          backgroundColor: colors.surface,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: spacing.lg,
-          gap: spacing.md,
-        }}
-      >
-        <Text style={{ color: colors.primary, fontWeight: '700' }}>Authenticated</Text>
-        <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
-          Welcome, {session.user.username}
-        </Text>
-        <Text style={{ color: colors.muted, fontSize: typography.body }}>
-          The app has stored your access and refresh tokens locally after a successful call to the
-          backend login endpoint.
-        </Text>
-        <View style={{ gap: spacing.xs }}>
-          <Text style={{ color: colors.text }}>Email: {session.user.email}</Text>
-          <Text style={{ color: colors.text }}>Role: {session.role}</Text>
-        </View>
-        <Button
-          variant="secondary"
-          disabled={isLoggingOut}
-          onPress={async () => {
-            setIsLoggingOut(true);
-            try {
-              await logoutCurrentUser(session);
-              setSession(null);
-            } finally {
-              setIsLoggingOut(false);
-            }
-          }}
-        >
-          {isLoggingOut ? 'Signing out...' : 'Sign out'}
-        </Button>
-      </View>
-    </View>
+      <AppLayout>{content}</AppLayout>
+    </>
   );
 }

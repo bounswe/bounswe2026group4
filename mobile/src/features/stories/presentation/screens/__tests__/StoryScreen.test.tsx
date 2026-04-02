@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StoryScreen } from '../StoryScreen';
+import { Session } from '../../../../../core/auth/session';
 import { StoryEntity } from '../../../domain/entities';
 
 const baseStory: StoryEntity = {
@@ -32,6 +33,30 @@ const baseStory: StoryEntity = {
   ],
 };
 
+const authenticatedSession: Session = {
+  accessToken: 'access-token',
+  refreshToken: 'refresh-token',
+  role: 'user',
+  user: {
+    id: 1,
+    email: 'aylin@example.com',
+    username: 'aylin',
+    role: 'user',
+  },
+};
+
+const guestSession: Session = {
+  accessToken: '',
+  refreshToken: '',
+  role: 'guest',
+  user: {
+    id: 0,
+    email: '',
+    username: 'guest',
+    role: 'guest',
+  },
+};
+
 describe('StoryScreen', () => {
   it('renders loading state while fetching the story', () => {
     const pendingPromise = new Promise<StoryEntity | null>(() => undefined);
@@ -60,7 +85,7 @@ describe('StoryScreen', () => {
     render(
       <StoryScreen
         storyId="story-001"
-        session={{ role: 'user' }}
+        session={authenticatedSession}
         getStory={async () => baseStory}
       />,
     );
@@ -79,7 +104,7 @@ describe('StoryScreen', () => {
     render(
       <StoryScreen
         storyId="story-001"
-        session={{ role: 'guest' }}
+        session={guestSession}
         onRequestLogin={onRequestLogin}
         getStory={async () => baseStory}
       />,
