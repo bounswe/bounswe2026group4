@@ -1,4 +1,7 @@
-FROM python:3.12-slim
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+# Install all build-time C dependencies and compile Python packages into a venv.
+# gcc and pkg-config are only needed here and are not carried into the final image.
+FROM python:3.12-slim AS builder
 
 RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
@@ -7,15 +10,42 @@ RUN apt-get update && apt-get install -y \
     libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
 
 COPY requirements /requirements
 RUN pip install --no-cache-dir -r /requirements/production.txt
+
+# ── Stage 2: Final image ──────────────────────────────────────────────────────
+# Only runtime libraries — no compiler toolchain.
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y \
+    libmariadb3 \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user for running the application.
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
+WORKDIR /app
+
+# Copy the compiled venv from the builder stage.
+COPY --from=builder /venv /venv
+ENV PATH="/venv/bin:$PATH"
 
 # Bake the application code into the image (no volume mount at runtime).
 COPY backend/ .
 
 COPY backend/entrypoint.prod.sh /entrypoint.prod.sh
-RUN chmod +x /entrypoint.prod.sh
+RUN chmod +x /entrypoint.prod.sh \
+    && mkdir -p /app/staticfiles /app/media \
+    && chown -R appuser:appgroup /app
+
+USER appuser
+
+# Ensure production settings are always used, even outside docker-compose.
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
 ENTRYPOINT ["/entrypoint.prod.sh"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
