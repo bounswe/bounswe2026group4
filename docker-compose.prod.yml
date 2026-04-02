@@ -40,6 +40,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      NGINX_HOST: ${NGINX_HOST}
     volumes:
       - static_files:/staticfiles:ro
       - media_files:/media:ro
