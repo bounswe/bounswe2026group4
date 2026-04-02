@@ -4,6 +4,7 @@ import { ThemeProvider } from './ThemeProvider';
 import { NavigationProvider } from './NavigationProvider';
 import { ToastProvider } from '../../shared/toast/ToastProvider';
 import { AuthProvider } from '../../features/auth/context/AuthContext';
+import { SearchFiltersProvider } from '../../features/search/presentation/context/SearchFiltersContext';
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },

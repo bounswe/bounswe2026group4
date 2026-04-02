@@ -1,10 +1,38 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { AppProviders } from '../../providers/AppProviders';
 import { RootNavigator } from '../RootNavigator';
 import { storage } from '../../../core/storage/storage';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider } from '../../providers/ThemeProvider';
+import { ToastProvider } from '../../../shared/toast/ToastProvider';
+import { AuthProvider } from '../../../features/auth/context/AuthContext';
+import { SearchFiltersProvider } from '../../../features/search/presentation/context/SearchFiltersContext';
+import { NavigationProvider } from '../../providers/NavigationProvider';
+
+const initialMetrics = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 44, right: 0, bottom: 34, left: 0 },
+};
+
+function renderNavigator() {
+  return render(
+    <SafeAreaProvider initialMetrics={initialMetrics}>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <SearchFiltersProvider>
+              <NavigationProvider>
+                <RootNavigator />
+              </NavigationProvider>
+            </SearchFiltersProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>,
+  );
+}
 
 const feedResults = [
   {
@@ -124,28 +152,24 @@ describe('RootNavigator auth flow', () => {
   });
 
   it('redirects unauthenticated users to the login flow for protected screens', async () => {
-    render(
-      <AppProviders>
-        <RootNavigator />
-      </AppProviders>,
-    );
+    renderNavigator();
 
     expect(await screen.findByLabelText('Search stories')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Profile'));
 
-    expect(await screen.findByText('Sign in to the mobile app')).toBeTruthy();
+    expect(
+      await screen.findByText('Sign in to your account to explore and share local history stories.'),
+    ).toBeTruthy();
   });
 
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
-    render(
-      <AppProviders>
-        <RootNavigator />
-      </AppProviders>,
-    );
+    renderNavigator();
 
-    fireEvent.press(await screen.findByText('Submission'));
-    expect(await screen.findByText('Sign in to the mobile app')).toBeTruthy();
+    fireEvent.press(await screen.findByText('Submission', {}, { timeout: 3000 }));
+    expect(
+      await screen.findByText('Sign in to your account to explore and share local history stories.'),
+    ).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
     fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
@@ -164,11 +188,7 @@ describe('RootNavigator auth flow', () => {
   });
 
   it('keeps applied feed filters when navigating to map and back', async () => {
-    render(
-      <AppProviders>
-        <RootNavigator />
-      </AppProviders>,
-    );
+    renderNavigator();
 
     await screen.findByLabelText('Search stories');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');

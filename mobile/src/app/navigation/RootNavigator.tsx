@@ -2,8 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
-import { useAuth } from '../../features/auth';
-import { AuthScreen } from '../../features/auth';
+import { useAuth, AuthScreen } from '../../features/auth';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { ProtectedScreen } from './ProtectedScreen';
 import { FeedScreen } from '../../features/feed';
@@ -12,7 +11,6 @@ import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
 import { MapScreen } from '../../features/map';
 import { StoryScreen } from '../../features/stories';
-import { StoryFilters } from '../../features/stories/domain/repositories';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 interface RouteSnapshot {
@@ -321,12 +319,12 @@ export function RootNavigator() {
     content = (
       <ProtectedScreen
         title="Profile requires sign-in"
-        description="Unauthenticated users are redirected to the login flow before they can view profile data."
+        description="Sign in to view your profile."
         onAuthenticated={handleLoginComplete}
       >
         <ScreenShell
           title="Your profile"
-          description={`Authenticated as ${user?.username ?? 'Unknown user'}.`}
+          description={user?.username ? `Signed in as ${user.username}.` : 'Your account details.'}
         >
           <ProfileScreen />
         </ScreenShell>
@@ -336,7 +334,7 @@ export function RootNavigator() {
     content = (
       <ProtectedScreen
         title="Submission requires sign-in"
-        description="Story submission is guarded so only authenticated users can access it."
+        description="Sign in to submit a story."
         onAuthenticated={handleLoginComplete}
       >
         <ScreenShell
@@ -351,7 +349,7 @@ export function RootNavigator() {
     content = (
       <ScreenShell
         title="Story map"
-        description="Discover local history through an interactive map designed around place-based exploration."
+        description="Explore stories by place."
         framed={false}
         scrollable
       >
@@ -371,16 +369,12 @@ export function RootNavigator() {
     content = (
       <ScreenShell
         title="Story feed"
-        description="Public screens remain accessible while auth state is shared across the app."
+        description="Explore local history stories."
         framed={false}
         fillContent
         hideHeader
       >
-        <FeedScreen
-          initialFilters={feedFilters}
-          onFiltersChange={setFeedFilters}
-          onOpenStory={handleOpenStoryDetail}
-        />
+        <FeedScreen onOpenStory={handleOpenStoryDetail} />
       </ScreenShell>
     );
   }
