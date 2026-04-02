@@ -27,3 +27,23 @@ export interface StoryEntity {
   likedByViewer: boolean;
   comments: StoryCommentPreview[];
 }
+
+export interface StorySummaryEntity {
+  id: string;
+  title: string;
+  previewText: string;
+  placeName: string;
+  timePeriod: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface StoryMapPin {
+  id: string;
+  title: string;
+  previewText: string;
+  placeName: string;
+  timePeriod: string;
+  latitude: number;
+  longitude: number;
+}

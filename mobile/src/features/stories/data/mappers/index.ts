@@ -1,4 +1,10 @@
-import { StoryCommentPreview, StoryEntity, StoryLocation } from '../../domain/entities';
+import {
+  StoryCommentPreview,
+  StoryEntity,
+  StoryLocation,
+  StoryMapPin,
+  StorySummaryEntity,
+} from '../../domain/entities';
 
 interface StoryRecord {
   id: string;
@@ -44,6 +50,27 @@ function isStoryLocation(value: unknown): value is StoryLocation {
   );
 }
 
+function asString(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function getNarrativePreview(value: unknown) {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const firstParagraph = value.find((entry) => typeof entry === 'string');
+    return typeof firstParagraph === 'string' ? firstParagraph : '';
+  }
+
+  return '';
+}
+
 export function mapStory(value: unknown): StoryEntity {
   if (!value || typeof value !== 'object') {
     throw new Error('Invalid story payload.');
@@ -82,5 +109,69 @@ export function mapStory(value: unknown): StoryEntity {
     likeCount: story.likeCount,
     likedByViewer: story.likedByViewer,
     comments: story.comments,
+  };
+}
+
+export function mapStorySummary(value: unknown): StorySummaryEntity {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Invalid story summary payload.');
+  }
+
+  const story = value as Record<string, unknown>;
+  const locationRecord =
+    story.location && typeof story.location === 'object' ? (story.location as Record<string, unknown>) : undefined;
+  const placeName =
+    asString(story.placeName) ||
+    asString(story.location_name) ||
+    asString(story.locationName) ||
+    asString(locationRecord?.name);
+  const timePeriod =
+    asString(story.timePeriod) || asString(story.time_period) || asString(story.period);
+  const previewText =
+    asString(story.previewText) ||
+    asString(story.preview_text) ||
+    getNarrativePreview(story.narrative) ||
+    asString(story.summary);
+  const latitude =
+    asNumber(story.latitude) ??
+    asNumber(story.location_lat) ??
+    asNumber(story.locationLat) ??
+    asNumber(locationRecord?.latitude);
+  const longitude =
+    asNumber(story.longitude) ??
+    asNumber(story.location_lng) ??
+    asNumber(story.locationLng) ??
+    asNumber(locationRecord?.longitude);
+
+  if (typeof story.id !== 'string' || typeof story.title !== 'string') {
+    throw new Error('Invalid story summary payload.');
+  }
+
+  return {
+    id: story.id,
+    title: story.title,
+    previewText,
+    placeName,
+    timePeriod,
+    latitude,
+    longitude,
+  };
+}
+
+export function mapStoryMapPin(value: unknown): StoryMapPin {
+  const summary = mapStorySummary(value);
+
+  if (summary.latitude === undefined || summary.longitude === undefined) {
+    throw new Error('Invalid story map pin payload.');
+  }
+
+  return {
+    id: summary.id,
+    title: summary.title,
+    previewText: summary.previewText,
+    placeName: summary.placeName,
+    timePeriod: summary.timePeriod,
+    latitude: summary.latitude,
+    longitude: summary.longitude,
   };
 }

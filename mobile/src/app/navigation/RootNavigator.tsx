@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StatusBar, Text, View } from 'react-native';
+import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth } from '../../features/auth';
@@ -10,6 +10,8 @@ import { FeedScreen } from '../../features/feed';
 import { ProfileScreen } from '../../features/profile';
 import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
+import { MapScreen } from '../../features/map';
+import { StoryScreen } from '../../features/stories';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 
@@ -47,30 +49,55 @@ function ScreenShell({
   title,
   description,
   children,
+  framed = true,
+  scrollable = false,
 }: {
   title: string;
   description: string;
   children: React.ReactNode;
+  framed?: boolean;
+  scrollable?: boolean;
 }) {
   const { colors, spacing, typography } = useAppTheme();
 
-  return (
-    <View style={{ flex: 1, padding: spacing.lg }}>
+  const innerContent = (
+    <>
       <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>{title}</Text>
       <Text style={{ marginTop: spacing.sm, color: colors.muted }}>{description}</Text>
-      <View
-        style={{
-          marginTop: spacing.xl,
-          flex: 1,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 20,
-          padding: spacing.lg,
-          backgroundColor: colors.surface,
-        }}
+      {framed ? (
+        <View
+          style={{
+            marginTop: spacing.xl,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 20,
+            padding: spacing.lg,
+            backgroundColor: colors.surface,
+          }}
+        >
+          {children}
+        </View>
+      ) : (
+        <View style={{ marginTop: spacing.xl }}>{children}</View>
+      )}
+    </>
+  );
+
+  if (scrollable) {
+    return (
+      <ScrollView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+        showsVerticalScrollIndicator={false}
       >
-        {children}
-      </View>
+        {innerContent}
+      </ScrollView>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, padding: spacing.lg, backgroundColor: colors.background }}>
+      {innerContent}
     </View>
   );
 }
@@ -80,6 +107,8 @@ export function RootNavigator() {
   const { colors, spacing } = useAppTheme();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [redirectRoute, setRedirectRoute] = useState<AppRoute>(ROUTES.PROFILE);
+  const [lastPublicRoute, setLastPublicRoute] = useState<AppRoute>(ROUTES.FEED);
+  const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
 
   useEffect(() => {
@@ -109,6 +138,10 @@ export function RootNavigator() {
   }, [currentRoute]);
 
   const handleNavigate = (route: AppRoute) => {
+    if (route === ROUTES.FEED || route === ROUTES.MAP) {
+      setLastPublicRoute(route);
+    }
+
     if (!isAuthenticated && protectedRoutes.includes(route)) {
       setRedirectRoute(route);
       setCurrentRoute(route);
@@ -124,6 +157,11 @@ export function RootNavigator() {
 
   const handleLogout = async () => {
     await logout();
+  };
+
+  const handleOpenStoryDetail = (storyId: string) => {
+    setActiveStoryId(storyId);
+    setCurrentRoute(ROUTES.STORY_DETAIL);
   };
 
   if (!hasResolvedInitialSession && loading) {
@@ -163,11 +201,31 @@ export function RootNavigator() {
       >
         <ScreenShell
           title="Submit a story"
-          description="Share a historical story with a map location, time information, tags, and an optional image."
-        >
-          <SubmissionScreen />
-        </ScreenShell>
+          description="Authenticated submission flow is ready for future form work."
+      >
+        <SubmissionScreen />
+      </ScreenShell>
       </ProtectedScreen>
+    );
+  } else if (currentRoute === ROUTES.MAP) {
+    content = (
+      <ScreenShell
+        title="Story map"
+        description="Discover local history through an interactive map designed around place-based exploration."
+        framed={false}
+        scrollable
+      >
+        <MapScreen onOpenStory={handleOpenStoryDetail} />
+      </ScreenShell>
+    );
+  } else if (currentRoute === ROUTES.STORY_DETAIL && activeStoryId) {
+    content = (
+      <StoryScreen
+        storyId={activeStoryId}
+        session={user ? { role: user.role } : undefined}
+        onRequestLogin={() => handleNavigate(ROUTES.AUTH)}
+        onGoBack={() => handleNavigate(lastPublicRoute)}
+      />
     );
   } else {
     content = (
@@ -197,6 +255,7 @@ export function RootNavigator() {
         <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800' }}>Local History Story Map</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           <ShellButton label="Feed" active={currentRoute === ROUTES.FEED} onPress={() => handleNavigate(ROUTES.FEED)} />
+          <ShellButton label="Map" active={currentRoute === ROUTES.MAP} onPress={() => handleNavigate(ROUTES.MAP)} />
           <ShellButton
             label="Profile"
             active={currentRoute === ROUTES.PROFILE}
@@ -214,7 +273,7 @@ export function RootNavigator() {
           />
         </View>
       </View>
-      {content}
+      <View style={{ flex: 1, backgroundColor: colors.background }}>{content}</View>
     </Screen>
   );
 }
