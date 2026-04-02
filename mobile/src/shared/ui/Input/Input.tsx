@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  KeyboardTypeOptions,
-  StyleProp,
-  TextInput,
-  TextInputProps,
-  TextStyle,
-  ViewStyle,
-} from 'react-native';
+import { KeyboardTypeOptions, StyleProp, TextInput, TextInputProps, TextStyle, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
 interface InputProps {
@@ -43,9 +36,9 @@ export function Input({
   return (
     <TextInput
       value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
+      placeholder={placeholder ?? 'Input'}
       placeholderTextColor={colors.muted}
+      onChangeText={onChangeText}
       secureTextEntry={secureTextEntry}
       autoCapitalize={autoCapitalize}
       keyboardType={keyboardType}
@@ -58,11 +51,11 @@ export function Input({
         {
           borderWidth: 1,
           borderColor: colors.border,
-          backgroundColor: colors.surface,
-          color: colors.text,
           paddingHorizontal: spacing.md,
           paddingVertical: spacing.md - 2,
           borderRadius: 12,
+          color: colors.text,
+          backgroundColor: colors.surface,
           fontSize: typography.body,
         },
         style,

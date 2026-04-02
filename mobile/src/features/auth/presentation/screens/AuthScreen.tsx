@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
-import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { validators } from '../../../../shared/forms/validators';
 import { useToast } from '../../../../shared/hooks/useToast';
-import { loginWithEmailPassword } from '../../application/useCases';
+import { useAuth } from '../../context/AuthContext';
 import { AuthCard } from '../components/AuthCard';
 import { AuthUiState } from '../state/authUiState';
 
 interface AuthScreenProps {
-  onAuthenticated?: (session: Session) => void;
+  onAuthenticated?: () => void;
 }
 
 const initialState: AuthUiState = {
@@ -19,6 +18,7 @@ const initialState: AuthUiState = {
 };
 
 export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
+  const { login, loading } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
   const [state, setState] = useState<AuthUiState>(initialState);
@@ -50,12 +50,12 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
     }));
 
     try {
-      const session = await loginWithEmailPassword({ email, password });
+      const session = await login({ email, password });
       toast.success(`Welcome back, ${session.user.username}.`);
-      onAuthenticated?.(session);
+      onAuthenticated?.();
       setState(initialState);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to sign in right now.';
+    } catch (loginError) {
+      const message = loginError instanceof Error ? loginError.message : 'Unable to sign in right now.';
       setState((current) => ({
         ...current,
         isLoading: false,
@@ -88,8 +88,8 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
               Sign in to the mobile app
             </Text>
             <Text style={{ color: colors.muted, fontSize: typography.body }}>
-              This screen sends your credentials to the Django backend and stores the issued JWT
-              session locally for the current app run.
+              Shared auth state restores persisted sessions, protects user-only screens, and
+              attaches your access token to authenticated API requests.
             </Text>
           </View>
 
@@ -97,7 +97,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             email={state.email}
             password={state.password}
             error={state.error}
-            isLoading={state.isLoading}
+            isLoading={state.isLoading || loading}
             onEmailChange={(email) => setState((current) => ({ ...current, email }))}
             onPasswordChange={(password) => setState((current) => ({ ...current, password }))}
             onSubmit={submit}

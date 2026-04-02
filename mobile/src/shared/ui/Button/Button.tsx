@@ -5,32 +5,19 @@ import { useAppTheme } from '../../../core/hooks/useAppTheme';
 interface ButtonProps extends PropsWithChildren {
   onPress?: () => void;
   disabled?: boolean;
-  variant?: 'primary' | 'secondary';
 }
 
-export function Button({
-  children,
-  onPress,
-  disabled = false,
-  variant = 'primary',
-}: ButtonProps) {
-  const { colors, spacing } = useAppTheme();
-  const isPrimary = variant === 'primary';
-
+export function Button({ children, onPress, disabled = false }: ButtonProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       disabled={disabled}
-      style={({ pressed }) => ({
-        paddingVertical: spacing.md - 4,
-        paddingHorizontal: spacing.md,
-        borderRadius: 12,
-        backgroundColor: isPrimary ? colors.primary : colors.surface,
-        borderWidth: isPrimary ? 0 : 1,
-        borderColor: colors.border,
-        opacity: disabled ? 0.55 : pressed ? 0.85 : 1,
-        alignItems: 'center',
-      })}
+      style={{
+        padding: spacing.md - 4,
+        borderRadius: 8,
+        backgroundColor: disabled ? colors.border : colors.primary,
+        opacity: disabled ? 0.7 : 1,
+      }}
     >
       <Text style={{ color: isPrimary ? '#FFFFFF' : colors.text, fontWeight: '600' }}>
         {children ?? 'Button'}

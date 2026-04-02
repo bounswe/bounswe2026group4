@@ -41,21 +41,32 @@ function toSession(response: LoginResponse): Session {
 }
 
 export const authRemoteSource = {
-  async login(payload: LoginPayload) {
+  async login(payload: LoginPayload): Promise<Session> {
     const response = await apiClient.post<LoginResponse>(`${endpoints.auth}/login/`, payload);
+
+    if (!response) {
+      throw new Error('Login did not return a session payload.');
+    }
+
     return toSession(response);
   },
-  async logout(session: Session) {
+  async logout(session: Session): Promise<void> {
     await apiClient.post<void>(
       `${endpoints.auth}/logout/`,
       { refresh: session.refreshToken },
-      session.accessToken,
+      { token: session.accessToken },
     );
   },
 };
 
 export const authLocalSource = {
-  getSession: () => storage.get<Session>(storageKeys.session),
-  saveSession: (session: Session) => storage.set(storageKeys.session, session),
-  clearSession: () => storage.remove(storageKeys.session),
+  async getSession() {
+    return storage.get<Session>(storageKeys.authSession);
+  },
+  async setSession(session: Session) {
+    await storage.set(storageKeys.authSession, session);
+  },
+  async clearSession() {
+    await storage.remove(storageKeys.authSession);
+  },
 };

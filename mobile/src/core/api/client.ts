@@ -1,10 +1,10 @@
 import { env } from '../../app/config/env';
 import { AppError } from '../errors/AppError';
+import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 
-interface RequestOptions {
-  body?: unknown;
-  token?: string;
-}
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
+type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
 
 function buildUrl(path: string) {
   if (!env.apiBaseUrl) {
@@ -18,6 +18,24 @@ function buildUrl(path: string) {
 }
 
 function getErrorMessage(payload: unknown, fallback: string) {
+  if (typeof payload === 'string') {
+    const trimmedPayload = payload.trim();
+
+    if (!trimmedPayload) {
+      return fallback;
+    }
+
+    if (trimmedPayload.includes('DisallowedHost')) {
+      return 'Backend rejected this device host. The mobile app can reach the server, but the server is not configured to accept requests from this network address yet.';
+    }
+
+    if (trimmedPayload.startsWith('<!DOCTYPE') || trimmedPayload.startsWith('<html')) {
+      return 'Server returned an unexpected HTML response instead of JSON.';
+    }
+
+    return trimmedPayload;
+  }
+
   if (!payload || typeof payload !== 'object') {
     return fallback;
   }
@@ -49,33 +67,127 @@ function getErrorMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-async function request<T>(method: string, path: string, options?: RequestOptions): Promise<T> {
-  const response = await fetch(buildUrl(path), {
+function parseResponseBody(raw: string, contentType: string | null) {
+  if (!raw) {
+    return null;
+  }
+
+  if (contentType?.includes('application/json')) {
+    return JSON.parse(raw) as unknown;
+  }
+
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
+}
+
+const defaultTransport: ApiTransport = async <T>(method: HttpMethod, config: ApiRequestConfig) => {
+  const response = await fetch(buildUrl(config.url ?? ''), {
     method,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      ...(options?.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(config.headers ?? {}),
     },
-    body: options?.body ? JSON.stringify(options.body) : undefined,
+    body: config.data ? JSON.stringify(config.data) : undefined,
   });
 
   const raw = await response.text();
-  const payload = raw ? (JSON.parse(raw) as unknown) : null;
+  const payload = parseResponseBody(raw, response.headers.get('content-type'));
+  const apiResponse: ApiResponse<T> = {
+    status: response.status,
+    data: payload as T,
+    config,
+  };
 
   if (!response.ok) {
-    throw new AppError(getErrorMessage(payload, 'Request failed.'));
+    const error = new AppError(getErrorMessage(payload, 'Request failed.')) as AppError & {
+      response: ApiResponse<unknown>;
+    };
+    error.response = apiResponse;
+    throw error;
   }
 
-  return payload as T;
+  return apiResponse;
+};
+
+let transport: ApiTransport = defaultTransport;
+
+async function request<T>(
+  method: HttpMethod,
+  url: string,
+  config: Omit<ApiRequestConfig, 'url'> = {},
+): Promise<T | null> {
+  const preparedConfig = await interceptors.runRequest({
+    ...config,
+    url,
+    headers: { ...(config.headers ?? {}) },
+  });
+
+  try {
+    const response = await transport<T>(method, preparedConfig);
+    const finalResponse = await interceptors.runResponse(response);
+
+    return (finalResponse.data ?? null) as T | null;
+  } catch (error) {
+    await interceptors.runResponseError(error);
+    throw error;
+  }
+}
+
+export function setApiTransport(nextTransport: ApiTransport) {
+  transport = nextTransport;
+}
+
+export function resetApiTransport() {
+  transport = defaultTransport;
 }
 
 export const apiClient = {
-  get: <T>(path: string, token?: string) => request<T>('GET', path, { token }),
-  post: <T>(path: string, body?: unknown, token?: string) =>
-    request<T>('POST', path, { body, token }),
-  put: <T>(path: string, body?: unknown, token?: string) =>
-    request<T>('PUT', path, { body, token }),
-  delete: <T>(path: string, body?: unknown, token?: string) =>
-    request<T>('DELETE', path, { body, token }),
+  get: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
+    request<T>('GET', url, normalizeConfig(tokenOrConfig)),
+  post: async <T>(
+    url: string,
+    data?: unknown,
+    tokenOrConfig?: string | RequestConfigInput,
+  ) =>
+    request<T>('POST', url, { ...normalizeConfig(tokenOrConfig), data }),
+  put: async <T>(
+    url: string,
+    data?: unknown,
+    tokenOrConfig?: string | RequestConfigInput,
+  ) =>
+    request<T>('PUT', url, { ...normalizeConfig(tokenOrConfig), data }),
+  delete: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
+    request<T>('DELETE', url, normalizeConfig(tokenOrConfig)),
 };
+
+function normalizeConfig(tokenOrConfig?: string | RequestConfigInput): Omit<ApiRequestConfig, 'url'> {
+  if (!tokenOrConfig) {
+    return {};
+  }
+
+  if (typeof tokenOrConfig === 'string') {
+    return {
+      headers: {
+        Authorization: `Bearer ${tokenOrConfig}`,
+      },
+    };
+  }
+
+  if (tokenOrConfig.token && typeof tokenOrConfig.token === 'string') {
+    const { token, ...rest } = tokenOrConfig;
+
+    return {
+      ...rest,
+      headers: {
+        ...(rest.headers ?? {}),
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  }
+
+  return tokenOrConfig;
+}

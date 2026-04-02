@@ -1,20 +1,19 @@
-import { Session } from '../../../../core/auth/session';
-import { authLocalSource, authRemoteSource, LoginPayload } from '../../data/sources';
+import { AuthRepositoryImpl } from '../../data/repositories';
+import { AuthSessionEntity } from '../../domain/entities';
+
+const repository = new AuthRepositoryImpl();
 
 export const authService = {
-  async login(credentials: LoginPayload): Promise<Session> {
-    const session = await authRemoteSource.login(credentials);
-    await authLocalSource.saveSession(session);
-    return session;
+  async login(email: string, password: string): Promise<AuthSessionEntity> {
+    return repository.login(email, password);
   },
-  async restoreSession() {
-    return authLocalSource.getSession();
+  async restore(): Promise<AuthSessionEntity | null> {
+    return repository.restore();
   },
-  async logout(session: Session) {
-    try {
-      await authRemoteSource.logout(session);
-    } finally {
-      await authLocalSource.clearSession();
-    }
+  async logout(session?: AuthSessionEntity | null): Promise<void> {
+    return repository.logout(session);
+  },
+  async clear(): Promise<void> {
+    return repository.clear();
   },
 };
