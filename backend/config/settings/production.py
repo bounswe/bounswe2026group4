@@ -10,8 +10,12 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS')
 # ── Static files ──────────────────────────────────────────────────────────────
 
 # WhiteNoise serves Django's own static files (/static/) efficiently.
-# It must sit directly after SecurityMiddleware.
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+# Explicitly reconstruct the list so the position is clear and not tied to
+# the index of any particular middleware in base.py.
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+] + MIDDLEWARE[1:]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ── Security headers ──────────────────────────────────────────────────────────
