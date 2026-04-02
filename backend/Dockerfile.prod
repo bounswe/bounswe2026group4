@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev \
+    gcc \
+    pkg-config \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements /requirements
+RUN pip install --no-cache-dir -r /requirements/production.txt
+
+# Bake the application code into the image (no volume mount at runtime).
+COPY backend/ .
+
+COPY backend/entrypoint.prod.sh /entrypoint.prod.sh
+RUN chmod +x /entrypoint.prod.sh
+
+ENTRYPOINT ["/entrypoint.prod.sh"]
