@@ -8,6 +8,8 @@ interface ButtonProps extends PropsWithChildren {
 }
 
 export function Button({ children, onPress, disabled = false }: ButtonProps) {
+  const { colors, spacing } = useAppTheme();
+
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -19,7 +21,7 @@ export function Button({ children, onPress, disabled = false }: ButtonProps) {
         opacity: disabled ? 0.7 : 1,
       }}
     >
-      <Text style={{ color: isPrimary ? '#FFFFFF' : colors.text, fontWeight: '600' }}>
+      <Text style={{ color: '#FFFFFF', fontWeight: '600', textAlign: 'center' }}>
         {children ?? 'Button'}
       </Text>
     </Pressable>

@@ -1,4 +1,4 @@
-import { AuthRepository } from '../../domain/repositories';
+import { AuthRepository, RegisterUserInput, RegisterUserResult } from '../../domain/repositories';
 import { AuthSessionEntity } from '../../domain/entities';
 import { mapAuth } from '../mappers';
 import { authLocalSource, authRemoteSource } from '../sources';
@@ -14,6 +14,19 @@ export class AuthRepositoryImpl implements AuthRepository {
     await authLocalSource.setSession(session);
 
     return session;
+  }
+
+  async register(input: RegisterUserInput): Promise<RegisterUserResult> {
+    const response = await authRemoteSource.register({
+      username: input.username.trim(),
+      email: input.email.trim().toLowerCase(),
+      password: input.password,
+      password_confirmation: input.confirmPassword,
+    });
+
+    return {
+      message: response.message,
+    };
   }
 
   async restore(): Promise<AuthSessionEntity | null> {
