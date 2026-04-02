@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 
 import StoryCard from "../StoryCard";
-import { formatTimePeriod } from "../storyCardUtils";
+import { formatTimePeriod, truncateAtWord } from "../storyCardUtils";
 
 function makeStory(overrides = {}) {
   return {
@@ -30,6 +30,24 @@ function renderCard(story) {
 }
 
 // --- Unit tests for helpers ---
+
+describe("truncateAtWord", () => {
+  it("returns the original text when within the limit", () => {
+    expect(truncateAtWord("short text", 80)).toBe("short text");
+  });
+
+  it("truncates at a word boundary and appends ellipsis", () => {
+    expect(truncateAtWord("one two three four", 10)).toBe("one two…");
+  });
+
+  it("does not cut mid-word when a space exists before the limit", () => {
+    expect(truncateAtWord("hello world extra", 12)).toBe("hello world…");
+  });
+
+  it("hard-cuts a single long word with no spaces", () => {
+    expect(truncateAtWord("averylongwordwithoutspaces", 10)).toBe("averylongw…");
+  });
+});
 
 describe("formatTimePeriod", () => {
   it("formats exact_year", () => {
