@@ -22,6 +22,10 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
     const from = localYearFrom === "" ? "" : Number(localYearFrom);
     const to = localYearTo === "" ? "" : Number(localYearTo);
 
+    if ((from !== "" && from < 1) || (to !== "" && to < 1)) {
+      setYearError("Year must be a positive number.");
+      return;
+    }
     if (from !== "" && to !== "" && from > to) {
       setYearError("'From' year must not exceed 'To' year.");
       return;

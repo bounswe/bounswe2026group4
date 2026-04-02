@@ -71,6 +71,19 @@ describe("FilterPanel", () => {
     expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata" });
   });
 
+  it("shows validation error when year is zero or negative", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    renderPanel({ onApply });
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("From year"), "-500");
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/year must be a positive number/i);
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
   it("shows validation error when yearFrom > yearTo", async () => {
     const user = userEvent.setup();
     const onApply = vi.fn();

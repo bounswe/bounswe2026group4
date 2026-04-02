@@ -41,6 +41,7 @@ export async function getStories({
  */
 export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
   if (q?.trim()) {
+    // Hard cap at 100 results — pins beyond the first 100 are silently dropped.
     const params = { q: q.trim(), page_size: 100 };
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
