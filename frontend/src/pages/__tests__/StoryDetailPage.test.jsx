@@ -27,14 +27,16 @@ vi.mock("@/components/Interactions/LikeButton", () => ({
   ),
 }));
 
+function MockCommentSection({ storyId, onCountChange, onUserCommentedChange }) {
+  useEffect(() => {
+    onCountChange?.(3);
+    onUserCommentedChange?.(false);
+  }, [onCountChange, onUserCommentedChange]);
+  return <div data-testid="comment-section" data-story-id={storyId} />;
+}
+
 vi.mock("@/components/Interactions/CommentSection", () => ({
-  default: ({ storyId, onCountChange, onUserCommentedChange }) => {
-    useEffect(() => {
-      onCountChange?.(3);
-      onUserCommentedChange?.(false);
-    }, []);
-    return <div data-testid="comment-section" data-story-id={storyId} />;
-  },
+  default: MockCommentSection,
 }));
 
 import { getStoryById } from "@/services/storyService";
