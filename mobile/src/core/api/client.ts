@@ -5,6 +5,7 @@ import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
 type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
+const REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string) {
   if (!env.apiBaseUrl) {
@@ -84,15 +85,35 @@ function parseResponseBody(raw: string, contentType: string | null) {
 }
 
 const defaultTransport: ApiTransport = async <T>(method: HttpMethod, config: ApiRequestConfig) => {
-  const response = await fetch(buildUrl(config.url ?? ''), {
-    method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(config.headers ?? {}),
-    },
-    body: config.data ? JSON.stringify(config.data) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(buildUrl(config.url ?? ''), {
+      method,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(config.headers ?? {}),
+      },
+      body: config.data ? JSON.stringify(config.data) : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if ((error as { name?: string }).name === 'AbortError') {
+      throw new AppError('Request timed out. Please check that your phone and computer are on the same Wi-Fi and try again.');
+    }
+
+    throw new AppError(
+      'Unable to reach the backend. Check EXPO_PUBLIC_API_BASE_URL and make sure the backend is running and reachable from your phone.',
+    );
+  }
+
+  clearTimeout(timeoutId);
 
   const raw = await response.text();
   const payload = parseResponseBody(raw, response.headers.get('content-type'));
@@ -132,6 +153,22 @@ async function request<T>(
 
     return (finalResponse.data ?? null) as T | null;
   } catch (error) {
+    const appError = error as AppError & { response?: ApiResponse<unknown> };
+
+    if (!appError.response) {
+      const normalizedError =
+        appError.name === 'AbortError'
+          ? new AppError(
+              'Request timed out. Please check that your phone and computer are on the same Wi-Fi and try again.',
+            )
+          : new AppError(
+              'Unable to reach the backend. Check EXPO_PUBLIC_API_BASE_URL and make sure the backend is running and reachable from your phone.',
+            );
+
+      await interceptors.runResponseError(normalizedError);
+      throw normalizedError;
+    }
+
     await interceptors.runResponseError(error);
     throw error;
   }

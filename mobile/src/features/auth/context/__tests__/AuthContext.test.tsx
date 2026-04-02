@@ -19,7 +19,7 @@ const loginResponse = {
 };
 
 function AuthHarness() {
-  const { user, isAuthenticated, loading, login, logout } = useAuth();
+  const { user, isAuthenticated, loading, login, register, logout } = useAuth();
 
   const handleRequest = async () => {
     try {
@@ -46,6 +46,18 @@ function AuthHarness() {
       <Pressable onPress={() => logout()}>
         <Text>logout</Text>
       </Pressable>
+      <Pressable
+        onPress={() =>
+          register({
+            username: 'traveler',
+            email: 'traveler@example.com',
+            password: 'Password1',
+            confirmPassword: 'Password1',
+          }).catch(() => undefined)
+        }
+      >
+        <Text>register</Text>
+      </Pressable>
       <Pressable onPress={handleRequest}>
         <Text>request</Text>
       </Pressable>
@@ -70,6 +82,22 @@ function installAuthTransport(options?: {
       return {
         status: 204,
         data: null as never,
+        config,
+      };
+    }
+
+    if (method === 'POST' && config.url === '/auth/register/') {
+      return {
+        status: 201,
+        data: {
+          message: 'Registration successful. Please verify your email.',
+          user: {
+            id: 2,
+            email: 'traveler@example.com',
+            username: 'traveler',
+            role: 'registered_user',
+          },
+        } as never,
         config,
       };
     }
@@ -146,6 +174,26 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(screen.getByText('guest')).toBeTruthy();
     });
+    expect(await storage.get(storageKeys.authSession)).toBeNull();
+  });
+
+  it('registers without creating a persisted session', async () => {
+    installAuthTransport();
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('guest')).toBeTruthy();
+    fireEvent.press(screen.getByText('register'));
+
+    await waitFor(() => {
+      expect(screen.getByText('ready')).toBeTruthy();
+    });
+
+    expect(screen.getByText('guest')).toBeTruthy();
     expect(await storage.get(storageKeys.authSession)).toBeNull();
   });
 
