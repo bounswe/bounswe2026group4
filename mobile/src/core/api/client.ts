@@ -84,36 +84,30 @@ function parseResponseBody(raw: string, contentType: string | null) {
   }
 }
 
+function isFormData(value: unknown): value is FormData {
+  return typeof FormData !== 'undefined' && value instanceof FormData;
+}
+
 const defaultTransport: ApiTransport = async <T>(method: HttpMethod, config: ApiRequestConfig) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(config.headers ?? {}),
+  };
 
-  let response: Response;
+  let body: BodyInit | undefined;
 
-  try {
-    response = await fetch(buildUrl(config.url ?? ''), {
-      method,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(config.headers ?? {}),
-      },
-      body: config.data ? JSON.stringify(config.data) : undefined,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    clearTimeout(timeoutId);
-
-    if ((error as { name?: string }).name === 'AbortError') {
-      throw new AppError('Request timed out. Please check that your phone and computer are on the same Wi-Fi and try again.');
-    }
-
-    throw new AppError(
-      'Unable to reach the backend. Check EXPO_PUBLIC_API_BASE_URL and make sure the backend is running and reachable from your phone.',
-    );
+  if (isFormData(config.data)) {
+    body = config.data;
+  } else if (config.data != null) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(config.data);
   }
 
-  clearTimeout(timeoutId);
+  const response = await fetch(buildUrl(config.url ?? ''), {
+    method,
+    headers,
+    body,
+  });
 
   const raw = await response.text();
   const payload = parseResponseBody(raw, response.headers.get('content-type'));
