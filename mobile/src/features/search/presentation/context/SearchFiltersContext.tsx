@@ -36,7 +36,7 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
     let isMounted = true;
 
     storage
-      .get<SearchFiltersState>(storageKeys.searchFilters)
+      .get<Partial<SearchFiltersState>>(storageKeys.searchFilters)
       .then((storedFilters) => {
         if (isMounted && storedFilters) {
           setFiltersState({

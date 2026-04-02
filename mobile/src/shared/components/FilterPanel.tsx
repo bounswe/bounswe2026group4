@@ -39,7 +39,14 @@ export function FilterPanel({
   onClearAll,
 }: FilterPanelProps) {
   const { colors, spacing, typography } = useAppTheme();
-  const hasInvalidRange = Boolean(timeFrom && timeTo && Number(timeFrom) > Number(timeTo));
+  const parsedTimeFrom = timeFrom ? Number(timeFrom) : undefined;
+  const parsedTimeTo = timeTo ? Number(timeTo) : undefined;
+  const hasInvalidRange =
+    parsedTimeFrom !== undefined &&
+    Number.isFinite(parsedTimeFrom) &&
+    parsedTimeTo !== undefined &&
+    Number.isFinite(parsedTimeTo) &&
+    parsedTimeFrom > parsedTimeTo;
 
   const handleTimeFromChange = (value: string) => {
     const normalized = normalizeYearInput(value);
@@ -48,11 +55,11 @@ export function FilterPanel({
       return;
     }
 
-    onTimeFromChange(normalized);
-
     if (normalized && timeTo && Number(normalized) > Number(timeTo)) {
-      onTimeToChange('');
+      return;
     }
+
+    onTimeFromChange(normalized);
   };
 
   const handleTimeToChange = (value: string) => {

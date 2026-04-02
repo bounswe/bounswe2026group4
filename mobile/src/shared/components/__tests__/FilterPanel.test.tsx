@@ -29,7 +29,7 @@ describe('FilterPanel', () => {
     expect(onTimeToChange).toHaveBeenCalledWith('1950');
   });
 
-  it('blocks negative, non-numeric, and 5-digit year input', () => {
+  it('accepts only positive four-digit-or-shorter numeric years', () => {
     const onTimeFromChange = jest.fn();
     const onTimeToChange = jest.fn();
 
@@ -45,16 +45,23 @@ describe('FilterPanel', () => {
       />,
     );
 
+    fireEvent.changeText(screen.getByLabelText('Start year'), '200');
+    fireEvent.changeText(screen.getByLabelText('End year'), '9999');
     fireEvent.changeText(screen.getByLabelText('Start year'), '-200');
     fireEvent.changeText(screen.getByLabelText('Start year'), 'fvbnj');
     fireEvent.changeText(screen.getByLabelText('Start year'), '99999');
     fireEvent.changeText(screen.getByLabelText('End year'), '10000');
 
-    expect(onTimeFromChange).not.toHaveBeenCalled();
-    expect(onTimeToChange).not.toHaveBeenCalled();
+    expect(onTimeFromChange).toHaveBeenCalledWith('200');
+    expect(onTimeToChange).toHaveBeenCalledWith('9999');
+    expect(onTimeFromChange).not.toHaveBeenCalledWith('-200');
+    expect(onTimeFromChange).not.toHaveBeenCalledWith('fvbnj');
+    expect(onTimeFromChange).not.toHaveBeenCalledWith('99999');
+    expect(onTimeToChange).not.toHaveBeenCalledWith('10000');
   });
 
-  it('allows a start year without an end year and blocks end years earlier than the start year', () => {
+  it('allows a start year without an end year and blocks an earlier end year', () => {
+    const onTimeFromChange = jest.fn();
     const onTimeToChange = jest.fn();
 
     const { rerender } = render(
@@ -63,14 +70,15 @@ describe('FilterPanel', () => {
         timeFrom=""
         timeTo=""
         onLocationChange={jest.fn()}
-        onTimeFromChange={jest.fn()}
+        onTimeFromChange={onTimeFromChange}
         onTimeToChange={onTimeToChange}
         onClearAll={jest.fn()}
       />,
     );
 
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
-    expect(onTimeToChange).not.toHaveBeenCalled();
+
+    expect(onTimeFromChange).toHaveBeenCalledWith('1900');
 
     rerender(
       <FilterPanel
@@ -78,7 +86,7 @@ describe('FilterPanel', () => {
         timeFrom="1900"
         timeTo=""
         onLocationChange={jest.fn()}
-        onTimeFromChange={jest.fn()}
+        onTimeFromChange={onTimeFromChange}
         onTimeToChange={onTimeToChange}
         onClearAll={jest.fn()}
       />,
