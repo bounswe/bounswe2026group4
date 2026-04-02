@@ -1,12 +1,3 @@
-import React, { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
-import { Session } from '../../../../core/auth/session';
-import { useAppTheme } from '../../../../core/hooks/useAppTheme';
-import { validators } from '../../../../shared/forms/validators';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { loginWithEmailPassword } from '../../application/useCases';
-import { useAuth } from '../context/AuthContext';
-import { AuthCard } from '../components/AuthCard';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -143,7 +134,6 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   const { login, register, loading } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
-  const passwordInputRef = useRef<TextInput>(null);
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [state, setState] = useState<AuthFormState>(initialFormState);
 
@@ -330,27 +320,17 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={spacing.md}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-        automaticallyAdjustKeyboardInsets
-        contentInsetAdjustmentBehavior="always"
         contentContainerStyle={{
           flexGrow: 1,
           padding: spacing.lg,
-          justifyContent: 'flex-start',
+          justifyContent: 'center',
         }}
       >
-        <View
-          style={{
-            gap: spacing.lg,
-            paddingTop: spacing.md,
-            paddingBottom: spacing.xl,
-          }}
-        >
+        <View style={{ gap: spacing.lg }}>
           <View style={{ gap: spacing.sm }}>
             <Text style={{ color: colors.primary, fontWeight: '700' }}>Local History Story Map</Text>
             <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
@@ -379,7 +359,6 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             onPasswordChange={updateField('password')}
             onConfirmPasswordChange={updateField('confirmPassword')}
             onSubmit={submit}
-            passwordInputRef={passwordInputRef}
             onToggleMode={toggleMode}
           />
         </View>

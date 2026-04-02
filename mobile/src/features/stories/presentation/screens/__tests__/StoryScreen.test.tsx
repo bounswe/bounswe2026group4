@@ -1,7 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StoryScreen } from '../StoryScreen';
-import { Session } from '../../../../../core/auth/session';
 import { StoryEntity } from '../../../domain/entities';
 import { Session } from '../../../../../core/auth/session';
 
@@ -32,30 +31,6 @@ const baseStory: StoryEntity = {
       createdAt: '2026-03-20',
     },
   ],
-};
-
-const authenticatedSession: Session = {
-  accessToken: 'access-token',
-  refreshToken: 'refresh-token',
-  role: 'user',
-  user: {
-    id: 1,
-    email: 'aylin@example.com',
-    username: 'aylin',
-    role: 'user',
-  },
-};
-
-const guestSession: Session = {
-  accessToken: '',
-  refreshToken: '',
-  role: 'guest',
-  user: {
-    id: 0,
-    email: '',
-    username: 'guest',
-    role: 'guest',
-  },
 };
 
 describe('StoryScreen', () => {
