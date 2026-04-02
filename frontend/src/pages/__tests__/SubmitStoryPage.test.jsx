@@ -21,6 +21,7 @@ vi.mock("@/components/MapPicker/MapPicker", () => ({
 
 vi.mock("@/services/storyService", () => ({
   createStory: vi.fn(),
+  uploadStoryImage: vi.fn(),
 }));
 
 const mockNavigate = vi.fn();
@@ -34,7 +35,7 @@ vi.mock("@/hooks/useToast", () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-import { createStory } from "@/services/storyService";
+import { createStory, uploadStoryImage } from "@/services/storyService";
 import SubmitStoryPage from "../SubmitStoryPage";
 
 function renderPage() {
@@ -217,6 +218,84 @@ describe("SubmitStoryPage", () => {
     expect(screen.getByLabelText(/architecture/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/war/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/culture/i)).toBeInTheDocument();
+  });
+
+  it("uploads image after story creation when image is selected", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:fake");
+    createStory.mockResolvedValue({ id: 7 });
+    uploadStoryImage.mockResolvedValue({ id: 1, url: "http://example.com/img.jpg" });
+
+    renderPage();
+
+    await user.type(screen.getByLabelText(/title/i), "My Story");
+    await user.type(screen.getByLabelText(/narrative/i), "A great narrative");
+    await user.type(screen.getByLabelText(/place name/i), "Istanbul");
+    await user.type(screen.getByLabelText(/^year$/i), "1453");
+    await user.click(screen.getByTestId("mock-map-click"));
+
+    const file = new File(["pixels"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText(/image/i), file);
+
+    await user.click(screen.getByRole("button", { name: /submit story/i }));
+
+    await waitFor(() => {
+      expect(uploadStoryImage).toHaveBeenCalledWith(7, file);
+    });
+    expect(mockNavigate).toHaveBeenCalledWith("/stories/7");
+    expect(mockToast.success).toHaveBeenCalledWith("Story submitted successfully!");
+
+    URL.createObjectURL.mockRestore();
+  });
+
+  it("navigates and shows error toast when image upload fails after story creation", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:fake");
+    createStory.mockResolvedValue({ id: 8 });
+    uploadStoryImage.mockRejectedValue(new Error("Upload failed"));
+
+    renderPage();
+
+    await user.type(screen.getByLabelText(/title/i), "My Story");
+    await user.type(screen.getByLabelText(/narrative/i), "A great narrative");
+    await user.type(screen.getByLabelText(/place name/i), "Istanbul");
+    await user.type(screen.getByLabelText(/^year$/i), "1453");
+    await user.click(screen.getByTestId("mock-map-click"));
+
+    const file = new File(["pixels"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText(/image/i), file);
+
+    await user.click(screen.getByRole("button", { name: /submit story/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/stories/8");
+    });
+    expect(mockToast.error).toHaveBeenCalledWith(
+      "Story saved, but the image could not be uploaded."
+    );
+    expect(mockToast.success).not.toHaveBeenCalled();
+
+    URL.createObjectURL.mockRestore();
+  });
+
+  it("does not call uploadStoryImage when no image is selected", async () => {
+    const user = userEvent.setup();
+    createStory.mockResolvedValue({ id: 9 });
+
+    renderPage();
+
+    await user.type(screen.getByLabelText(/title/i), "My Story");
+    await user.type(screen.getByLabelText(/narrative/i), "A great narrative");
+    await user.type(screen.getByLabelText(/place name/i), "Istanbul");
+    await user.type(screen.getByLabelText(/^year$/i), "1453");
+    await user.click(screen.getByTestId("mock-map-click"));
+
+    await user.click(screen.getByRole("button", { name: /submit story/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/stories/9");
+    });
+    expect(uploadStoryImage).not.toHaveBeenCalled();
   });
 
   it("limits tag selection to 3", async () => {

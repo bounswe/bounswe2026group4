@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { MapPin, Calendar, ArrowLeft } from "lucide-react";
+import { MapPin, Calendar, ArrowLeft, MessageSquare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/loading-skeleton";
@@ -8,6 +8,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { getStoryById } from "@/services/storyService";
 import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 import StoryDetailMap from "@/components/StoryDetailMap/StoryDetailMap";
+import LikeButton from "@/components/Interactions/LikeButton";
+import CommentSection from "@/components/Interactions/CommentSection";
 
 function formatDate(isoString) {
   if (!isoString) return null;
@@ -47,11 +49,15 @@ function StoryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(null);
+  const [commentCount, setCommentCount] = useState(0);
+  const [userHasCommented, setUserHasCommented] = useState(false);
 
   const fetchStory = useCallback(async () => {
     setLoading(true);
     setError(null);
     setNotFound(false);
+    setCommentCount(0);
+    setUserHasCommented(false);
     try {
       const data = await getStoryById(id);
       setStory(data);
@@ -77,7 +83,7 @@ function StoryDetailPage() {
   const timePeriod = story ? formatTimePeriod(story) : null;
   const submittedDate = story ? formatDate(story.submitted_at) : null;
   const contributorName = story?.contributor_name ?? null;
-  const images = story?.images ?? [];
+  const images = (story?.media_items ?? []).filter((m) => m.media_type === "image");
 
   if (notFound) {
     return (
@@ -160,18 +166,7 @@ function StoryDetailPage() {
               )}
             </div>
 
-            {/* Location map */}
-            {(() => {
-              const lat = parseFloat(story.location_lat);
-              const lng = parseFloat(story.location_lng);
-              return !isNaN(lat) && !isNaN(lng) ? (
-                <div className="mb-8">
-                  <StoryDetailMap lat={lat} lng={lng} />
-                </div>
-              ) : null;
-            })()}
-
-            {/* Images — rendered only when the backend returns them */}
+            {/* Images */}
             {images.length > 0 && (
               <div
                 className={`mb-8 grid gap-3 ${images.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}
@@ -181,7 +176,7 @@ function StoryDetailPage() {
                   <figure key={img.id ?? idx} className="overflow-hidden rounded-xl bg-muted">
                     <img
                       src={img.url}
-                      alt={img.original_filename || `Story image ${idx + 1}`}
+                      alt={`Story image ${idx + 1}`}
                       className="w-full object-cover max-h-96"
                     />
                   </figure>
@@ -196,6 +191,41 @@ function StoryDetailPage() {
                 </p>
               ))}
             </div>
+
+            {/* Location map */}
+            {(() => {
+              const lat = parseFloat(story.location_lat);
+              const lng = parseFloat(story.location_lng);
+              return !isNaN(lat) && !isNaN(lng) ? (
+                <div className="mt-8">
+                  <StoryDetailMap lat={lat} lng={lng} />
+                </div>
+              ) : null;
+            })()}
+
+            <div className="mt-6 flex items-center gap-4">
+              <LikeButton
+                storyId={story.id}
+                initialLiked={story.user_has_liked ?? false}
+                initialCount={story.like_count ?? 0}
+              />
+              <span
+                className={`flex items-center gap-1.5 text-sm ${userHasCommented ? "text-primary" : "text-muted-foreground"}`}
+                aria-label={userHasCommented ? "You have commented on this story" : undefined}
+              >
+                <MessageSquare
+                  className={`h-4 w-4 shrink-0 ${userHasCommented ? "fill-primary stroke-primary" : ""}`}
+                  aria-hidden="true"
+                />
+                {commentCount}
+              </span>
+            </div>
+
+            <CommentSection
+              storyId={story.id}
+              onCountChange={setCommentCount}
+              onUserCommentedChange={setUserHasCommented}
+            />
           </article>
         )}
       </div>
