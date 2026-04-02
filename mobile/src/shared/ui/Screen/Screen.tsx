@@ -1,5 +1,5 @@
 import React, { PropsWithChildren } from 'react';
-import { SafeAreaView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
 export function Screen({ children }: PropsWithChildren) {

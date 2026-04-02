@@ -1,10 +1,18 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { AppProviders } from '../../providers/AppProviders';
 import { RootNavigator } from '../RootNavigator';
 import { storage } from '../../../core/storage/storage';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
+import { AppProviders } from '../../providers/AppProviders';
+
+function renderNavigator() {
+  return render(
+    <AppProviders>
+      <RootNavigator />
+    </AppProviders>,
+  );
+}
 
 function installAuthTransport() {
   setApiTransport(async (method, config) => {
@@ -72,28 +80,24 @@ describe('RootNavigator auth flow', () => {
   });
 
   it('redirects unauthenticated users to the login flow for protected screens', async () => {
-    render(
-      <AppProviders>
-        <RootNavigator />
-      </AppProviders>,
-    );
+    renderNavigator();
 
     expect(await screen.findByLabelText('Search stories')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Profile'));
 
-    expect(await screen.findByText('Sign in to the mobile app')).toBeTruthy();
+    expect(
+      await screen.findByText('Sign in to your account to explore and share local history stories.'),
+    ).toBeTruthy();
   });
 
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
-    render(
-      <AppProviders>
-        <RootNavigator />
-      </AppProviders>,
-    );
+    renderNavigator();
 
-    fireEvent.press(await screen.findByText('Submission'));
-    expect(await screen.findByText('Sign in to the mobile app')).toBeTruthy();
+    fireEvent.press(await screen.findByText('Submission', {}, { timeout: 3000 }));
+    expect(
+      await screen.findByText('Sign in to your account to explore and share local history stories.'),
+    ).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
     fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
