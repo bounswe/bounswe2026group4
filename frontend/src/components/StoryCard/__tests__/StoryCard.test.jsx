@@ -16,6 +16,7 @@ function makeStory(overrides = {}) {
     year_start: null,
     year_end: null,
     contributor_name: "historian_01",
+    user_has_liked: false,
     ...overrides,
   };
 }
@@ -92,8 +93,8 @@ describe("StoryCard", () => {
     expect(screen.getByText("1453")).toBeInTheDocument();
   });
 
-  it("renders preview_text from the feed API", () => {
-    renderCard(makeStory({ preview_text: "A glimpse into the past…" }));
+  it("renders preview_text with a trailing ellipsis", () => {
+    renderCard(makeStory({ preview_text: "A glimpse into the past" }));
     expect(screen.getByText("A glimpse into the past…")).toBeInTheDocument();
   });
 
@@ -117,7 +118,6 @@ describe("StoryCard", () => {
     // title still renders, no crash
     expect(screen.getByText("The Ancient Bridge")).toBeInTheDocument();
   });
-
 
   it("card link points to /stories/:id", () => {
     renderCard(makeStory({ id: 42 }));

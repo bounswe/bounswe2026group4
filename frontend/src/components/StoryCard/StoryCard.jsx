@@ -3,7 +3,7 @@ import { MapPin, Calendar, Heart, User } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { formatTimePeriod, truncateAtWord } from "./storyCardUtils";
+import { formatTimePeriod } from "./storyCardUtils";
 
 const StoryCard = ({ story }) => {
   const location = useLocation();
@@ -57,11 +57,10 @@ const StoryCard = ({ story }) => {
 
           {preview && (
             <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 break-words">
-              {truncateAtWord(preview)}
+              {preview}…
             </p>
           )}
         </CardContent>
-
       </Card>
     </Link>
   );
