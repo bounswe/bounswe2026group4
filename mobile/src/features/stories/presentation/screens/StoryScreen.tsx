@@ -13,7 +13,7 @@ import { loadStoryDetail, toggleStoryLike } from '../state/storyDetailController
 
 interface StoryScreenProps {
   storyId: string;
-  session?: Session;
+  session?: Pick<Session, 'role'>;
   onRequestLogin?: () => void;
   onGoBack?: () => void;
   getStory?: typeof storyService.getStory;
