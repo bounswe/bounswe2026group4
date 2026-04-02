@@ -61,6 +61,7 @@ function ScreenShell({
       <View
         style={{
           marginTop: spacing.xl,
+          flex: 1,
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: 20,
@@ -82,13 +83,6 @@ export function RootNavigator() {
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated && protectedRoutes.includes(currentRoute)) {
-      setRedirectRoute(currentRoute);
-      setCurrentRoute(ROUTES.AUTH);
-    }
-  }, [currentRoute, isAuthenticated]);
-
-  useEffect(() => {
     if (!loading) {
       setHasResolvedInitialSession(true);
     }
@@ -103,17 +97,21 @@ export function RootNavigator() {
       setRedirectRoute(ROUTES.PROFILE);
       setCurrentRoute(ROUTES.FEED);
     };
+    navigationRef.navigate = (route) => {
+      setCurrentRoute(route);
+    };
 
     return () => {
       navigationRef.redirectToAuth = undefined;
       navigationRef.redirectToPublic = undefined;
+      navigationRef.navigate = undefined;
     };
   }, [currentRoute]);
 
   const handleNavigate = (route: AppRoute) => {
     if (!isAuthenticated && protectedRoutes.includes(route)) {
       setRedirectRoute(route);
-      setCurrentRoute(ROUTES.AUTH);
+      setCurrentRoute(route);
       return;
     }
 
@@ -165,7 +163,7 @@ export function RootNavigator() {
       >
         <ScreenShell
           title="Submit a story"
-          description="Authenticated submission flow is ready for future form work."
+          description="Share a historical story with a map location, time information, tags, and an optional image."
         >
           <SubmissionScreen />
         </ScreenShell>

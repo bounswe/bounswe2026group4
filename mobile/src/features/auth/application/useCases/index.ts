@@ -7,14 +7,11 @@ interface LoginInput {
 }
 
 export async function loginWithEmailPassword(input: LoginInput): Promise<Session> {
-  return authService.login({
-    email: input.email.trim().toLowerCase(),
-    password: input.password,
-  });
+  return authService.login(input.email.trim().toLowerCase(), input.password);
 }
 
 export async function restoreAuthSession() {
-  return authService.restoreSession();
+  return authService.restore();
 }
 
 export async function logoutCurrentUser(session: Session) {
