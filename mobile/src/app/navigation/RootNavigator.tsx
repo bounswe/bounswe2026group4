@@ -59,11 +59,12 @@ function BackButton({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Go back"
       onPress={onPress}
       style={({ pressed }) => ({
+        alignSelf: 'flex-start',
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.xs,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.sm + 2,
+        paddingVertical: spacing.xs + 6,
         borderRadius: 999,
         borderWidth: 1,
         borderColor: colors.border,
@@ -72,7 +73,7 @@ function BackButton({ onPress }: { onPress: () => void }) {
       })}
     >
       <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>{'<'}</Text>
-      <Text style={{ color: colors.text, fontWeight: '700' }}>Back</Text>
+      <Text style={{ color: colors.text, fontSize: typography.body, fontWeight: '700' }}>Back</Text>
     </Pressable>
   );
 }
@@ -398,12 +399,8 @@ export function RootNavigator() {
           gap: spacing.md,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          {canGoBack ? <BackButton onPress={handleBack} /> : null}
-          <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800', flexShrink: 1 }}>
-            Local History Story Map
-          </Text>
-        </View>
+        {canGoBack ? <BackButton onPress={handleBack} /> : null}
+        <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800' }}>Local History Story Map</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           <ShellButton label="Feed" active={currentRoute === ROUTES.FEED} onPress={() => handleNavigate(ROUTES.FEED)} />
           <ShellButton label="Map" active={currentRoute === ROUTES.MAP} onPress={() => handleNavigate(ROUTES.MAP)} />
