@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { KeyboardTypeOptions, StyleProp, TextInput, TextInputProps, TextStyle, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
 interface InputProps {
   value: string;
   onChangeText: (value: string) => void;
-  onSubmitEditing?: TextInputProps['onSubmitEditing'];
   placeholder?: string;
   secureTextEntry?: boolean;
   autoCapitalize?: TextInputProps['autoCapitalize'];
@@ -17,9 +16,12 @@ interface InputProps {
   returnKeyType?: TextInputProps['returnKeyType'];
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle | TextStyle>;
+  blurOnSubmit?: TextInputProps['blurOnSubmit'];
+  submitBehavior?: TextInputProps['submitBehavior'];
+  onSubmitEditing?: TextInputProps['onSubmitEditing'];
 }
 
-export function Input({
+export const Input = forwardRef<TextInput, InputProps>(function Input({
   value,
   onChangeText,
   onSubmitEditing,
@@ -34,11 +36,14 @@ export function Input({
   returnKeyType,
   accessibilityLabel,
   style,
-}: InputProps) {
+  blurOnSubmit,
+  submitBehavior,
+}: InputProps, ref) {
   const { colors, spacing, typography } = useAppTheme();
 
   return (
     <TextInput
+      ref={ref}
       value={value}
       placeholder={placeholder ?? 'Input'}
       placeholderTextColor={colors.muted}
@@ -53,6 +58,8 @@ export function Input({
       autoComplete={autoComplete}
       returnKeyType={returnKeyType}
       accessibilityLabel={accessibilityLabel}
+      blurOnSubmit={blurOnSubmit}
+      submitBehavior={submitBehavior}
       style={[
         {
           borderWidth: 1,
@@ -68,4 +75,4 @@ export function Input({
       ]}
     />
   );
-}
+});

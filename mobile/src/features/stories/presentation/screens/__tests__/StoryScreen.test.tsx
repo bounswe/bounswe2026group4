@@ -1,8 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StoryScreen } from '../StoryScreen';
-import { StoryEntity } from '../../../domain/entities';
 import { Session } from '../../../../../core/auth/session';
+import { StoryEntity } from '../../../domain/entities';
 
 jest.mock('react-native-maps', () => {
   const React = require('react');
@@ -71,7 +71,6 @@ describe('StoryScreen', () => {
       role: 'guest',
     },
   };
-
   it('renders loading state while fetching the story', () => {
     const pendingPromise = new Promise<StoryEntity | null>(() => undefined);
 
