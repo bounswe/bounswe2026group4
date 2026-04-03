@@ -88,7 +88,9 @@ function LoginPage() {
             </CardTitle>
           </div>
           <CardDescription>
-            Sign in to your account to explore and share local history stories
+            {location.state?.from?.pathname === "/submit-story"
+              ? "Log in to submit a story"
+              : "Sign in to your account to explore and share local history stories"}
           </CardDescription>
         </CardHeader>
 
