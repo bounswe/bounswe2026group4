@@ -148,7 +148,6 @@ export function RootNavigator() {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
-  const [feedFilters, setFeedFilters] = useState<StoryFilters>({});
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
 
   const currentSnapshot = useMemo<RouteSnapshot>(
@@ -360,7 +359,7 @@ export function RootNavigator() {
     content = (
       <StoryScreen
         storyId={activeStoryId}
-        session={user ? { role: user.role } : undefined}
+        session={user ? { role: user.role, user } : undefined}
         onRequestLogin={() => handleNavigate(ROUTES.AUTH)}
         onGoBack={handleBack}
       />
