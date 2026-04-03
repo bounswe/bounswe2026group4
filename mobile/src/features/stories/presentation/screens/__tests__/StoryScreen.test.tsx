@@ -334,7 +334,7 @@ describe('StoryScreen', () => {
 
     await waitFor(() => {
       expect(interactionService.deleteComment).toHaveBeenCalledWith('comment-own');
-      expect(screen.queryByText('My own comment')).toBeNull();
+      expect(screen.queryByText('Delete this comment?')).toBeNull();
     });
   });
 

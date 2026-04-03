@@ -320,7 +320,7 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getByLabelText('Open profile: Aylin'));
 
     await waitFor(() => {
-      expect(screen.getByText('User profile')).toBeTruthy();
+      expect(screen.getAllByText('User profile')).toHaveLength(2);
       expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
     });
   });

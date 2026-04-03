@@ -10,6 +10,7 @@ jest.mock('../../../../auth', () => ({
       username: 'Traveler',
       role: 'user',
     },
+    updateUser: jest.fn(async () => undefined),
   }),
 }));
 
@@ -61,11 +62,14 @@ describe('ProfileScreen', () => {
 
     expect(await screen.findByText('Traveler')).toBeTruthy();
     expect(screen.getByText('traveler@example.com')).toBeTruthy();
-    expect(screen.getByText('Edit profile')).toBeTruthy();
+    expect(screen.getAllByText('Edit profile')).toHaveLength(2);
+
+    fireEvent.press(screen.getAllByText('Edit profile').at(-1)!);
+
     expect(screen.getByDisplayValue('Traveler')).toBeTruthy();
     expect(screen.getByDisplayValue('Istanbul')).toBeTruthy();
     expect(screen.getByDisplayValue('Collecting neighborhood memories.')).toBeTruthy();
-    expect(screen.getByText('Save changes')).toBeTruthy();
+    expect(screen.queryByText('Save changes')).toBeNull();
   });
 
   it('saves changes in self mode', async () => {
@@ -82,8 +86,10 @@ describe('ProfileScreen', () => {
       />,
     );
 
-    await screen.findByText('Edit profile');
+    await screen.findByText('Traveler');
+    fireEvent.press(screen.getAllByText('Edit profile').at(-1)!);
     fireEvent.changeText(screen.getByLabelText('Username'), 'Traveler Updated');
+    expect(await screen.findByText('Save changes')).toBeTruthy();
     fireEvent.press(screen.getByText('Save changes'));
 
     expect(updateCurrentProfile).toHaveBeenCalledWith(

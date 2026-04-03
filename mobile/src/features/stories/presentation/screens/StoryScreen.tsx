@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { roles } from '../../../../core/auth/roles';
@@ -360,6 +360,7 @@ export function StoryScreen({
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [interactionError, setInteractionError] = useState<string>();
+  const deletedCommentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -372,11 +373,18 @@ export function StoryScreen({
     setDeleteError(undefined);
     setConfirmDeleteId(undefined);
     setInteractionError(undefined);
+    deletedCommentIdsRef.current = new Set();
 
     loadStoryDetail(storyId, session?.role, getStory).then((nextState) => {
       if (isMounted) {
         setState(nextState);
-        setComments(sortCommentsNewestFirst((nextState.story?.comments ?? []).map((comment) => ({ ...comment }))));
+        setComments(
+          sortCommentsNewestFirst(
+            (nextState.story?.comments ?? [])
+              .filter((comment) => !deletedCommentIdsRef.current.has(comment.id))
+              .map((comment) => ({ ...comment })),
+          ),
+        );
 
         if (nextState.story) {
           interactionService
@@ -386,7 +394,13 @@ export function StoryScreen({
                 return;
               }
 
-              setComments(sortCommentsNewestFirst(remoteComments.map(mapStoryCommentPreview)));
+              setComments(
+                sortCommentsNewestFirst(
+                  remoteComments
+                    .map(mapStoryCommentPreview)
+                    .filter((comment) => !deletedCommentIdsRef.current.has(comment.id)),
+                ),
+              );
             })
             .catch(() => undefined);
         }
@@ -519,6 +533,7 @@ export function StoryScreen({
 
     try {
       await interactionService.deleteComment(commentId);
+      deletedCommentIdsRef.current.add(commentId);
       setComments((current) => current.filter((comment) => comment.id !== commentId));
     } catch (error) {
       setDeleteError(extractInteractionError(error, 'Failed to delete comment. Please try again.'));

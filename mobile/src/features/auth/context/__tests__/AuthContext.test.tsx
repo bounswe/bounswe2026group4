@@ -36,6 +36,7 @@ function AuthHarness() {
       <Text>{loading ? 'loading' : 'ready'}</Text>
       <Text>{isAuthenticated ? 'authenticated' : 'guest'}</Text>
       <Text>{user?.email ?? 'no-user'}</Text>
+      <Text>{user?.username ?? 'no-username'}</Text>
       <Pressable
         onPress={() =>
           login({ email: 'traveler@example.com', password: 'password123' }).catch(() => undefined)
