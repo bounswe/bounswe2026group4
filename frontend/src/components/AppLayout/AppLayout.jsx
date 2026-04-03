@@ -16,9 +16,6 @@ import { useAuth } from "@/hooks/useAuth";
 const publicLinks = [
   { to: "/map", label: "Map" },
   { to: "/", label: "Feed" },
-];
-
-const authLinks = [
   { to: "/submit-story", label: "Submit Story", icon: Plus },
 ];
 
@@ -52,9 +49,7 @@ function AppLayout() {
     navigate("/");
   };
 
-  const links = isAuthenticated
-    ? [...publicLinks, ...authLinks]
-    : publicLinks;
+  const links = publicLinks;
 
   return (
     <div className="min-h-screen">
