@@ -2,7 +2,7 @@ import { env } from '../../app/config/env';
 import { AppError } from '../errors/AppError';
 import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
 type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
 const REQUEST_TIMEOUT_MS = 15000;
@@ -191,6 +191,12 @@ export const apiClient = {
     tokenOrConfig?: string | RequestConfigInput,
   ) =>
     request<T>('PUT', url, { ...normalizeConfig(tokenOrConfig), data }),
+  patch: async <T>(
+    url: string,
+    data?: unknown,
+    tokenOrConfig?: string | RequestConfigInput,
+  ) =>
+    request<T>('PATCH', url, { ...normalizeConfig(tokenOrConfig), data }),
   delete: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
     request<T>('DELETE', url, normalizeConfig(tokenOrConfig)),
 };

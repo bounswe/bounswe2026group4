@@ -56,6 +56,7 @@ const feedResults = [
 
 const storyDetail = {
   id: 'story-001',
+  user: 12,
   title: 'Harbor Memory',
   narrative: ['A story about the harbor.', 'It still lives in local memory.'],
   location_name: 'Golden Horn',
@@ -69,6 +70,32 @@ const storyDetail = {
   like_count: 0,
   user_has_liked: false,
   comments: [],
+};
+
+const profileDetail = {
+  success: true,
+  data: {
+    id: 1,
+    username: 'Traveler',
+    email: 'traveler@example.com',
+    total_points: 12,
+    date_joined: '2026-01-15T10:00:00Z',
+    profile: {
+      bio: 'Collecting neighborhood memories.',
+      location: 'Istanbul',
+    },
+  },
+};
+
+const publicProfileDetail = {
+  id: 12,
+  username: 'Aylin',
+  total_points: 30,
+  published_story_count: 4,
+  date_joined: '2025-02-10T10:00:00Z',
+  bio: 'I write about harbor neighborhoods.',
+  location: 'Izmir',
+  birth_year: 1988,
 };
 
 function installAuthTransport() {
@@ -111,6 +138,39 @@ function installAuthTransport() {
       return {
         status: 200,
         data: { results: [] } as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url === '/users/me/') {
+      return {
+        status: 200,
+        data: profileDetail as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url === '/users/12/') {
+      return {
+        status: 200,
+        data: publicProfileDetail as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url?.startsWith('/stories/?')) {
+      return {
+        status: 200,
+        data: {
+          count: feedResults.length,
+          next: null,
+          previous: null,
+          results: feedResults.map((story) => ({
+            ...story,
+            user: 1,
+            narrative: 'A story about the harbor.',
+          })),
+        } as never,
         config,
       };
     }
@@ -243,6 +303,25 @@ describe('RootNavigator auth flow', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Search stories')).toBeTruthy();
       expect(screen.getByLabelText('Read story: Harbor Memory')).toBeTruthy();
+    });
+  });
+
+  it('opens a public profile from the contributor name on story detail', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Read story: Harbor Memory');
+    fireEvent.press(screen.getByLabelText('Read story: Harbor Memory'));
+
+    expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open profile: Aylin'));
+
+    await waitFor(() => {
+      expect(screen.getByText('User profile')).toBeTruthy();
+      expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
     });
   });
 });

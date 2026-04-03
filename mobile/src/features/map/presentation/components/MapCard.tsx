@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
@@ -13,6 +13,8 @@ interface MapCardProps {
   error?: string;
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
+  onMarkerPress?: () => void;
+  onPreviewLayout?: (event: LayoutChangeEvent) => void;
 }
 
 const PREVIEW_MAX_LENGTH = 140;
@@ -25,6 +27,8 @@ export function MapCard({
   error,
   onSelectMarker,
   onOpenStory,
+  onMarkerPress,
+  onPreviewLayout,
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
   const selectedMarker = markers.find((marker) => marker.id === selectedMarkerId) ?? markers[0];
@@ -56,7 +60,10 @@ export function MapCard({
             <Marker
               key={marker.id}
               coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-              onPress={() => onSelectMarker(marker.id)}
+              onPress={() => {
+                onSelectMarker(marker.id);
+                onMarkerPress?.();
+              }}
               testID="story-marker"
             >
               <View
@@ -154,7 +161,7 @@ export function MapCard({
         ) : null}
       </View>
 
-      <View style={{ padding: spacing.lg, gap: spacing.md }}>
+      <View testID="story-preview-panel" style={{ padding: spacing.lg, gap: spacing.md }} onLayout={onPreviewLayout}>
         <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
           {selectedMarker?.isCluster ? `${selectedMarker.count} nearby stories` : 'Story preview'}
         </Text>

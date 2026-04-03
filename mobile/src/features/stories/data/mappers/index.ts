@@ -15,6 +15,7 @@ interface StoryMediaItemRecord {
 
 interface StoryRecord {
   id: string | number;
+  user?: unknown;
   title?: unknown;
   narrative?: unknown;
   status?: unknown;
@@ -251,6 +252,7 @@ export function mapStory(value: unknown): StoryEntity {
 
   return {
     id,
+    contributorUserId: asStringId(story.user),
     title: story.title,
     narrative,
     status,

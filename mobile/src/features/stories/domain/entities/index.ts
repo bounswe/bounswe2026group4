@@ -15,6 +15,7 @@ export interface StoryLocation {
 
 export interface StoryEntity {
   id: string;
+  contributorUserId?: string;
   title: string;
   narrative: string[];
   status: StoryStatus;

@@ -21,6 +21,7 @@ interface StoryScreenProps {
   session?: Pick<Session, 'role' | 'user'>;
   onRequestLogin?: () => void;
   onGoBack?: () => void;
+  onOpenContributorProfile?: (userId: string) => void;
   getStory?: typeof storyService.getStory;
 }
 
@@ -60,6 +61,49 @@ function StoryMetaRow({ label, value }: { label: string; value: string }) {
         {value}
       </Text>
     </View>
+  );
+}
+
+function StoryMetaActionRow({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  onPress?: () => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? `Open profile: ${value}` : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      style={{
+        width: '48%',
+        padding: spacing.md,
+        borderRadius: 14,
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+      }}
+    >
+      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+        {label}
+      </Text>
+      <Text
+        style={{
+          marginTop: spacing.xs,
+          color: onPress ? colors.primary : colors.text,
+          fontSize: typography.body,
+          fontWeight: '600',
+        }}
+      >
+        {value}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -301,6 +345,7 @@ export function StoryScreen({
   session,
   onRequestLogin,
   onGoBack,
+  onOpenContributorProfile,
   getStory = storyService.getStory,
 }: StoryScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
@@ -531,7 +576,17 @@ export function StoryScreen({
       >
         <StoryMetaRow label="Location" value={story.location.name} />
         <StoryMetaRow label="Time period" value={story.timePeriod} />
-        <StoryMetaRow label="Contributor" value={story.contributorName} />
+        <StoryMetaActionRow
+          label="Contributor"
+          value={story.contributorName}
+          onPress={
+            story.contributorUserId
+              ? () => {
+                  onOpenContributorProfile?.(story.contributorUserId!);
+                }
+              : undefined
+          }
+        />
         <StoryMetaRow label="Submitted" value={formatDate(story.submittedAt)} />
       </View>
 

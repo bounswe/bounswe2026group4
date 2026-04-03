@@ -119,6 +119,28 @@ describe('MapScreen', () => {
     expect(screen.getByText('Voices of the Ferry Pier')).toBeTruthy();
   });
 
+  it('requests scrolling to the preview when a marker is pressed', async () => {
+    const onMarkerPreviewRequested = jest.fn();
+
+    renderScreen(
+      <MapScreen
+        getMarkerGroups={async () => markerGroups}
+        onMarkerPreviewRequested={onMarkerPreviewRequested}
+      />,
+    );
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent(screen.getByTestId('map-card-container'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 240, width: 100, height: 100 } },
+    });
+    fireEvent(screen.getByTestId('story-preview-panel'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 420, width: 100, height: 100 } },
+    });
+    fireEvent.press(screen.getAllByTestId('story-marker')[1]);
+
+    expect(onMarkerPreviewRequested).toHaveBeenCalledWith(660);
+  });
+
   it('refetches markers when filters change', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
 

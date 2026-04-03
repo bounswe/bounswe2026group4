@@ -16,5 +16,6 @@ export interface AuthRepository {
   register(input: RegisterUserInput): Promise<RegisterUserResult>;
   restore(): Promise<AuthSessionEntity | null>;
   logout(session?: AuthSessionEntity | null): Promise<void>;
+  updateUser(user: AuthSessionEntity['user']): Promise<AuthSessionEntity | null>;
   clear(): Promise<void>;
 }

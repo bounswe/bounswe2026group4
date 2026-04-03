@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { StoryFilters } from '../../../stories/domain/repositories';
@@ -15,6 +15,7 @@ interface MapScreenProps {
   initialFilters?: StoryFilters;
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
+  onMarkerPreviewRequested?: (targetY: number) => void;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
@@ -30,11 +31,14 @@ export function MapScreen({
   initialFilters = EMPTY_FILTERS,
   onOpenStory,
   getMarkerGroups = mapService.getMarkerGroups,
+  onMarkerPreviewRequested,
 }: MapScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { filters, isHydrated } = useSearchFilters();
   const debouncedQuery = useDebounce(filters.query, 350);
   const [state, setState] = useState<MapUiState>(() => createInitialMapUiState(initialFilters));
+  const [mapCardTop, setMapCardTop] = useState(0);
+  const previewOffsetRef = useRef<number | null>(null);
 
   const activeFilters = useMemo<StoryFilters>(
     () => ({
@@ -109,6 +113,20 @@ export function MapScreen({
     return parts;
   }, [state.filters]);
 
+  function handlePreviewLayout(event: LayoutChangeEvent) {
+    previewOffsetRef.current = event.nativeEvent.layout.y;
+  }
+
+  function handleMarkerPreviewRequest() {
+    const previewOffset = previewOffsetRef.current;
+
+    if (previewOffset == null) {
+      return;
+    }
+
+    onMarkerPreviewRequested?.(mapCardTop + previewOffset);
+  }
+
   return (
     <View style={{ gap: spacing.md }}>
       <StorySearchControls helperText="Search by title or place." />
@@ -130,7 +148,11 @@ export function MapScreen({
         </Text>
       </View>
 
-      <View style={{ minHeight: 420 }}>
+      <View
+        testID="map-card-container"
+        style={{ minHeight: 420 }}
+        onLayout={(event) => setMapCardTop(event.nativeEvent.layout.y)}
+      >
         <MapCard
           region={ISTANBUL_REGION}
           markers={state.markers}
@@ -139,6 +161,8 @@ export function MapScreen({
           error={state.error}
           onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
+          onMarkerPress={handleMarkerPreviewRequest}
+          onPreviewLayout={handlePreviewLayout}
         />
       </View>
     </View>
