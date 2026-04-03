@@ -1,3 +1,9 @@
+import { StoryCommentEntity } from '../entities';
+
 export interface InteractionRepository {
-  placeholder(): Promise<void>;
+  getComments(storyId: string): Promise<StoryCommentEntity[]>;
+  addComment(storyId: string, text: string): Promise<StoryCommentEntity>;
+  deleteComment(commentId: string): Promise<void>;
+  likeStory(storyId: string): Promise<void>;
+  unlikeStory(storyId: string): Promise<void>;
 }

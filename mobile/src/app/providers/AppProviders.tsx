@@ -17,7 +17,9 @@ export function AppProviders({ children }: PropsWithChildren) {
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
-            <NavigationProvider>{children}</NavigationProvider>
+            <SearchFiltersProvider>
+              <NavigationProvider>{children}</NavigationProvider>
+            </SearchFiltersProvider>
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>

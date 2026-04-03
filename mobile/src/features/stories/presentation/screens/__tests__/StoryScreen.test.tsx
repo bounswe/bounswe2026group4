@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { StoryScreen } from '../StoryScreen';
 import { Session } from '../../../../../core/auth/session';
 import { StoryEntity } from '../../../domain/entities';
+import { interactionService } from '../../../../interactions/application/services';
 
 jest.mock('react-native-maps', () => {
   const React = require('react');
@@ -17,6 +18,16 @@ jest.mock('react-native-maps', () => {
     Marker: MockMarker,
   };
 });
+
+jest.mock('../../../../interactions/application/services', () => ({
+  interactionService: {
+    likeStory: jest.fn(async () => undefined),
+    unlikeStory: jest.fn(async () => undefined),
+    getComments: jest.fn(async () => []),
+    addComment: jest.fn(async () => undefined),
+    deleteComment: jest.fn(async () => undefined),
+  },
+}));
 
 const baseStory: StoryEntity = {
   id: 'story-001',
@@ -48,6 +59,18 @@ const baseStory: StoryEntity = {
 };
 
 describe('StoryScreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (interactionService.getComments as jest.Mock).mockResolvedValue(
+      baseStory.comments.map((comment) => ({
+        id: comment.id,
+        authorUsername: comment.authorName,
+        text: comment.body,
+        createdAt: comment.createdAt,
+      })),
+    );
+  });
+
   const userSession: Session = {
     accessToken: 'access-token',
     refreshToken: 'refresh-token',
@@ -115,12 +138,13 @@ describe('StoryScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('Like · 27')).toBeTruthy();
-    fireEvent.press(screen.getByText('Like · 27'));
+    expect(await screen.findByText('♡ 27')).toBeTruthy();
+    fireEvent.press(screen.getByText('♡ 27'));
 
     await waitFor(() => {
-      expect(screen.getByText('Unlike · 28')).toBeTruthy();
+      expect(screen.getByText('♥ 28')).toBeTruthy();
     });
+    expect(interactionService.likeStory).toHaveBeenCalledWith('story-001');
   });
 
   it('prompts unauthenticated users to log in before liking', async () => {
@@ -135,11 +159,184 @@ describe('StoryScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('Like · 27')).toBeTruthy();
-    fireEvent.press(screen.getByText('Like · 27'));
+    expect(await screen.findByText('♡ 27')).toBeTruthy();
+    fireEvent.press(screen.getByText('♡ 27'));
 
     await waitFor(() => {
-      expect(screen.getByText('Log in to like this story.')).toBeTruthy();
+      expect(screen.getByText('Log in to like or comment on this story.')).toBeTruthy();
+    });
+    expect(onRequestLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('reverts optimistic likes when the API request fails', async () => {
+    (interactionService.likeStory as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByText('♡ 27')).toBeTruthy();
+    fireEvent.press(screen.getByText('♡ 27'));
+
+    await waitFor(() => {
+      expect(screen.getByText('♡ 27')).toBeTruthy();
+      expect(screen.getByText('Network error')).toBeTruthy();
+    });
+  });
+
+  it('renders comments in most recent first order', async () => {
+    (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'comment-older',
+        authorUsername: 'Older User',
+        text: 'Older comment',
+        createdAt: '2026-03-19T12:00:00Z',
+      },
+      {
+        id: 'comment-newer',
+        authorUsername: 'Newer User',
+        text: 'Newest comment',
+        createdAt: '2026-03-20T12:00:00Z',
+      },
+    ]);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => ({
+          ...baseStory,
+          comments: [
+            {
+              id: 'comment-older',
+              authorName: 'Older User',
+              body: 'Older comment',
+              createdAt: '2026-03-19T12:00:00Z',
+            },
+            {
+              id: 'comment-newer',
+              authorName: 'Newer User',
+              body: 'Newest comment',
+              createdAt: '2026-03-20T12:00:00Z',
+            },
+          ],
+        })}
+      />,
+    );
+
+    await screen.findByText('Newest comment');
+    const comments = screen.getAllByText(/Newest comment|Older comment/);
+
+    expect(comments[0]).toHaveTextContent('Newest comment');
+    expect(comments[1]).toHaveTextContent('Older comment');
+  });
+
+  it('submits a new comment and shows it at the top', async () => {
+    (interactionService.addComment as jest.Mock).mockResolvedValueOnce({
+      id: 'comment-99',
+      authorUsername: 'Traveler',
+      text: 'My new comment',
+      createdAt: '2026-03-21T12:00:00Z',
+    });
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    await screen.findByText(baseStory.title);
+    fireEvent.changeText(screen.getByLabelText('Comment input'), 'My new comment');
+    fireEvent.press(screen.getByText('Post comment'));
+
+    await waitFor(() => {
+      expect(interactionService.addComment).toHaveBeenCalledWith('story-001', 'My new comment');
+      expect(screen.getByText('Comments (2)')).toBeTruthy();
+    });
+
+    const comments = screen.getAllByText(/My new comment|My grandfather worked here for thirty years\./);
+    expect(comments[0]).toHaveTextContent('My new comment');
+  });
+
+  it('shows delete controls only for the user’s own comments and deletes after confirmation', async () => {
+    (interactionService.deleteComment as jest.Mock).mockResolvedValueOnce(undefined);
+    (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'comment-own',
+        authorUsername: 'Traveler',
+        text: 'My own comment',
+        createdAt: '2026-03-21T12:00:00Z',
+      },
+      {
+        id: 'comment-other',
+        authorUsername: 'Someone else',
+        text: 'Another comment',
+        createdAt: '2026-03-20T12:00:00Z',
+      },
+    ]);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => ({
+          ...baseStory,
+          comments: [
+            {
+              id: 'comment-own',
+              authorName: 'Traveler',
+              body: 'My own comment',
+              createdAt: '2026-03-21T12:00:00Z',
+            },
+            {
+              id: 'comment-other',
+              authorName: 'Someone else',
+              body: 'Another comment',
+              createdAt: '2026-03-20T12:00:00Z',
+            },
+          ],
+        })}
+      />,
+    );
+
+    await screen.findByText('My own comment');
+    expect(screen.getByText('Delete comment')).toBeTruthy();
+    expect(screen.queryAllByText('Delete comment')).toHaveLength(1);
+
+    fireEvent.press(screen.getByText('Delete comment'));
+    expect(screen.getByText('Delete this comment?')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(interactionService.deleteComment).toHaveBeenCalledWith('comment-own');
+      expect(screen.queryByText('My own comment')).toBeNull();
+    });
+  });
+
+  it('prompts unauthenticated users when they try to comment', async () => {
+    const onRequestLogin = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={guestSession}
+        onRequestLogin={onRequestLogin}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    await screen.findByText(baseStory.title);
+    fireEvent.press(screen.getByText('Log in to comment'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Log in to comment on this story.')).toBeTruthy();
     });
     expect(onRequestLogin).toHaveBeenCalledTimes(1);
   });
