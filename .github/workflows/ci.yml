@@ -98,3 +98,38 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+
+  # --------------------------------------------------------------
+  # Job 3: React Native mobile type checks and tests
+  # --------------------------------------------------------------
+  mobile-checks:
+    name: Mobile Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Type check
+        working-directory: mobile
+        run: npm run typecheck
+
+      - name: Run tests
+        working-directory: mobile
+        env:
+          CI: true
+          TMPDIR: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TEMP: ${{ runner.temp }}
+        run: npm test -- --runInBand --watchAll=false
