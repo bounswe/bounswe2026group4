@@ -31,6 +31,7 @@ jest.mock('../../../../interactions/application/services', () => ({
 
 const baseStory: StoryEntity = {
   id: 'story-001',
+  contributorUserId: '22',
   title: 'The Day the Harbor Fell Silent',
   narrative: [
     'By dusk, the harbor had stopped sounding like work and started sounding like memory.',
@@ -116,6 +117,23 @@ describe('StoryScreen', () => {
     expect(screen.getByText(baseStory.comments[0].body)).toBeTruthy();
     expect(screen.getByText('Story location')).toBeTruthy();
     expect(screen.getByTestId('story-location-map')).toBeTruthy();
+  });
+
+  it('opens the contributor profile when the contributor name is pressed', async () => {
+    const onOpenContributorProfile = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => baseStory}
+        onOpenContributorProfile={onOpenContributorProfile}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText(`Open profile: ${baseStory.contributorName}`));
+
+    expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
   });
 
   it('shows an image fallback message when the media fails to load', async () => {

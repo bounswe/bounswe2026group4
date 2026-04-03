@@ -28,6 +28,24 @@ docker compose up
 The API will be available at `http://localhost:8000`.
 The frontend will be available at `http://localhost:5173`.
 
+## Expo Go mobile development
+
+For Expo Go on a physical phone, set `mobile/.env` so the app points to your computer's LAN IP instead of `localhost`:
+
+```env
+EXPO_PUBLIC_API_BASE_URL=http://192.168.x.x:8000
+EXPO_PUBLIC_ENV=development
+```
+
+Then start Django on all interfaces:
+
+```bash
+cd backend
+python manage.py runserver 0.0.0.0:8000
+```
+
+The development settings now accept LAN hosts by default, which makes local Expo Go testing work without editing `ALLOWED_HOSTS` every time your IP changes.
+
 To stop:
 
 ```bash

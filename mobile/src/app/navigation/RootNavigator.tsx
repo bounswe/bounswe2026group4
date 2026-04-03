@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
@@ -16,6 +16,7 @@ type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 interface RouteSnapshot {
   route: AppRoute;
   storyId?: string | null;
+  userId?: string | null;
 }
 
 const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION];
@@ -87,13 +88,28 @@ function ScreenShell({
 }: {
   title: string;
   description: string;
-  children: React.ReactNode;
+  children: React.ReactNode | ((helpers: { scrollTo: (y: number) => void }) => React.ReactNode);
   framed?: boolean;
   scrollable?: boolean;
   fillContent?: boolean;
   hideHeader?: boolean;
 }) {
   const { colors, spacing, typography } = useAppTheme();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollTo = useCallback(
+    (y: number) => {
+      if (!scrollable) {
+        return;
+      }
+
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(y - spacing.lg, 0),
+        animated: true,
+      });
+    },
+    [scrollable, spacing.lg],
+  );
+  const resolvedChildren = typeof children === 'function' ? children({ scrollTo }) : children;
 
   const innerContent = (
     <>
@@ -115,10 +131,10 @@ function ScreenShell({
             flex: fillContent ? 1 : undefined,
           }}
         >
-          {children}
+          {resolvedChildren}
         </View>
       ) : (
-        <View style={{ marginTop: hideHeader ? 0 : spacing.xl, flex: fillContent ? 1 : undefined }}>{children}</View>
+        <View style={{ marginTop: hideHeader ? 0 : spacing.xl, flex: fillContent ? 1 : undefined }}>{resolvedChildren}</View>
       )}
     </>
   );
@@ -126,6 +142,7 @@ function ScreenShell({
   if (scrollable) {
     return (
       <ScrollView
+        ref={scrollViewRef}
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
         showsVerticalScrollIndicator={false}
@@ -147,6 +164,7 @@ export function RootNavigator() {
   const { colors, spacing } = useAppTheme();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
+  const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
 
@@ -154,8 +172,9 @@ export function RootNavigator() {
     () => ({
       route: currentRoute,
       storyId: currentRoute === ROUTES.STORY_DETAIL ? activeStoryId : null,
+      userId: currentRoute === ROUTES.USER_PROFILE ? activeUserId : null,
     }),
-    [activeStoryId, currentRoute],
+    [activeStoryId, activeUserId, currentRoute],
   );
   const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
   const canGoBack = backStack.length > 0;
@@ -169,6 +188,7 @@ export function RootNavigator() {
   const restoreSnapshot = useCallback((snapshot: RouteSnapshot) => {
     setCurrentRoute(snapshot.route);
     setActiveStoryId(snapshot.route === ROUTES.STORY_DETAIL ? snapshot.storyId ?? null : null);
+    setActiveUserId(snapshot.route === ROUTES.USER_PROFILE ? snapshot.userId ?? null : null);
   }, []);
 
   const navigateToSnapshot = useCallback(
@@ -176,7 +196,8 @@ export function RootNavigator() {
       if (
         !options?.resetStack &&
         snapshot.route === currentSnapshot.route &&
-        snapshot.storyId === currentSnapshot.storyId
+        snapshot.storyId === currentSnapshot.storyId &&
+        snapshot.userId === currentSnapshot.userId
       ) {
         return;
       }
@@ -189,7 +210,8 @@ export function RootNavigator() {
 
           if (
             previous?.route === currentSnapshot.route &&
-            previous?.storyId === currentSnapshot.storyId
+            previous?.storyId === currentSnapshot.storyId &&
+            previous?.userId === currentSnapshot.userId
           ) {
             return current;
           }
@@ -283,7 +305,8 @@ export function RootNavigator() {
 
       if (
         previousSnapshot?.route === redirectTarget.route &&
-        previousSnapshot?.storyId === redirectTarget.storyId
+        previousSnapshot?.storyId === redirectTarget.storyId &&
+        previousSnapshot?.userId === redirectTarget.userId
       ) {
         nextStack.pop();
       }
@@ -299,6 +322,10 @@ export function RootNavigator() {
 
   const handleOpenStoryDetail = (storyId: string) => {
     navigateToSnapshot({ route: ROUTES.STORY_DETAIL, storyId });
+  };
+
+  const handleOpenUserProfile = (userId: string) => {
+    navigateToSnapshot({ route: ROUTES.USER_PROFILE, userId });
   };
 
   if (!hasResolvedInitialSession && loading) {
@@ -324,10 +351,23 @@ export function RootNavigator() {
         <ScreenShell
           title="Your profile"
           description={user?.username ? `Signed in as ${user.username}.` : 'Your account details.'}
+          framed={false}
+          fillContent
         >
-          <ProfileScreen />
+          <ProfileScreen mode="self" />
         </ScreenShell>
       </ProtectedScreen>
+    );
+  } else if (currentRoute === ROUTES.USER_PROFILE && activeUserId) {
+    content = (
+      <ScreenShell
+        title="User profile"
+        description="Public profile details."
+        framed={false}
+        fillContent
+      >
+        <ProfileScreen mode="public" userId={activeUserId} />
+      </ScreenShell>
     );
   } else if (currentRoute === ROUTES.SUBMISSION) {
     content = (
@@ -352,7 +392,12 @@ export function RootNavigator() {
         framed={false}
         scrollable
       >
-        <MapScreen onOpenStory={handleOpenStoryDetail} />
+        {({ scrollTo }) => (
+          <MapScreen
+            onOpenStory={handleOpenStoryDetail}
+            onMarkerPreviewRequested={(targetY) => scrollTo(targetY)}
+          />
+        )}
       </ScreenShell>
     );
   } else if (currentRoute === ROUTES.STORY_DETAIL && activeStoryId) {
@@ -362,6 +407,7 @@ export function RootNavigator() {
         session={user ? { role: user.role, user } : undefined}
         onRequestLogin={() => handleNavigate(ROUTES.AUTH)}
         onGoBack={handleBack}
+        onOpenContributorProfile={handleOpenUserProfile}
       />
     );
   } else {

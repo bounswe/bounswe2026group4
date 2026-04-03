@@ -12,6 +12,7 @@ export const ROUTES = {
   NOTIFICATIONS: 'Notifications',
   REGISTER: 'register',
   PROFILE: 'Profile',
+  USER_PROFILE: 'UserProfile',
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
