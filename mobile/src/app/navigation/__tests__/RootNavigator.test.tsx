@@ -194,7 +194,12 @@ describe('RootNavigator auth flow', () => {
   it('shows a message instead of redirecting unauthenticated users for protected screens', async () => {
     renderNavigator();
 
-    expect(await screen.findByLabelText('Submission')).toBeTruthy();
+    expect(await screen.findByLabelText('Login')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Submission')).toBeTruthy();
+    });
+
     fireEvent.press(screen.getByLabelText('Submission'));
 
     expect(await screen.findByText('Please sign in to submit a story.')).toBeTruthy();
