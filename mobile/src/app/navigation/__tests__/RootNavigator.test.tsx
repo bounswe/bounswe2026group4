@@ -194,7 +194,8 @@ describe('RootNavigator auth flow', () => {
   it('shows a message instead of redirecting unauthenticated users for protected screens', async () => {
     renderNavigator();
 
-    expect(await screen.findByLabelText('Login')).toBeTruthy();
+    expect(await screen.findByText('Local History')).toBeTruthy();
+    expect(screen.getByText('Story map and feed')).toBeTruthy();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Submission')).toBeTruthy();
