@@ -31,10 +31,11 @@ function buildChips(
 }
 
 interface StorySearchControlsProps {
-  helperText: string;
+  helperText?: string;
+  hideHeading?: boolean;
 }
 
-export function StorySearchControls({ helperText }: StorySearchControlsProps) {
+export function StorySearchControls({ helperText, hideHeading = false }: StorySearchControlsProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { filters, updateFilters, removeFilter, clearFilters } = useSearchFilters();
   const [showFilters, setShowFilters] = useState(false);
@@ -43,12 +44,14 @@ export function StorySearchControls({ helperText }: StorySearchControlsProps) {
 
   return (
     <View style={{ gap: spacing.md }}>
-      <View style={{ gap: spacing.sm }}>
-        <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
-          Search stories
-        </Text>
-        <Text style={{ color: colors.muted, fontSize: typography.caption + 1 }}>{helperText}</Text>
-      </View>
+      {hideHeading ? null : (
+        <View style={{ gap: spacing.sm }}>
+          <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+            Search stories
+          </Text>
+          {helperText ? <Text style={{ color: colors.muted, fontSize: typography.caption + 1 }}>{helperText}</Text> : null}
+        </View>
+      )}
 
       <SearchInput
         value={filters.query}
@@ -58,7 +61,7 @@ export function StorySearchControls({ helperText }: StorySearchControlsProps) {
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Pressable accessibilityRole="button" onPress={() => setShowFilters((current) => !current)}>
-          <Text style={{ color: colors.primary, fontWeight: '700' }}>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>
             {showFilters ? 'Hide filters' : 'Show filters'}
           </Text>
         </Pressable>

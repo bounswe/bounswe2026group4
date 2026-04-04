@@ -342,15 +342,9 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             paddingBottom: spacing.xl,
           }}
         >
-          <View style={{ gap: spacing.sm }}>
-            <Text style={{ color: colors.primary, fontWeight: '700' }}>Local History Story Map</Text>
+          <View style={{ gap: spacing.xs }}>
             <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
-              {isRegister ? 'Create your account' : 'Sign in'}
-            </Text>
-            <Text style={{ color: colors.muted, fontSize: typography.body }}>
-              {isRegister
-                ? 'Create an account to explore and share local history stories.'
-                : 'Sign in to your account to explore and share local history stories.'}
+              {isRegister ? 'Create account' : 'Sign in'}
             </Text>
           </View>
 

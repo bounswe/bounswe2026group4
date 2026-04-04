@@ -19,16 +19,40 @@ export function SearchInput({
   const { colors, spacing } = useAppTheme();
 
   return (
-    <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+    <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
       <View style={{ flex: 1 }}>
-        <Input
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          accessibilityLabel="Search stories"
-          returnKeyType="search"
-          onSubmitEditing={onSearch}
-        />
+        <View style={{ position: 'relative', justifyContent: 'center' }}>
+          <Input
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            accessibilityLabel="Search stories"
+            returnKeyType="search"
+            onSubmitEditing={onSearch}
+            style={{ paddingRight: value ? 44 : spacing.md }}
+          />
+          {value ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              onPress={() => {
+                onChangeText('');
+              }}
+              style={{
+                position: 'absolute',
+                right: spacing.sm,
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.surface,
+              }}
+            >
+              <Text style={{ color: colors.muted, fontWeight: '700' }}>x</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
       <Pressable
         accessibilityRole="button"
@@ -38,7 +62,7 @@ export function SearchInput({
           minWidth: 72,
           paddingHorizontal: spacing.md,
           paddingVertical: spacing.md - 2,
-          borderRadius: 12,
+          borderRadius: 14,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: colors.primary,

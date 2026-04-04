@@ -73,17 +73,6 @@ export function AuthFormCard({
         gap: spacing.md,
       }}
     >
-      <View style={{ gap: spacing.xs }}>
-        <Text style={{ fontSize: typography.subtitle, fontWeight: '700', color: colors.text }}>
-          {isRegister ? 'Create account' : 'Sign in'}
-        </Text>
-        <Text style={{ fontSize: typography.body, color: colors.muted }}>
-          {isRegister
-            ? 'Create your account with the same fields and validation rules used on the web app.'
-            : 'Use your backend account email and password to start an authenticated session.'}
-        </Text>
-      </View>
-
       {successMessage ? (
         <View
           style={{

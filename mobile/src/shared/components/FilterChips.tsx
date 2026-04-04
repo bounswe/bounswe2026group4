@@ -47,7 +47,7 @@ export function FilterChips({ chips, onRemove, onClearAll }: FilterChipsProps) {
       </View>
       {onClearAll ? (
         <Pressable accessibilityRole="button" onPress={onClearAll}>
-          <Text style={{ color: colors.primary, fontWeight: '700' }}>Clear all filters</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Clear all filters</Text>
         </Pressable>
       ) : null}
     </View>

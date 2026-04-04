@@ -136,7 +136,7 @@ export function FilterPanel({
       ) : null}
 
       <Pressable accessibilityRole="button" onPress={onClearAll}>
-        <Text style={{ color: colors.primary, fontWeight: '700' }}>Reset filter form</Text>
+        <Text style={{ color: colors.text, fontWeight: '700' }}>Reset filter form</Text>
       </Pressable>
     </View>
   );

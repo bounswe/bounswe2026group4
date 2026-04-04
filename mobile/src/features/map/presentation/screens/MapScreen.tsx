@@ -16,6 +16,8 @@ interface MapScreenProps {
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
   onMarkerPreviewRequested?: (targetY: number) => void;
+  showSearchControls?: boolean;
+  onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
@@ -32,6 +34,8 @@ export function MapScreen({
   onOpenStory,
   getMarkerGroups = mapService.getMarkerGroups,
   onMarkerPreviewRequested,
+  showSearchControls = true,
+  onRegisterRefresh,
 }: MapScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { filters, isHydrated } = useSearchFilters();
@@ -48,13 +52,7 @@ export function MapScreen({
     [debouncedQuery, filters, initialFilters],
   );
 
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    let active = true;
-
+  const loadMarkers = React.useCallback(async () => {
     setState((current) => ({
       ...current,
       isLoading: true,
@@ -62,40 +60,43 @@ export function MapScreen({
       filters: activeFilters,
     }));
 
-    getMarkerGroups(activeFilters)
-      .then((markers) => {
-        if (!active) {
-          return;
-        }
+    try {
+      const markers = await getMarkerGroups(activeFilters);
+      const selectedMarkerId = getPreferredMarkerId(markers, activeFilters);
 
-        const selectedMarkerId = getPreferredMarkerId(markers, activeFilters);
-
-        setState({
-          isLoading: false,
-          error: undefined,
-          filters: activeFilters,
-          markers,
-          selectedMarkerId,
-        });
-      })
-      .catch((error: Error) => {
-        if (!active) {
-          return;
-        }
-
-        setState({
-          isLoading: false,
-          error: error.message || 'Unable to load stories',
-          filters: activeFilters,
-          markers: [],
-          selectedMarkerId: undefined,
-        });
+      setState({
+        isLoading: false,
+        error: undefined,
+        filters: activeFilters,
+        markers,
+        selectedMarkerId,
       });
+    } catch (error) {
+      setState({
+        isLoading: false,
+        error: error instanceof Error ? error.message || 'Unable to load stories' : 'Unable to load stories',
+        filters: activeFilters,
+        markers: [],
+        selectedMarkerId: undefined,
+      });
+    }
+  }, [activeFilters, getMarkerGroups]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void loadMarkers();
+  }, [isHydrated, loadMarkers]);
+
+  useEffect(() => {
+    onRegisterRefresh?.(isHydrated ? loadMarkers : null);
 
     return () => {
-      active = false;
+      onRegisterRefresh?.(null);
     };
-  }, [activeFilters, getMarkerGroups, isHydrated]);
+  }, [isHydrated, loadMarkers, onRegisterRefresh]);
 
   const activeFilterSummary = useMemo(() => {
     const parts = [];
@@ -129,24 +130,12 @@ export function MapScreen({
 
   return (
     <View style={{ gap: spacing.md }}>
-      <StorySearchControls helperText="Search by title or place." />
+      {showSearchControls ? <StorySearchControls helperText="Search by title or place." /> : null}
       {activeFilterSummary.length ? <Text style={{ color: colors.muted }}>{activeFilterSummary.join('  |  ')}</Text> : null}
 
-      <View
-        style={{
-          padding: spacing.md,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.infoSurface,
-          gap: spacing.xs,
-        }}
-      >
-        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>Map</Text>
-        <Text style={{ color: colors.muted }}>
-          {state.markers.reduce((sum, marker) => sum + marker.count, 0)} stories currently match the active filters.
-        </Text>
-      </View>
+      <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+        {state.markers.reduce((sum, marker) => sum + marker.count, 0)} stories currently match the active filters.
+      </Text>
 
       <View
         testID="map-card-container"
