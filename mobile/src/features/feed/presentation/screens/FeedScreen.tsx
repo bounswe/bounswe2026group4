@@ -19,6 +19,7 @@ interface FeedScreenProps {
   initialFilters?: StoryFilters;
   onOpenStory?: (storyId: string) => void;
   getFeed?: typeof storyService.getFeed;
+  showSearchControls?: boolean;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
@@ -27,6 +28,7 @@ export function FeedScreen({
   initialFilters = EMPTY_FILTERS,
   onOpenStory,
   getFeed = storyService.getFeed,
+  showSearchControls = true,
 }: FeedScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { filters, isHydrated, setFilters } = useSearchFilters();
@@ -153,7 +155,7 @@ export function FeedScreen({
         </Pressable>
       </View>
 
-      <StorySearchControls helperText="Search by title or place." />
+      {showSearchControls ? <StorySearchControls helperText="Search by title or place." /> : null}
     </View>
   );
 

@@ -79,7 +79,7 @@ export function MapCard({
                     borderRadius: 999,
                     borderWidth: 2,
                     borderColor: '#FFFFFF',
-                    backgroundColor: marker.id === selectedMarkerId ? '#1D4ED8' : '#2E7AF0',
+                    backgroundColor: marker.id === selectedMarkerId ? '#0A0A0A' : '#404040',
                     justifyContent: 'center',
                     alignItems: 'center',
                     shadowColor: '#000000',
@@ -109,7 +109,7 @@ export function MapCard({
                     marginTop: -3,
                     width: 12,
                     height: 12,
-                    backgroundColor: marker.id === selectedMarkerId ? '#1D4ED8' : '#2E7AF0',
+                    backgroundColor: marker.id === selectedMarkerId ? '#0A0A0A' : '#404040',
                     transform: [{ rotate: '45deg' }],
                     borderBottomWidth: 2,
                     borderRightWidth: 2,
@@ -169,7 +169,13 @@ export function MapCard({
         {!selectedMarker ? (
           <Text style={{ color: colors.muted }}>No stories match the current filters.</Text>
         ) : selectedMarker.isCluster ? (
-          <ScrollView style={{ maxHeight: 200 }} contentContainerStyle={{ gap: spacing.sm }} testID="cluster-preview-list">
+          <ScrollView
+            style={{ maxHeight: 240 }}
+            contentContainerStyle={{ gap: spacing.sm }}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+            testID="cluster-preview-list"
+          >
             {selectedMarker.stories.map((story) => (
               <Pressable
                 key={story.id}

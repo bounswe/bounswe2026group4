@@ -212,36 +212,35 @@ describe('RootNavigator auth flow', () => {
     installAuthTransport();
   });
 
-  it('redirects unauthenticated users to the login flow for protected screens', async () => {
+  it('shows a message instead of redirecting unauthenticated users for protected screens', async () => {
     renderNavigator();
 
     expect(await screen.findByLabelText('Search stories')).toBeTruthy();
 
-    fireEvent.press(screen.getByText('Profile'));
+    fireEvent.press(screen.getByLabelText('Submission'));
 
-    expect(
-      await screen.findByText('Sign in to your account to explore and share local history stories.'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Please sign in to submit a story.')).toBeTruthy();
+    expect(screen.getByLabelText('Search stories')).toBeTruthy();
   });
 
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
     renderNavigator();
 
-    fireEvent.press(await screen.findByText('Submission', {}, { timeout: 3000 }));
-    expect(
-      await screen.findByText('Sign in to your account to explore and share local history stories.'),
-    ).toBeTruthy();
+    fireEvent.press(await screen.findByLabelText('Login'));
+    expect(await screen.findByText('Sign in to your account to explore and share local history stories.')).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
     fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
     fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
 
+    fireEvent.press(await screen.findByLabelText('Submission', {}, { timeout: 3000 }));
     await waitFor(() => {
       expect(screen.getByText('Submit a story')).toBeTruthy();
     });
     expect(screen.getByText('Share a place-bound story')).toBeTruthy();
 
-    fireEvent.press(screen.getByText('Log out'));
+    fireEvent.press(screen.getByLabelText('Profile'));
+    fireEvent.press(await screen.findByText('Sign out'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Search stories')).toBeTruthy();
@@ -259,15 +258,15 @@ describe('RootNavigator auth flow', () => {
       expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
     });
 
-    fireEvent.press(screen.getByText('Map'));
+    fireEvent.press(screen.getByLabelText('Map'));
     await screen.findByLabelText('Search stories');
-    fireEvent.press(screen.getByText('Feed'));
+    fireEvent.press(screen.getByLabelText('Feed'));
 
     await screen.findByLabelText('Search stories');
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
   });
 
-  it('shows a back button for protected screens and returns to the previous public route', async () => {
+  it('opens a protected screen after login and returns with the back button', async () => {
     render(
       <AppProviders>
         <RootNavigator />
@@ -275,7 +274,12 @@ describe('RootNavigator auth flow', () => {
     );
 
     await screen.findByLabelText('Search stories');
-    fireEvent.press(screen.getByText('Submission'));
+    fireEvent.press(screen.getByLabelText('Login'));
+    await screen.findByText('Sign in to your account to explore and share local history stories.');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
+    fireEvent.press(await screen.findByLabelText('Submission', {}, { timeout: 3000 }));
 
     expect(await screen.findByLabelText('Go back')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Go back'));

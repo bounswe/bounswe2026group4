@@ -169,7 +169,7 @@ export function ProfileScreen({
   getPublicProfile = userService.getPublicProfile,
   updateCurrentProfile = userService.updateCurrentProfile,
 }: ProfileScreenProps) {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
   const isSelfMode = mode === 'self';
   const [profile, setProfile] = useState<ProfileEntity | null>(null);
@@ -383,7 +383,7 @@ export function ProfileScreen({
                   return nextValue;
                 });
               }}
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+              variant="outline"
             >
               <Text style={{ color: colors.text, fontWeight: '700' }}>
                 {isEditing ? 'Cancel' : 'Edit profile'}
@@ -474,7 +474,11 @@ export function ProfileScreen({
                 </Button>
               ) : null}
             </>
-          ) : null}
+          ) : (
+            <Button variant="outline" onPress={() => void logout()}>
+              Sign out
+            </Button>
+          )}
         </View>
       ) : (
         <View
