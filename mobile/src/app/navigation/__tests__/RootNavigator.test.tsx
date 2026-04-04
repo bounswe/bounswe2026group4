@@ -227,7 +227,7 @@ describe('RootNavigator auth flow', () => {
     renderNavigator();
 
     fireEvent.press(await screen.findByLabelText('Login'));
-    expect(await screen.findByText('Sign in to your account to explore and share local history stories.')).toBeTruthy();
+    expect(await screen.findByLabelText('Email address')).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
     fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
@@ -275,7 +275,7 @@ describe('RootNavigator auth flow', () => {
 
     await screen.findByLabelText('Search stories');
     fireEvent.press(screen.getByLabelText('Login'));
-    await screen.findByText('Sign in to your account to explore and share local history stories.');
+    await screen.findByLabelText('Email address');
     fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
     fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
     fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
