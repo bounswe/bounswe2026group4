@@ -328,4 +328,130 @@ describe('RootNavigator auth flow', () => {
       expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
     });
   });
+
+  it('opens the signed-in user profile when the contributor is the current user', async () => {
+    setApiTransport(async (method, config) => {
+      if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/map/')) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/stories/story-001/') {
+        return {
+          status: 200,
+          data: {
+            ...storyDetail,
+            user: 1,
+            contributor_name: 'Traveler',
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/stories/story-001/comments/') {
+        return {
+          status: 200,
+          data: { results: [] } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/me/') {
+        return {
+          status: 200,
+          data: profileDetail as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/?')) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults.map((story) => ({
+              ...story,
+              user: 1,
+              narrative: 'A story about the harbor.',
+            })),
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/login/') {
+        return {
+          status: 200,
+          data: {
+            access: 'access-token-123',
+            refresh: 'refresh-token-123',
+            user: {
+              id: 1,
+              email: 'traveler@example.com',
+              username: 'Traveler',
+              role: 'registered_user',
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/logout/') {
+        return {
+          status: 204,
+          data: null as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Search stories');
+    fireEvent.press(screen.getByLabelText('Login'));
+    await screen.findByLabelText('Email address');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
+
+    await screen.findByLabelText('Read story: Harbor Memory');
+    fireEvent.press(screen.getByLabelText('Read story: Harbor Memory'));
+
+    expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open profile: Traveler'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Signed in as Traveler.')).toBeTruthy();
+      expect(screen.getByText('Collecting neighborhood memories.')).toBeTruthy();
+    });
+  });
 });
