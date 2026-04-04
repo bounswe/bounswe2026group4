@@ -4,34 +4,13 @@ import { RootNavigator } from '../RootNavigator';
 import { storage } from '../../../core/storage/storage';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ThemeProvider } from '../../providers/ThemeProvider';
-import { ToastProvider } from '../../../shared/toast/ToastProvider';
-import { AuthProvider } from '../../../features/auth/context/AuthContext';
-import { SearchFiltersProvider } from '../../../features/search/presentation/context/SearchFiltersContext';
-import { NavigationProvider } from '../../providers/NavigationProvider';
 import { AppProviders } from '../../providers/AppProviders';
-
-const initialMetrics = {
-  frame: { x: 0, y: 0, width: 390, height: 844 },
-  insets: { top: 44, right: 0, bottom: 34, left: 0 },
-};
 
 function renderNavigator() {
   return render(
-    <SafeAreaProvider initialMetrics={initialMetrics}>
-      <ThemeProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <SearchFiltersProvider>
-              <NavigationProvider>
-                <RootNavigator />
-              </NavigationProvider>
-            </SearchFiltersProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>,
+    <AppProviders>
+      <RootNavigator />
+    </AppProviders>,
   );
 }
 
@@ -215,12 +194,15 @@ describe('RootNavigator auth flow', () => {
   it('shows a message instead of redirecting unauthenticated users for protected screens', async () => {
     renderNavigator();
 
-    expect(await screen.findByLabelText('Search stories')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText('Restoring session...')).toBeNull();
+      expect(screen.getByLabelText('Submission')).toBeTruthy();
+    }, { timeout: 10000 });
 
     fireEvent.press(screen.getByLabelText('Submission'));
 
     expect(await screen.findByText('Please sign in to submit a story.')).toBeTruthy();
-    expect(screen.getByLabelText('Search stories')).toBeTruthy();
+    expect(screen.getByLabelText('Submission')).toBeTruthy();
   });
 
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
@@ -326,6 +308,132 @@ describe('RootNavigator auth flow', () => {
     await waitFor(() => {
       expect(screen.getAllByText('User profile')).toHaveLength(2);
       expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
+    });
+  });
+
+  it('opens the signed-in user profile when the contributor is the current user', async () => {
+    setApiTransport(async (method, config) => {
+      if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/map/')) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/stories/story-001/') {
+        return {
+          status: 200,
+          data: {
+            ...storyDetail,
+            user: 1,
+            contributor_name: 'Traveler',
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/stories/story-001/comments/') {
+        return {
+          status: 200,
+          data: { results: [] } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/me/') {
+        return {
+          status: 200,
+          data: profileDetail as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/?')) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults.map((story) => ({
+              ...story,
+              user: 1,
+              narrative: 'A story about the harbor.',
+            })),
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/login/') {
+        return {
+          status: 200,
+          data: {
+            access: 'access-token-123',
+            refresh: 'refresh-token-123',
+            user: {
+              id: 1,
+              email: 'traveler@example.com',
+              username: 'Traveler',
+              role: 'registered_user',
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/logout/') {
+        return {
+          status: 204,
+          data: null as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Search stories');
+    fireEvent.press(screen.getByLabelText('Login'));
+    await screen.findByLabelText('Email address');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
+
+    await screen.findByLabelText('Read story: Harbor Memory');
+    fireEvent.press(screen.getByLabelText('Read story: Harbor Memory'));
+
+    expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open profile: Traveler'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Signed in as Traveler.')).toBeTruthy();
+      expect(screen.getByText('Collecting neighborhood memories.')).toBeTruthy();
     });
   });
 });

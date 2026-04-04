@@ -462,6 +462,11 @@ export function RootNavigator() {
   };
 
   const handleOpenUserProfile = (userId: string) => {
+    if (user && String(user.id) === userId) {
+      navigateToSnapshot({ route: ROUTES.PROFILE });
+      return;
+    }
+
     navigateToSnapshot({ route: ROUTES.USER_PROFILE, userId });
   };
 

@@ -1,5 +1,15 @@
-import React, { forwardRef } from 'react';
-import { KeyboardTypeOptions, StyleProp, TextInput, TextInputProps, TextStyle, ViewStyle } from 'react-native';
+import React, { ReactNode, forwardRef } from 'react';
+import {
+  KeyboardTypeOptions,
+  Pressable,
+  StyleProp,
+  Text,
+  TextInput,
+  TextInputProps,
+  TextStyle,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
 interface InputProps {
@@ -19,6 +29,10 @@ interface InputProps {
   blurOnSubmit?: TextInputProps['blurOnSubmit'];
   submitBehavior?: TextInputProps['submitBehavior'];
   onSubmitEditing?: TextInputProps['onSubmitEditing'];
+  trailingActionLabel?: string;
+  trailingActionAccessibilityLabel?: string;
+  onTrailingActionPress?: () => void;
+  trailingElement?: ReactNode;
 }
 
 export const Input = forwardRef<TextInput, InputProps>(function Input({
@@ -38,41 +52,73 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({
   style,
   blurOnSubmit,
   submitBehavior,
+  trailingActionLabel,
+  trailingActionAccessibilityLabel,
+  onTrailingActionPress,
+  trailingElement,
 }: InputProps, ref) {
   const { colors, spacing, typography } = useAppTheme();
+  const hasTrailingContent = Boolean(trailingElement || (trailingActionLabel && onTrailingActionPress));
 
   return (
-    <TextInput
-      ref={ref}
-      value={value}
-      placeholder={placeholder ?? 'Input'}
-      placeholderTextColor={colors.muted}
-      onChangeText={onChangeText}
-      onSubmitEditing={onSubmitEditing}
-      secureTextEntry={secureTextEntry}
-      autoCapitalize={autoCapitalize}
-      keyboardType={keyboardType}
-      autoCorrect={autoCorrect}
-      editable={editable}
-      textContentType={textContentType}
-      autoComplete={autoComplete}
-      returnKeyType={returnKeyType}
-      accessibilityLabel={accessibilityLabel}
-      blurOnSubmit={blurOnSubmit}
-      submitBehavior={submitBehavior}
+    <View
       style={[
         {
           borderWidth: 1,
           borderColor: colors.border,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.md - 2,
           borderRadius: 14,
-          color: colors.text,
           backgroundColor: colors.background,
-          fontSize: typography.body,
+          flexDirection: 'row',
+          alignItems: 'center',
         },
         style,
       ]}
-    />
+    >
+      <TextInput
+        ref={ref}
+        value={value}
+        placeholder={placeholder ?? 'Input'}
+        placeholderTextColor={colors.muted}
+        onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
+        secureTextEntry={secureTextEntry}
+        autoCapitalize={autoCapitalize}
+        keyboardType={keyboardType}
+        autoCorrect={autoCorrect}
+        editable={editable}
+        textContentType={textContentType}
+        autoComplete={autoComplete}
+        returnKeyType={returnKeyType}
+        accessibilityLabel={accessibilityLabel}
+        blurOnSubmit={blurOnSubmit}
+        submitBehavior={submitBehavior}
+        style={{
+          flex: 1,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.md - 2,
+          color: colors.text,
+          fontSize: typography.body,
+        }}
+      />
+      {trailingElement}
+      {!trailingElement && trailingActionLabel && onTrailingActionPress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={trailingActionAccessibilityLabel ?? trailingActionLabel}
+          disabled={!editable}
+          onPress={onTrailingActionPress}
+          style={({ pressed }) => ({
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            opacity: !editable ? 0.5 : pressed ? 0.75 : 1,
+          })}
+        >
+          <Text style={{ color: colors.primary, fontSize: typography.caption, fontWeight: '700' }}>
+            {trailingActionLabel}
+          </Text>
+        </Pressable>
+      ) : null}
+      {hasTrailingContent ? <View style={{ width: spacing.xs }} /> : null}
+    </View>
   );
 });

@@ -1,4 +1,4 @@
-import React, { RefObject } from 'react';
+import React, { RefObject, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { TextInput } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -61,6 +61,8 @@ export function AuthFormCard({
 }: AuthFormCardProps) {
   const { colors, spacing, typography } = useAppTheme();
   const isRegister = mode === 'register';
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
   return (
     <View
@@ -130,7 +132,7 @@ export function AuthFormCard({
           value={password}
           onChangeText={onPasswordChange}
           placeholder={isRegister ? 'Create a password' : 'Enter your password'}
-          secureTextEntry
+          secureTextEntry={!isPasswordVisible}
           textContentType="password"
           autoComplete={isRegister ? 'new-password' : 'password'}
           accessibilityLabel="Password"
@@ -138,6 +140,9 @@ export function AuthFormCard({
           returnKeyType={isRegister ? 'next' : 'done'}
           submitBehavior={isRegister ? 'submit' : 'blurAndSubmit'}
           onSubmitEditing={!isRegister ? onSubmit : undefined}
+          trailingActionLabel={isPasswordVisible ? 'Hide' : 'Show'}
+          trailingActionAccessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
+          onTrailingActionPress={() => setIsPasswordVisible((current) => !current)}
         />
         {fieldErrors.password ? <Text style={{ color: colors.danger }}>{fieldErrors.password}</Text> : null}
       </View>
@@ -150,11 +155,16 @@ export function AuthFormCard({
               value={confirmPassword}
               onChangeText={onConfirmPasswordChange}
               placeholder="Repeat your password"
-              secureTextEntry
+              secureTextEntry={!isConfirmPasswordVisible}
               textContentType="password"
               autoComplete="new-password"
               accessibilityLabel="Confirm password"
               editable={!isLoading}
+              trailingActionLabel={isConfirmPasswordVisible ? 'Hide' : 'Show'}
+              trailingActionAccessibilityLabel={
+                isConfirmPasswordVisible ? 'Hide confirm password' : 'Show confirm password'
+              }
+              onTrailingActionPress={() => setIsConfirmPasswordVisible((current) => !current)}
             />
             {fieldErrors.confirmPassword ? (
               <Text style={{ color: colors.danger }}>{fieldErrors.confirmPassword}</Text>
