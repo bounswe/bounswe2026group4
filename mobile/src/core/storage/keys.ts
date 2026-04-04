@@ -1,6 +1,8 @@
 export const storageKeys = {
   session: 'session',
   authSession: 'authSession',
-  searchFilters: 'searchFilters',
+  legacySearchFilters: 'searchFilters',
+  feedSearchFilters: 'feedSearchFilters',
+  mapSearchFilters: 'mapSearchFilters',
   draftStory: 'draftStory',
 };

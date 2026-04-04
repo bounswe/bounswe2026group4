@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Keyboard, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { Input } from '../ui/Input';
 
@@ -17,6 +17,10 @@ export function SearchInput({
   placeholder = 'Search by story title or place',
 }: SearchInputProps) {
   const { colors, spacing } = useAppTheme();
+  const handleSearch = () => {
+    Keyboard.dismiss();
+    onSearch?.();
+  };
 
   return (
     <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
@@ -28,7 +32,7 @@ export function SearchInput({
             placeholder={placeholder}
             accessibilityLabel="Search stories"
             returnKeyType="search"
-            onSubmitEditing={onSearch}
+            onSubmitEditing={handleSearch}
             style={{ paddingRight: value ? 44 : spacing.md }}
           />
           {value ? (
@@ -57,7 +61,7 @@ export function SearchInput({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Apply search"
-        onPress={onSearch}
+        onPress={handleSearch}
         style={({ pressed }) => ({
           minWidth: 72,
           paddingHorizontal: spacing.md,

@@ -7,7 +7,7 @@ import { MapMarkerGroup } from '../../domain/entities';
 import { mapService } from '../../application/services';
 import { createInitialMapUiState, MapUiState } from '../state/mapUiState';
 import { MapCard } from '../components/MapCard';
-import { useSearchFilters, toSearchParams } from '../../../search/presentation/context/SearchFiltersContext';
+import { SearchFilterScope, useSearchFilters, toSearchParams } from '../../../search/presentation/context/SearchFiltersContext';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { StorySearchControls } from '../../../search/presentation/components/StorySearchControls';
 
@@ -18,6 +18,7 @@ interface MapScreenProps {
   onMarkerPreviewRequested?: (targetY: number) => void;
   showSearchControls?: boolean;
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
+  searchScope?: SearchFilterScope;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
@@ -36,20 +37,34 @@ export function MapScreen({
   onMarkerPreviewRequested,
   showSearchControls = true,
   onRegisterRefresh,
+  searchScope = 'map',
 }: MapScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
-  const { filters, isHydrated } = useSearchFilters();
+  const { filters, refreshToken, isHydrated } = useSearchFilters(searchScope);
   const debouncedQuery = useDebounce(filters.query, 350);
+  const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [state, setState] = useState<MapUiState>(() => createInitialMapUiState(initialFilters));
   const [mapCardTop, setMapCardTop] = useState(0);
   const previewOffsetRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    if (filters.query !== debouncedQuery) {
+      return;
+    }
+
+    setUseImmediateQuery(false);
+  }, [debouncedQuery, filters.query]);
+
+  useEffect(() => {
+    setUseImmediateQuery(true);
+  }, [refreshToken]);
+
   const activeFilters = useMemo<StoryFilters>(
     () => ({
       ...initialFilters,
-      ...toSearchParams({ ...filters, query: debouncedQuery }),
+      ...toSearchParams({ ...filters, query: useImmediateQuery ? filters.query : debouncedQuery }),
     }),
-    [debouncedQuery, filters, initialFilters],
+    [debouncedQuery, filters, initialFilters, useImmediateQuery],
   );
 
   const loadMarkers = React.useCallback(async () => {
@@ -130,7 +145,7 @@ export function MapScreen({
 
   return (
     <View style={{ gap: spacing.md }}>
-      {showSearchControls ? <StorySearchControls helperText="Search by title or place." /> : null}
+      {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
       {activeFilterSummary.length ? <Text style={{ color: colors.muted }}>{activeFilterSummary.join('  |  ')}</Text> : null}
 
       <Text style={{ color: colors.muted, fontSize: typography.caption }}>

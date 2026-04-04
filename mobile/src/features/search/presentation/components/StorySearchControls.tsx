@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { FilterPanel } from '../../../../shared/components/FilterPanel';
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
-import { useSearchFilters } from '../context/SearchFiltersContext';
+import { SearchFilterScope, useSearchFilters } from '../context/SearchFiltersContext';
 
 function buildChips(
   filters: ReturnType<typeof useSearchFilters>['filters'],
@@ -33,11 +33,12 @@ function buildChips(
 interface StorySearchControlsProps {
   helperText?: string;
   hideHeading?: boolean;
+  scope: SearchFilterScope;
 }
 
-export function StorySearchControls({ helperText, hideHeading = false }: StorySearchControlsProps) {
+export function StorySearchControls({ helperText, hideHeading = false, scope }: StorySearchControlsProps) {
   const { colors, spacing, typography } = useAppTheme();
-  const { filters, updateFilters, removeFilter, clearFilters } = useSearchFilters();
+  const { filters, updateFilters, removeFilter, clearFilters, applyFilters } = useSearchFilters(scope);
   const [showFilters, setShowFilters] = useState(false);
 
   const chips = useMemo(() => buildChips(filters), [filters]);
@@ -56,7 +57,7 @@ export function StorySearchControls({ helperText, hideHeading = false }: StorySe
       <SearchInput
         value={filters.query}
         onChangeText={(query) => updateFilters({ query })}
-        onSearch={() => updateFilters({ query: filters.query })}
+        onSearch={() => applyFilters()}
       />
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -72,17 +73,41 @@ export function StorySearchControls({ helperText, hideHeading = false }: StorySe
         ) : null}
       </View>
 
-      {showFilters ? (
-        <FilterPanel
-          location={filters.location}
-          timeFrom={filters.timeFrom}
-          timeTo={filters.timeTo}
-          onLocationChange={(location) => updateFilters({ location })}
-          onTimeFromChange={(timeFrom) => updateFilters({ timeFrom })}
-          onTimeToChange={(timeTo) => updateFilters({ timeTo })}
-          onClearAll={clearFilters}
-        />
-      ) : null}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showFilters}
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close filters"
+          onPress={() => setShowFilters(false)}
+          style={{
+            flex: 1,
+            justifyContent: 'flex-start',
+            backgroundColor: 'rgba(17, 24, 39, 0.35)',
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.xl * 2,
+          }}
+        >
+          <Pressable onPress={(event) => event.stopPropagation()} style={{ width: '100%' }}>
+            <FilterPanel
+              location={filters.location}
+              timeFrom={filters.timeFrom}
+              timeTo={filters.timeTo}
+              onLocationChange={(location) => updateFilters({ location }, { refresh: true })}
+              onTimeFromChange={(timeFrom) => updateFilters({ timeFrom }, { refresh: true })}
+              onTimeToChange={(timeTo) => updateFilters({ timeTo }, { refresh: true })}
+              onClearAll={clearFilters}
+              onApply={() => {
+                applyFilters();
+                setShowFilters(false);
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <FilterChips
         chips={chips}

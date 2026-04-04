@@ -187,6 +187,52 @@ describe('FeedScreen', () => {
     expect(screen.getByText('Filters')).toBeTruthy();
   });
 
+  it('closes the filter panel when tapping outside of it', async () => {
+    renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+
+    expect(screen.getByText('Filters')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Close filters'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Filters')).toBeNull();
+    });
+  });
+
+  it('resets only filter fields and preserves the search query', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
+    fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
+    fireEvent.changeText(screen.getByLabelText('End year'), '1950');
+    fireEvent.press(screen.getByText('Reset filter form'));
+    fireEvent.press(screen.getByLabelText('Apply search'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'recent',
+        filters: {
+          q: 'harbor',
+          location: undefined,
+          yearFrom: undefined,
+          yearTo: undefined,
+        },
+      });
+    });
+
+    expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
+    expect(screen.queryByText('Location: Istanbul')).toBeNull();
+  });
+
   it('syncs draft filters from incoming initial filters', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
     const { rerender } = render(

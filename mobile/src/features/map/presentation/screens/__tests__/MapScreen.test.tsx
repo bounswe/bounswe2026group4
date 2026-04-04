@@ -159,6 +159,66 @@ describe('MapScreen', () => {
     });
   });
 
+  it('refetches all markers when a chip filter is removed', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: 'Golden Horn',
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+
+    fireEvent.press(screen.getByLabelText('Remove Location: Golden Horn'));
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: undefined,
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+  });
+
+  it('refetches all markers when clear all filters is pressed', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: 'Golden Horn',
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+
+    fireEvent.press(screen.getByText('Clear all filters'));
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: undefined,
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+  });
+
   it('keeps the map visible and shows an error overlay when loading fails', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => Promise.reject(new Error('API unavailable'))} />);
 

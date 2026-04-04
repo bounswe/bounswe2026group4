@@ -205,6 +205,14 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('Submission')).toBeTruthy();
   });
 
+  it('opens the main pager on the feed tab by default', async () => {
+    renderNavigator();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('main-route-pager').props.contentOffset.x).toBeGreaterThan(0);
+    });
+  });
+
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
     renderNavigator();
 
@@ -229,7 +237,7 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('keeps applied feed filters when navigating to map and back', async () => {
+  it('keeps feed and map search states independent', async () => {
     renderNavigator();
 
     await screen.findByLabelText('Search stories');
@@ -242,10 +250,23 @@ describe('RootNavigator auth flow', () => {
 
     fireEvent.press(screen.getByLabelText('Map'));
     await screen.findByLabelText('Search stories');
+    expect(screen.getByLabelText('Search stories').props.value).toBe('');
+
+    fireEvent.changeText(screen.getByLabelText('Search stories'), 'pier');
+    fireEvent.press(screen.getByLabelText('Apply search'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search stories').props.value).toBe('pier');
+    });
+
     fireEvent.press(screen.getByLabelText('Feed'));
 
     await screen.findByLabelText('Search stories');
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
+
+    fireEvent.press(screen.getByLabelText('Map'));
+    await screen.findByLabelText('Search stories');
+    expect(screen.getByLabelText('Search stories').props.value).toBe('pier');
   });
 
   it('opens a protected screen after login and returns with the back button', async () => {

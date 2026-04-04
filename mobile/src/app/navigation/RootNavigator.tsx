@@ -541,8 +541,10 @@ export function RootNavigator() {
       <View style={{ flex: 1 }}>
         <ScrollView
           ref={pagerRef}
+          testID="main-route-pager"
           horizontal
           pagingEnabled
+          contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
           onMomentumScrollEnd={(event) => {
@@ -624,7 +626,7 @@ export function RootNavigator() {
             <TopIconButton label="Login" onPress={() => handleNavigate(ROUTES.AUTH)} />
           )}
         </View>
-        {isMainRoute ? <StorySearchControls hideHeading /> : null}
+      {isMainRoute ? <StorySearchControls hideHeading scope={currentRoute === ROUTES.MAP ? 'map' : 'feed'} /> : null}
       </View>
       <View style={{ flex: 1, backgroundColor: colors.background }}>{content}</View>
       {isMainRoute ? (

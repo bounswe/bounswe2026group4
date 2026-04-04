@@ -60,7 +60,7 @@ describe('FilterPanel', () => {
     expect(onTimeToChange).not.toHaveBeenCalledWith('10000');
   });
 
-  it('allows a start year without an end year and blocks an earlier end year', () => {
+  it('allows entering an end year even before the start year and shows the range warning', () => {
     const onTimeFromChange = jest.fn();
     const onTimeToChange = jest.fn();
 
@@ -95,8 +95,22 @@ describe('FilterPanel', () => {
     fireEvent.changeText(screen.getByLabelText('End year'), '1800');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
 
-    expect(onTimeToChange).not.toHaveBeenCalledWith('1800');
+    expect(onTimeToChange).toHaveBeenCalledWith('1800');
     expect(onTimeToChange).toHaveBeenCalledWith('1950');
+
+    rerender(
+      <FilterPanel
+        location=""
+        timeFrom="1900"
+        timeTo="1800"
+        onLocationChange={jest.fn()}
+        onTimeFromChange={onTimeFromChange}
+        onTimeToChange={onTimeToChange}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Start year cannot be later than end year.')).toBeTruthy();
   });
 
   it('resets the filter form', () => {
