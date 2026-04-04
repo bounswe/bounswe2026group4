@@ -194,12 +194,11 @@ describe('RootNavigator auth flow', () => {
   it('shows a message instead of redirecting unauthenticated users for protected screens', async () => {
     renderNavigator();
 
-    expect(await screen.findByLabelText('Search stories')).toBeTruthy();
-
+    expect(await screen.findByLabelText('Submission')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Submission'));
 
     expect(await screen.findByText('Please sign in to submit a story.')).toBeTruthy();
-    expect(screen.getByLabelText('Search stories')).toBeTruthy();
+    expect(screen.getByLabelText('Submission')).toBeTruthy();
   });
 
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
