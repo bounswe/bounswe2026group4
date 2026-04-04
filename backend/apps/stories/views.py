@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from apps.interactions.models import Like, SavedStory
 from apps.stories.models import Story
 from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
-from apps.stories.services import get_story_feed, get_story_search
+from apps.stories.services import delete_story, get_story_feed, get_story_search
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
 
@@ -145,13 +145,16 @@ class StoryListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class StoryDetailView(generics.RetrieveUpdateAPIView):
+class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     # prefetch_related('media_items') avoids N+1 when StoryDetailSerializer renders the nested list
     queryset = Story.objects.select_related('user').prefetch_related('media_items')
     serializer_class = StoryDetailSerializer
-    http_method_names = ['get', 'patch']
+    http_method_names = ['get', 'patch', 'delete']
 
     def get_permissions(self):
-        if self.request.method == 'PATCH':
+        if self.request.method in ('PATCH', 'DELETE'):
             return [IsOwnerOrAdmin()]
         return [AllowAny()]
+
+    def perform_destroy(self, instance):
+        delete_story(instance)
