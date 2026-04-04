@@ -27,6 +27,7 @@ interface FilterPanelProps {
   onTimeFromChange: (value: string) => void;
   onTimeToChange: (value: string) => void;
   onClearAll: () => void;
+  onApply?: () => void;
 }
 
 export function FilterPanel({
@@ -37,6 +38,7 @@ export function FilterPanel({
   onTimeFromChange,
   onTimeToChange,
   onClearAll,
+  onApply,
 }: FilterPanelProps) {
   const { colors, spacing, typography } = useAppTheme();
   const parsedTimeFrom = timeFrom ? Number(timeFrom) : undefined;
@@ -55,10 +57,6 @@ export function FilterPanel({
       return;
     }
 
-    if (normalized && timeTo && Number(normalized) > Number(timeTo)) {
-      return;
-    }
-
     onTimeFromChange(normalized);
   };
 
@@ -66,10 +64,6 @@ export function FilterPanel({
     const normalized = normalizeYearInput(value);
 
     if (normalized === null) {
-      return;
-    }
-
-    if (normalized && timeFrom && Number(normalized) < Number(timeFrom)) {
       return;
     }
 
@@ -135,9 +129,26 @@ export function FilterPanel({
         </Text>
       ) : null}
 
-      <Pressable accessibilityRole="button" onPress={onClearAll}>
-        <Text style={{ color: colors.text, fontWeight: '700' }}>Reset filter form</Text>
-      </Pressable>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Pressable accessibilityRole="button" onPress={onClearAll}>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Reset filter form</Text>
+        </Pressable>
+        {onApply ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Apply filters"
+            onPress={onApply}
+            style={{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: 999,
+              backgroundColor: colors.primary,
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Apply</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }

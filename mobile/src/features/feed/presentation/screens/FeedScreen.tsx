@@ -20,6 +20,7 @@ interface FeedScreenProps {
   onOpenStory?: (storyId: string) => void;
   getFeed?: typeof storyService.getFeed;
   showSearchControls?: boolean;
+  searchScope?: 'feed' | 'map';
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
@@ -29,10 +30,12 @@ export function FeedScreen({
   onOpenStory,
   getFeed = storyService.getFeed,
   showSearchControls = true,
+  searchScope = 'feed',
 }: FeedScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
-  const { filters, isHydrated, setFilters } = useSearchFilters();
+  const { filters, refreshToken, isHydrated, setFilters } = useSearchFilters(searchScope);
   const debouncedQuery = useDebounce(filters.query, 350);
+  const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [state, setState] = useState(() => createInitialFeedUiState(initialFilters));
   const stateRef = useRef(state);
   const hasRequestedNextPage = useRef(false);
@@ -51,9 +54,21 @@ export function FeedScreen({
     setFilters(seedFilters);
   }, [filters, isHydrated, seedFilters, setFilters]);
 
+  useEffect(() => {
+    if (filters.query !== debouncedQuery) {
+      return;
+    }
+
+    setUseImmediateQuery(false);
+  }, [debouncedQuery, filters.query]);
+
+  useEffect(() => {
+    setUseImmediateQuery(true);
+  }, [refreshToken]);
+
   const activeFilters = useMemo<StoryFilters>(
-    () => toSearchParams({ ...filters, query: debouncedQuery }),
-    [debouncedQuery, filters],
+    () => toSearchParams({ ...filters, query: useImmediateQuery ? filters.query : debouncedQuery }),
+    [debouncedQuery, filters, useImmediateQuery],
   );
 
   const hasActiveFilters = Boolean(
@@ -155,7 +170,7 @@ export function FeedScreen({
         </Pressable>
       </View>
 
-      {showSearchControls ? <StorySearchControls helperText="Search by title or place." /> : null}
+      {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
     </View>
   );
 

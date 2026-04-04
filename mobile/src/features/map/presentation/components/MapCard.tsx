@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -32,6 +32,11 @@ export function MapCard({
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
   const selectedMarker = markers.find((marker) => marker.id === selectedMarkerId) ?? markers[0];
+  const [currentRegion, setCurrentRegion] = useState(region);
+  const mapContentKey = useMemo(
+    () => (markers.length ? markers.map((marker) => `${marker.id}:${marker.latitude}:${marker.longitude}`).join('|') : 'empty'),
+    [markers],
+  );
 
   return (
     <View
@@ -45,7 +50,8 @@ export function MapCard({
     >
       <View style={{ height: 420 }}>
         <MapView
-          initialRegion={region}
+          key={mapContentKey}
+          initialRegion={currentRegion}
           style={StyleSheet.absoluteFill}
           testID="story-map"
           accessibilityLabel="Interactive story map"
@@ -55,6 +61,7 @@ export function MapCard({
           scrollEnabled
           pitchEnabled
           rotateEnabled
+          onRegionChangeComplete={setCurrentRegion}
         >
           {markers.map((marker) => (
             <Marker
