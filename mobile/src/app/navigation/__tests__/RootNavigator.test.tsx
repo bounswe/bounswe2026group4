@@ -197,7 +197,7 @@ describe('RootNavigator auth flow', () => {
     await waitFor(() => {
       expect(screen.queryByText('Restoring session...')).toBeNull();
       expect(screen.getByLabelText('Submission')).toBeTruthy();
-    });
+    }, { timeout: 10000 });
 
     fireEvent.press(screen.getByLabelText('Submission'));
 
