@@ -281,13 +281,6 @@ export function RootNavigator() {
   const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
   const canGoBack = backStack.length > 0;
   const isMainRoute = currentRoute === ROUTES.FEED || currentRoute === ROUTES.MAP;
-  const resolvedRedirectTarget = useMemo<RouteSnapshot>(() => {
-    if (redirectTarget.route === ROUTES.AUTH) {
-      return { route: ROUTES.FEED };
-    }
-
-    return redirectTarget;
-  }, [redirectTarget]);
 
   const showAuthRequiredMessage = useCallback(
     (message = 'Please sign in to continue.') => {
@@ -433,25 +426,17 @@ export function RootNavigator() {
       const previousSnapshot = nextStack[nextStack.length - 1];
 
       if (
-        previousSnapshot?.route === resolvedRedirectTarget.route &&
-        previousSnapshot?.storyId === resolvedRedirectTarget.storyId &&
-        previousSnapshot?.userId === resolvedRedirectTarget.userId
+        previousSnapshot?.route === redirectTarget.route &&
+        previousSnapshot?.storyId === redirectTarget.storyId &&
+        previousSnapshot?.userId === redirectTarget.userId
       ) {
         nextStack.pop();
       }
 
       return nextStack;
     });
-    restoreSnapshot(resolvedRedirectTarget);
+    restoreSnapshot(redirectTarget);
   };
-
-  useEffect(() => {
-    if (!isAuthenticated || currentRoute !== ROUTES.AUTH) {
-      return;
-    }
-
-    restoreSnapshot(resolvedRedirectTarget);
-  }, [currentRoute, isAuthenticated, resolvedRedirectTarget, restoreSnapshot]);
 
   const handleLogout = async () => {
     await logout();
