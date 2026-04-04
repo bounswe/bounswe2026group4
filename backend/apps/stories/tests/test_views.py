@@ -515,3 +515,45 @@ class TestStoryFeedUserInteraction:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['results'][0]['user_has_liked'] is True
         assert response.data['results'][0]['user_has_saved'] is False
+
+
+# ── DELETE /stories/<pk>/ ─────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryDelete:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_owner_can_delete_own_story(self, client, user, story):
+        client.force_authenticate(user=user)
+        response = client.delete(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Story.objects.filter(pk=story.pk).exists()
+
+    def test_admin_can_delete_any_story(self, client, admin_user, story):
+        client.force_authenticate(user=admin_user)
+        response = client.delete(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Story.objects.filter(pk=story.pk).exists()
+
+    def test_other_user_cannot_delete_story(self, client, second_user, story):
+        client.force_authenticate(user=second_user)
+        response = client.delete(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert Story.objects.filter(pk=story.pk).exists()
+
+    def test_unauthenticated_cannot_delete_story(self, client, story):
+        response = client.delete(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert Story.objects.filter(pk=story.pk).exists()
+
+    def test_delete_nonexistent_story_returns_404(self, client, user):
+        client.force_authenticate(user=user)
+        response = client.delete(self._detail_url(99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_returns_no_body(self, client, user, story):
+        client.force_authenticate(user=user)
+        response = client.delete(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not response.data
