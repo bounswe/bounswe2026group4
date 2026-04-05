@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -13,6 +12,7 @@ import { Button } from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/Input';
 import { Loader } from '../../../../shared/ui/Loader';
 import { NotFoundPage } from '../../../../shared/ui/NotFoundPage';
+import { WebMapView } from '../../../../shared/components/WebMapView';
 import { createInitialStoryDetailUiState } from '../state/storiesUiState';
 import { loadStoryDetail } from '../state/storyDetailController';
 
@@ -136,31 +136,24 @@ function StoryMiniMap({ story }: { story: StoryEntity }) {
           overflow: 'hidden',
         }}
       >
-        <MapView
-          testID="story-location-map"
-          style={{ flex: 1 }}
-          liteMode
-          scrollEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          zoomEnabled={false}
-          toolbarEnabled={false}
-          initialRegion={{
+        <WebMapView
+          region={{
             latitude: story.location.latitude,
             longitude: story.location.longitude,
             latitudeDelta: 0.02,
             longitudeDelta: 0.02,
           }}
-        >
-          <Marker
-            coordinate={{
+          markers={[
+            {
+              id: story.id,
               latitude: story.location.latitude,
               longitude: story.location.longitude,
-            }}
-            title={story.location.name}
-            description={`${story.location.latitude.toFixed(4)}, ${story.location.longitude.toFixed(4)}`}
-          />
-        </MapView>
+              selected: true,
+              label: story.location.name,
+            },
+          ]}
+          interactive={false}
+        />
         <View
           pointerEvents="none"
           style={{
