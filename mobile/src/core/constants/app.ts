@@ -1,1 +1,1 @@
-export const APP_NAME = 'Local History Story Map';
+export const APP_NAME = 'StoryMap';

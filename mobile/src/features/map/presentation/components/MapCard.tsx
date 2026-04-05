@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
+import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
+import { WebMapView } from '../../../../shared/components/WebMapView';
 import { MapMarkerGroup } from '../../domain/entities';
 
 interface MapCardProps {
@@ -18,7 +19,6 @@ interface MapCardProps {
 }
 
 const PREVIEW_MAX_LENGTH = 140;
-
 export function MapCard({
   region,
   markers,
@@ -49,84 +49,21 @@ export function MapCard({
       }}
     >
       <View style={{ height: 420 }}>
-        <MapView
+        <WebMapView
           key={mapContentKey}
-          initialRegion={currentRegion}
-          style={StyleSheet.absoluteFill}
-          testID="story-map"
-          accessibilityLabel="Interactive story map"
-          showsCompass
-          showsScale
-          zoomEnabled
-          scrollEnabled
-          pitchEnabled
-          rotateEnabled
-          onRegionChangeComplete={setCurrentRegion}
-        >
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-              onPress={() => {
-                onSelectMarker(marker.id);
-                onMarkerPress?.();
-              }}
-              testID="story-marker"
-            >
-              <View
-                style={{
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <View
-                  style={{
-                    width: marker.isCluster ? 34 : 28,
-                    height: marker.isCluster ? 34 : 28,
-                    borderRadius: 999,
-                    borderWidth: 2,
-                    borderColor: '#FFFFFF',
-                    backgroundColor: marker.id === selectedMarkerId ? '#0A0A0A' : '#404040',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#000000',
-                    shadowOpacity: 0.22,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 4 },
-                    elevation: 6,
-                  }}
-                >
-                  {marker.isCluster ? (
-                    <Text style={{ color: '#FFFFFF', fontSize: typography.caption, fontWeight: '800' }}>
-                      {marker.count}
-                    </Text>
-                  ) : (
-                    <View
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 999,
-                        backgroundColor: '#FFFFFF',
-                      }}
-                    />
-                  )}
-                </View>
-                <View
-                  style={{
-                    marginTop: -3,
-                    width: 12,
-                    height: 12,
-                    backgroundColor: marker.id === selectedMarkerId ? '#0A0A0A' : '#404040',
-                    transform: [{ rotate: '45deg' }],
-                    borderBottomWidth: 2,
-                    borderRightWidth: 2,
-                    borderColor: '#FFFFFF',
-                  }}
-                />
-              </View>
-            </Marker>
-          ))}
-        </MapView>
+          region={currentRegion}
+          markers={markers.map((marker) => ({
+            id: marker.id,
+            latitude: marker.latitude,
+            longitude: marker.longitude,
+            selected: marker.id === selectedMarkerId,
+            label: marker.isCluster ? String(marker.count) : undefined,
+          }))}
+          onMarkerPress={(markerId) => {
+            onSelectMarker(markerId);
+            onMarkerPress?.();
+          }}
+        />
 
         {isLoading ? (
           <View

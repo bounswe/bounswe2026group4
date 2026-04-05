@@ -1,9 +1,18 @@
 {
   "expo": {
-    "name": "Local History Story Map",
+    "name": "StoryMap",
     "slug": "local-history-story-map",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic"
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icons/storymap-icon.png",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/storymap-icon.png",
+        "backgroundColor": "#111111"
+      },
+      "package": "com.bounswe2026group4.localhistorystorymap",
+      "versionCode": 1
+    }
   }
 }
