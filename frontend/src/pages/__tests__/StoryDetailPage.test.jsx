@@ -89,7 +89,6 @@ describe("StoryDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({ user: null });
-    vi.spyOn(window, "confirm").mockReturnValue(false);
   });
 
   it("shows loading skeleton while fetching", () => {
@@ -489,7 +488,6 @@ describe("StoryDetailPage", () => {
       const user = userEvent.setup();
       useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
       getStoryById.mockResolvedValue(makeStory({ user: 1 }));
-      window.confirm.mockReturnValue(false);
       renderPage();
 
       await waitFor(() => {
@@ -497,6 +495,12 @@ describe("StoryDetailPage", () => {
       });
 
       await user.click(screen.getByRole("button", { name: "Delete story" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
 
       expect(deleteStory).not.toHaveBeenCalled();
     });
@@ -506,7 +510,6 @@ describe("StoryDetailPage", () => {
       useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
       getStoryById.mockResolvedValue(makeStory({ user: 1 }));
       deleteStory.mockResolvedValue(undefined);
-      window.confirm.mockReturnValue(true);
       renderPage();
 
       await waitFor(() => {
@@ -516,7 +519,17 @@ describe("StoryDetailPage", () => {
       await user.click(screen.getByRole("button", { name: "Delete story" }));
 
       await waitFor(() => {
+        expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+
+      await waitFor(() => {
         expect(deleteStory).toHaveBeenCalledWith("1");
+      });
+
+      await waitFor(() => {
+        expect(mockToast.success).toHaveBeenCalledWith("Story deleted successfully");
       });
 
       await waitFor(() => {
@@ -529,7 +542,6 @@ describe("StoryDetailPage", () => {
       useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
       getStoryById.mockResolvedValue(makeStory({ user: 1 }));
       deleteStory.mockRejectedValue({ response: { data: { detail: "Permission denied" } } });
-      window.confirm.mockReturnValue(true);
       renderPage();
 
       await waitFor(() => {
@@ -537,6 +549,12 @@ describe("StoryDetailPage", () => {
       });
 
       await user.click(screen.getByRole("button", { name: "Delete story" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Delete" }));
 
       await waitFor(() => {
         expect(mockToast.error).toHaveBeenCalledWith("Permission denied");

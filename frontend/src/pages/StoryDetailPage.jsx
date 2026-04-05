@@ -5,6 +5,16 @@ import { MapPin, Calendar, ArrowLeft, MessageSquare, Trash2, Loader2 } from "luc
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/loading-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { getStoryById, deleteStory } from "@/services/storyService";
 import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,18 +66,20 @@ function StoryDetailPage() {
   const [commentCount, setCommentCount] = useState(0);
   const [userHasCommented, setUserHasCommented] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const canDelete = story && (user?.id === story.user || user?.role === "admin");
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this story? This action cannot be undone.")) return;
     setIsDeleting(true);
     try {
       await deleteStory(id);
       toast.success("Story deleted successfully");
-      navigate("/");
+      if (locationState?.from) navigate(locationState.from);
+      else navigate("/");
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Failed to delete story. Please try again.");
+    } finally {
       setIsDeleting(false);
     }
   };
@@ -153,20 +165,36 @@ function StoryDetailPage() {
                 {story.title}
               </h1>
               {canDelete && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  aria-label="Delete story"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  )}
-                </Button>
+                <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={isDeleting}
+                    aria-label="Delete story"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </Button>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete story?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this story? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive" onClick={handleDelete}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
 
