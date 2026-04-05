@@ -4,6 +4,10 @@
     "slug": "local-history-story-map",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic"
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.bounswe2026group4.localhistorystorymap",
+      "versionCode": 1
+    }
   }
 }

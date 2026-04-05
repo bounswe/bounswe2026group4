@@ -1,0 +1,77 @@
+name: Mobile APK
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    env:
+      EXPO_PUBLIC_API_BASE_URL: ${{ vars.EXPO_PUBLIC_API_BASE_URL }}
+      EXPO_PUBLIC_MAP_API_KEY: ${{ secrets.EXPO_PUBLIC_MAP_API_KEY }}
+      EXPO_PUBLIC_ENV: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create CI env file
+        run: |
+          cat <<EOF > .env
+          EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL:-https://164.90.177.21.sslip.io/api}
+          EXPO_PUBLIC_MAP_API_KEY=${EXPO_PUBLIC_MAP_API_KEY}
+          EXPO_PUBLIC_ENV=${EXPO_PUBLIC_ENV}
+          EOF
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug
+
+      - name: Prepare APK artifact
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk local-history-story-map.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-history-story-map-apk
+          path: mobile/local-history-story-map.apk
+          if-no-files-found: error
+
+      - name: Attach APK to GitHub release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mobile/local-history-story-map.apk
