@@ -20,7 +20,7 @@ function StoryDetailMap({ lat, lng }) {
     <MapContainer
       center={[lat, lng]}
       zoom={DEFAULT_ZOOM}
-      style={{ height: "200px", width: "100%" }}
+      style={{ height: "200px", width: "100%", zIndex: 0, position: "relative" }}
       className="rounded-md border"
     >
       <TileLayer

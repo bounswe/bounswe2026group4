@@ -3,11 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../api", () => ({
   default: {
     get: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
 import api from "../api";
-import { getStories, getMapStories } from "../storyService";
+import { getStories, getMapStories, deleteStory } from "../storyService";
 
 describe("storyService", () => {
   beforeEach(() => {
@@ -186,6 +187,22 @@ describe("storyService", () => {
       api.get.mockRejectedValue(new Error("Network error"));
 
       await expect(getMapStories()).rejects.toThrow("Network error");
+    });
+  });
+
+  describe("deleteStory", () => {
+    it("calls api.delete with correct URL", async () => {
+      api.delete.mockResolvedValue({});
+
+      await deleteStory(42);
+
+      expect(api.delete).toHaveBeenCalledWith("/stories/42/");
+    });
+
+    it("throws on API error", async () => {
+      api.delete.mockRejectedValue(new Error("Forbidden"));
+
+      await expect(deleteStory(42)).rejects.toThrow("Forbidden");
     });
   });
 });
