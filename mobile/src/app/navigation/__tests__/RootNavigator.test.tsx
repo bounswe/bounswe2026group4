@@ -213,6 +213,13 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
+  it('shows only the StoryMap brand in the main header', async () => {
+    renderNavigator();
+
+    expect(await screen.findByText('StoryMap')).toBeTruthy();
+    expect(screen.queryByText('Story map and feed')).toBeNull();
+  });
+
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
     renderNavigator();
 

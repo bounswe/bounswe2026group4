@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
+import { BackHandler, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
+import { MapPin } from 'lucide-react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth, AuthScreen } from '../../features/auth';
@@ -614,18 +615,11 @@ export function RootNavigator() {
           {canGoBack ? (
             <BackButton onPress={handleBack} />
           ) : (
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <Image
-                source={require('../../../assets/icons/storymap-icon.png')}
-                style={{ width: 34, height: 34, borderRadius: 10 }}
-                accessibilityIgnoresInvertColors
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800' }}>
-                  {APP_NAME}
-                </Text>
-                <Text style={{ color: colors.muted, fontSize: 13 }}>Story map and feed</Text>
-              </View>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 }}>
+              <MapPin color={colors.text} size={28} strokeWidth={2.25} />
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>
+                {APP_NAME}
+              </Text>
             </View>
           )}
           {isAuthenticated ? (
