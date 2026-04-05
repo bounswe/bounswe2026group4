@@ -1,7 +1,8 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import MapView, { MapPressEvent, Marker, Region } from 'react-native-maps';
+import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
+import { WebMapView } from '../../../../shared/components/WebMapView';
 
 interface StoryLocationPickerProps {
   latitude: number | null;
@@ -16,7 +17,6 @@ const DEFAULT_REGION: Region = {
   latitudeDelta: 0.18,
   longitudeDelta: 0.18,
 };
-
 export function StoryLocationPicker({
   latitude,
   longitude,
@@ -24,10 +24,6 @@ export function StoryLocationPicker({
   error,
 }: StoryLocationPickerProps) {
   const { colors, spacing, typography } = useAppTheme();
-
-  const handlePress = (event: MapPressEvent) => {
-    onChange(event.nativeEvent.coordinate);
-  };
 
   const selectedLocation =
     latitude != null && longitude != null
@@ -44,22 +40,32 @@ export function StoryLocationPicker({
           borderColor: error ? colors.danger : colors.border,
         }}
       >
-        <MapView
-          testID="story-location-map"
-          style={{ height: 220, width: '100%' }}
-          initialRegion={
-            selectedLocation
-              ? {
-                  ...selectedLocation,
-                  latitudeDelta: 0.025,
-                  longitudeDelta: 0.025,
-                }
-              : DEFAULT_REGION
-          }
-          onPress={handlePress}
-        >
-          {selectedLocation ? <Marker coordinate={selectedLocation} /> : null}
-        </MapView>
+        <View style={{ height: 220, width: '100%' }}>
+          <WebMapView
+            region={
+              selectedLocation
+                ? {
+                    ...selectedLocation,
+                    latitudeDelta: 0.025,
+                    longitudeDelta: 0.025,
+                  }
+                : DEFAULT_REGION
+            }
+            markers={
+              selectedLocation
+                ? [
+                    {
+                      id: 'selected-location',
+                      latitude: selectedLocation.latitude,
+                      longitude: selectedLocation.longitude,
+                      selected: true,
+                    },
+                  ]
+                : []
+            }
+            onMapPress={onChange}
+          />
+        </View>
       </View>
 
       <Text style={{ color: colors.muted, fontSize: typography.caption }}>

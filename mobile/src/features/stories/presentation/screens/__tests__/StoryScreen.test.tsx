@@ -1,21 +1,17 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StoryScreen } from '../StoryScreen';
 import { Session } from '../../../../../core/auth/session';
 import { StoryEntity } from '../../../domain/entities';
 import { interactionService } from '../../../../interactions/application/services';
 
-jest.mock('react-native-maps', () => {
+jest.mock('../../../../../shared/components/WebMapView', () => {
   const React = require('react');
   const { View } = require('react-native');
 
-  const MockMapView = ({ children, testID }: any) => <View testID={testID}>{children}</View>;
-  const MockMarker = () => <View testID="story-location-marker" />;
-
   return {
-    __esModule: true,
-    default: MockMapView,
-    Marker: MockMarker,
+    WebMapView: () => <View testID="story-location-map" />,
   };
 });
 
@@ -93,6 +89,24 @@ describe('StoryScreen', () => {
       email: 'guest@example.com',
       username: 'Guest',
       role: 'guest',
+    },
+  };
+
+  const ownerSession: Session = {
+    ...userSession,
+    user: {
+      ...userSession.user,
+      id: 22,
+      username: 'Aylin Demir',
+    },
+  };
+
+  const adminSession: Session = {
+    ...userSession,
+    role: 'admin',
+    user: {
+      ...userSession.user,
+      role: 'admin',
     },
   };
   it('renders loading state while fetching the story', () => {
@@ -334,8 +348,113 @@ describe('StoryScreen', () => {
 
     await waitFor(() => {
       expect(interactionService.deleteComment).toHaveBeenCalledWith('comment-own');
+    });
+
+    await waitFor(() => {
       expect(screen.queryByText('Delete this comment?')).toBeNull();
     });
+  });
+
+  it('shows the delete story action only to the owner or an admin', async () => {
+    const { rerender } = render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    await screen.findByText(baseStory.title);
+    expect(screen.queryByText('Delete story')).toBeNull();
+
+    rerender(
+      <StoryScreen
+        storyId="story-001"
+        session={ownerSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByText('Delete story')).toBeTruthy();
+
+    rerender(
+      <StoryScreen
+        storyId="story-001"
+        session={adminSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByText('Delete story')).toBeTruthy();
+  });
+
+  it('confirms and deletes the story for authorized users', async () => {
+    const deleteStory = jest.fn(async () => undefined);
+    const onStoryDeleted = jest.fn();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={ownerSession}
+        getStory={async () => baseStory}
+        deleteStory={deleteStory}
+        onStoryDeleted={onStoryDeleted}
+      />,
+    );
+
+    fireEvent.press(await screen.findByText('Delete story'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Delete story?',
+      'This action permanently removes the story and cannot be undone.',
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
+        expect.objectContaining({ text: 'Delete', style: 'destructive', onPress: expect.any(Function) }),
+      ]),
+    );
+
+    const buttons = alertSpy.mock.calls[0]?.[2];
+    const deleteButton = buttons?.find((button) => button.text === 'Delete');
+
+    await act(async () => {
+      deleteButton?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(deleteStory).toHaveBeenCalledWith('story-001');
+      expect(onStoryDeleted).toHaveBeenCalledTimes(1);
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('shows a meaningful error when story deletion fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={ownerSession}
+        getStory={async () => baseStory}
+        deleteStory={jest.fn(async () => {
+          throw new Error('Deletion failed on server');
+        })}
+      />,
+    );
+
+    fireEvent.press(await screen.findByText('Delete story'));
+
+    const buttons = alertSpy.mock.calls[0]?.[2];
+    const deleteButton = buttons?.find((button) => button.text === 'Delete');
+
+    await act(async () => {
+      deleteButton?.onPress?.();
+    });
+
+    expect(await screen.findByText('Deletion failed on server')).toBeTruthy();
+
+    alertSpy.mockRestore();
   });
 
   it('prompts unauthenticated users when they try to comment', async () => {

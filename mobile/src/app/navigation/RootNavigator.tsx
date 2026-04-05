@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
+import { MapPin } from 'lucide-react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth, AuthScreen } from '../../features/auth';
@@ -13,6 +14,7 @@ import { MapScreen } from '../../features/map';
 import { StoryScreen } from '../../features/stories';
 import { StorySearchControls } from '../../features/search/presentation/components/StorySearchControls';
 import { useToast } from '../../shared/hooks/useToast';
+import { APP_NAME } from '../../core/constants/app';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 interface RouteSnapshot {
@@ -533,6 +535,10 @@ export function RootNavigator() {
         session={user ? { role: user.role, user } : undefined}
         onRequestLogin={() => showAuthRequiredMessage('Please sign in to like stories and join the discussion.')}
         onGoBack={handleBack}
+        onStoryDeleted={() => {
+          toast.success('Story deleted.');
+          navigateToSnapshot({ route: ROUTES.FEED }, { resetStack: true, preserveCurrent: false });
+        }}
         onOpenContributorProfile={handleOpenUserProfile}
       />
     );
@@ -613,11 +619,11 @@ export function RootNavigator() {
           {canGoBack ? (
             <BackButton onPress={handleBack} />
           ) : (
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800' }}>
-                Local History
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 }}>
+              <MapPin color={colors.text} size={28} strokeWidth={2.25} />
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>
+                {APP_NAME}
               </Text>
-              <Text style={{ color: colors.muted, fontSize: 13 }}>Story map and feed</Text>
             </View>
           )}
           {isAuthenticated ? (

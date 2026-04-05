@@ -27,6 +27,10 @@ export class StoryRepositoryImpl implements StoryRepository {
     }
   }
 
+  async deleteStory(id: string): Promise<void> {
+    await storiesRemoteSource.deleteStory(id);
+  }
+
   async getStories(filters: StoryFilters = {}): Promise<StorySummaryEntity[]> {
     try {
       const response = await storiesRemoteSource.getStoriesFromApi(filters);

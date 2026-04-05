@@ -60,3 +60,21 @@ cd .\bounswe2026group4\mobile
 Copy-Item .env.example .env
 npm run start
 ```
+
+## APK build for MVP
+
+The repository now includes a GitHub Action at `.github/workflows/mobile-apk.yml` that builds an Android `.apk` when:
+
+- code is pushed to `main`
+- a GitHub release is published
+- the workflow is started manually from the Actions tab
+
+Before the workflow is used, set these GitHub repository settings:
+
+1. Add a repository variable named `EXPO_PUBLIC_API_BASE_URL`.
+   Example value:
+```text
+https://164.90.177.21.sslip.io/api
+```
+
+The workflow creates a standalone release APK, so it can be installed on a phone without Metro running. The built file is uploaded as a workflow artifact, and published GitHub releases also get the APK attached automatically.

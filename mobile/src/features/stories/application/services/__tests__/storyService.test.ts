@@ -23,6 +23,16 @@ describe('storyService', () => {
     getMapPinsSpy.mockRestore();
   });
 
+  it('delegates deleteStory to the repository', async () => {
+    const deleteStorySpy = jest.spyOn(StoryRepositoryImpl.prototype, 'deleteStory').mockResolvedValue(undefined);
+
+    await storyService.deleteStory('42');
+
+    expect(deleteStorySpy).toHaveBeenCalledWith('42');
+
+    deleteStorySpy.mockRestore();
+  });
+
   it('delegates getFeed to the feed service', async () => {
     const getFeedSpy = jest.spyOn(feedService, 'getFeed').mockResolvedValue({
       items: [],

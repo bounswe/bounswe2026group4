@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -13,6 +12,7 @@ import { Button } from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/Input';
 import { Loader } from '../../../../shared/ui/Loader';
 import { NotFoundPage } from '../../../../shared/ui/NotFoundPage';
+import { WebMapView } from '../../../../shared/components/WebMapView';
 import { createInitialStoryDetailUiState } from '../state/storiesUiState';
 import { loadStoryDetail } from '../state/storyDetailController';
 
@@ -21,8 +21,10 @@ interface StoryScreenProps {
   session?: Pick<Session, 'role' | 'user'>;
   onRequestLogin?: () => void;
   onGoBack?: () => void;
+  onStoryDeleted?: () => void;
   onOpenContributorProfile?: (userId: string) => void;
   getStory?: typeof storyService.getStory;
+  deleteStory?: typeof storyService.deleteStory;
 }
 
 function formatDate(dateString: string) {
@@ -136,31 +138,24 @@ function StoryMiniMap({ story }: { story: StoryEntity }) {
           overflow: 'hidden',
         }}
       >
-        <MapView
-          testID="story-location-map"
-          style={{ flex: 1 }}
-          liteMode
-          scrollEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          zoomEnabled={false}
-          toolbarEnabled={false}
-          initialRegion={{
+        <WebMapView
+          region={{
             latitude: story.location.latitude,
             longitude: story.location.longitude,
             latitudeDelta: 0.02,
             longitudeDelta: 0.02,
           }}
-        >
-          <Marker
-            coordinate={{
+          markers={[
+            {
+              id: story.id,
               latitude: story.location.latitude,
               longitude: story.location.longitude,
-            }}
-            title={story.location.name}
-            description={`${story.location.latitude.toFixed(4)}, ${story.location.longitude.toFixed(4)}`}
-          />
-        </MapView>
+              selected: true,
+              label: story.location.name,
+            },
+          ]}
+          interactive={false}
+        />
         <View
           pointerEvents="none"
           style={{
@@ -345,8 +340,10 @@ export function StoryScreen({
   session,
   onRequestLogin,
   onGoBack,
+  onStoryDeleted,
   onOpenContributorProfile,
   getStory = storyService.getStory,
+  deleteStory = storyService.deleteStory,
 }: StoryScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const [state, setState] = useState(() =>
@@ -357,7 +354,9 @@ export function StoryScreen({
   const [commentText, setCommentText] = useState('');
   const [commentError, setCommentError] = useState<string>();
   const [deleteError, setDeleteError] = useState<string>();
+  const [storyDeleteError, setStoryDeleteError] = useState<string>();
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
+  const [isStoryDeleting, setIsStoryDeleting] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [interactionError, setInteractionError] = useState<string>();
   const deletedCommentIdsRef = useRef<Set<string>>(new Set());
@@ -371,6 +370,7 @@ export function StoryScreen({
     setCommentText('');
     setCommentError(undefined);
     setDeleteError(undefined);
+    setStoryDeleteError(undefined);
     setConfirmDeleteId(undefined);
     setInteractionError(undefined);
     deletedCommentIdsRef.current = new Set();
@@ -542,6 +542,24 @@ export function StoryScreen({
     }
   };
 
+  const handleDeleteStory = async () => {
+    if (!state.story || isStoryDeleting) {
+      return;
+    }
+
+    setStoryDeleteError(undefined);
+    setIsStoryDeleting(true);
+
+    try {
+      await deleteStory(state.story.id);
+      onStoryDeleted?.();
+    } catch (error) {
+      setStoryDeleteError(extractInteractionError(error, 'Failed to delete story. Please try again.'));
+    } finally {
+      setIsStoryDeleting(false);
+    }
+  };
+
   if (state.isLoading) {
     return <Loader fullScreen message="Loading story..." />;
   }
@@ -568,6 +586,28 @@ export function StoryScreen({
   }
 
   const story = state.story;
+  const isStoryOwner = session?.user?.id !== undefined && String(session.user.id) === story.contributorUserId;
+  const canDeleteStory = session?.role === roles.admin || isStoryOwner;
+
+  const promptDeleteStory = () => {
+    if (!canDeleteStory || isStoryDeleting) {
+      return;
+    }
+
+    Alert.alert('Delete story?', 'This action permanently removes the story and cannot be undone.', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void handleDeleteStory();
+        },
+      },
+    ]);
+  };
 
   return (
     <ScrollView
@@ -579,6 +619,20 @@ export function StoryScreen({
       <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
         {story.title}
       </Text>
+      {canDeleteStory ? (
+        <View style={{ marginTop: spacing.md, alignItems: 'flex-start' }}>
+          <Button
+            onPress={promptDeleteStory}
+            disabled={isStoryDeleting}
+            style={{ backgroundColor: colors.danger }}
+          >
+            {isStoryDeleting ? 'Deleting story...' : 'Delete story'}
+          </Button>
+        </View>
+      ) : null}
+      {storyDeleteError ? (
+        <Text style={{ marginTop: spacing.sm, color: colors.danger }}>{storyDeleteError}</Text>
+      ) : null}
 
       <View
         style={{
