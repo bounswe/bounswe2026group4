@@ -10,6 +10,9 @@ export const storyService = {
   async getStory(id: string): Promise<StoryEntity | null> {
     return repository.getStory(id);
   },
+  async deleteStory(id: string): Promise<void> {
+    return repository.deleteStory(id);
+  },
   async getStories(filters?: StoryFilters): Promise<StorySummaryEntity[]> {
     return repository.getStories(filters);
   },

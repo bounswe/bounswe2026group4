@@ -9,6 +9,7 @@ export interface StoryFilters {
 
 export interface StoryRepository {
   getStory(id: string): Promise<StoryEntity | null>;
+  deleteStory(id: string): Promise<void>;
   getStories(filters?: StoryFilters): Promise<StorySummaryEntity[]>;
   getMapPins(filters?: StoryFilters): Promise<StoryMapPin[]>;
 }

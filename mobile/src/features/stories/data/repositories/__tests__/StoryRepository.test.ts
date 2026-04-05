@@ -55,4 +55,13 @@ describe('StoryRepositoryImpl', () => {
 
     await expect(repository.getStory('404')).resolves.toBeNull();
   });
+
+  it('deletes a story through the remote source', async () => {
+    const deleteStorySpy = jest.spyOn(storiesRemoteSource, 'deleteStory').mockResolvedValue(undefined);
+
+    const repository = new StoryRepositoryImpl();
+    await repository.deleteStory('42');
+
+    expect(deleteStorySpy).toHaveBeenCalledWith('42');
+  });
 });

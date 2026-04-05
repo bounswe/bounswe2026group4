@@ -33,4 +33,4 @@ jest.mock('react-native-webview', () => {
     WebView: MockWebView,
     default: MockWebView,
   };
-});
+}, { virtual: true });
