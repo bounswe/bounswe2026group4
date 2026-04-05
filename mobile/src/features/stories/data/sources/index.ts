@@ -24,6 +24,10 @@ export const storiesRemoteSource = {
     return (await apiClient.get<{ results?: unknown[] }>(`/stories/${id}/comments/`))?.results ?? [];
   },
 
+  async deleteStory(id: string) {
+    await apiClient.delete(`/stories/${id}/`);
+  },
+
   async getStories(filters: StoryFilters = {}) {
     return storiesLocalSource.getStories(filters);
   },

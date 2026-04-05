@@ -535,6 +535,10 @@ export function RootNavigator() {
         session={user ? { role: user.role, user } : undefined}
         onRequestLogin={() => showAuthRequiredMessage('Please sign in to like stories and join the discussion.')}
         onGoBack={handleBack}
+        onStoryDeleted={() => {
+          toast.success('Story deleted.');
+          navigateToSnapshot({ route: ROUTES.FEED }, { resetStack: true, preserveCurrent: false });
+        }}
         onOpenContributorProfile={handleOpenUserProfile}
       />
     );
