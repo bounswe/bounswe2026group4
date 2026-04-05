@@ -5,17 +5,12 @@ import { Session } from '../../../../../core/auth/session';
 import { StoryEntity } from '../../../domain/entities';
 import { interactionService } from '../../../../interactions/application/services';
 
-jest.mock('react-native-maps', () => {
+jest.mock('../../../../../shared/components/WebMapView', () => {
   const React = require('react');
   const { View } = require('react-native');
 
-  const MockMapView = ({ children, testID }: any) => <View testID={testID}>{children}</View>;
-  const MockMarker = () => <View testID="story-location-marker" />;
-
   return {
-    __esModule: true,
-    default: MockMapView,
-    Marker: MockMarker,
+    WebMapView: () => <View testID="story-location-map" />,
   };
 });
 
@@ -334,6 +329,9 @@ describe('StoryScreen', () => {
 
     await waitFor(() => {
       expect(interactionService.deleteComment).toHaveBeenCalledWith('comment-own');
+    });
+
+    await waitFor(() => {
       expect(screen.queryByText('Delete this comment?')).toBeNull();
     });
   });

@@ -5,26 +5,24 @@ import { MapMarkerGroup } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
 import { storage } from '../../../../../core/storage/storage';
 
-jest.mock('react-native-maps', () => {
+jest.mock('../../../../../shared/components/WebMapView', () => {
   const React = require('react');
   const { View, Pressable } = require('react-native');
 
-  const MockMapView = ({ children, testID, accessibilityLabel }: any) => (
-    <View testID={testID} accessibilityLabel={accessibilityLabel}>
-      {children}
-    </View>
-  );
-
-  const MockMarker = ({ children, onPress, testID }: any) => (
-    <Pressable onPress={onPress} testID={testID}>
-      {children}
-    </Pressable>
-  );
-
   return {
-    __esModule: true,
-    default: MockMapView,
-    Marker: MockMarker,
+    WebMapView: ({
+      markers = [],
+      onMarkerPress,
+    }: {
+      markers?: Array<{ id: string }>;
+      onMarkerPress?: (markerId: string) => void;
+    }) => (
+      <View testID="story-map" accessibilityLabel="Interactive story map">
+        {markers.map((marker) => (
+          <Pressable key={marker.id} onPress={() => onMarkerPress?.(marker.id)} testID="story-marker" />
+        ))}
+      </View>
+    ),
   };
 });
 

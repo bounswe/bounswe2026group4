@@ -7,6 +7,26 @@ import { navigationRef } from '../../../../../app/navigation/navigationRef';
 import { submissionsService } from '../../../application/services';
 import { SubmissionScreen } from '../SubmissionScreen';
 
+jest.mock('../../../../../shared/components/WebMapView', () => {
+  const React = require('react');
+  const { Pressable } = require('react-native');
+
+  return {
+    WebMapView: ({ onMapPress }: { onMapPress?: (coords: { latitude: number; longitude: number }) => void }) => (
+      <Pressable
+        testID="story-location-map"
+        onPress={(event: { nativeEvent?: { coordinate?: { latitude: number; longitude: number } } }) => {
+          const coordinate = event.nativeEvent?.coordinate;
+
+          if (coordinate) {
+            onMapPress?.(coordinate);
+          }
+        }}
+      />
+    ),
+  };
+});
+
 jest.mock('../../../application/services', () => ({
   submissionsService: {
     createStory: jest.fn(),
