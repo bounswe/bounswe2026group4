@@ -8,6 +8,16 @@ import StoryDetailPage from "../StoryDetailPage";
 
 vi.mock("@/services/storyService", () => ({
   getStoryById: vi.fn(),
+  deleteStory: vi.fn(),
+}));
+
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: vi.fn(() => ({ user: null })),
+}));
+
+const mockToast = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
+vi.mock("@/hooks/useToast", () => ({
+  useToast: vi.fn(() => ({ toast: mockToast, dismiss: vi.fn() })),
 }));
 
 vi.mock("@/components/StoryDetailMap/StoryDetailMap", () => ({
@@ -39,7 +49,8 @@ vi.mock("@/components/Interactions/CommentSection", () => ({
   default: MockCommentSection,
 }));
 
-import { getStoryById } from "@/services/storyService";
+import { getStoryById, deleteStory } from "@/services/storyService";
+import { useAuth } from "@/hooks/useAuth";
 
 function makeStory(overrides = {}) {
   return {
@@ -77,6 +88,8 @@ function renderPage(id = "1", locationState = undefined) {
 describe("StoryDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useAuth.mockReturnValue({ user: null });
+    vi.spyOn(window, "confirm").mockReturnValue(false);
   });
 
   it("shows loading skeleton while fetching", () => {
@@ -421,5 +434,113 @@ describe("StoryDetailPage", () => {
     await user.click(screen.getByRole("button", { name: /stories/i }));
 
     expect(screen.getByText("Feed Page")).toBeInTheDocument();
+  });
+
+  describe("delete story", () => {
+    it("does not show delete button when user is not authenticated", async () => {
+      useAuth.mockReturnValue({ user: null });
+      getStoryById.mockResolvedValue(makeStory());
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole("button", { name: "Delete story" })).not.toBeInTheDocument();
+    });
+
+    it("does not show delete button when user is not the owner or admin", async () => {
+      useAuth.mockReturnValue({ user: { id: 999, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole("button", { name: "Delete story" })).not.toBeInTheDocument();
+    });
+
+    it("shows delete button when user is the story owner", async () => {
+      useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("button", { name: "Delete story" })).toBeInTheDocument();
+    });
+
+    it("shows delete button when user is admin", async () => {
+      useAuth.mockReturnValue({ user: { id: 999, role: "admin" } });
+      getStoryById.mockResolvedValue(makeStory());
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("button", { name: "Delete story" })).toBeInTheDocument();
+    });
+
+    it("does not delete when confirmation is cancelled", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      window.confirm.mockReturnValue(false);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Delete story" }));
+
+      expect(deleteStory).not.toHaveBeenCalled();
+    });
+
+    it("deletes story and navigates to feed on success", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      deleteStory.mockResolvedValue(undefined);
+      window.confirm.mockReturnValue(true);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Delete story" }));
+
+      await waitFor(() => {
+        expect(deleteStory).toHaveBeenCalledWith("1");
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("Feed Page")).toBeInTheDocument();
+      });
+    });
+
+    it("shows error toast on delete failure", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      deleteStory.mockRejectedValue({ response: { data: { detail: "Permission denied" } } });
+      window.confirm.mockReturnValue(true);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: "Delete story" }));
+
+      await waitFor(() => {
+        expect(mockToast.error).toHaveBeenCalledWith("Permission denied");
+      });
+    });
   });
 });
