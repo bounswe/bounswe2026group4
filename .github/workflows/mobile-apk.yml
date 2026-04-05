@@ -22,7 +22,6 @@ jobs:
 
     env:
       EXPO_PUBLIC_API_BASE_URL: ${{ vars.EXPO_PUBLIC_API_BASE_URL }}
-      EXPO_PUBLIC_MAP_API_KEY: ${{ secrets.EXPO_PUBLIC_MAP_API_KEY }}
       EXPO_PUBLIC_ENV: production
 
     steps:
@@ -49,19 +48,20 @@ jobs:
         run: |
           cat <<EOF > .env
           EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL:-https://164.90.177.21.sslip.io/api}
-          EXPO_PUBLIC_MAP_API_KEY=${EXPO_PUBLIC_MAP_API_KEY}
           EXPO_PUBLIC_ENV=${EXPO_PUBLIC_ENV}
           EOF
 
       - name: Generate native Android project
-        run: npx expo prebuild --platform android --non-interactive
+        env:
+          CI: "1"
+        run: npx expo prebuild --platform android
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: mobile/android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleRelease
 
       - name: Prepare APK artifact
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk local-history-story-map.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk local-history-story-map.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

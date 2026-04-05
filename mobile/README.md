@@ -77,6 +77,4 @@ Before the workflow is used, set these GitHub repository settings:
 https://164.90.177.21.sslip.io/api
 ```
 
-2. Add a repository secret named `EXPO_PUBLIC_MAP_API_KEY` if Google Maps is needed in the APK build.
-
-The workflow currently creates a debug APK, which is suitable for MVP distribution and testing. The built file is uploaded as a workflow artifact, and release builds also attach the APK to the GitHub release automatically.
+The workflow creates a standalone release APK, so it can be installed on a phone without Metro running. The built file is uploaded as a workflow artifact, and published GitHub releases also get the APK attached automatically.
