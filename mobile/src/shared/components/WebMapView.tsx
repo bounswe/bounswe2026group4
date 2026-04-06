@@ -91,7 +91,7 @@ const mapHtml = ({
         style: 'https://tiles.openfreemap.org/styles/liberty',
         center: [region.longitude, region.latitude],
         zoom,
-        attributionControl: true,
+        attributionControl: false,
         dragPan: interactive,
         scrollZoom: interactive,
         doubleClickZoom: interactive,
@@ -100,8 +100,6 @@ const mapHtml = ({
         pitchWithRotate: false,
         keyboard: false,
       });
-
-      map.addControl(new maplibregl.AttributionControl({ compact: true }));
 
       markers.forEach((marker) => {
         const element = document.createElement('div');
