@@ -109,32 +109,25 @@ Scan the QR code with the [Expo Go](https://expo.dev/go) app on your device.
 
 ### Build an APK
 
-Produces a standalone `.apk` file that can be installed directly on any Android device.
+APK builds run automatically via GitHub Actions — no Expo account required.
 
-**One-time setup**
+**Automatic build (recommended)**
 
-```bash
-npm install -g eas-cli
-eas login                # log in to your Expo account (expo.dev)
-cd mobile
-eas init                 # links the project to your Expo account
-eas build:configure      # creates eas.json
-```
+Every merge to `main` triggers the `Mobile APK` workflow which builds the APK and uploads it as a GitHub Actions artifact. To download:
 
-When `eas build:configure` runs, select **Android** and choose the **APK** format (not AAB) so the file can be installed without the Play Store. This creates `eas.json` — commit it to the repo.
+1. Go to the [Actions tab](https://github.com/bounswe/bounswe2026group4/actions/workflows/mobile-apk.yml)
+2. Open the latest successful run
+3. Download `local-history-story-map-apk` from the Artifacts section
 
-**Build**
+When a GitHub Release is published, the APK is also attached to it directly.
 
-```bash
-cd mobile
-eas build -p android --profile preview
-```
+**Manual trigger**
 
-EAS builds on their cloud servers (~10 min). When complete, you get a download link for the `.apk` file.
+You can also trigger a build manually from the Actions tab without merging — useful for testing a branch. Click `Mobile APK` → `Run workflow`.
 
 **Install on device**
 
-1. Open the download link on the Android device
+1. Download the `.apk` file to an Android device
 2. Allow "Install from unknown sources" when prompted
 3. Install and open
 
