@@ -91,7 +91,7 @@ const mapHtml = ({
         style: 'https://tiles.openfreemap.org/styles/liberty',
         center: [region.longitude, region.latitude],
         zoom,
-        attributionControl: true,
+        attributionControl: false,
         dragPan: interactive,
         scrollZoom: interactive,
         doubleClickZoom: interactive,

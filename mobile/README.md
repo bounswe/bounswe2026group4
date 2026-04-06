@@ -61,6 +61,83 @@ Copy-Item .env.example .env
 npm run start
 ```
 
+## Local Android APK build
+
+Use this flow if you want to build an Android APK on your own machine instead of using GitHub Actions.
+
+### Requirements
+
+- Android Studio installed
+- Android SDK and platform tools installed
+- A JDK available through Android Studio (`jbr`) or `JAVA_HOME`
+
+### Generate native Android files
+
+```bash
+cd mobile
+npx expo prebuild --platform android
+```
+
+This creates the `mobile/android` directory. If you only want to test with Expo Go, you do not need this step.
+
+### Build a debug APK
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+Output:
+
+```text
+mobile/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Build a release APK
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+
+Output:
+
+```text
+mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+## Install APK on a phone or emulator
+
+If `adb` is available in your PATH:
+
+```bash
+adb install -r path/to/app-release.apk
+```
+
+If `adb` is not in PATH on Windows, use the full platform-tools path:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r ".\android\app\build\outputs\apk\release\app-release.apk"
+```
+
+To uninstall an existing app first:
+
+```bash
+adb uninstall <package.name>
+```
+
+Current Android package name:
+
+```text
+com.bounswe2026group4.localhistorystorymap
+```
+
+## Notes
+
+- Restart Expo after every `.env` change
+- If Expo Go cannot reach your backend, make sure the phone and backend are reachable on the same network
+- Local APK builds can be sensitive to Windows path, OneDrive, and SDK/JDK configuration issues; GitHub Actions remains the most stable release build path
+
 ## APK build for MVP
 
 The repository now includes a GitHub Action at `.github/workflows/mobile-apk.yml` that builds an Android `.apk` when:

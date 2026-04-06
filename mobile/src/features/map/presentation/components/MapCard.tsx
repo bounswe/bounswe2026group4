@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -37,6 +37,20 @@ export function MapCard({
     () => (markers.length ? markers.map((marker) => `${marker.id}:${marker.latitude}:${marker.longitude}`).join('|') : 'empty'),
     [markers],
   );
+
+  useEffect(() => {
+    if (!selectedMarker) {
+      setCurrentRegion(region);
+      return;
+    }
+
+    setCurrentRegion((current) => ({
+      latitude: selectedMarker.latitude,
+      longitude: selectedMarker.longitude,
+      latitudeDelta: current.latitudeDelta,
+      longitudeDelta: current.longitudeDelta,
+    }));
+  }, [region, selectedMarker]);
 
   return (
     <View
