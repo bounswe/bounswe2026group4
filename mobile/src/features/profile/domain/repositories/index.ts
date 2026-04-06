@@ -1,3 +1,7 @@
+import { ProfileEntity, UpdateProfileInput } from '../entities';
+
 export interface ProfileRepository {
-  placeholder(): Promise<void>;
+  getCurrentProfile(): Promise<ProfileEntity>;
+  getPublicProfile(userId: string): Promise<ProfileEntity>;
+  updateCurrentProfile(input: UpdateProfileInput): Promise<ProfileEntity>;
 }

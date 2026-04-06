@@ -7,6 +7,7 @@ interface ButtonProps extends PropsWithChildren {
   disabled?: boolean;
   fullWidth?: boolean;
   style?: ViewStyle;
+  variant?: 'primary' | 'outline' | 'ghost';
 }
 
 export function Button({
@@ -15,26 +16,37 @@ export function Button({
   disabled = false,
   fullWidth = false,
   style,
+  variant = 'primary',
 }: ButtonProps) {
   const { colors, spacing } = useAppTheme();
+  const isPrimary = variant === 'primary';
+  const isOutline = variant === 'outline';
 
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
-      style={{
+      style={({ pressed }) => ({
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.md - 2,
         borderRadius: 12,
-        backgroundColor: disabled ? colors.border : colors.primary,
+        backgroundColor: isPrimary ? (disabled ? colors.border : colors.primary) : colors.background,
+        borderWidth: isPrimary ? 0 : 1,
+        borderColor: colors.border,
         opacity: disabled ? 0.7 : 1,
         alignItems: 'center',
         justifyContent: 'center',
         width: fullWidth ? '100%' : undefined,
+        shadowColor: '#000000',
+        shadowOpacity: isPrimary ? 0.08 : 0,
+        shadowRadius: isPrimary ? 10 : 0,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: isPrimary ? 2 : 0,
+        ...(pressed && !disabled ? { opacity: 0.85 } : null),
         ...(style ?? {}),
-      }}
+      })}
     >
-      <Text style={{ color: colors.background, fontWeight: '700' }}>
+      <Text style={{ color: isPrimary ? colors.background : isOutline ? colors.text : colors.muted, fontWeight: '700' }}>
         {children ?? 'Button'}
       </Text>
     </Pressable>

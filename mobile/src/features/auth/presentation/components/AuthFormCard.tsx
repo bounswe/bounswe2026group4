@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { RefObject, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { TextInput } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/Input';
@@ -36,6 +37,7 @@ interface AuthFormCardProps {
   onConfirmPasswordChange: (value: string) => void;
   onSubmit: () => void;
   onToggleMode: () => void;
+  passwordInputRef?: RefObject<TextInput | null>;
 }
 
 export function AuthFormCard({
@@ -55,9 +57,12 @@ export function AuthFormCard({
   onConfirmPasswordChange,
   onSubmit,
   onToggleMode,
+  passwordInputRef,
 }: AuthFormCardProps) {
   const { colors, spacing, typography } = useAppTheme();
   const isRegister = mode === 'register';
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
   return (
     <View
@@ -70,17 +75,6 @@ export function AuthFormCard({
         gap: spacing.md,
       }}
     >
-      <View style={{ gap: spacing.xs }}>
-        <Text style={{ fontSize: typography.subtitle, fontWeight: '700', color: colors.text }}>
-          {isRegister ? 'Create account' : 'Sign in'}
-        </Text>
-        <Text style={{ fontSize: typography.body, color: colors.muted }}>
-          {isRegister
-            ? 'Create your account with the same fields and validation rules used on the web app.'
-            : 'Use your backend account email and password to start an authenticated session.'}
-        </Text>
-      </View>
-
       {successMessage ? (
         <View
           style={{
@@ -123,6 +117,10 @@ export function AuthFormCard({
           autoComplete="email"
           accessibilityLabel="Email address"
           editable={!isLoading}
+          returnKeyType="next"
+          blurOnSubmit={false}
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordInputRef?.current?.focus()}
         />
         {fieldErrors.email ? <Text style={{ color: colors.danger }}>{fieldErrors.email}</Text> : null}
       </View>
@@ -130,14 +128,21 @@ export function AuthFormCard({
       <View style={{ gap: spacing.sm }}>
         <Text style={{ color: colors.text, fontWeight: '600' }}>Password</Text>
         <Input
+          ref={passwordInputRef}
           value={password}
           onChangeText={onPasswordChange}
           placeholder={isRegister ? 'Create a password' : 'Enter your password'}
-          secureTextEntry
+          secureTextEntry={!isPasswordVisible}
           textContentType="password"
           autoComplete={isRegister ? 'new-password' : 'password'}
           accessibilityLabel="Password"
           editable={!isLoading}
+          returnKeyType={isRegister ? 'next' : 'done'}
+          submitBehavior={isRegister ? 'submit' : 'blurAndSubmit'}
+          onSubmitEditing={!isRegister ? onSubmit : undefined}
+          trailingActionLabel={isPasswordVisible ? 'Hide' : 'Show'}
+          trailingActionAccessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
+          onTrailingActionPress={() => setIsPasswordVisible((current) => !current)}
         />
         {fieldErrors.password ? <Text style={{ color: colors.danger }}>{fieldErrors.password}</Text> : null}
       </View>
@@ -150,11 +155,16 @@ export function AuthFormCard({
               value={confirmPassword}
               onChangeText={onConfirmPasswordChange}
               placeholder="Repeat your password"
-              secureTextEntry
+              secureTextEntry={!isConfirmPasswordVisible}
               textContentType="password"
               autoComplete="new-password"
               accessibilityLabel="Confirm password"
               editable={!isLoading}
+              trailingActionLabel={isConfirmPasswordVisible ? 'Hide' : 'Show'}
+              trailingActionAccessibilityLabel={
+                isConfirmPasswordVisible ? 'Hide confirm password' : 'Show confirm password'
+              }
+              onTrailingActionPress={() => setIsConfirmPasswordVisible((current) => !current)}
             />
             {fieldErrors.confirmPassword ? (
               <Text style={{ color: colors.danger }}>{fieldErrors.confirmPassword}</Text>

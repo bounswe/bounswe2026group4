@@ -1,8 +1,9 @@
-import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
+import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
+import { WebMapView } from '../../../../shared/components/WebMapView';
 import { MapMarkerGroup } from '../../domain/entities';
 
 interface MapCardProps {
@@ -13,10 +14,11 @@ interface MapCardProps {
   error?: string;
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
+  onMarkerPress?: () => void;
+  onPreviewLayout?: (event: LayoutChangeEvent) => void;
 }
 
 const PREVIEW_MAX_LENGTH = 140;
-
 export function MapCard({
   region,
   markers,
@@ -25,9 +27,16 @@ export function MapCard({
   error,
   onSelectMarker,
   onOpenStory,
+  onMarkerPress,
+  onPreviewLayout,
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
   const selectedMarker = markers.find((marker) => marker.id === selectedMarkerId) ?? markers[0];
+  const [currentRegion, setCurrentRegion] = useState(region);
+  const mapContentKey = useMemo(
+    () => (markers.length ? markers.map((marker) => `${marker.id}:${marker.latitude}:${marker.longitude}`).join('|') : 'empty'),
+    [markers],
+  );
 
   return (
     <View
@@ -40,79 +49,21 @@ export function MapCard({
       }}
     >
       <View style={{ height: 420 }}>
-        <MapView
-          initialRegion={region}
-          style={StyleSheet.absoluteFill}
-          testID="story-map"
-          accessibilityLabel="Interactive story map"
-          showsCompass
-          showsScale
-          zoomEnabled
-          scrollEnabled
-          pitchEnabled
-          rotateEnabled
-        >
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-              onPress={() => onSelectMarker(marker.id)}
-              testID="story-marker"
-            >
-              <View
-                style={{
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <View
-                  style={{
-                    width: marker.isCluster ? 34 : 28,
-                    height: marker.isCluster ? 34 : 28,
-                    borderRadius: 999,
-                    borderWidth: 2,
-                    borderColor: '#FFFFFF',
-                    backgroundColor: marker.id === selectedMarkerId ? '#1D4ED8' : '#2E7AF0',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#000000',
-                    shadowOpacity: 0.22,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 4 },
-                    elevation: 6,
-                  }}
-                >
-                  {marker.isCluster ? (
-                    <Text style={{ color: '#FFFFFF', fontSize: typography.caption, fontWeight: '800' }}>
-                      {marker.count}
-                    </Text>
-                  ) : (
-                    <View
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 999,
-                        backgroundColor: '#FFFFFF',
-                      }}
-                    />
-                  )}
-                </View>
-                <View
-                  style={{
-                    marginTop: -3,
-                    width: 12,
-                    height: 12,
-                    backgroundColor: marker.id === selectedMarkerId ? '#1D4ED8' : '#2E7AF0',
-                    transform: [{ rotate: '45deg' }],
-                    borderBottomWidth: 2,
-                    borderRightWidth: 2,
-                    borderColor: '#FFFFFF',
-                  }}
-                />
-              </View>
-            </Marker>
-          ))}
-        </MapView>
+        <WebMapView
+          key={mapContentKey}
+          region={currentRegion}
+          markers={markers.map((marker) => ({
+            id: marker.id,
+            latitude: marker.latitude,
+            longitude: marker.longitude,
+            selected: marker.id === selectedMarkerId,
+            label: marker.isCluster ? String(marker.count) : undefined,
+          }))}
+          onMarkerPress={(markerId) => {
+            onSelectMarker(markerId);
+            onMarkerPress?.();
+          }}
+        />
 
         {isLoading ? (
           <View
@@ -154,7 +105,7 @@ export function MapCard({
         ) : null}
       </View>
 
-      <View style={{ padding: spacing.lg, gap: spacing.md }}>
+      <View testID="story-preview-panel" style={{ padding: spacing.lg, gap: spacing.md }} onLayout={onPreviewLayout}>
         <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
           {selectedMarker?.isCluster ? `${selectedMarker.count} nearby stories` : 'Story preview'}
         </Text>
@@ -162,7 +113,13 @@ export function MapCard({
         {!selectedMarker ? (
           <Text style={{ color: colors.muted }}>No stories match the current filters.</Text>
         ) : selectedMarker.isCluster ? (
-          <ScrollView style={{ maxHeight: 200 }} contentContainerStyle={{ gap: spacing.sm }} testID="cluster-preview-list">
+          <ScrollView
+            style={{ maxHeight: 240 }}
+            contentContainerStyle={{ gap: spacing.sm }}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+            testID="cluster-preview-list"
+          >
             {selectedMarker.stories.map((story) => (
               <Pressable
                 key={story.id}

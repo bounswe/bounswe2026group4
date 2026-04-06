@@ -2,27 +2,27 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { MapScreen } from '../MapScreen';
 import { MapMarkerGroup } from '../../../domain/entities';
+import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
+import { storage } from '../../../../../core/storage/storage';
 
-jest.mock('react-native-maps', () => {
+jest.mock('../../../../../shared/components/WebMapView', () => {
   const React = require('react');
   const { View, Pressable } = require('react-native');
 
-  const MockMapView = ({ children, testID, accessibilityLabel }: any) => (
-    <View testID={testID} accessibilityLabel={accessibilityLabel}>
-      {children}
-    </View>
-  );
-
-  const MockMarker = ({ children, onPress, testID }: any) => (
-    <Pressable onPress={onPress} testID={testID}>
-      {children}
-    </Pressable>
-  );
-
   return {
-    __esModule: true,
-    default: MockMapView,
-    Marker: MockMarker,
+    WebMapView: ({
+      markers = [],
+      onMarkerPress,
+    }: {
+      markers?: Array<{ id: string }>;
+      onMarkerPress?: (markerId: string) => void;
+    }) => (
+      <View testID="story-map" accessibilityLabel="Interactive story map">
+        {markers.map((marker) => (
+          <Pressable key={marker.id} onPress={() => onMarkerPress?.(marker.id)} testID="story-marker" />
+        ))}
+      </View>
+    ),
   };
 });
 
@@ -75,18 +75,28 @@ const markerGroups: MapMarkerGroup[] = [
 ];
 
 describe('MapScreen', () => {
+  beforeEach(async () => {
+    await storage.clear();
+  });
+
+  function renderScreen(ui: React.ReactElement) {
+    return render(<SearchFiltersProvider>{ui}</SearchFiltersProvider>);
+  }
+
   it('renders the map and fetched markers', async () => {
-    render(<MapScreen getMarkerGroups={async () => markerGroups} />);
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
     expect(screen.getByLabelText('Loading map pins')).toBeTruthy();
     expect(await screen.findByTestId('story-map')).toBeTruthy();
-    expect(screen.getAllByTestId('story-marker')).toHaveLength(2);
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker')).toHaveLength(2);
+    });
   });
 
   it('shows the selected marker preview and navigates to story detail', async () => {
     const onOpenStory = jest.fn();
 
-    render(<MapScreen getMarkerGroups={async () => markerGroups} onOpenStory={onOpenStory} />);
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} onOpenStory={onOpenStory} />);
 
     expect(await screen.findByText('The Day the Harbor Fell Silent')).toBeTruthy();
     fireEvent.press(screen.getByText('Read full story'));
@@ -95,7 +105,7 @@ describe('MapScreen', () => {
   });
 
   it('shows nearby stories when a clustered marker is pressed', async () => {
-    render(<MapScreen getMarkerGroups={async () => markerGroups} />);
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.press(screen.getAllByTestId('story-marker')[1]);
@@ -107,10 +117,32 @@ describe('MapScreen', () => {
     expect(screen.getByText('Voices of the Ferry Pier')).toBeTruthy();
   });
 
+  it('requests scrolling to the preview when a marker is pressed', async () => {
+    const onMarkerPreviewRequested = jest.fn();
+
+    renderScreen(
+      <MapScreen
+        getMarkerGroups={async () => markerGroups}
+        onMarkerPreviewRequested={onMarkerPreviewRequested}
+      />,
+    );
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent(screen.getByTestId('map-card-container'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 240, width: 100, height: 100 } },
+    });
+    fireEvent(screen.getByTestId('story-preview-panel'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 420, width: 100, height: 100 } },
+    });
+    fireEvent.press(screen.getAllByTestId('story-marker')[1]);
+
+    expect(onMarkerPreviewRequested).toHaveBeenCalledWith(660);
+  });
+
   it('refetches markers when filters change', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
 
-    render(<MapScreen getMarkerGroups={getMarkerGroups} />);
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
@@ -125,11 +157,73 @@ describe('MapScreen', () => {
     });
   });
 
+  it('refetches all markers when a chip filter is removed', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: 'Golden Horn',
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+
+    fireEvent.press(screen.getByLabelText('Remove Location: Golden Horn'));
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: undefined,
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+  });
+
+  it('refetches all markers when clear all filters is pressed', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: 'Golden Horn',
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+
+    fireEvent.press(screen.getByText('Clear all filters'));
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: undefined,
+        yearFrom: undefined,
+        yearTo: undefined,
+      });
+    });
+  });
+
   it('keeps the map visible and shows an error overlay when loading fails', async () => {
-    render(<MapScreen getMarkerGroups={async () => Promise.reject(new Error('API unavailable'))} />);
+    renderScreen(<MapScreen getMarkerGroups={async () => Promise.reject(new Error('API unavailable'))} />);
 
     expect(await screen.findByTestId('story-map')).toBeTruthy();
-    expect(screen.getByText('Unable to load stories')).toBeTruthy();
-    expect(screen.getByText('API unavailable')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Unable to load stories')).toBeTruthy();
+      expect(screen.getByText('API unavailable')).toBeTruthy();
+    });
   });
 });

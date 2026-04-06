@@ -27,6 +27,7 @@ interface AuthContextValue {
   login: (input: LoginInput) => Promise<Session>;
   register: (input: RegisterUserInput) => Promise<RegisterUserResult>;
   logout: () => Promise<void>;
+  updateUser: (user: Partial<AuthUser>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -166,6 +167,31 @@ export function AuthProvider({ children }: PropsWithChildren) {
     navigationRef.redirectToPublic?.();
   }, []);
 
+  const updateUser = useCallback(async (userPatch: Partial<AuthUser>) => {
+    const activeSession = sessionRef.current;
+
+    if (!activeSession) {
+      return;
+    }
+
+    const nextUser = {
+      ...activeSession.user,
+      ...userPatch,
+    };
+
+    const nextSession = await authService.updateUser(nextUser);
+
+    if (!nextSession) {
+      return;
+    }
+
+    sessionRef.current = nextSession;
+    setState({
+      isLoading: false,
+      session: nextSession,
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user: state.session?.user ?? null,
@@ -174,8 +200,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       register,
       logout,
+      updateUser,
     }),
-    [login, logout, register, state.isLoading, state.session],
+    [login, logout, register, state.isLoading, state.session, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -19,7 +19,7 @@ const loginResponse = {
 };
 
 function AuthHarness() {
-  const { user, isAuthenticated, loading, login, register, logout } = useAuth();
+  const { user, isAuthenticated, loading, login, register, logout, updateUser } = useAuth();
 
   const handleRequest = async () => {
     try {
@@ -36,6 +36,7 @@ function AuthHarness() {
       <Text>{loading ? 'loading' : 'ready'}</Text>
       <Text>{isAuthenticated ? 'authenticated' : 'guest'}</Text>
       <Text>{user?.email ?? 'no-user'}</Text>
+      <Text>{user?.username ?? 'no-username'}</Text>
       <Pressable
         onPress={() =>
           login({ email: 'traveler@example.com', password: 'password123' }).catch(() => undefined)
@@ -45,6 +46,9 @@ function AuthHarness() {
       </Pressable>
       <Pressable onPress={() => logout()}>
         <Text>logout</Text>
+      </Pressable>
+      <Pressable onPress={() => updateUser({ username: 'Traveler Updated' })}>
+        <Text>update-user</Text>
       </Pressable>
       <Pressable
         onPress={() =>
@@ -175,6 +179,31 @@ describe('AuthProvider', () => {
       expect(screen.getByText('guest')).toBeTruthy();
     });
     expect(await storage.get(storageKeys.authSession)).toBeNull();
+  });
+
+  it('updates the stored auth user when profile data changes', async () => {
+    installAuthTransport();
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    fireEvent.press(await screen.findByText('login'));
+
+    await waitFor(() => {
+      expect(screen.getByText('authenticated')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('update-user'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Traveler Updated')).toBeTruthy();
+    });
+
+    const storedSession = await storage.get<{ user?: { username?: string } }>(storageKeys.authSession);
+    expect(storedSession?.user?.username).toBe('Traveler Updated');
   });
 
   it('registers without creating a persisted session', async () => {

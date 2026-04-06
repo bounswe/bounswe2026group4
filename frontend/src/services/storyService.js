@@ -71,6 +71,10 @@ export async function getStoryById(id) {
   return response.data;
 }
 
+export async function deleteStory(id) {
+  await api.delete(`/stories/${id}/`);
+}
+
 export async function uploadStoryImage(storyId, file) {
   const formData = new FormData();
   formData.append("file", file);

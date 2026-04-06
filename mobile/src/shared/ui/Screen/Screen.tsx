@@ -1,9 +1,17 @@
 import React, { PropsWithChildren } from 'react';
-import { SafeAreaView } from 'react-native';
+import { Edge, SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 
-export function Screen({ children }: PropsWithChildren) {
+interface ScreenProps extends PropsWithChildren {
+  edges?: Edge[];
+}
+
+export function Screen({ children, edges }: ScreenProps) {
   const { colors } = useAppTheme();
 
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>{children}</SafeAreaView>;
+  return (
+    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.background }}>
+      {children}
+    </SafeAreaView>
+  );
 }

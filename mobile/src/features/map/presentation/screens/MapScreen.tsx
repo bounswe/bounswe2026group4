@@ -1,20 +1,27 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
-import { Input } from '../../../../shared/ui/Input';
-import { Button } from '../../../../shared/ui/Button';
 import { StoryFilters } from '../../../stories/domain/repositories';
 import { MapMarkerGroup } from '../../domain/entities';
 import { mapService } from '../../application/services';
 import { createInitialMapUiState, MapUiState } from '../state/mapUiState';
 import { MapCard } from '../components/MapCard';
+import { SearchFilterScope, useSearchFilters, toSearchParams } from '../../../search/presentation/context/SearchFiltersContext';
+import { useDebounce } from '../../../../shared/hooks/useDebounce';
+import { StorySearchControls } from '../../../search/presentation/components/StorySearchControls';
 
 interface MapScreenProps {
   initialFilters?: StoryFilters;
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
+  onMarkerPreviewRequested?: (targetY: number) => void;
+  showSearchControls?: boolean;
+  onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
+  searchScope?: SearchFilterScope;
 }
+
+const EMPTY_FILTERS: StoryFilters = {};
 
 const ISTANBUL_REGION: Region = {
   latitude: 41.0082,
@@ -24,65 +31,87 @@ const ISTANBUL_REGION: Region = {
 };
 
 export function MapScreen({
-  initialFilters = {},
+  initialFilters = EMPTY_FILTERS,
   onOpenStory,
   getMarkerGroups = mapService.getMarkerGroups,
+  onMarkerPreviewRequested,
+  showSearchControls = true,
+  onRegisterRefresh,
+  searchScope = 'map',
 }: MapScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const { filters, refreshToken, isHydrated } = useSearchFilters(searchScope);
+  const debouncedQuery = useDebounce(filters.query, 350);
+  const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [state, setState] = useState<MapUiState>(() => createInitialMapUiState(initialFilters));
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [draftFilters, setDraftFilters] = useState({
-    q: initialFilters.q ?? '',
-    location: initialFilters.location ?? '',
-    yearFrom: initialFilters.yearFrom ? String(initialFilters.yearFrom) : '',
-    yearTo: initialFilters.yearTo ? String(initialFilters.yearTo) : '',
-  });
+  const [mapCardTop, setMapCardTop] = useState(0);
+  const previewOffsetRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let active = true;
-    const nextFilters = normalizeFilters(draftFilters);
+    if (filters.query !== debouncedQuery) {
+      return;
+    }
 
+    setUseImmediateQuery(false);
+  }, [debouncedQuery, filters.query]);
+
+  useEffect(() => {
+    setUseImmediateQuery(true);
+  }, [refreshToken]);
+
+  const activeFilters = useMemo<StoryFilters>(
+    () => ({
+      ...initialFilters,
+      ...toSearchParams({ ...filters, query: useImmediateQuery ? filters.query : debouncedQuery }),
+    }),
+    [debouncedQuery, filters, initialFilters, useImmediateQuery],
+  );
+
+  const loadMarkers = React.useCallback(async () => {
     setState((current) => ({
       ...current,
       isLoading: true,
       error: undefined,
-      filters: nextFilters,
+      filters: activeFilters,
     }));
 
-    getMarkerGroups(nextFilters)
-      .then((markers) => {
-        if (!active) {
-          return;
-        }
+    try {
+      const markers = await getMarkerGroups(activeFilters);
+      const selectedMarkerId = getPreferredMarkerId(markers, activeFilters);
 
-        const selectedMarkerId = getPreferredMarkerId(markers, nextFilters);
-
-        setState({
-          isLoading: false,
-          error: undefined,
-          filters: nextFilters,
-          markers,
-          selectedMarkerId,
-        });
-      })
-      .catch((error: Error) => {
-        if (!active) {
-          return;
-        }
-
-        setState({
-          isLoading: false,
-          error: error.message || 'Unable to load stories',
-          filters: nextFilters,
-          markers: [],
-          selectedMarkerId: undefined,
-        });
+      setState({
+        isLoading: false,
+        error: undefined,
+        filters: activeFilters,
+        markers,
+        selectedMarkerId,
       });
+    } catch (error) {
+      setState({
+        isLoading: false,
+        error: error instanceof Error ? error.message || 'Unable to load stories' : 'Unable to load stories',
+        filters: activeFilters,
+        markers: [],
+        selectedMarkerId: undefined,
+      });
+    }
+  }, [activeFilters, getMarkerGroups]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void loadMarkers();
+  }, [isHydrated, loadMarkers]);
+
+  useEffect(() => {
+    onRegisterRefresh?.(isHydrated ? loadMarkers : null);
 
     return () => {
-      active = false;
+      onRegisterRefresh?.(null);
     };
-  }, [draftFilters, getMarkerGroups]);
+  }, [isHydrated, loadMarkers, onRegisterRefresh]);
 
   const activeFilterSummary = useMemo(() => {
     const parts = [];
@@ -100,136 +129,48 @@ export function MapScreen({
     return parts;
   }, [state.filters]);
 
-  const hasActiveFilters =
-    Boolean(draftFilters.location.trim()) ||
-    Boolean(draftFilters.yearFrom.trim()) ||
-    Boolean(draftFilters.yearTo.trim());
+  function handlePreviewLayout(event: LayoutChangeEvent) {
+    previewOffsetRef.current = event.nativeEvent.layout.y;
+  }
+
+  function handleMarkerPreviewRequest() {
+    const previewOffset = previewOffsetRef.current;
+
+    if (previewOffset == null) {
+      return;
+    }
+
+    onMarkerPreviewRequested?.(mapCardTop + previewOffset);
+  }
 
   return (
     <View style={{ gap: spacing.md }}>
-      <View style={{ gap: spacing.md }}>
-        <View
-          style={{
-            padding: spacing.lg,
-            borderRadius: 18,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.background,
-            gap: spacing.md,
-          }}
-        >
-          <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
-            Search stories
-          </Text>
-          <Input
-            value={draftFilters.q}
-            onChangeText={(value) => setDraftFilters((current) => ({ ...current, q: value }))}
-            placeholder="Search stories or neighborhoods"
-            accessibilityLabel="Search stories"
-          />
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <Button onPress={() => setFiltersExpanded((current) => !current)}>
-                {filtersExpanded ? 'Hide filters' : 'Open filters'}
-              </Button>
-            </View>
-            {hasActiveFilters ? (
-              <View style={{ flex: 1 }}>
-                <Button
-                  onPress={() =>
-                    setDraftFilters({
-                      q: '',
-                      location: '',
-                      yearFrom: '',
-                      yearTo: '',
-                    })
-                  }
-                >
-                  Reset filters
-                </Button>
-              </View>
-            ) : null}
-          </View>
-        </View>
+      {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
+      {activeFilterSummary.length ? <Text style={{ color: colors.muted }}>{activeFilterSummary.join('  |  ')}</Text> : null}
 
-        {filtersExpanded ? (
-          <View
-            style={{
-              gap: spacing.md,
-              padding: spacing.md,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.background,
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: '700' }}>Advanced filters</Text>
-            <Input
-              value={draftFilters.location}
-              onChangeText={(value) => setDraftFilters((current) => ({ ...current, location: value }))}
-              placeholder="Filter by place name"
-              accessibilityLabel="Filter by location"
-            />
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  value={draftFilters.yearFrom}
-                  onChangeText={(value) =>
-                    setDraftFilters((current) => ({ ...current, yearFrom: sanitizeYear(value) }))
-                  }
-                  placeholder="Year from"
-                  accessibilityLabel="Year from"
-                  keyboardType="number-pad"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Input
-                  value={draftFilters.yearTo}
-                  onChangeText={(value) =>
-                    setDraftFilters((current) => ({ ...current, yearTo: sanitizeYear(value) }))
-                  }
-                  placeholder="Year to"
-                  accessibilityLabel="Year to"
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-          </View>
-        ) : null}
-        {activeFilterSummary.length ? <Text style={{ color: colors.muted }}>{activeFilterSummary.join('  |  ')}</Text> : null}
+      <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+        {state.markers.reduce((sum, marker) => sum + marker.count, 0)} stories currently match the active filters.
+      </Text>
 
-        <View style={{ minHeight: 420 }}>
-          <MapCard
-            region={ISTANBUL_REGION}
-            markers={state.markers}
-            selectedMarkerId={state.selectedMarkerId}
-            isLoading={state.isLoading}
-            error={state.error}
-            onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
-            onOpenStory={(storyId) => onOpenStory?.(storyId)}
-          />
-        </View>
+      <View
+        testID="map-card-container"
+        style={{ minHeight: 420 }}
+        onLayout={(event) => setMapCardTop(event.nativeEvent.layout.y)}
+      >
+        <MapCard
+          region={ISTANBUL_REGION}
+          markers={state.markers}
+          selectedMarkerId={state.selectedMarkerId}
+          isLoading={state.isLoading}
+          error={state.error}
+          onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
+          onOpenStory={(storyId) => onOpenStory?.(storyId)}
+          onMarkerPress={handleMarkerPreviewRequest}
+          onPreviewLayout={handlePreviewLayout}
+        />
       </View>
     </View>
   );
-}
-
-function sanitizeYear(value: string) {
-  return value.replace(/[^0-9]/g, '').slice(0, 4);
-}
-
-function normalizeFilters(filters: {
-  q: string;
-  location: string;
-  yearFrom: string;
-  yearTo: string;
-}): StoryFilters {
-  return {
-    q: filters.q.trim() || undefined,
-    location: filters.location.trim() || undefined,
-    yearFrom: filters.yearFrom ? Number(filters.yearFrom) : undefined,
-    yearTo: filters.yearTo ? Number(filters.yearTo) : undefined,
-  };
 }
 
 function getPreferredMarkerId(markers: MapMarkerGroup[], filters: StoryFilters) {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { validators } from '../../../../shared/forms/validators';
 import { useToast } from '../../../../shared/hooks/useToast';
@@ -134,6 +134,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   const { login, register, loading } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
+  const passwordInputRef = useRef<TextInput>(null);
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [state, setState] = useState<AuthFormState>(initialFormState);
 
@@ -320,26 +321,30 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={spacing.md}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="always"
         contentContainerStyle={{
           flexGrow: 1,
           padding: spacing.lg,
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
         }}
       >
-        <View style={{ gap: spacing.lg }}>
-          <View style={{ gap: spacing.sm }}>
-            <Text style={{ color: colors.primary, fontWeight: '700' }}>Local History Story Map</Text>
+        <View
+          style={{
+            gap: spacing.lg,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.xl,
+          }}
+        >
+          <View style={{ gap: spacing.xs }}>
             <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
-              {isRegister ? 'Create your mobile account' : 'Sign in to the mobile app'}
-            </Text>
-            <Text style={{ color: colors.muted, fontSize: typography.body }}>
-              {isRegister
-                ? 'Create an account to explore, submit, and interact with local history stories from the mobile app.'
-                : 'Shared auth state restores persisted sessions, protects user-only screens, and attaches your access token to authenticated API requests.'}
+              {isRegister ? 'Create account' : 'Sign in'}
             </Text>
           </View>
 
@@ -359,6 +364,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             onPasswordChange={updateField('password')}
             onConfirmPasswordChange={updateField('confirmPassword')}
             onSubmit={submit}
+            passwordInputRef={passwordInputRef}
             onToggleMode={toggleMode}
           />
         </View>

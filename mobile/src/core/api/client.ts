@@ -2,14 +2,14 @@ import { env } from '../../app/config/env';
 import { AppError } from '../errors/AppError';
 import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
 type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
 const REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string) {
   if (!env.apiBaseUrl) {
-    throw new AppError('EXPO_PUBLIC_API_BASE_URL is not configured.');
+    throw new AppError('EXPO_PUBLIC_API_BASE_URL is not configured. Set it in mobile/.env and restart Expo.');
   }
 
   const normalizedBaseUrl = env.apiBaseUrl.replace(/\/+$/, '');
@@ -156,7 +156,7 @@ async function request<T>(
               'Request timed out. Please check that your phone and computer are on the same Wi-Fi and try again.',
             )
           : new AppError(
-              'Unable to reach the backend. Check EXPO_PUBLIC_API_BASE_URL and make sure the backend is running and reachable from your phone.',
+              'Unable to reach the backend. Check mobile/.env, confirm EXPO_PUBLIC_API_BASE_URL, and make sure the backend is running and reachable from your phone.',
             );
 
       await interceptors.runResponseError(normalizedError);
@@ -191,6 +191,12 @@ export const apiClient = {
     tokenOrConfig?: string | RequestConfigInput,
   ) =>
     request<T>('PUT', url, { ...normalizeConfig(tokenOrConfig), data }),
+  patch: async <T>(
+    url: string,
+    data?: unknown,
+    tokenOrConfig?: string | RequestConfigInput,
+  ) =>
+    request<T>('PATCH', url, { ...normalizeConfig(tokenOrConfig), data }),
   delete: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
     request<T>('DELETE', url, normalizeConfig(tokenOrConfig)),
 };

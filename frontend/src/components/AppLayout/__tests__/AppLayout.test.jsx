@@ -54,7 +54,12 @@ describe("AppLayout", () => {
     expect(screen.getAllByText("Login").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Register").length).toBeGreaterThan(0);
     expect(screen.queryByText("Profile")).not.toBeInTheDocument();
-    expect(screen.queryByText("Submit Story")).not.toBeInTheDocument();
+  });
+
+  it("shows Submit Story link for unauthenticated users", () => {
+    renderWithRouter();
+
+    expect(screen.getAllByText("Submit Story").length).toBeGreaterThan(0);
   });
 
   it("shows username linking to profile, Logout, and Submit Story when authenticated", () => {

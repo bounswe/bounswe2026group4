@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.services import create_story, get_story_feed, get_story_search, update_story
+from apps.stories.services import create_story, delete_story, get_story_feed, get_story_search, update_story
 from apps.users.models import User
 
 
@@ -252,3 +252,18 @@ class TestGetStorySearch:
         make_story(title='Istanbul in 1900')
         make_story(title='Istanbul Today')
         assert get_story_search('Istanbul').count() == 2
+
+
+# ── delete_story ──────────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteStory:
+    def test_delete_removes_story_from_db(self, story):
+        pk = story.pk
+        delete_story(story)
+        assert not Story.objects.filter(pk=pk).exists()
+
+    def test_delete_returns_none(self, story):
+        result = delete_story(story)
+        assert result is None
+

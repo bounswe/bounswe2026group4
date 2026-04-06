@@ -1,11 +1,33 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StoryScreen } from '../StoryScreen';
-import { StoryEntity } from '../../../domain/entities';
 import { Session } from '../../../../../core/auth/session';
+import { StoryEntity } from '../../../domain/entities';
+import { interactionService } from '../../../../interactions/application/services';
+
+jest.mock('../../../../../shared/components/WebMapView', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    WebMapView: () => <View testID="story-location-map" />,
+  };
+});
+
+jest.mock('../../../../interactions/application/services', () => ({
+  interactionService: {
+    likeStory: jest.fn(async () => undefined),
+    unlikeStory: jest.fn(async () => undefined),
+    getComments: jest.fn(async () => []),
+    addComment: jest.fn(async () => undefined),
+    deleteComment: jest.fn(async () => undefined),
+  },
+}));
 
 const baseStory: StoryEntity = {
   id: 'story-001',
+  contributorUserId: '22',
   title: 'The Day the Harbor Fell Silent',
   narrative: [
     'By dusk, the harbor had stopped sounding like work and started sounding like memory.',
@@ -34,6 +56,18 @@ const baseStory: StoryEntity = {
 };
 
 describe('StoryScreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (interactionService.getComments as jest.Mock).mockResolvedValue(
+      baseStory.comments.map((comment) => ({
+        id: comment.id,
+        authorUsername: comment.authorName,
+        text: comment.body,
+        createdAt: comment.createdAt,
+      })),
+    );
+  });
+
   const userSession: Session = {
     accessToken: 'access-token',
     refreshToken: 'refresh-token',
@@ -58,6 +92,23 @@ describe('StoryScreen', () => {
     },
   };
 
+  const ownerSession: Session = {
+    ...userSession,
+    user: {
+      ...userSession.user,
+      id: 22,
+      username: 'Aylin Demir',
+    },
+  };
+
+  const adminSession: Session = {
+    ...userSession,
+    role: 'admin',
+    user: {
+      ...userSession.user,
+      role: 'admin',
+    },
+  };
   it('renders loading state while fetching the story', () => {
     const pendingPromise = new Promise<StoryEntity | null>(() => undefined);
 
@@ -79,6 +130,35 @@ describe('StoryScreen', () => {
     expect(screen.getByLabelText(`${baseStory.title} media`)).toBeTruthy();
     expect(screen.getByText(baseStory.comments[0].body)).toBeTruthy();
     expect(screen.getByText('Story location')).toBeTruthy();
+    expect(screen.getByTestId('story-location-map')).toBeTruthy();
+  });
+
+  it('opens the contributor profile when the contributor name is pressed', async () => {
+    const onOpenContributorProfile = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => baseStory}
+        onOpenContributorProfile={onOpenContributorProfile}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText(`Open profile: ${baseStory.contributorName}`));
+
+    expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
+  });
+
+  it('shows an image fallback message when the media fails to load', async () => {
+    render(<StoryScreen storyId="story-001" getStory={async () => baseStory} />);
+
+    const image = await screen.findByLabelText(`${baseStory.title} media`);
+    fireEvent(image, 'error');
+
+    await waitFor(() => {
+      expect(screen.getByText('Story image unavailable')).toBeTruthy();
+    });
   });
 
   it('toggles likes for authenticated users', async () => {
@@ -90,12 +170,13 @@ describe('StoryScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('Like · 27')).toBeTruthy();
-    fireEvent.press(screen.getByText('Like · 27'));
+    expect(await screen.findByText('♡ 27')).toBeTruthy();
+    fireEvent.press(screen.getByText('♡ 27'));
 
     await waitFor(() => {
-      expect(screen.getByText('Unlike · 28')).toBeTruthy();
+      expect(screen.getByText('♥ 28')).toBeTruthy();
     });
+    expect(interactionService.likeStory).toHaveBeenCalledWith('story-001');
   });
 
   it('prompts unauthenticated users to log in before liking', async () => {
@@ -110,11 +191,289 @@ describe('StoryScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('Like · 27')).toBeTruthy();
-    fireEvent.press(screen.getByText('Like · 27'));
+    expect(await screen.findByText('♡ 27')).toBeTruthy();
+    fireEvent.press(screen.getByText('♡ 27'));
 
     await waitFor(() => {
-      expect(screen.getByText('Log in to like this story.')).toBeTruthy();
+      expect(screen.getByText('Log in to like or comment on this story.')).toBeTruthy();
+    });
+    expect(onRequestLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('reverts optimistic likes when the API request fails', async () => {
+    (interactionService.likeStory as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByText('♡ 27')).toBeTruthy();
+    fireEvent.press(screen.getByText('♡ 27'));
+
+    await waitFor(() => {
+      expect(screen.getByText('♡ 27')).toBeTruthy();
+      expect(screen.getByText('Network error')).toBeTruthy();
+    });
+  });
+
+  it('renders comments in most recent first order', async () => {
+    (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'comment-older',
+        authorUsername: 'Older User',
+        text: 'Older comment',
+        createdAt: '2026-03-19T12:00:00Z',
+      },
+      {
+        id: 'comment-newer',
+        authorUsername: 'Newer User',
+        text: 'Newest comment',
+        createdAt: '2026-03-20T12:00:00Z',
+      },
+    ]);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => ({
+          ...baseStory,
+          comments: [
+            {
+              id: 'comment-older',
+              authorName: 'Older User',
+              body: 'Older comment',
+              createdAt: '2026-03-19T12:00:00Z',
+            },
+            {
+              id: 'comment-newer',
+              authorName: 'Newer User',
+              body: 'Newest comment',
+              createdAt: '2026-03-20T12:00:00Z',
+            },
+          ],
+        })}
+      />,
+    );
+
+    await screen.findByText('Newest comment');
+    const comments = screen.getAllByText(/Newest comment|Older comment/);
+
+    expect(comments[0]).toHaveTextContent('Newest comment');
+    expect(comments[1]).toHaveTextContent('Older comment');
+  });
+
+  it('submits a new comment and shows it at the top', async () => {
+    (interactionService.addComment as jest.Mock).mockResolvedValueOnce({
+      id: 'comment-99',
+      authorUsername: 'Traveler',
+      text: 'My new comment',
+      createdAt: '2026-03-21T12:00:00Z',
+    });
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    await screen.findByText(baseStory.title);
+    fireEvent.changeText(screen.getByLabelText('Comment input'), 'My new comment');
+    fireEvent.press(screen.getByText('Post comment'));
+
+    await waitFor(() => {
+      expect(interactionService.addComment).toHaveBeenCalledWith('story-001', 'My new comment');
+      expect(screen.getByText('Comments (2)')).toBeTruthy();
+    });
+
+    const comments = screen.getAllByText(/My new comment|My grandfather worked here for thirty years\./);
+    expect(comments[0]).toHaveTextContent('My new comment');
+  });
+
+  it('shows delete controls only for the user’s own comments and deletes after confirmation', async () => {
+    (interactionService.deleteComment as jest.Mock).mockResolvedValueOnce(undefined);
+    (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'comment-own',
+        authorUsername: 'Traveler',
+        text: 'My own comment',
+        createdAt: '2026-03-21T12:00:00Z',
+      },
+      {
+        id: 'comment-other',
+        authorUsername: 'Someone else',
+        text: 'Another comment',
+        createdAt: '2026-03-20T12:00:00Z',
+      },
+    ]);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => ({
+          ...baseStory,
+          comments: [
+            {
+              id: 'comment-own',
+              authorName: 'Traveler',
+              body: 'My own comment',
+              createdAt: '2026-03-21T12:00:00Z',
+            },
+            {
+              id: 'comment-other',
+              authorName: 'Someone else',
+              body: 'Another comment',
+              createdAt: '2026-03-20T12:00:00Z',
+            },
+          ],
+        })}
+      />,
+    );
+
+    await screen.findByText('My own comment');
+    expect(screen.getByText('Delete comment')).toBeTruthy();
+    expect(screen.queryAllByText('Delete comment')).toHaveLength(1);
+
+    fireEvent.press(screen.getByText('Delete comment'));
+    expect(screen.getByText('Delete this comment?')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(interactionService.deleteComment).toHaveBeenCalledWith('comment-own');
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Delete this comment?')).toBeNull();
+    });
+  });
+
+  it('shows the delete story action only to the owner or an admin', async () => {
+    const { rerender } = render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    await screen.findByText(baseStory.title);
+    expect(screen.queryByText('Delete story')).toBeNull();
+
+    rerender(
+      <StoryScreen
+        storyId="story-001"
+        session={ownerSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByText('Delete story')).toBeTruthy();
+
+    rerender(
+      <StoryScreen
+        storyId="story-001"
+        session={adminSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByText('Delete story')).toBeTruthy();
+  });
+
+  it('confirms and deletes the story for authorized users', async () => {
+    const deleteStory = jest.fn(async () => undefined);
+    const onStoryDeleted = jest.fn();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={ownerSession}
+        getStory={async () => baseStory}
+        deleteStory={deleteStory}
+        onStoryDeleted={onStoryDeleted}
+      />,
+    );
+
+    fireEvent.press(await screen.findByText('Delete story'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Delete story?',
+      'This action permanently removes the story and cannot be undone.',
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
+        expect.objectContaining({ text: 'Delete', style: 'destructive', onPress: expect.any(Function) }),
+      ]),
+    );
+
+    const buttons = alertSpy.mock.calls[0]?.[2];
+    const deleteButton = buttons?.find((button) => button.text === 'Delete');
+
+    await act(async () => {
+      deleteButton?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(deleteStory).toHaveBeenCalledWith('story-001');
+      expect(onStoryDeleted).toHaveBeenCalledTimes(1);
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('shows a meaningful error when story deletion fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={ownerSession}
+        getStory={async () => baseStory}
+        deleteStory={jest.fn(async () => {
+          throw new Error('Deletion failed on server');
+        })}
+      />,
+    );
+
+    fireEvent.press(await screen.findByText('Delete story'));
+
+    const buttons = alertSpy.mock.calls[0]?.[2];
+    const deleteButton = buttons?.find((button) => button.text === 'Delete');
+
+    await act(async () => {
+      deleteButton?.onPress?.();
+    });
+
+    expect(await screen.findByText('Deletion failed on server')).toBeTruthy();
+
+    alertSpy.mockRestore();
+  });
+
+  it('prompts unauthenticated users when they try to comment', async () => {
+    const onRequestLogin = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={guestSession}
+        onRequestLogin={onRequestLogin}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    await screen.findByText(baseStory.title);
+    fireEvent.press(screen.getByText('Log in to comment'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Log in to comment on this story.')).toBeTruthy();
     });
     expect(onRequestLogin).toHaveBeenCalledTimes(1);
   });

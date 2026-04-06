@@ -16,6 +16,16 @@ def update_story(story: Story, validated_data: dict) -> Story:
     return story
 
 
+def delete_story(story: Story) -> None:
+    """
+    Permanently delete a story and all its related data.
+
+    Cascades to media_items, likes, saved_by, and comments via FK CASCADE —
+    no manual cleanup required. Permission enforcement is the caller's responsibility.
+    """
+    story.delete()
+
+
 def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None):
     """
     Return a queryset of published stories with optional sorting and filtering.

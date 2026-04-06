@@ -11,7 +11,7 @@ describe('apiClient', () => {
     });
 
     await expect(apiClient.post('/auth/register/', { ok: true })).rejects.toThrow(
-      'Unable to reach the backend. Check EXPO_PUBLIC_API_BASE_URL and make sure the backend is running and reachable from your phone.',
+      'Unable to reach the backend. Check mobile/.env, confirm EXPO_PUBLIC_API_BASE_URL, and make sure the backend is running and reachable from your phone.',
     );
   });
 });

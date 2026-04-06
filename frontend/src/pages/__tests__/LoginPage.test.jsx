@@ -215,6 +215,45 @@ describe("LoginPage", () => {
     expect(signUpLink).toBeInTheDocument();
   });
 
+  it("shows contextual message when redirected from submit-story", () => {
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: { pathname: "/submit-story" } } }]}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </MemoryRouter>
+        <Toaster />
+      </ToastProvider>
+    );
+
+    expect(screen.getByText("Log in to submit a story")).toBeInTheDocument();
+  });
+
+  it("navigates to /submit-story after login when redirected from submit-story", async () => {
+    const user = userEvent.setup();
+    mockLogin.mockResolvedValue({ access: "a", refresh: "b", user: { username: "alice" } });
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: { pathname: "/submit-story" } } }]}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </MemoryRouter>
+        <Toaster />
+      </ToastProvider>
+    );
+
+    await user.type(screen.getByLabelText("Email"), "test@example.com");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/submit-story", { replace: true });
+    });
+  });
+
   it("shows success toast on successful login", async () => {
     const user = userEvent.setup();
     mockLogin.mockResolvedValue({ access: "a", refresh: "b", user: { username: "alice" } });

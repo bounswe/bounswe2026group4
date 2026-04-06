@@ -54,6 +54,25 @@ export class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  async updateUser(user: AuthSessionEntity['user']): Promise<AuthSessionEntity | null> {
+    const storedSession = await authLocalSource.getSession();
+
+    if (!storedSession) {
+      return null;
+    }
+
+    const nextSession: AuthSessionEntity = {
+      ...storedSession,
+      user: {
+        ...storedSession.user,
+        ...user,
+      },
+    };
+
+    await authLocalSource.setSession(nextSession);
+    return nextSession;
+  }
+
   async clear(): Promise<void> {
     await authLocalSource.clearSession();
   }

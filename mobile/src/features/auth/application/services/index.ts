@@ -17,6 +17,9 @@ export const authService = {
   async logout(session?: AuthSessionEntity | null): Promise<void> {
     return repository.logout(session);
   },
+  async updateUser(user: AuthSessionEntity['user']): Promise<AuthSessionEntity | null> {
+    return repository.updateUser(user);
+  },
   async clear(): Promise<void> {
     return repository.clear();
   },

@@ -1,5 +1,6 @@
 import { storyService } from '..';
 import { StoryRepositoryImpl } from '../../../data/repositories';
+import { feedService } from '../../../../feed/application/services';
 
 describe('storyService', () => {
   it('delegates getStories to the repository with filters', async () => {
@@ -20,5 +21,35 @@ describe('storyService', () => {
     expect(getMapPinsSpy).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 1950 });
 
     getMapPinsSpy.mockRestore();
+  });
+
+  it('delegates deleteStory to the repository', async () => {
+    const deleteStorySpy = jest.spyOn(StoryRepositoryImpl.prototype, 'deleteStory').mockResolvedValue(undefined);
+
+    await storyService.deleteStory('42');
+
+    expect(deleteStorySpy).toHaveBeenCalledWith('42');
+
+    deleteStorySpy.mockRestore();
+  });
+
+  it('delegates getFeed to the feed service', async () => {
+    const getFeedSpy = jest.spyOn(feedService, 'getFeed').mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      totalCount: 0,
+      hasNextPage: false,
+    });
+
+    await storyService.getFeed({ page: 3, sort: 'recent', filters: { q: 'bridge' } });
+
+    expect(getFeedSpy).toHaveBeenCalledWith({
+      page: 3,
+      sort: 'recent',
+      filters: { q: 'bridge' },
+    });
+
+    getFeedSpy.mockRestore();
   });
 });
