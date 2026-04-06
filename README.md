@@ -89,6 +89,57 @@ docker compose down -v && docker compose up
 
 ---
 
+## Mobile
+
+### Run locally (Expo Go)
+
+The fastest way to test on a device — no build required.
+
+```bash
+cd mobile
+cp .env.example .env   # Windows CMD: use 'copy'
+nano .env              # fill in EXPO_PUBLIC_API_BASE_URL and EXPO_PUBLIC_MAP_API_KEY
+npm install
+npx expo start
+```
+
+Scan the QR code with the [Expo Go](https://expo.dev/go) app on your device.
+
+> For `EXPO_PUBLIC_API_BASE_URL`: use `https://storymap.page/api` to point at production, or your machine's LAN IP (`http://192.168.x.x:8000`) for local development. Android emulator uses `http://10.0.2.2:8000`.
+
+### Build an APK
+
+Produces a standalone `.apk` file that can be installed directly on any Android device.
+
+**One-time setup**
+
+```bash
+npm install -g eas-cli
+eas login                # log in to your Expo account (expo.dev)
+cd mobile
+eas init                 # links the project to your Expo account
+eas build:configure      # creates eas.json
+```
+
+When `eas build:configure` runs, select **Android** and choose the **APK** format (not AAB) so the file can be installed without the Play Store. This creates `eas.json` — commit it to the repo.
+
+**Build**
+
+```bash
+cd mobile
+eas build -p android --profile preview
+```
+
+EAS builds on their cloud servers (~10 min). When complete, you get a download link for the `.apk` file.
+
+**Install on device**
+
+1. Open the download link on the Android device
+2. Allow "Install from unknown sources" when prompted
+3. Install and open
+
+---
+
 ## Production Deployment
 
 ### Server prerequisites
