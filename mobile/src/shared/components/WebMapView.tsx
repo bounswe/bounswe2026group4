@@ -101,8 +101,6 @@ const mapHtml = ({
         keyboard: false,
       });
 
-      map.addControl(new maplibregl.AttributionControl({ compact: true }));
-
       markers.forEach((marker) => {
         const element = document.createElement('div');
         element.className = marker.selected ? 'marker selected' : 'marker';
