@@ -54,7 +54,7 @@ api.interceptors.response.use(
 
     // Skip refresh for auth endpoints — just clear and redirect
     const requestUrl = originalRequest.url || "";
-    if (AUTH_ENDPOINTS.some((ep) => requestUrl.endsWith(ep))) {
+    if (AUTH_ENDPOINTS.some((ep) => requestUrl.includes(ep))) {
       clear();
       navigationRef.navigate?.("/login");
       return Promise.reject(error);
@@ -70,6 +70,7 @@ api.interceptors.response.use(
     originalRequest._retry = true;
 
     // Attempt to refresh the token (dedup concurrent calls)
+    let refreshedData;
     try {
       if (!refreshPromise) {
         refreshPromise = axios
@@ -85,15 +86,17 @@ api.interceptors.response.use(
       }
 
       const { data } = await refreshPromise;
-
-      // Retry the original request with the new token
-      originalRequest.headers.Authorization = `Bearer ${data.access}`;
-      return api(originalRequest);
+      refreshedData = data;
     } catch {
       clear();
       navigationRef.navigate?.("/login");
       return Promise.reject(error);
     }
+
+    // Retry the original request with the new token — let non-auth errors
+    // propagate to the caller instead of incorrectly logging out.
+    originalRequest.headers.Authorization = `Bearer ${refreshedData.access}`;
+    return api(originalRequest);
   }
 );
 
