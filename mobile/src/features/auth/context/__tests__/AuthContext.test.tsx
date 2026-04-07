@@ -71,8 +71,13 @@ function AuthHarness() {
 
 function installAuthTransport(options?: {
   unauthorizedOnProfile?: boolean;
+  unauthorizedOnceOnProfile?: boolean;
+  refreshFails?: boolean;
+  rotatedRefreshToken?: string;
   onProfileRequest?: (config: ApiRequestConfig) => void;
 }) {
+  let didRejectProfileOnce = false;
+
   setApiTransport(async (method, config) => {
     if (method === 'POST' && config.url === '/auth/login/') {
       return {
@@ -106,11 +111,31 @@ function installAuthTransport(options?: {
       };
     }
 
+    if (method === 'POST' && config.url === '/auth/token/refresh/') {
+      if (options?.refreshFails) {
+        throw { response: { status: 401, config } };
+      }
+
+      return {
+        status: 200,
+        data: {
+          access: 'access-token-refreshed',
+          refresh: options?.rotatedRefreshToken ?? 'refresh-token-rotated',
+        } as never,
+        config,
+      };
+    }
+
     if (method === 'GET' && config.url === '/profile') {
       options?.onProfileRequest?.(config);
 
+      if (options?.unauthorizedOnceOnProfile && !didRejectProfileOnce) {
+        didRejectProfileOnce = true;
+        throw { response: { status: 401, config } };
+      }
+
       if (options?.unauthorizedOnProfile) {
-        throw { response: { status: 401 } };
+        throw { response: { status: 401, config } };
       }
 
       return {
@@ -174,6 +199,73 @@ describe('AuthProvider', () => {
     expect(storedSession?.accessToken).toBe(loginResponse.access);
 
     fireEvent.press(screen.getByText('logout'));
+
+    await waitFor(() => {
+      expect(screen.getByText('guest')).toBeTruthy();
+    });
+    expect(await storage.get(storageKeys.authSession)).toBeNull();
+  });
+
+  it('refreshes the session and retries the request after an expired access token', async () => {
+    let authorizationHeaders: string[] = [];
+
+    installAuthTransport({
+      unauthorizedOnceOnProfile: true,
+      rotatedRefreshToken: 'refresh-token-456',
+      onProfileRequest(config) {
+        authorizationHeaders = [...authorizationHeaders, config.headers?.Authorization ?? ''];
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    fireEvent.press(await screen.findByText('login'));
+
+    await waitFor(() => {
+      expect(screen.getByText('authenticated')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('request'));
+
+    await waitFor(() => {
+      expect(authorizationHeaders).toEqual([
+        `Bearer ${loginResponse.access}`,
+        'Bearer access-token-refreshed',
+      ]);
+    });
+
+    expect(screen.getByText('authenticated')).toBeTruthy();
+
+    const storedSession = await storage.get<{ accessToken: string; refreshToken: string }>(storageKeys.authSession);
+    expect(storedSession).toMatchObject({
+      accessToken: 'access-token-refreshed',
+      refreshToken: 'refresh-token-456',
+    });
+  });
+
+  it('clears auth state when token refresh fails', async () => {
+    installAuthTransport({
+      unauthorizedOnceOnProfile: true,
+      refreshFails: true,
+    });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    fireEvent.press(await screen.findByText('login'));
+
+    await waitFor(() => {
+      expect(screen.getByText('authenticated')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('request'));
 
     await waitFor(() => {
       expect(screen.getByText('guest')).toBeTruthy();

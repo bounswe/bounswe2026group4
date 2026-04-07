@@ -44,6 +44,19 @@ export class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  async refresh(session: AuthSessionEntity): Promise<AuthSessionEntity> {
+    const refreshedTokens = await authRemoteSource.refresh(session);
+    const nextSession: AuthSessionEntity = {
+      ...session,
+      accessToken: refreshedTokens.accessToken,
+      refreshToken: refreshedTokens.refreshToken,
+    };
+
+    await authLocalSource.setSession(nextSession);
+
+    return nextSession;
+  }
+
   async logout(session?: AuthSessionEntity | null): Promise<void> {
     try {
       if (session) {

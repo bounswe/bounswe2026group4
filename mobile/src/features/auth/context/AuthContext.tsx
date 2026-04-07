@@ -10,7 +10,8 @@ import React, {
 } from 'react';
 import { navigationRef } from '../../../app/navigation/navigationRef';
 import { AuthUser, Session } from '../../../core/auth/session';
-import { interceptors } from '../../../core/api/interceptors';
+import { apiClient } from '../../../core/api/client';
+import { ApiRequestConfig, interceptors } from '../../../core/api/interceptors';
 import { authService } from '../application/services';
 import { createInitialAuthState } from '../presentation/state/authUiState';
 import { RegisterUserInput, RegisterUserResult } from '../domain/repositories';
@@ -19,6 +20,8 @@ interface LoginInput {
   email: string;
   password: string;
 }
+
+const AUTH_ENDPOINTS = ['/auth/login/', '/auth/register/', '/auth/token/refresh/', '/auth/logout/'];
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -35,6 +38,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState(createInitialAuthState);
   const sessionRef = useRef<Session | null>(null);
+  const refreshSessionPromiseRef = useRef<Promise<Session> | null>(null);
 
   useEffect(() => {
     sessionRef.current = state.session;
@@ -91,10 +95,69 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const responseId = interceptors.response.use(undefined, async (error) => {
       const status = (error as { response?: { status?: number } })?.response?.status;
+      const requestConfig = (error as { response?: { config?: ApiRequestConfig } })?.response?.config;
+      const requestUrl = requestConfig?.url ?? '';
+      const shouldSkipRefresh =
+        requestConfig?.skipAuthRefresh ||
+        requestConfig?.hasRetriedAfterRefresh ||
+        AUTH_ENDPOINTS.some((endpoint) => requestUrl.includes(endpoint));
+
+      if (status === 401 && !shouldSkipRefresh) {
+        const activeSession = sessionRef.current;
+
+        if (activeSession?.refreshToken && requestConfig?.url && requestConfig.method) {
+          try {
+            if (!refreshSessionPromiseRef.current) {
+              refreshSessionPromiseRef.current = authService
+                .refresh(activeSession)
+                .then((nextSession) => {
+                  sessionRef.current = nextSession;
+                  setState({
+                    isLoading: false,
+                    session: nextSession,
+                  });
+
+                  return nextSession;
+                })
+                .finally(() => {
+                  refreshSessionPromiseRef.current = null;
+                });
+            }
+
+            const refreshedSession = await refreshSessionPromiseRef.current;
+            const retryConfig = {
+              ...requestConfig,
+              headers: {
+                ...(requestConfig.headers ?? {}),
+                Authorization: `Bearer ${refreshedSession.accessToken}`,
+              },
+              hasRetriedAfterRefresh: true,
+            };
+
+            switch (requestConfig.method) {
+              case 'GET':
+                return apiClient.get(requestConfig.url, retryConfig);
+              case 'POST':
+                return apiClient.post(requestConfig.url, retryConfig.data, retryConfig);
+              case 'PUT':
+                return apiClient.put(requestConfig.url, retryConfig.data, retryConfig);
+              case 'PATCH':
+                return apiClient.patch(requestConfig.url, retryConfig.data, retryConfig);
+              case 'DELETE':
+                return apiClient.delete(requestConfig.url, retryConfig);
+              default:
+                break;
+            }
+          } catch {
+            // Fall through to clearing the invalid session.
+          }
+        }
+      }
 
       if (status === 401) {
         await authService.clear();
         sessionRef.current = null;
+        refreshSessionPromiseRef.current = null;
         setState({
           isLoading: false,
           session: null,

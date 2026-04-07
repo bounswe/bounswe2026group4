@@ -137,6 +137,7 @@ async function request<T>(
 ): Promise<T | null> {
   const preparedConfig = await interceptors.runRequest({
     ...config,
+    method,
     url,
     headers: { ...(config.headers ?? {}) },
   });
@@ -156,14 +157,24 @@ async function request<T>(
               'Request timed out. Please check that your phone and computer are on the same Wi-Fi and try again.',
             )
           : new AppError(
-              'Unable to reach the backend. Check mobile/.env, confirm EXPO_PUBLIC_API_BASE_URL, and make sure the backend is running and reachable from your phone.',
+            'Unable to reach the backend. Check mobile/.env, confirm EXPO_PUBLIC_API_BASE_URL, and make sure the backend is running and reachable from your phone.',
             );
 
-      await interceptors.runResponseError(normalizedError);
+      const recoveredResponse = await interceptors.runResponseError(normalizedError);
+
+      if (recoveredResponse !== normalizedError) {
+        return recoveredResponse as T | null;
+      }
+
       throw normalizedError;
     }
 
-    await interceptors.runResponseError(error);
+    const recoveredResponse = await interceptors.runResponseError(error);
+
+    if (recoveredResponse !== error) {
+      return recoveredResponse as T | null;
+    }
+
     throw error;
   }
 }

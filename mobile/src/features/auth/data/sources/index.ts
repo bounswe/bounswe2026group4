@@ -29,6 +29,11 @@ interface LoginResponse {
   user: BackendUser;
 }
 
+interface RefreshResponse {
+  access: string;
+  refresh?: string;
+}
+
 export interface RegisterResponse {
   message: string;
   user: BackendUser & {
@@ -74,11 +79,27 @@ export const authRemoteSource = {
 
     return response;
   },
+  async refresh(session: Session): Promise<Pick<Session, 'accessToken' | 'refreshToken'>> {
+    const response = await apiClient.post<RefreshResponse>(
+      `${endpoints.auth}/token/refresh/`,
+      { refresh: session.refreshToken },
+      { skipAuthRefresh: true },
+    );
+
+    if (!response?.access) {
+      throw new Error('Token refresh did not return a new access token.');
+    }
+
+    return {
+      accessToken: response.access,
+      refreshToken: response.refresh ?? session.refreshToken,
+    };
+  },
   async logout(session: Session): Promise<void> {
     await apiClient.post<void>(
       `${endpoints.auth}/logout/`,
       { refresh: session.refreshToken },
-      { token: session.accessToken },
+      { token: session.accessToken, skipAuthRefresh: true },
     );
   },
 };
