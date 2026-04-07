@@ -34,7 +34,7 @@ function MapPage() {
   }, [fetchPins]);
 
   return (
-    <div className="relative" style={{ height: "calc(100vh - 3.5rem)" }}>
+    <div className="relative isolate" style={{ height: "calc(100vh - 3.5rem)" }}>
       <MapView stories={stories} loading={loading} />
 
       {/* Search & filter overlay */}
