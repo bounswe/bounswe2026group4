@@ -134,7 +134,7 @@ describe("storyService", () => {
 
       await getMapStories();
 
-      expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: {} });
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: { page_size: 100 } });
     });
 
     it("returns the .results array from paginated response", async () => {
@@ -152,7 +152,7 @@ describe("storyService", () => {
       await getMapStories({ yearFrom: 1900, yearTo: 2000, location: "Galata" });
 
       expect(api.get).toHaveBeenCalledWith("/stories/map/", {
-        params: { year_from: 1900, year_to: 2000, location: "Galata" },
+        params: { page_size: 100, year_from: 1900, year_to: 2000, location: "Galata" },
       });
     });
 
