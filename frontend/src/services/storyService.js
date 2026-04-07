@@ -52,7 +52,7 @@ export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
     );
   }
 
-  const params = {};
+  const params = { page_size: 100 };
   if (yearFrom) params.year_from = yearFrom;
   if (yearTo) params.year_to = yearTo;
   if (location?.trim()) params.location = location.trim();
