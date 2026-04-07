@@ -156,6 +156,42 @@ class TestLogoutView:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
+@pytest.mark.django_db
+class TestTokenRefreshView:
+    url = '/auth/token/refresh/'
+
+    def test_refresh_returns_new_access_token(self, client, registered_user):
+        login = client.post('/auth/login/', {
+            'email': 'user@example.com',
+            'password': 'Password1',
+        })
+        response = client.post(self.url, {'refresh': login.data['refresh']})
+        assert response.status_code == status.HTTP_200_OK
+        assert 'access' in response.data
+
+    def test_refresh_with_invalid_token_fails(self, client):
+        response = client.post(self.url, {'refresh': 'invalid-token'})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_refresh_with_blacklisted_token_fails(self, auth_client):
+        # Logout blacklists the refresh token; it should no longer be usable
+        refresh = auth_client.refresh_token
+        auth_client.post('/auth/logout/', {'refresh': refresh})
+        response = auth_client.post(self.url, {'refresh': refresh})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_refresh_rotates_refresh_token(self, client, registered_user):
+        # ROTATE_REFRESH_TOKENS is True, so a new refresh token must be returned
+        login = client.post('/auth/login/', {
+            'email': 'user@example.com',
+            'password': 'Password1',
+        })
+        response = client.post(self.url, {'refresh': login.data['refresh']})
+        assert response.status_code == status.HTTP_200_OK
+        assert 'refresh' in response.data
+        assert response.data['refresh'] != login.data['refresh']
+
+
 # ── GET /users/<user_id>/ ─────────────────────────────────────────────────────
 
 @pytest.mark.django_db
