@@ -14,6 +14,9 @@ export const authService = {
   async restore(): Promise<AuthSessionEntity | null> {
     return repository.restore();
   },
+  async refresh(session: AuthSessionEntity): Promise<AuthSessionEntity> {
+    return repository.refresh(session);
+  },
   async logout(session?: AuthSessionEntity | null): Promise<void> {
     return repository.logout(session);
   },

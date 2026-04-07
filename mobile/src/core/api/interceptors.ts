@@ -1,8 +1,11 @@
 export interface ApiRequestConfig {
   url?: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
   data?: unknown;
   params?: Record<string, unknown>;
+  skipAuthRefresh?: boolean;
+  hasRetriedAfterRefresh?: boolean;
 }
 
 export interface ApiResponse<T = unknown> {
