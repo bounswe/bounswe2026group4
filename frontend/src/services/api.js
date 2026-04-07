@@ -15,7 +15,7 @@ const api = axios.create({
 });
 
 /** Endpoints that should never trigger a token refresh. */
-const AUTH_ENDPOINTS = ["/auth/login/", "/auth/refresh/", "/auth/logout/"];
+const AUTH_ENDPOINTS = ["/auth/login/", "/auth/token/refresh/", "/auth/logout/"];
 
 /** Shared promise so concurrent 401s only trigger one refresh. */
 let refreshPromise = null;
@@ -73,7 +73,7 @@ api.interceptors.response.use(
     try {
       if (!refreshPromise) {
         refreshPromise = axios
-          .post(`${API_URL}/auth/refresh/`, { refresh: getRefreshToken() })
+          .post(`${API_URL}/auth/token/refresh/`, { refresh: getRefreshToken() })
           .then((res) => {
             setAccessToken(res.data.access);
             setRefreshToken(res.data.refresh);

@@ -80,7 +80,7 @@ describe("api service", () => {
     });
 
     // Mock refresh endpoint on plain axios
-    axiosMock.onPost(/\/auth\/refresh\//).reply(200, {
+    axiosMock.onPost(/\/auth\/token\/refresh\//).reply(200, {
       access: "new-access",
       refresh: "new-refresh",
     });
@@ -99,7 +99,7 @@ describe("api service", () => {
     mock.onGet("/test").reply(401);
 
     // Refresh fails
-    axiosMock.onPost(/\/auth\/refresh\//).reply(401);
+    axiosMock.onPost(/\/auth\/token\/refresh\//).reply(401);
 
     await expect(api.get("/test")).rejects.toThrow();
 
@@ -115,7 +115,7 @@ describe("api service", () => {
     mock.onPost("/auth/login/").reply(401);
 
     const refreshHandler = vi.fn(() => [200, { access: "x", refresh: "y" }]);
-    axiosMock.onPost(/\/auth\/refresh\//).reply(refreshHandler);
+    axiosMock.onPost(/\/auth\/token\/refresh\//).reply(refreshHandler);
 
     await expect(api.post("/auth/login/")).rejects.toThrow();
 
@@ -131,7 +131,7 @@ describe("api service", () => {
     // /test always returns 401 (even after refresh)
     mock.onGet("/test").reply(401);
 
-    axiosMock.onPost(/\/auth\/refresh\//).reply(200, {
+    axiosMock.onPost(/\/auth\/token\/refresh\//).reply(200, {
       access: "new-access",
       refresh: "new-refresh",
     });
@@ -161,7 +161,7 @@ describe("api service", () => {
     });
 
     let refreshCallCount = 0;
-    axiosMock.onPost(/\/auth\/refresh\//).reply(() => {
+    axiosMock.onPost(/\/auth\/token\/refresh\//).reply(() => {
       refreshCallCount++;
       return [200, { access: "new-access", refresh: "new-refresh" }];
     });
