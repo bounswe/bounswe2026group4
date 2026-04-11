@@ -1,0 +1,133 @@
+name: Generate Test Reports
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  generate-reports:
+    name: Generate Test Reports
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_password
+          MYSQL_DATABASE: historystorymap
+          MYSQL_USER: dbuser
+          MYSQL_PASSWORD: ci_db_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -pci_root_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements/development.txt
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            mobile/package-lock.json
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y default-libmysqlclient-dev gcc pkg-config libmagic1
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements/development.txt
+          pip install pytest-json-report
+
+      - name: Grant test database privileges
+        run: |
+          mysql -h 127.0.0.1 -u root -pci_root_password \
+            -e "GRANT ALL PRIVILEGES ON \`test_%\`.* TO 'dbuser'@'%'; FLUSH PRIVILEGES;"
+
+      # ── Backend ──────────────────────────────────────────────────────────────
+      - name: Run backend tests
+        working-directory: backend
+        continue-on-error: true
+        env:
+          SECRET_KEY: ci-only-secret-key-not-used-in-production
+          DB_NAME: historystorymap
+          DB_USER: dbuser
+          DB_PASSWORD: ci_db_password
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DJANGO_SETTINGS_MODULE: config.settings.test
+        run: |
+          python -m pytest -v \
+            --json-report \
+            --json-report-file=${{ github.workspace }}/backend-report.json
+
+      # ── Frontend ─────────────────────────────────────────────────────────────
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        continue-on-error: true
+        run: |
+          npm run test:run -- \
+            --reporter=json \
+            --outputFile=${{ github.workspace }}/frontend-report.json
+
+      # ── Mobile ───────────────────────────────────────────────────────────────
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Run mobile tests
+        working-directory: mobile
+        continue-on-error: true
+        env:
+          CI: true
+          TMPDIR: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          npm test -- \
+            --runInBand \
+            --watchAll=false \
+            --json \
+            --outputFile=${{ github.workspace }}/mobile-report.json
+
+      # ── Report generation ────────────────────────────────────────────────────
+      - name: Generate wiki page
+        run: python .github/scripts/generate_test_report.py
+
+      - name: Push report to wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone \
+            https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git \
+            wiki-repo
+          cp ${{ github.workspace }}/Generated-Unit-Test-Reports.md wiki-repo/
+          cd wiki-repo
+          git config user.name "kemal"
+          git config user.email "kemal.mahmutogullari@gmail.com"
+          git add Generated-Unit-Test-Reports.md
+          git diff --staged --quiet || git commit -m "docs: update unit test reports"
+          git push
