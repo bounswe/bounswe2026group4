@@ -128,6 +128,9 @@ jobs:
           cp ${{ github.workspace }}/Backend-Generated-Unit-Test-Reports.md wiki-repo/
           cp ${{ github.workspace }}/Frontend-Generated-Unit-Test-Reports.md wiki-repo/
           cp ${{ github.workspace }}/Mobile-Generated-Unit-Test-Reports.md wiki-repo/
+          cp ${{ github.workspace }}/Backend-Generated-Unit-Test-Reports.html wiki-repo/
+          cp ${{ github.workspace }}/Frontend-Generated-Unit-Test-Reports.html wiki-repo/
+          cp ${{ github.workspace }}/Mobile-Generated-Unit-Test-Reports.html wiki-repo/
           cd wiki-repo
           git config user.name "kemal"
           git config user.email "kemal.mahmutogullari@gmail.com"
@@ -135,6 +138,9 @@ jobs:
             Generated-Unit-Test-Reports.md \
             Backend-Generated-Unit-Test-Reports.md \
             Frontend-Generated-Unit-Test-Reports.md \
-            Mobile-Generated-Unit-Test-Reports.md
+            Mobile-Generated-Unit-Test-Reports.md \
+            Backend-Generated-Unit-Test-Reports.html \
+            Frontend-Generated-Unit-Test-Reports.html \
+            Mobile-Generated-Unit-Test-Reports.html
           git diff --staged --quiet || git commit -m "docs: update unit test reports"
           git push
