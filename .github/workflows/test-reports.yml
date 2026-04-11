@@ -117,7 +117,7 @@ jobs:
       - name: Generate wiki page
         run: python .github/scripts/generate_test_report.py
 
-      - name: Push report to wiki
+      - name: Push reports to wiki
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -125,9 +125,16 @@ jobs:
             https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git \
             wiki-repo
           cp ${{ github.workspace }}/Generated-Unit-Test-Reports.md wiki-repo/
+          cp ${{ github.workspace }}/Backend-Generated-Unit-Test-Reports.md wiki-repo/
+          cp ${{ github.workspace }}/Frontend-Generated-Unit-Test-Reports.md wiki-repo/
+          cp ${{ github.workspace }}/Mobile-Generated-Unit-Test-Reports.md wiki-repo/
           cd wiki-repo
           git config user.name "kemal"
           git config user.email "kemal.mahmutogullari@gmail.com"
-          git add Generated-Unit-Test-Reports.md
+          git add \
+            Generated-Unit-Test-Reports.md \
+            Backend-Generated-Unit-Test-Reports.md \
+            Frontend-Generated-Unit-Test-Reports.md \
+            Mobile-Generated-Unit-Test-Reports.md
           git diff --staged --quiet || git commit -m "docs: update unit test reports"
           git push
