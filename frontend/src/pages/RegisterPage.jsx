@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2, MapPin, User, Check, X } from "lucide-react";
 
 import {
@@ -14,6 +14,7 @@ import {
   CardFooter,
 } from "@/components/ui";
 import { register } from "@/services/authService";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 
 const INITIAL_FIELD_ERRORS = {
@@ -44,6 +45,8 @@ function validatePasswordStrength(password) {
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const { toast } = useToast();
 
   const [username, setUsername] = useState("");
@@ -147,8 +150,18 @@ function RegisterPage() {
     setIsLoading(true);
     try {
       await register(username, email, password, confirmPassword);
-      toast.success("Account created! Sign in to continue.");
-      navigate("/login");
+      try {
+        await login(email, password);
+        toast.success("Account created! Welcome!");
+        const from = location.state?.from;
+        navigate(
+          from ? { pathname: from.pathname, search: from.search, hash: from.hash } : "/",
+          { replace: true }
+        );
+      } catch {
+        toast.info("Account created! Please sign in to continue.");
+        navigate("/login", { state: { from: location.state?.from }, replace: true });
+      }
     } catch (error) {
       const msg = extractApiErrors(error);
       setApiError(msg);

@@ -93,10 +93,10 @@ function AppLayout() {
                 </>
               ) : (
                 <>
-                  <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/login", { state: { from: location } })}>
                     Login
                   </Button>
-                  <Button size="sm" onClick={() => navigate("/register")}>
+                  <Button size="sm" onClick={() => navigate("/register", { state: { from: location } })}>
                     Register
                   </Button>
                 </>
@@ -153,14 +153,14 @@ function AppLayout() {
                         variant="ghost"
                         size="sm"
                         className="justify-start"
-                        onClick={() => { setSheetOpen(false); navigate("/login"); }}
+                        onClick={() => { setSheetOpen(false); navigate("/login", { state: { from: location } }); }}
                       >
                         Login
                       </Button>
                       <Button
                         size="sm"
                         className="justify-start"
-                        onClick={() => { setSheetOpen(false); navigate("/register"); }}
+                        onClick={() => { setSheetOpen(false); navigate("/register", { state: { from: location } }); }}
                       >
                         Register
                       </Button>

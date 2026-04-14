@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BrowserRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import RegisterPage from "../RegisterPage";
 import { ToastProvider } from "@/context/ToastContext";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,6 +9,12 @@ import { Toaster } from "@/components/ui/toaster";
 // Mock authService
 vi.mock("@/services/authService", () => ({
   register: vi.fn(),
+}));
+
+// Mock useAuth
+const mockLogin = vi.fn();
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ login: mockLogin }),
 }));
 
 // Mock useNavigate
@@ -20,12 +26,25 @@ vi.mock("react-router-dom", async () => {
 
 import { register } from "@/services/authService";
 
-function renderRegisterPage() {
+function renderRegisterPage({ initialEntries = ["/register"] } = {}) {
   return render(
     <ToastProvider>
-      <BrowserRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <RegisterPage />
-      </BrowserRouter>
+      </MemoryRouter>
+      <Toaster />
+    </ToastProvider>
+  );
+}
+
+function renderRegisterPageWithFrom(from, { search = "", hash = "" } = {}) {
+  return render(
+    <ToastProvider>
+      <MemoryRouter
+        initialEntries={[{ pathname: "/register", state: { from: { pathname: from, search, hash, state: null, key: "testkey" } } }]}
+      >
+        <RegisterPage />
+      </MemoryRouter>
       <Toaster />
     </ToastProvider>
   );
@@ -186,6 +205,7 @@ describe("RegisterPage", () => {
   it("calls register with correct arguments on valid submission", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPage();
 
     await fillForm(user);
@@ -201,32 +221,112 @@ describe("RegisterPage", () => {
     });
   });
 
-  // 4. Success navigation + toast
-  it("navigates to /login on successful registration", async () => {
+  // 4. Auto-login after registration
+  it("calls login with email and password after successful registration", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPage();
 
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/login");
+      expect(mockLogin).toHaveBeenCalledWith(VALID_EMAIL, VALID_PASSWORD);
     });
   });
 
-  it("shows success toast on successful registration", async () => {
+  it("navigates to home after successful registration and auto-login", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPage();
 
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(await screen.findByText("Account created! Sign in to continue.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
+    });
   });
 
-  // 5. Loading state
+  it("navigates to the original destination after auto-login when 'from' state exists", async () => {
+    const user = userEvent.setup();
+    register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
+    renderRegisterPageWithFrom("/submit-story");
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        { pathname: "/submit-story", search: "", hash: "" },
+        { replace: true }
+      );
+    });
+  });
+
+  it("preserves URL search params (filters) when redirecting after auto-login", async () => {
+    const user = userEvent.setup();
+    register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
+    renderRegisterPageWithFrom("/map", { search: "?q=castle&year_from=1900" });
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        { pathname: "/map", search: "?q=castle&year_from=1900", hash: "" },
+        { replace: true }
+      );
+    });
+  });
+
+  it("shows welcome toast on successful registration and auto-login", async () => {
+    const user = userEvent.setup();
+    register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
+    renderRegisterPage();
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(await screen.findByText("Account created! Welcome!")).toBeInTheDocument();
+  });
+
+  // 5. Auto-login failure fallback
+  it("navigates to /login with from state when auto-login fails", async () => {
+    const user = userEvent.setup();
+    register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockRejectedValue(new Error("Auto-login failed"));
+    renderRegisterPageWithFrom("/submit-story");
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/login", {
+        state: { from: { pathname: "/submit-story", search: "", hash: "", state: null, key: "testkey" } },
+        replace: true,
+      });
+    });
+  });
+
+  it("shows a sign-in guidance toast when auto-login fails", async () => {
+    const user = userEvent.setup();
+    register.mockResolvedValue({ message: "Registration successful.", user: {} });
+    mockLogin.mockRejectedValue(new Error("Auto-login failed"));
+    renderRegisterPage();
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(await screen.findByText(/account created.*sign in/i)).toBeInTheDocument();
+  });
+
+  // 6. Loading state
   it("shows loading state and disables button during submission", async () => {
     const user = userEvent.setup();
     register.mockReturnValue(new Promise(() => {}));
@@ -241,7 +341,7 @@ describe("RegisterPage", () => {
     });
   });
 
-  // 6. API error — generic
+  // 7. API error — generic
   it("shows generic API error on failure", async () => {
     const user = userEvent.setup();
     const error = new Error("Server error");
@@ -307,7 +407,7 @@ describe("RegisterPage", () => {
     expect(await screen.findByText(/a user with this username already exists/i)).toBeInTheDocument();
   });
 
-  // 7. Field errors clear on input
+  // 8. Field errors clear on input
   it("clears field error when user starts typing in that field", async () => {
     const user = userEvent.setup();
     renderRegisterPage();
@@ -321,7 +421,7 @@ describe("RegisterPage", () => {
     expect(screen.queryByText(/username is required/i)).not.toBeInTheDocument();
   });
 
-  // 8. Password visibility toggles
+  // 9. Password visibility toggles
   it("toggles password visibility", async () => {
     const user = userEvent.setup();
     renderRegisterPage();
@@ -344,7 +444,7 @@ describe("RegisterPage", () => {
     expect(confirmInput).toHaveAttribute("type", "text");
   });
 
-  // 9. Navigation link
+  // 10. Navigation link
   it("has a link to the login page", () => {
     renderRegisterPage();
 
