@@ -253,6 +253,45 @@ class TestGetStorySearch:
         make_story(title='Istanbul Today')
         assert get_story_search('Istanbul').count() == 2
 
+    def test_get_story_search_filters_by_year_from(self):
+        make_story(title='Old Istanbul', year=1800)
+        make_story(title='New Istanbul', year=1950)
+        assert get_story_search('Istanbul', year_from=1900).count() == 1
+        assert get_story_search('Istanbul', year_from=1900).first().title == 'New Istanbul'
+
+    def test_get_story_search_filters_by_year_to(self):
+        make_story(title='Old Istanbul', year=1800)
+        make_story(title='New Istanbul', year=1950)
+        assert get_story_search('Istanbul', year_to=1900).count() == 1
+        assert get_story_search('Istanbul', year_to=1900).first().title == 'Old Istanbul'
+
+    def test_get_story_search_filters_by_year_from_and_year_to(self):
+        make_story(title='Istanbul 1700', year=1700)
+        make_story(title='Istanbul 1850', year=1850)
+        make_story(title='Istanbul 2000', year=2000)
+        qs = get_story_search('Istanbul', year_from=1800, year_to=1900)
+        assert qs.count() == 1
+        assert qs.first().title == 'Istanbul 1850'
+
+    def test_get_story_search_filters_by_location(self):
+        make_story(title='Bridge Story', location_name='Galata Bridge')
+        make_story(title='Tower Story', location_name='Galata Tower')
+        make_story(title='Ankara Story', location_name='Ankara Castle')
+        qs = get_story_search('Story', location='Galata')
+        assert qs.count() == 2
+
+    def test_get_story_search_excludes_non_matching_location(self):
+        make_story(title='Istanbul Story', location_name='Galata Bridge')
+        assert get_story_search('Istanbul', location='Ankara').count() == 0
+
+    def test_get_story_search_combined_text_year_and_location(self):
+        make_story(title='Tower in Galata', year=1900, location_name='Galata')
+        make_story(title='Tower in Ankara', year=1900, location_name='Ankara')
+        make_story(title='Tower too late', year=2000, location_name='Galata')
+        qs = get_story_search('Tower', year_from=1800, year_to=1950, location='Galata')
+        assert qs.count() == 1
+        assert qs.first().title == 'Tower in Galata'
+
 
 # ── delete_story ──────────────────────────────────────────────────────────────
 

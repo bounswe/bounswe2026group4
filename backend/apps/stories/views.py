@@ -115,9 +115,15 @@ class StorySearchView(APIView):
     def get(self, request):
         query_serializer = SearchQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
-        q = query_serializer.validated_data['q']
+        params = query_serializer.validated_data
 
-        qs = get_story_search(q)
+        qs = get_story_search(
+            q=params['q'],
+            sort_by=params.get('sort_by', 'recent'),
+            year_from=params.get('year_from'),
+            year_to=params.get('year_to'),
+            location=params.get('location'),
+        )
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
 

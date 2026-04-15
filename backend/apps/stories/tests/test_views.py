@@ -345,6 +345,43 @@ class TestStorySearchView:
         response = client.get(SEARCH_URL + '?q=Gone')
         assert response.data['count'] == 0
 
+    def test_search_filters_by_year_from(self, client):
+        make_story(title='Old Istanbul', year=1800)
+        make_story(title='New Istanbul', year=1950)
+        response = client.get(SEARCH_URL + '?q=Istanbul&year_from=1900')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'New Istanbul'
+
+    def test_search_filters_by_year_to(self, client):
+        make_story(title='Old Istanbul', year=1800)
+        make_story(title='New Istanbul', year=1950)
+        response = client.get(SEARCH_URL + '?q=Istanbul&year_to=1900')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Old Istanbul'
+
+    def test_search_filters_by_location(self, client):
+        make_story(title='Galata Story', location_name='Galata Bridge')
+        make_story(title='Ankara Story', location_name='Ankara Castle')
+        response = client.get(SEARCH_URL + '?q=Story&location=Galata')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Galata Story'
+
+    def test_search_with_combined_filters(self, client):
+        make_story(title='Tower Galata', year=1900, location_name='Galata')
+        make_story(title='Tower Ankara', year=1900, location_name='Ankara')
+        make_story(title='Tower Late', year=2000, location_name='Galata')
+        response = client.get(SEARCH_URL + '?q=Tower&year_from=1800&year_to=1950&location=Galata')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Tower Galata'
+
+    def test_search_returns_400_for_invalid_year_range(self, client):
+        response = client.get(SEARCH_URL + '?q=Istanbul&year_from=2000&year_to=1900')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_search_returns_400_for_invalid_sort_by(self, client):
+        response = client.get(SEARCH_URL + '?q=Istanbul&sort_by=invalid')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
 
 # ── GET /stories/map/ ─────────────────────────────────────────────────────────
 

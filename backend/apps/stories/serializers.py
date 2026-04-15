@@ -298,7 +298,31 @@ class StoryMapSerializer(serializers.ModelSerializer):
 
 
 class SearchQuerySerializer(serializers.Serializer):
-    """Validates the q query parameter for the story search endpoint."""
+    """
+    Validates query parameters for the story search endpoint.
+
+    q is required. The filter params (sort_by, year_from, year_to, location) are
+    optional and mirror those accepted by FeedQuerySerializer so search results
+    can be narrowed with the same filters as the feed.
+    """
+
+    SORT_RECENT = 'recent'
+    SORT_POPULAR = 'popular'
+    SORT_CHOICES = [SORT_RECENT, SORT_POPULAR]
 
     # strip_whitespace=True (default) means a whitespace-only value becomes '' and fails min_length
     q = serializers.CharField(required=True, min_length=1)
+    sort_by = serializers.ChoiceField(choices=SORT_CHOICES, default=SORT_RECENT, required=False)
+    year_from = serializers.IntegerField(required=False)
+    year_to = serializers.IntegerField(required=False)
+    # Substring match against location_name — partial values like "galata" are valid
+    location = serializers.CharField(required=False, allow_blank=False)
+
+    def validate(self, data):
+        year_from = data.get('year_from')
+        year_to = data.get('year_to')
+        if year_from is not None and year_to is not None and year_from > year_to:
+            raise serializers.ValidationError(
+                {'year_to': 'year_to must be greater than or equal to year_from.'}
+            )
+        return data

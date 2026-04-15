@@ -266,6 +266,42 @@ class TestSearchQuerySerializer:
         s = SearchQuerySerializer(data={'q': 'a'})
         assert s.is_valid(), s.errors
 
+    def test_valid_with_all_filter_params(self):
+        s = SearchQuerySerializer(data={
+            'q': 'tower',
+            'sort_by': 'recent',
+            'year_from': 1900,
+            'year_to': 2000,
+            'location': 'istanbul',
+        })
+        assert s.is_valid(), s.errors
+        assert s.validated_data['year_from'] == 1900
+        assert s.validated_data['year_to'] == 2000
+        assert s.validated_data['location'] == 'istanbul'
+
+    def test_year_from_greater_than_year_to_fails(self):
+        s = SearchQuerySerializer(data={'q': 'bridge', 'year_from': 2000, 'year_to': 1900})
+        assert not s.is_valid()
+        assert 'year_to' in str(s.errors)
+
+    def test_invalid_sort_by_fails(self):
+        s = SearchQuerySerializer(data={'q': 'bridge', 'sort_by': 'invalid'})
+        assert not s.is_valid()
+        assert 'sort_by' in s.errors
+
+    def test_defaults_sort_by_to_recent_when_omitted(self):
+        s = SearchQuerySerializer(data={'q': 'bridge'})
+        assert s.is_valid(), s.errors
+        assert s.validated_data['sort_by'] == 'recent'
+
+    def test_filter_params_are_optional(self):
+        # Only q provided — all other filter params should be absent from validated_data
+        s = SearchQuerySerializer(data={'q': 'galata'})
+        assert s.is_valid(), s.errors
+        assert 'year_from' not in s.validated_data
+        assert 'year_to' not in s.validated_data
+        assert 'location' not in s.validated_data
+
 
 # ── StoryMapSerializer ────────────────────────────────────────────────────────
 

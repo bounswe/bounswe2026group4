@@ -66,19 +66,42 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
     return qs
 
 
-def get_story_search(q: str):
+def get_story_search(q: str, sort_by='recent', year_from=None, year_to=None, location=None):
     """Return published stories whose title or location_name contains q (case-insensitive).
+
+    Accepts the same optional filter params as get_story_feed so search results
+    can be narrowed by year range and location in addition to the text query.
 
     Returns an empty queryset if q is blank or whitespace-only — callers should
     validate q before calling, but the service is safe to call directly.
     """
     if not q or not q.strip():
         return Story.objects.none()
-    return (
+
+    qs = (
         Story.objects
         .filter(status=Story.STATUS_PUBLISHED)
-        .filter(
-            Q(title__icontains=q) | Q(location_name__icontains=q)
-        )
-        .order_by('-submitted_at')
+        .filter(Q(title__icontains=q) | Q(location_name__icontains=q))
     )
+
+    if year_from is not None:
+        qs = qs.filter(
+            Q(year__gte=year_from) |
+            Q(year_end__gte=year_from)  # catches year_range stories that end within or after the window
+        )
+
+    if year_to is not None:
+        qs = qs.filter(
+            Q(year__lte=year_to) |
+            Q(year_start__lte=year_to)  # catches year_range stories that start within or before the window
+        )
+
+    if location:
+        qs = qs.filter(location_name__icontains=location)
+
+    if sort_by == 'recent':
+        qs = qs.order_by('-submitted_at')
+
+    # TODO: add sort_by='popular' ordered by like_count once interactions app is implemented
+
+    return qs
