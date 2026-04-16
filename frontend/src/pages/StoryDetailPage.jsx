@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/useToast";
 import StoryDetailMap from "@/components/StoryDetailMap/StoryDetailMap";
 import LikeButton from "@/components/Interactions/LikeButton";
 import CommentSection from "@/components/Interactions/CommentSection";
+import StructuredData from "@/components/StructuredData/StructuredData";
 
 function formatDate(isoString) {
   if (!isoString) return null;
@@ -159,7 +160,9 @@ function StoryDetailPage() {
         {loading ? (
           <StoryDetailSkeleton />
         ) : (
-          <article aria-labelledby="story-title">
+          <>
+            <StructuredData story={story} />
+            <article aria-labelledby="story-title">
             <div className="flex items-start justify-between gap-4 mb-1">
               <h1 id="story-title" className="text-3xl font-bold tracking-tight">
                 {story.title}
@@ -293,6 +296,7 @@ function StoryDetailPage() {
               onUserCommentedChange={setUserHasCommented}
             />
           </article>
+          </>
         )}
       </div>
     </main>
