@@ -183,6 +183,7 @@ function LoginPage() {
             Don&apos;t have an account?{" "}
             <Link
               to="/register"
+              state={{ from: location.state?.from }}
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
               Sign up
