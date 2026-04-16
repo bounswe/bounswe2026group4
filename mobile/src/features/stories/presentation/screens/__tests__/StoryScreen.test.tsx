@@ -140,6 +140,7 @@ describe('StoryScreen', () => {
       <StoryScreen
         storyId="story-001"
         getStory={async () => baseStory}
+        getPublicProfile={async () => ({ id: '22', username: 'Aylin Demir', totalPoints: 0 })}
         onOpenContributorProfile={onOpenContributorProfile}
       />,
     );
@@ -148,6 +149,65 @@ describe('StoryScreen', () => {
     fireEvent.press(screen.getByLabelText(`Open profile: ${baseStory.contributorName}`));
 
     expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
+  });
+
+  it('keeps the profile action for anonymous contributors', async () => {
+    const onOpenContributorProfile = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          contributorName: 'Anonymous',
+        })}
+        getPublicProfile={async () => ({ id: '22', username: null, totalPoints: 0 })}
+        onOpenContributorProfile={onOpenContributorProfile}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open profile: Anonymous'));
+    expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
+  });
+
+  it('marks the signed-in user on their own story even if their username is private', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={{
+          ...ownerSession,
+          user: {
+            ...ownerSession.user,
+            isUsernamePublic: false,
+          },
+        }}
+        getStory={async () => baseStory}
+        getPublicProfile={async () => ({ id: '22', username: null, totalPoints: 0 })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.getByText(`${baseStory.contributorName} (You)`)).toBeTruthy();
+    expect(screen.queryByText('Anonymous')).toBeNull();
+    expect(screen.getByLabelText(`Open profile: ${baseStory.contributorName} (You)`)).toBeTruthy();
+  });
+
+  it('uses the contributor public profile to hide private usernames', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => baseStory}
+        getPublicProfile={async () => ({ id: '22', username: null, totalPoints: 0 })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Anonymous')).toBeTruthy();
+    });
+    expect(screen.queryByText(baseStory.contributorName)).toBeNull();
+    expect(screen.getByLabelText('Open profile: Anonymous')).toBeTruthy();
   });
 
   it('shows an image fallback message when the media fails to load', async () => {
@@ -353,6 +413,46 @@ describe('StoryScreen', () => {
     await waitFor(() => {
       expect(screen.queryByText('Delete this comment?')).toBeNull();
     });
+  });
+
+  it('marks the signed-in user on their own comments even when private', async () => {
+    (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'comment-own',
+        authorUsername: 'Traveler',
+        text: 'My own comment',
+        createdAt: '2026-03-21T12:00:00Z',
+      },
+    ]);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={{
+          ...userSession,
+          user: {
+            ...userSession.user,
+            isUsernamePublic: false,
+          },
+        }}
+        getStory={async () => ({
+          ...baseStory,
+          comments: [
+            {
+              id: 'comment-own',
+              authorName: 'Traveler',
+              body: 'My own comment',
+              createdAt: '2026-03-21T12:00:00Z',
+            },
+          ],
+        })}
+      />,
+    );
+
+    await screen.findByText('My own comment');
+    expect(screen.getByText('Traveler (You)')).toBeTruthy();
+    expect(screen.queryByText('Anonymous')).toBeNull();
+    expect(screen.getByText('Delete comment')).toBeTruthy();
   });
 
   it('shows the delete story action only to the owner or an admin', async () => {
