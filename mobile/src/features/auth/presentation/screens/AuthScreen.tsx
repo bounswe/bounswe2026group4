@@ -264,21 +264,35 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
 
     try {
       if (isRegister) {
+        const email = state.email.trim();
+        const password = state.password;
+
         const result = await register({
           username: state.username.trim(),
-          email: state.email.trim(),
-          password: state.password,
+          email,
+          password,
           confirmPassword: state.confirmPassword,
         });
 
-        const successMessage = result.message || 'Account created successfully. Please sign in.';
-        toast.success('Account created! Sign in to continue.');
-        setMode('signIn');
-        setState({
-          ...initialFormState,
-          email: state.email.trim(),
-          successMessage,
-        });
+        try {
+          const session = await login({ email, password });
+          toast.success(`Welcome, ${session.user.username}.`);
+          onAuthenticated?.();
+          setState(initialFormState);
+        } catch {
+          const successMessage = result.message || 'Account created successfully.';
+          const autoLoginError = 'Your account was created, but automatic sign-in failed. Please sign in manually.';
+
+          setMode('signIn');
+          setState({
+            ...initialFormState,
+            email,
+            error: autoLoginError,
+            successMessage,
+          });
+          toast.error(autoLoginError);
+        }
+
         return;
       }
 
