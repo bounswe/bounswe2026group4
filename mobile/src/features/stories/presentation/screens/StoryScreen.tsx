@@ -37,17 +37,12 @@ function formatDate(dateString: string) {
   });
 }
 
-function getResolvedContributorName(story: StoryEntity, session?: Pick<Session, 'user'>) {
-  const isOwnStory =
-    session?.user?.id !== undefined &&
-    story.contributorUserId !== undefined &&
-    String(session.user.id) === story.contributorUserId;
-
-  if (isOwnStory && session?.user?.isUsernamePublic === false) {
-    return 'Anonymous';
-  }
-
+function getResolvedContributorName(story: StoryEntity) {
   return story.contributorName;
+}
+
+function getDisplayNameWithYouLabel(name: string, isCurrentUser: boolean) {
+  return isCurrentUser ? `${name} (You)` : name;
 }
 
 function StoryMetaRow({ label, value }: { label: string; value: string }) {
@@ -294,6 +289,7 @@ function CommentsSection({
       {displayedComments.map((comment) => {
         const isOwnComment = isAuthenticated && currentUsername === comment.authorName;
         const awaitingConfirm = confirmDeleteId === comment.id;
+        const authorDisplayName = getDisplayNameWithYouLabel(comment.authorName, isOwnComment);
 
         return (
         <View
@@ -307,7 +303,7 @@ function CommentsSection({
             backgroundColor: colors.surface,
           }}
         >
-          <Text style={{ color: colors.text, fontWeight: '700' }}>{comment.authorName}</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>{authorDisplayName}</Text>
           <Text style={{ marginTop: spacing.xs, color: colors.muted, fontSize: typography.caption }}>
             {formatDate(comment.createdAt)}
           </Text>
@@ -441,13 +437,12 @@ export function StoryScreen({
       };
     }
 
-    const isOwnPrivateStory =
+    const isOwnStory =
       session?.user?.id !== undefined &&
-      String(session.user.id) === story.contributorUserId &&
-      session.user.isUsernamePublic === false;
+      String(session.user.id) === story.contributorUserId;
 
-    if (isOwnPrivateStory) {
-      setIsContributorAnonymous(true);
+    if (isOwnStory) {
+      setIsContributorAnonymous(false);
       return () => {
         isMounted = false;
       };
@@ -468,7 +463,7 @@ export function StoryScreen({
     return () => {
       isMounted = false;
     };
-  }, [getPublicProfile, session?.user?.id, session?.user?.isUsernamePublic, state.story]);
+  }, [getPublicProfile, session?.user?.id, state.story]);
 
   const extractInteractionError = (error: unknown, fallback: string) => {
     const response = (error as { response?: { data?: unknown } })?.response?.data;
@@ -646,7 +641,8 @@ export function StoryScreen({
   const story = state.story;
   const isStoryOwner = session?.user?.id !== undefined && String(session.user.id) === story.contributorUserId;
   const canDeleteStory = session?.role === roles.admin || isStoryOwner;
-  const contributorName = isContributorAnonymous ? 'Anonymous' : getResolvedContributorName(story, session);
+  const contributorName = isContributorAnonymous ? 'Anonymous' : getResolvedContributorName(story);
+  const contributorDisplayName = getDisplayNameWithYouLabel(contributorName, isStoryOwner);
   const canOpenContributorProfile = Boolean(story.contributorUserId);
 
   const promptDeleteStory = () => {
@@ -707,7 +703,7 @@ export function StoryScreen({
         <StoryMetaRow label="Time period" value={story.timePeriod} />
         <StoryMetaActionRow
           label="Contributor"
-          value={contributorName}
+          value={contributorDisplayName}
           onPress={
             canOpenContributorProfile
               ? () => {
