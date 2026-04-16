@@ -652,7 +652,7 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getByLabelText('Read story: Harbor Memory'));
 
     expect(await screen.findByText('Harbor Memory')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Open profile: Traveler'));
+    fireEvent.press(screen.getByLabelText('Open profile: Traveler (You)'));
 
     await waitFor(() => {
       expect(screen.getByText('Signed in as Traveler.')).toBeTruthy();
