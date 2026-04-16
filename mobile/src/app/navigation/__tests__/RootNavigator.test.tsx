@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { RootNavigator } from '../RootNavigator';
 import { storage } from '../../../core/storage/storage';
+import { storageKeys } from '../../../core/storage/keys';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
 import { AppProviders } from '../../providers/AppProviders';
@@ -171,6 +172,22 @@ function installAuthTransport() {
       };
     }
 
+    if (method === 'POST' && config.url === '/auth/register/') {
+      return {
+        status: 201,
+        data: {
+          message: 'Registration successful. Please verify your email.',
+          user: {
+            id: 2,
+            email: 'newuser@example.com',
+            username: 'NewTraveler',
+            role: 'registered_user',
+          },
+        } as never,
+        config,
+      };
+    }
+
     if (method === 'POST' && config.url === '/auth/logout/') {
       return {
         status: 204,
@@ -241,6 +258,184 @@ describe('RootNavigator auth flow', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('Search stories')).toBeTruthy();
+    });
+  });
+
+  it('automatically signs in after registration and persists the session', async () => {
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Login'));
+    await screen.findByLabelText('Email address');
+    fireEvent.press(screen.getByText('Sign up'));
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'newtraveler');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'newuser@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
+    fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
+    fireEvent.press(screen.getAllByText('Create account').at(-1)!);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Profile')).toBeTruthy();
+    });
+
+    expect(await storage.get<{ accessToken?: string }>(storageKeys.authSession)).toMatchObject({
+      accessToken: 'access-token-123',
+    });
+  });
+
+  it('falls back to manual sign-in when auto-login after registration fails', async () => {
+    let loginAttempts = 0;
+
+    setApiTransport(async (method, config) => {
+      if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/map/')) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/stories/story-001/') {
+        return {
+          status: 200,
+          data: storyDetail as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/stories/story-001/comments/') {
+        return {
+          status: 200,
+          data: { results: [] } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/me/') {
+        return {
+          status: 200,
+          data: profileDetail as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/12/') {
+        return {
+          status: 200,
+          data: publicProfileDetail as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/?')) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults.map((story) => ({
+              ...story,
+              user: 1,
+              narrative: 'A story about the harbor.',
+            })),
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/register/') {
+        return {
+          status: 201,
+          data: {
+            message: 'Registration successful. Please verify your email.',
+            user: {
+              id: 2,
+              email: 'newuser@example.com',
+              username: 'NewTraveler',
+              role: 'registered_user',
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/login/') {
+        loginAttempts += 1;
+
+        if (loginAttempts === 1) {
+          throw new Error('Temporary login outage.');
+        }
+
+        return {
+          status: 200,
+          data: {
+            access: 'access-token-123',
+            refresh: 'refresh-token-123',
+            user: {
+              id: 1,
+              email: 'newuser@example.com',
+              username: 'NewTraveler',
+              role: 'registered_user',
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/logout/') {
+        return {
+          status: 204,
+          data: null as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Login'));
+    await screen.findByLabelText('Email address');
+    fireEvent.press(screen.getByText('Sign up'));
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'newtraveler');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'newuser@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
+    fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
+    fireEvent.press(screen.getAllByText('Create account').at(-1)!);
+
+    expect(
+      await screen.findAllByText('Your account was created, but automatic sign-in failed. Please sign in manually.'),
+    ).toHaveLength(2);
+    expect(screen.getByText('Registration successful. Please verify your email.')).toBeTruthy();
+    expect(screen.getAllByText('Sign in').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Email address').props.value).toBe('newuser@example.com');
+
+    fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
+    fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Profile')).toBeTruthy();
     });
   });
 
