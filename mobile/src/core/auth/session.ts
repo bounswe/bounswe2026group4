@@ -5,6 +5,7 @@ export interface SessionUser {
   email: string;
   username: string;
   role: AppRole;
+  isUsernamePublic?: boolean;
 }
 
 export type AuthUser = SessionUser;

@@ -231,6 +231,7 @@ export function ProfileScreen({
       setProfile(updatedProfile);
       setFormState(createFormState(updatedProfile));
       await updateUser({
+        isUsernamePublic: updatedProfile.isUsernamePublic,
         username: updatedProfile.username ?? user?.username ?? '',
       });
       setSaveMessage('Profile updated successfully.');
@@ -249,7 +250,7 @@ export function ProfileScreen({
     return 'User profile';
   }, [isSelfMode]);
 
-  const resolvedName = profile?.username || (isSelfMode ? user?.username : null) || 'Private user';
+  const resolvedName = profile?.username || (isSelfMode ? user?.username : null) || 'Anonymous user';
   const joinedDate = formatJoinedDate(profile?.dateJoined);
   const isDirty = useMemo(() => {
     if (!profile) {

@@ -140,6 +140,7 @@ describe('StoryScreen', () => {
       <StoryScreen
         storyId="story-001"
         getStory={async () => baseStory}
+        getPublicProfile={async () => ({ id: '22', username: 'Aylin Demir', totalPoints: 0 })}
         onOpenContributorProfile={onOpenContributorProfile}
       />,
     );
@@ -148,6 +149,65 @@ describe('StoryScreen', () => {
     fireEvent.press(screen.getByLabelText(`Open profile: ${baseStory.contributorName}`));
 
     expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
+  });
+
+  it('keeps the profile action for anonymous contributors', async () => {
+    const onOpenContributorProfile = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          contributorName: 'Anonymous',
+        })}
+        getPublicProfile={async () => ({ id: '22', username: null, totalPoints: 0 })}
+        onOpenContributorProfile={onOpenContributorProfile}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open profile: Anonymous'));
+    expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
+  });
+
+  it('shows the signed-in user as anonymous after they make their username private', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={{
+          ...ownerSession,
+          user: {
+            ...ownerSession.user,
+            isUsernamePublic: false,
+          },
+        }}
+        getStory={async () => baseStory}
+        getPublicProfile={async () => ({ id: '22', username: null, totalPoints: 0 })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.getByText('Anonymous')).toBeTruthy();
+    expect(screen.queryByText(baseStory.contributorName)).toBeNull();
+    expect(screen.getByLabelText('Open profile: Anonymous')).toBeTruthy();
+  });
+
+  it('uses the contributor public profile to hide private usernames', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => baseStory}
+        getPublicProfile={async () => ({ id: '22', username: null, totalPoints: 0 })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Anonymous')).toBeTruthy();
+    });
+    expect(screen.queryByText(baseStory.contributorName)).toBeNull();
+    expect(screen.getByLabelText('Open profile: Anonymous')).toBeTruthy();
   });
 
   it('shows an image fallback message when the media fails to load', async () => {

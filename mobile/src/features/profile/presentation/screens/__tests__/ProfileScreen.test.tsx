@@ -116,6 +116,21 @@ describe('ProfileScreen', () => {
     expect(screen.getByText('Stories are intentionally out of scope for this profile version and will be added later.')).toBeTruthy();
   });
 
+  it('shows anonymous user when the public profile username is hidden', async () => {
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => ({
+          ...publicProfile,
+          username: null,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Anonymous user')).toBeTruthy();
+  });
+
   it('shows an error state when profile loading fails', async () => {
     render(
       <ProfileScreen

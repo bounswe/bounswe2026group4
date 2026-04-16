@@ -14,6 +14,8 @@ export function mapAuth(value: unknown): AuthSessionEntity {
       username?: unknown;
       email?: unknown;
       role?: unknown;
+      isUsernamePublic?: unknown;
+      is_username_public?: unknown;
     };
   };
 
@@ -39,6 +41,12 @@ export function mapAuth(value: unknown): AuthSessionEntity {
       username: payload.user.username,
       email: payload.user.email,
       role: payload.user.role,
+      isUsernamePublic:
+        typeof payload.user.isUsernamePublic === 'boolean'
+          ? payload.user.isUsernamePublic
+          : typeof payload.user.is_username_public === 'boolean'
+            ? payload.user.is_username_public
+            : undefined,
     },
   };
 }
