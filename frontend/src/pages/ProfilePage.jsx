@@ -6,6 +6,7 @@ import { SkeletonPage } from "@/components/ui/loading-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { getProfile } from "@/services/userService";
 import { useAuth } from "@/hooks/useAuth";
+import StructuredData from "@/components/StructuredData/StructuredData";
 
 function ProfilePage() {
   const { userId: paramUserId } = useParams();
@@ -68,6 +69,7 @@ function ProfilePage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <StructuredData user={profile} />
         {/* Profile Header */}
         <div className="mb-8 rounded-xl border bg-card p-6">
           <div className="flex items-start gap-4">
