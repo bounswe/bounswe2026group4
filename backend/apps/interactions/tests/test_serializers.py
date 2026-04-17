@@ -60,6 +60,25 @@ class TestCommentResponseSerializer:
         for field in ['id', 'story_id', 'author_username', 'text', 'is_anonymized', 'created_at']:
             assert field in data
 
+    def test_response_serializer_hides_username_when_private(self, story):
+        private_user = User.objects.create_user(
+            email='private@example.com', username='privateuser', password='Password1',
+            is_username_public=False,
+        )
+        comment = Comment.objects.create(story=story, author=private_user, text='Incognito')
+        data = CommentResponseSerializer(comment).data
+        assert data['author_username'] is None
+        assert data['is_anonymized'] is False
+
+    def test_response_serializer_shows_username_when_public(self, story):
+        public_user = User.objects.create_user(
+            email='public@example.com', username='publicuser', password='Password1',
+            is_username_public=True,
+        )
+        comment = Comment.objects.create(story=story, author=public_user, text='Visible')
+        data = CommentResponseSerializer(comment).data
+        assert data['author_username'] == 'publicuser'
+
 
 # ── LikeResponseSerializer ────────────────────────────────────────────────────
 

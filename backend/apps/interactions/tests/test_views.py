@@ -280,6 +280,27 @@ class TestStoryCommentList:
         response = client.get(self.url.format(story_id=story.pk))
         assert response.data['results'][0]['author_username'] is None
 
+    def test_private_username_author_shows_null_in_list(self, client, story):
+        private_user = User.objects.create_user(
+            email='private_view@example.com', username='privateview', password='Password1',
+            is_username_public=False,
+        )
+        Comment.objects.create(story=story, author=private_user, text='Hidden identity')
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.status_code == 200
+        assert response.data['results'][0]['author_username'] is None
+        assert response.data['results'][0]['is_anonymized'] is False
+
+    def test_public_username_author_shows_username_in_list(self, client, story):
+        public_user = User.objects.create_user(
+            email='public_view@example.com', username='publicview', password='Password1',
+            is_username_public=True,
+        )
+        Comment.objects.create(story=story, author=public_user, text='Visible identity')
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.status_code == 200
+        assert response.data['results'][0]['author_username'] == 'publicview'
+
     def test_only_returns_comments_for_requested_story(self, client, story, second_user):
         from decimal import Decimal
         other_story = Story.objects.create(
