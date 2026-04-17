@@ -467,22 +467,24 @@ class TestCurrentUserView:
 
     def test_patch_name_fields_updates_in_db(self, auth_client, registered_user):
         from apps.users.models import UserProfile
-        auth_client.patch(
+        response = auth_client.patch(
             self.url,
             {'profile': {'first_name': 'Ada', 'last_name': 'Lovelace'}},
             format='json',
         )
+        assert response.status_code == status.HTTP_200_OK
         profile = UserProfile.objects.get(user=registered_user)
         assert profile.first_name == 'Ada'
         assert profile.last_name == 'Lovelace'
 
     def test_patch_is_name_public_updates_in_db(self, auth_client, registered_user):
         from apps.users.models import UserProfile
-        auth_client.patch(
+        response = auth_client.patch(
             self.url,
             {'profile': {'is_name_public': False}},
             format='json',
         )
+        assert response.status_code == status.HTTP_200_OK
         profile = UserProfile.objects.get(user=registered_user)
         assert profile.is_name_public is False
 
