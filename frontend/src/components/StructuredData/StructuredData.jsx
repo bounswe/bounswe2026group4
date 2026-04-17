@@ -1,4 +1,4 @@
-const SITE_URL = "https://storymap.page";
+import { SITE_URL } from "./constants";
 
 function assignIfDefined(target, key, value) {
   if (value !== null && value !== undefined) {
@@ -130,10 +130,12 @@ function StructuredData({ story, user }) {
     ? buildStoryStructuredData(story)
     : buildUserStructuredData(user);
 
+  const json = JSON.stringify(structured).replace(/<\//g, "<\\/");
+
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structured) }}
+      dangerouslySetInnerHTML={{ __html: json }}
     />
   );
 }

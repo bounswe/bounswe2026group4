@@ -2,8 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 
 import StructuredData from "../StructuredData";
-
-const SITE_URL = "https://storymap.page";
+import { SITE_URL } from "../constants";
 
 function getJsonLd(container) {
   const script = container.querySelector('script[type="application/ld+json"]');
@@ -58,6 +57,19 @@ describe("StructuredData", () => {
   it("returns null when neither story nor user is provided", () => {
     const { container } = render(<StructuredData />);
     expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
+  });
+
+  it("escapes </script> sequences in user-supplied content", () => {
+    const { container } = render(
+      <StructuredData
+        story={makeStory({ narrative: "evil </script><script>alert(1)</script>" })}
+      />
+    );
+    const script = container.querySelector('script[type="application/ld+json"]');
+    expect(script.innerHTML).not.toContain("</script>");
+    expect(script.innerHTML).toContain("<\\/script>");
+    const data = JSON.parse(script.innerHTML);
+    expect(data.articleBody).toBe("evil </script><script>alert(1)</script>");
   });
 
   describe("story mapping", () => {
