@@ -71,10 +71,13 @@ class UserProfile(models.Model):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
     location = models.CharField(max_length=255, blank=True)
     birth_date = models.DateField(blank=True, null=True)
     bio = models.TextField(blank=True)
     # Per-field visibility toggles (req. 1.2.2.2)
+    is_name_public = models.BooleanField(default=True)
     is_location_public = models.BooleanField(default=True)
     is_birth_date_public = models.BooleanField(default=True)
     is_photo_public = models.BooleanField(default=True)

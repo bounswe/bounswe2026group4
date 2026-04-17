@@ -54,9 +54,12 @@ class UpdateProfileSerializer(serializers.Serializer):
     """Validates editable UserProfile fields accepted by PATCH /users/me/."""
 
     profile_photo = serializers.ImageField(required=False, allow_null=True)
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     location = serializers.CharField(max_length=255, required=False, allow_blank=True)
     birth_date = serializers.DateField(required=False, allow_null=True)
     bio = serializers.CharField(required=False, allow_blank=True)
+    is_name_public = serializers.BooleanField(required=False)
     is_location_public = serializers.BooleanField(required=False)
     is_birth_date_public = serializers.BooleanField(required=False)
     is_photo_public = serializers.BooleanField(required=False)
@@ -71,9 +74,12 @@ class CurrentUserProfileSerializer(serializers.Serializer):
     """
 
     profile_photo = serializers.SerializerMethodField()
+    first_name = serializers.CharField(allow_blank=True)
+    last_name = serializers.CharField(allow_blank=True)
     location = serializers.CharField(allow_blank=True)
     birth_date = serializers.DateField()
     bio = serializers.CharField(allow_blank=True)
+    is_name_public = serializers.BooleanField()
     is_location_public = serializers.BooleanField()
     is_birth_date_public = serializers.BooleanField()
     is_photo_public = serializers.BooleanField()
@@ -160,6 +166,8 @@ class PublicUserProfileSerializer(serializers.Serializer):
     date_joined = serializers.DateTimeField()
     published_story_count = serializers.IntegerField()
     profile_photo = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     bio = serializers.SerializerMethodField()
     birth_year = serializers.SerializerMethodField()
@@ -178,6 +186,18 @@ class PublicUserProfileSerializer(serializers.Serializer):
             if request:
                 return request.build_absolute_uri(profile.profile_photo.url)
             return profile.profile_photo.url
+        return None
+
+    def get_first_name(self, obj):
+        profile = self._profile(obj)
+        if profile and profile.is_name_public and profile.first_name:
+            return profile.first_name
+        return None
+
+    def get_last_name(self, obj):
+        profile = self._profile(obj)
+        if profile and profile.is_name_public and profile.last_name:
+            return profile.last_name
         return None
 
     def get_location(self, obj):
