@@ -22,6 +22,8 @@ class CommentResponseSerializer(serializers.ModelSerializer):
     def get_author_username(self, obj):
         if obj.is_anonymized or obj.author is None:
             return None
+        if not obj.author.is_username_public:
+            return None
         return obj.author.username
 
 
