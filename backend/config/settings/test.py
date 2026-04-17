@@ -25,6 +25,17 @@ MIDDLEWARE = [m for m in MIDDLEWARE if 'debug_toolbar' not in m]  # noqa: F405
 
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 
+# Use in-memory storage so tests never touch the filesystem and are not
+# affected by MEDIA_ROOT values set in .env (e.g. production/Docker paths).
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.InMemoryStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
+
 # Disable password hashing for faster tests
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.MD5PasswordHasher',
