@@ -313,6 +313,29 @@ class TestUserPublicProfileView:
         assert response.data['bio'] is None
         assert response.data['birth_year'] is None
 
+    def test_name_visible_when_is_name_public_true(self, client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(
+            user=registered_user, first_name='Ada', last_name='Lovelace', is_name_public=True
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['first_name'] == 'Ada'
+        assert response.data['last_name'] == 'Lovelace'
+
+    def test_name_hidden_when_is_name_public_false(self, client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(
+            user=registered_user, first_name='Ada', last_name='Lovelace', is_name_public=False
+        )
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['first_name'] is None
+        assert response.data['last_name'] is None
+
+    def test_name_null_when_no_profile(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['first_name'] is None
+        assert response.data['last_name'] is None
+
 
 # ── GET /users/me/ and PATCH /users/me/ ──────────────────────────────────────
 
@@ -441,3 +464,38 @@ class TestCurrentUserView:
         response = auth_client.patch(self.url, {'is_username_public': False}, format='json')
         assert response.data['success'] is True
         assert 'data' in response.data
+
+    def test_patch_name_fields_updates_in_db(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        response = auth_client.patch(
+            self.url,
+            {'profile': {'first_name': 'Ada', 'last_name': 'Lovelace'}},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        profile = UserProfile.objects.get(user=registered_user)
+        assert profile.first_name == 'Ada'
+        assert profile.last_name == 'Lovelace'
+
+    def test_patch_is_name_public_updates_in_db(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        response = auth_client.patch(
+            self.url,
+            {'profile': {'is_name_public': False}},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        profile = UserProfile.objects.get(user=registered_user)
+        assert profile.is_name_public is False
+
+    def test_get_profile_includes_name_fields_for_owner(self, auth_client, registered_user):
+        from apps.users.models import UserProfile
+        UserProfile.objects.create(
+            user=registered_user, first_name='Ada', last_name='Lovelace', is_name_public=False
+        )
+        response = auth_client.get(self.url)
+        profile = response.data['data']['profile']
+        # Owner always sees their own name even when is_name_public is False
+        assert profile['first_name'] == 'Ada'
+        assert profile['last_name'] == 'Lovelace'
+        assert profile['is_name_public'] is False

@@ -124,14 +124,30 @@ class TestUserProfile:
 
     def test_privacy_flags_default_to_true(self):
         profile = UserProfile.objects.create(user=self.user)
+        assert profile.is_name_public is True
         assert profile.is_location_public is True
         assert profile.is_birth_date_public is True
         assert profile.is_photo_public is True
 
     def test_optional_text_fields_default_to_blank(self):
         profile = UserProfile.objects.create(user=self.user)
+        assert profile.first_name == ''
+        assert profile.last_name == ''
         assert profile.location == ''
         assert profile.bio == ''
+
+    def test_first_name_and_last_name_store_correctly(self):
+        profile = UserProfile.objects.create(
+            user=self.user, first_name='Ada', last_name='Lovelace'
+        )
+        profile.refresh_from_db()
+        assert profile.first_name == 'Ada'
+        assert profile.last_name == 'Lovelace'
+
+    def test_is_name_public_can_be_set_false(self):
+        profile = UserProfile.objects.create(user=self.user, is_name_public=False)
+        profile.refresh_from_db()
+        assert profile.is_name_public is False
 
     def test_optional_nullable_fields_default_to_none(self):
         profile = UserProfile.objects.create(user=self.user)

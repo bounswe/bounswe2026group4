@@ -213,6 +213,30 @@ class TestPublicUserProfileSerializer:
         assert data['bio'] is None
         assert data['birth_year'] is None
 
+    def test_first_name_and_last_name_visible_when_is_name_public_true(self):
+        user = self._make_user()
+        UserProfile.objects.create(
+            user=user, first_name='Ada', last_name='Lovelace', is_name_public=True
+        )
+        data = self._serialize(user)
+        assert data['first_name'] == 'Ada'
+        assert data['last_name'] == 'Lovelace'
+
+    def test_first_name_and_last_name_hidden_when_is_name_public_false(self):
+        user = self._make_user()
+        UserProfile.objects.create(
+            user=user, first_name='Ada', last_name='Lovelace', is_name_public=False
+        )
+        data = self._serialize(user)
+        assert data['first_name'] is None
+        assert data['last_name'] is None
+
+    def test_first_name_null_when_no_profile(self):
+        user = self._make_user()
+        data = self._serialize(user)
+        assert data['first_name'] is None
+        assert data['last_name'] is None
+
 
 # ── CurrentUserSerializer ─────────────────────────────────────────────────────
 
@@ -270,6 +294,15 @@ class TestCurrentUserSerializer:
         UserProfile.objects.create(user=user)
         data = CurrentUserSerializer(user).data
         assert data['profile']['profile_photo'] is None
+
+    def test_profile_returns_name_fields_to_owner(self):
+        user = self._make_user()
+        UserProfile.objects.create(user=user, first_name='Ada', last_name='Lovelace', is_name_public=False)
+        data = CurrentUserSerializer(user).data
+        # Owner always sees their own name regardless of visibility flag
+        assert data['profile']['first_name'] == 'Ada'
+        assert data['profile']['last_name'] == 'Lovelace'
+        assert data['profile']['is_name_public'] is False
 
 
 # ── UpdateCurrentUserSerializer ───────────────────────────────────────────────
