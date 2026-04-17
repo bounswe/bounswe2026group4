@@ -1,0 +1,200 @@
+name: Sync PR fields from linked issue
+
+# Fires whenever a PR is opened or its body is edited (e.g. to add the Fixes link).
+on:
+  pull_request:
+    types: [opened, edited]
+
+permissions:
+  pull-requests: write   # needed to add labels and set milestone on the PR
+  issues: read           # needed to read the linked issue's fields
+
+jobs:
+  sync-fields:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Step 1: Labels and milestone ──────────────────────────────────────
+      # Uses the default GITHUB_TOKEN — no extra secret needed.
+      - name: Sync labels and milestone from linked issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Extract the first "Fixes/Closes/Resolves #NNN" reference from the PR body.
+          # PR_BODY is passed via env (safe pattern — not inline-interpolated).
+          ISSUE=$(printf '%s\n' "$PR_BODY" \
+            | grep -oiE '(fixes|closes|resolves)[[:space:]]+#[0-9]+' \
+            | grep -oE '[0-9]+' \
+            | head -1)
+
+          if [ -z "$ISSUE" ]; then
+            echo "No linked issue found in PR body — skipping."
+            exit 0
+          fi
+
+          echo "Linked issue: #$ISSUE"
+          # Share the issue number with subsequent steps.
+          echo "LINKED_ISSUE=$ISSUE" >> "$GITHUB_ENV"
+
+          # Copy labels (gh pr edit expects a comma-separated list).
+          LABELS=$(gh issue view "$ISSUE" --repo "$REPO" \
+            --json labels --jq '[.labels[].name] | join(",")' 2>/dev/null || true)
+          if [ -n "$LABELS" ]; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABELS"
+            echo "Labels applied: $LABELS"
+          else
+            echo "No labels on issue — nothing to copy."
+          fi
+
+          # Copy milestone.
+          MILESTONE=$(gh issue view "$ISSUE" --repo "$REPO" \
+            --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
+          if [ -n "$MILESTONE" ]; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --milestone "$MILESTONE"
+            echo "Milestone applied: $MILESTONE"
+          else
+            echo "No milestone on issue — nothing to copy."
+          fi
+
+      # ── Step 2: Project membership and fields ─────────────────────────────
+      # Requires a PROJECT_TOKEN repository secret: a PAT with the `project`
+      # write scope. If the secret is absent the step exits cleanly (no failure).
+      - name: Sync project membership and fields from linked issue
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "PROJECT_TOKEN secret not configured — skipping project sync."
+            exit 0
+          fi
+
+          ISSUE="$LINKED_ISSUE"
+          if [ -z "$ISSUE" ]; then
+            echo "No linked issue — skipping project sync."
+            exit 0
+          fi
+
+          # Hard-coded IDs for the "Local History Story Map" GitHub Project (v2).
+          PROJECT_ID="PVT_kwDOALqcV84BPl4R"
+          SIZE_FIELD="PVTSSF_lADOALqcV84BPl4Rzg99OlA"
+          PRIORITY_FIELD="PVTSSF_lADOALqcV84BPl4Rzg99Ok8"
+          START_DATE_FIELD="PVTF_lADOALqcV84BPl4Rzg99OlI"
+          TARGET_DATE_FIELD="PVTF_lADOALqcV84BPl4Rzg99OlM"
+
+          # Resolve the issue's GraphQL node ID.
+          ISSUE_NODE=$(gh issue view "$ISSUE" --repo "$REPO" \
+            --json id --jq '.id' 2>/dev/null || true)
+          if [ -z "$ISSUE_NODE" ]; then
+            echo "Could not resolve issue node ID — skipping project sync."
+            exit 0
+          fi
+
+          # Query the issue's project item to read Size, Priority, and date fields.
+          ITEM_DATA=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on Issue {
+                  projectItems(first: 10) {
+                    nodes {
+                      project { id }
+                      fieldValues(first: 20) {
+                        nodes {
+                          ... on ProjectV2ItemFieldSingleSelectValue {
+                            field { ... on ProjectV2SingleSelectField { id name } }
+                            optionId
+                          }
+                          ... on ProjectV2ItemFieldDateValue {
+                            field { ... on ProjectV2Field { id name } }
+                            date
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ' -f id="$ISSUE_NODE" 2>/dev/null || echo '{}')
+
+          # Extract a single-select option ID for a named field.
+          get_select() {
+            echo "$ITEM_DATA" | jq -r --arg pid "$PROJECT_ID" --arg name "$1" '
+              .data.node.projectItems.nodes[]
+              | select(.project.id == $pid)
+              | .fieldValues.nodes[]
+              | select(.field.name? == $name)
+              | .optionId // empty
+            ' 2>/dev/null | head -1
+          }
+
+          # Extract a date value for a named field.
+          get_date() {
+            echo "$ITEM_DATA" | jq -r --arg pid "$PROJECT_ID" --arg name "$1" '
+              .data.node.projectItems.nodes[]
+              | select(.project.id == $pid)
+              | .fieldValues.nodes[]
+              | select(.field.name? == $name)
+              | .date // empty
+            ' 2>/dev/null | head -1
+          }
+
+          SIZE_OPT=$(get_select "Size")
+          PRIORITY_OPT=$(get_select "Priority")
+          START_DATE=$(get_date "Start date")
+          TARGET_DATE=$(get_date "Target date")
+
+          # Add the PR to the project.
+          PR_ITEM=$(gh api graphql -f query='
+            mutation($pid: ID!, $cid: ID!) {
+              addProjectV2ItemById(input: { projectId: $pid, contentId: $cid }) {
+                item { id }
+              }
+            }
+          ' -f pid="$PROJECT_ID" -f cid="$PR_NODE_ID" \
+            --jq '.data.addProjectV2ItemById.item.id' 2>/dev/null || true)
+
+          if [ -z "$PR_ITEM" ]; then
+            echo "Could not add PR to project — skipping field copy."
+            exit 0
+          fi
+          echo "PR added to project (item: $PR_ITEM)"
+
+          # Update a single-select field on the PR's project item.
+          set_select() {
+            local field="$1" opt="$2"
+            [ -z "$opt" ] && return
+            gh api graphql -f query='
+              mutation($p:ID!,$i:ID!,$f:ID!,$v:String!) {
+                updateProjectV2ItemFieldValue(input:{
+                  projectId:$p, itemId:$i, fieldId:$f,
+                  value:{ singleSelectOptionId:$v }
+                }) { projectV2Item { id } }
+              }
+            ' -f p="$PROJECT_ID" -f i="$PR_ITEM" -f f="$field" -f v="$opt" > /dev/null
+            echo "  $field → $opt"
+          }
+
+          # Update a date field on the PR's project item.
+          set_date() {
+            local field="$1" date="$2"
+            [ -z "$date" ] && return
+            gh api graphql -f query='
+              mutation($p:ID!,$i:ID!,$f:ID!,$v:String!) {
+                updateProjectV2ItemFieldValue(input:{
+                  projectId:$p, itemId:$i, fieldId:$f,
+                  value:{ date:$v }
+                }) { projectV2Item { id } }
+              }
+            ' -f p="$PROJECT_ID" -f i="$PR_ITEM" -f f="$field" -f v="$date" > /dev/null
+            echo "  $field → $date"
+          }
+
+          set_select "$SIZE_FIELD"        "$SIZE_OPT"
+          set_select "$PRIORITY_FIELD"    "$PRIORITY_OPT"
+          set_date   "$START_DATE_FIELD"  "$START_DATE"
+          set_date   "$TARGET_DATE_FIELD" "$TARGET_DATE"
