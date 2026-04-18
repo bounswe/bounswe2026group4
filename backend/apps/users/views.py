@@ -98,7 +98,7 @@ class ProfilePhotoView(APIView):
         serializer.is_valid(raise_exception=True)
         profile = upload_profile_photo(request.user, serializer.validated_data['photo'])
         return Response(
-            {'photo_url': request.build_absolute_uri(profile.profile_photo.url)},
+            {'success': True, 'photo_url': request.build_absolute_uri(profile.profile_photo.url)},
             status=status.HTTP_200_OK,
         )
 

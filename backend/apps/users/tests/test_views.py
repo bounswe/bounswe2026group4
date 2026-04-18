@@ -474,6 +474,19 @@ class TestCurrentUserView:
         assert response.data['success'] is True
         assert 'data' in response.data
 
+    def test_patch_profile_photo_is_ignored(self, auth_client, registered_user):
+        # profile_photo must be uploaded via POST /users/me/photo/ only;
+        # PATCH silently ignores it rather than storing an unvalidated file
+        response = auth_client.patch(
+            self.url,
+            {'profile_photo': _make_image_file('JPEG')},
+            format='multipart',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        from apps.users.models import UserProfile
+        profile = UserProfile.objects.filter(user=registered_user).first()
+        assert profile is None or not profile.profile_photo
+
 
 # ── POST /users/me/photo/ and DELETE /users/me/photo/ ─────────────────────────
 
@@ -493,6 +506,7 @@ class TestProfilePhotoView:
 
     def test_upload_response_contains_photo_url(self, auth_client):
         response = auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        assert response.data['success'] is True
         assert 'photo_url' in response.data
         assert response.data['photo_url'] is not None
 
@@ -549,3 +563,19 @@ class TestProfilePhotoView:
     def test_delete_unauthenticated_returns_401(self, client):
         response = client.delete(self.url)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # ── is_photo_public toggle ────────────────────────────────────────────────
+
+    def test_photo_hidden_on_public_profile_after_toggling_flag_off(self, auth_client, registered_user, client):
+        auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        auth_client.patch('/users/me/', {'profile': {'is_photo_public': False}}, format='json')
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['profile_photo'] is None
+
+    def test_photo_visible_on_public_profile_after_toggling_flag_back_on(self, auth_client, registered_user, client):
+        auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        auth_client.patch('/users/me/', {'profile': {'is_photo_public': False}}, format='json')
+        auth_client.patch('/users/me/', {'profile': {'is_photo_public': True}}, format='json')
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['profile_photo'] is not None
+        assert response.data['profile_photo'].startswith('http')
