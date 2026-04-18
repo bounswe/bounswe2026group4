@@ -141,6 +141,12 @@ class UpdateCurrentUserSerializer(serializers.Serializer):
         return user_fields, profile_fields
 
 
+class ProfilePhotoSerializer(serializers.Serializer):
+    """Validates the multipart photo field for POST /users/me/photo/."""
+
+    photo = serializers.ImageField()
+
+
 class PublicUserProfileSerializer(serializers.Serializer):
     """
     Read-only serializer for the public user profile endpoint (GET /users/{id}/).
