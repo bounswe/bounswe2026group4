@@ -57,7 +57,6 @@ class UpdateProfileSerializer(serializers.Serializer):
     which enforces MIME type and size limits via the service layer.
     """
 
-    profile_photo = serializers.ImageField(required=False, allow_null=True)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     location = serializers.CharField(max_length=255, required=False, allow_blank=True)
