@@ -1,18 +1,35 @@
 import datetime
+import io
 from decimal import Decimal
 
 import pytest
+from django.core.files.base import ContentFile
 from django.db.models import Value
+from PIL import Image
+from rest_framework.test import APIRequestFactory
 
 from apps.users.models import User, UserProfile
 from apps.users.serializers import (
     CurrentUserSerializer,
     LoginSerializer,
+    ProfilePhotoSerializer,
     PublicUserProfileSerializer,
     RegisterSerializer,
     UpdateCurrentUserSerializer,
 )
 from apps.stories.models import Story
+
+
+def _jpeg_content():
+    """Return raw JPEG bytes for attaching to a profile_photo field in tests."""
+    buf = io.BytesIO()
+    Image.new('RGB', (10, 10), color=(100, 149, 237)).save(buf, format='JPEG')
+    buf.seek(0)
+    return buf.read()
+
+
+def _make_request():
+    return APIRequestFactory().get('/')
 
 
 @pytest.mark.django_db
@@ -213,6 +230,21 @@ class TestPublicUserProfileSerializer:
         assert data['bio'] is None
         assert data['birth_year'] is None
 
+    def test_profile_photo_returns_absolute_url_when_public(self):
+        user = self._make_user()
+        profile = UserProfile.objects.create(user=user, is_photo_public=True)
+        profile.profile_photo.save('pub.jpg', ContentFile(_jpeg_content()), save=True)
+        data = self._serialize(user, request=_make_request())
+        assert data['profile_photo'] is not None
+        assert data['profile_photo'].startswith('http')
+
+    def test_profile_photo_hidden_when_is_photo_public_false(self):
+        user = self._make_user()
+        profile = UserProfile.objects.create(user=user, is_photo_public=False)
+        profile.profile_photo.save('priv.jpg', ContentFile(_jpeg_content()), save=True)
+        data = self._serialize(user, request=_make_request())
+        assert data['profile_photo'] is None
+
 
 # ── CurrentUserSerializer ─────────────────────────────────────────────────────
 
@@ -270,6 +302,15 @@ class TestCurrentUserSerializer:
         UserProfile.objects.create(user=user)
         data = CurrentUserSerializer(user).data
         assert data['profile']['profile_photo'] is None
+
+    def test_profile_photo_returns_absolute_url_with_request_context(self):
+        user = self._make_user()
+        profile = UserProfile.objects.create(user=user)
+        profile.profile_photo.save('owner.jpg', ContentFile(_jpeg_content()), save=True)
+        data = CurrentUserSerializer(user, context={'request': _make_request()}).data
+        url = data['profile']['profile_photo']
+        assert url is not None
+        assert url.startswith('http')
 
 
 # ── UpdateCurrentUserSerializer ───────────────────────────────────────────────
@@ -370,3 +411,42 @@ class TestUpdateCurrentUserSerializer:
         assert 'email' not in user_fields
         assert 'role' not in user_fields
         assert 'total_points' not in user_fields
+
+
+# ── ProfilePhotoSerializer ────────────────────────────────────────────────────
+
+class TestProfilePhotoSerializer:
+    def _jpeg_file(self):
+        from django.core.files.uploadedfile import InMemoryUploadedFile
+        buf = io.BytesIO()
+        Image.new('RGB', (10, 10), color=(100, 149, 237)).save(buf, format='JPEG')
+        buf.seek(0)
+        return InMemoryUploadedFile(buf, 'photo', 'test.jpg', 'image/jpeg', buf.getbuffer().nbytes, None)
+
+    def _png_file(self):
+        from django.core.files.uploadedfile import InMemoryUploadedFile
+        buf = io.BytesIO()
+        Image.new('RGB', (10, 10), color=(100, 149, 237)).save(buf, format='PNG')
+        buf.seek(0)
+        return InMemoryUploadedFile(buf, 'photo', 'test.png', 'image/png', buf.getbuffer().nbytes, None)
+
+    def test_valid_jpeg_passes(self):
+        serializer = ProfilePhotoSerializer(data={'photo': self._jpeg_file()})
+        assert serializer.is_valid(), serializer.errors
+
+    def test_valid_png_passes(self):
+        serializer = ProfilePhotoSerializer(data={'photo': self._png_file()})
+        assert serializer.is_valid(), serializer.errors
+
+    def test_missing_file_fails(self):
+        serializer = ProfilePhotoSerializer(data={})
+        assert not serializer.is_valid()
+        assert 'photo' in serializer.errors
+
+    def test_non_image_file_fails(self):
+        from django.core.files.uploadedfile import InMemoryUploadedFile
+        buf = io.BytesIO(b'this is not an image')
+        file = InMemoryUploadedFile(buf, 'photo', 'file.txt', 'text/plain', buf.getbuffer().nbytes, None)
+        serializer = ProfilePhotoSerializer(data={'photo': file})
+        assert not serializer.is_valid()
+        assert 'photo' in serializer.errors
