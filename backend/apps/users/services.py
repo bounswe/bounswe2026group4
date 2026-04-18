@@ -1,5 +1,7 @@
 import logging
 
+import magic
+
 from django.db.models import Count, Q
 from django.http import Http404
 
@@ -8,6 +10,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
 from apps.users.models import EmailVerificationCode, User, UserProfile
+
+_MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
+_ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +121,50 @@ def update_own_profile(user: User, user_fields: dict, profile_fields: dict) -> U
         profile.save(update_fields=list(profile_fields.keys()))
 
     return User.objects.select_related('profile').get(pk=user.pk)
+
+
+def upload_profile_photo(user: User, file) -> UserProfile:
+    """
+    Validates and saves a profile photo for the given user.
+    Enforces a 2 MB size limit and restricts MIME type to JPEG/PNG via
+    python-magic (reads file bytes, not just the extension).
+    Deletes the previous photo file before saving the new one to avoid orphaned files.
+    """
+    if file.size > _MAX_PHOTO_SIZE:
+        raise ValidationError({'photo': 'File size must not exceed 2 MB.'})
+
+    # Read the first 2048 bytes for MIME sniffing, then reset so the full file is saved
+    mime = magic.from_buffer(file.read(2048), mime=True)
+    file.seek(0)
+
+    if mime not in _ALLOWED_PHOTO_MIME_TYPES:
+        raise ValidationError({'photo': 'Only JPEG and PNG images are allowed.'})
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    if profile.profile_photo:
+        # Delete the stored file so it doesn't become an orphan on disk
+        profile.profile_photo.delete(save=False)
+
+    profile.profile_photo = file
+    profile.save(update_fields=['profile_photo'])
+    return profile
+
+
+def delete_profile_photo(user: User) -> None:
+    """
+    Removes the profile photo file from storage and clears the field.
+    No-op when the user has no profile row or no photo set.
+    """
+    try:
+        profile = UserProfile.objects.get(user=user)
+    except UserProfile.DoesNotExist:
+        return
+
+    if profile.profile_photo:
+        profile.profile_photo.delete(save=False)
+        profile.profile_photo = None
+        profile.save(update_fields=['profile_photo'])
 
 
 def get_public_profile(user_id: int) -> User:

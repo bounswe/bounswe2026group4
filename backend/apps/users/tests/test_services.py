@@ -1,12 +1,35 @@
+import io
 from decimal import Decimal
 
 import pytest
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import Http404
+from PIL import Image
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
 from apps.users.models import EmailVerificationCode, User, UserProfile
-from apps.users.services import get_own_profile, get_public_profile, login_user, logout_user, register_user, update_own_profile
+from apps.users.services import (
+    delete_profile_photo,
+    get_own_profile,
+    get_public_profile,
+    login_user,
+    logout_user,
+    register_user,
+    update_own_profile,
+    upload_profile_photo,
+)
 from apps.stories.models import Story
+
+
+def _make_image_file(fmt='JPEG'):
+    """Return a real in-memory image file that python-magic can identify."""
+    buf = io.BytesIO()
+    Image.new('RGB', (10, 10), color=(100, 149, 237)).save(buf, format=fmt)
+    buf.seek(0)
+    ext = 'jpg' if fmt == 'JPEG' else fmt.lower()
+    content_type = 'image/jpeg' if fmt == 'JPEG' else 'image/png'
+    return InMemoryUploadedFile(buf, 'photo', f'test.{ext}', content_type, buf.getbuffer().nbytes, None)
 
 
 @pytest.mark.django_db
@@ -280,3 +303,90 @@ class TestUpdateOwnProfile:
         profile = UserProfile.objects.get(user=self.user)
         assert profile.is_location_public is False
         assert profile.is_birth_date_public is False
+
+
+# ── upload_profile_photo ──────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUploadProfilePhoto:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='photo@example.com',
+            username='photouser',
+            password='Password1',
+        )
+
+    def test_upload_jpeg_succeeds(self):
+        profile = upload_profile_photo(self.user, _make_image_file('JPEG'))
+        assert profile.profile_photo
+
+    def test_upload_png_succeeds(self):
+        profile = upload_profile_photo(self.user, _make_image_file('PNG'))
+        assert profile.profile_photo
+
+    def test_wrong_mime_type_raises_validation_error(self):
+        buf = io.BytesIO(b'this is plaintext, not an image')
+        file = InMemoryUploadedFile(buf, 'photo', 'evil.jpg', 'image/jpeg', buf.getbuffer().nbytes, None)
+        with pytest.raises(ValidationError) as exc_info:
+            upload_profile_photo(self.user, file)
+        assert 'photo' in exc_info.value.detail
+
+    def test_oversized_file_raises_validation_error(self):
+        # Pass a large reported size; service rejects before reading bytes
+        buf = io.BytesIO(b'\x00' * 10)
+        oversized = InMemoryUploadedFile(buf, 'photo', 'big.jpg', 'image/jpeg', 3 * 1024 * 1024, None)
+        with pytest.raises(ValidationError) as exc_info:
+            upload_profile_photo(self.user, oversized)
+        assert 'photo' in exc_info.value.detail
+
+    def test_creates_profile_if_not_exists(self):
+        assert not UserProfile.objects.filter(user=self.user).exists()
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        assert UserProfile.objects.filter(user=self.user).exists()
+
+    def test_replace_removes_old_file_from_storage(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        old_name = UserProfile.objects.get(user=self.user).profile_photo.name
+        assert default_storage.exists(old_name)
+
+        upload_profile_photo(self.user, _make_image_file('PNG'))
+        assert not default_storage.exists(old_name)
+
+    def test_replace_stores_new_file(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        old_name = UserProfile.objects.get(user=self.user).profile_photo.name
+
+        upload_profile_photo(self.user, _make_image_file('PNG'))
+        new_name = UserProfile.objects.get(user=self.user).profile_photo.name
+        assert new_name != old_name
+
+
+# ── delete_profile_photo ──────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteProfilePhoto:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='del@example.com',
+            username='deluser',
+            password='Password1',
+        )
+
+    def test_clears_photo_field(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        delete_profile_photo(self.user)
+        assert not UserProfile.objects.get(user=self.user).profile_photo
+
+    def test_deletes_file_from_storage(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        name = UserProfile.objects.get(user=self.user).profile_photo.name
+        delete_profile_photo(self.user)
+        assert not default_storage.exists(name)
+
+    def test_no_op_when_no_profile_exists(self):
+        # Must not raise even if UserProfile row is absent
+        delete_profile_photo(self.user)
+
+    def test_no_op_when_profile_has_no_photo(self):
+        UserProfile.objects.create(user=self.user)
+        delete_profile_photo(self.user)  # must not raise

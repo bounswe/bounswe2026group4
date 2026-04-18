@@ -51,9 +51,12 @@ class UserResponseSerializer(serializers.ModelSerializer):
 
 
 class UpdateProfileSerializer(serializers.Serializer):
-    """Validates editable UserProfile fields accepted by PATCH /users/me/."""
+    """Validates editable UserProfile fields accepted by PATCH /users/me/.
 
-    profile_photo = serializers.ImageField(required=False, allow_null=True)
+    profile_photo is intentionally excluded — use POST /users/me/photo/ instead,
+    which enforces MIME type and size limits via the service layer.
+    """
+
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     location = serializers.CharField(max_length=255, required=False, allow_blank=True)
@@ -145,6 +148,12 @@ class UpdateCurrentUserSerializer(serializers.Serializer):
         user_fields = {k: v for k, v in data.items() if k != 'profile'}
         profile_fields = data.get('profile', {})
         return user_fields, profile_fields
+
+
+class ProfilePhotoSerializer(serializers.Serializer):
+    """Validates the multipart photo field for POST /users/me/photo/."""
+
+    photo = serializers.ImageField()
 
 
 class PublicUserProfileSerializer(serializers.Serializer):
