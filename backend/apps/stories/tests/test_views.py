@@ -387,73 +387,89 @@ class TestStorySearchView:
 
 @pytest.mark.django_db
 class TestStoryMapView:
-    MAP_FIELDS = {
-        'id', 'title', 'location_name', 'location_lat', 'location_lng',
-        'time_type', 'year', 'year_start', 'year_end',
-    }
-
     def test_returns_200_without_authentication(self, client):
         response = client.get(MAP_URL)
         assert response.status_code == status.HTTP_200_OK
 
-    def test_response_is_paginated(self, client):
-        make_story(status=Story.STATUS_PUBLISHED)
+    def test_response_is_feature_collection(self, client):
         response = client.get(MAP_URL)
-        for key in ['count', 'next', 'previous', 'results']:
-            assert key in response.data
+        assert response.data['type'] == 'FeatureCollection'
+        assert 'features' in response.data
+        assert isinstance(response.data['features'], list)
 
-    def test_result_contains_exactly_map_fields(self, client):
+    def test_response_is_not_paginated(self, client):
+        response = client.get(MAP_URL)
+        assert 'count' not in response.data
+        assert 'next' not in response.data
+        assert 'previous' not in response.data
+        assert 'results' not in response.data
+
+    def test_each_story_is_a_geojson_feature(self, client):
         make_story(status=Story.STATUS_PUBLISHED)
         response = client.get(MAP_URL)
-        assert response.data['count'] == 1
-        result = response.data['results'][0]
-        assert set(result.keys()) == self.MAP_FIELDS
+        feature = response.data['features'][0]
+        assert feature['type'] == 'Feature'
+        assert 'id' in feature
+        assert feature['geometry']['type'] == 'Point'
+        assert 'properties' in feature
+
+    def test_coordinates_are_lng_lat_order(self, client):
+        # RFC 7946 §3.1.1: coordinates are [longitude, latitude]
+        make_story(location_lat='41.015137', location_lng='28.979530')
+        response = client.get(MAP_URL)
+        coords = response.data['features'][0]['geometry']['coordinates']
+        assert coords[0] == pytest.approx(28.979530)
+        assert coords[1] == pytest.approx(41.015137)
 
     def test_only_published_stories_appear(self, client):
         make_story(title='Published', status=Story.STATUS_PUBLISHED)
         make_story(title='Draft', status=Story.STATUS_DRAFT)
         make_story(title='Removed', status=Story.STATUS_REMOVED)
         response = client.get(MAP_URL)
-        assert response.data['count'] == 1
-        assert response.data['results'][0]['title'] == 'Published'
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['title'] == 'Published'
 
-    def test_empty_result_when_no_published_stories(self, client):
+    def test_empty_feature_collection_when_no_published_stories(self, client):
         make_story(status=Story.STATUS_DRAFT)
         response = client.get(MAP_URL)
-        assert response.data['count'] == 0
-        assert response.data['results'] == []
+        assert response.data['features'] == []
+
+    def test_returns_all_stories_without_pagination(self, client):
+        for i in range(15):
+            make_story(title=f'Story {i}')
+        response = client.get(MAP_URL)
+        assert len(response.data['features']) == 15
 
     def test_year_from_filter_excludes_older_stories(self, client):
         make_story(title='Old', time_type=Story.TIME_EXACT, year=1800)
         make_story(title='New', time_type=Story.TIME_EXACT, year=2000)
         response = client.get(MAP_URL + '?year_from=1900')
-        assert response.data['count'] == 1
-        assert response.data['results'][0]['title'] == 'New'
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['title'] == 'New'
 
     def test_year_to_filter_excludes_newer_stories(self, client):
         make_story(title='Old', time_type=Story.TIME_EXACT, year=1800)
         make_story(title='New', time_type=Story.TIME_EXACT, year=2000)
         response = client.get(MAP_URL + '?year_to=1900')
-        assert response.data['count'] == 1
-        assert response.data['results'][0]['title'] == 'Old'
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['title'] == 'Old'
 
     def test_location_filter_is_case_insensitive(self, client):
         make_story(title='Istanbul Story', location_name='Galata Bridge')
         make_story(title='Ankara Story', location_name='Atakule Tower')
         response = client.get(MAP_URL + '?location=galata')
-        assert response.data['count'] == 1
-        assert response.data['results'][0]['title'] == 'Istanbul Story'
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['location_name'] == 'Galata Bridge'
 
     def test_invalid_year_range_returns_400(self, client):
         response = client.get(MAP_URL + '?year_from=2000&year_to=1900')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_narrative_not_exposed_in_results(self, client):
+    def test_narrative_not_exposed_in_properties(self, client):
         make_story(narrative='Secret text that should not appear.')
         response = client.get(MAP_URL)
-        if response.data['count']:
-            result = response.data['results'][0]
-            assert 'narrative' not in result
+        if response.data['features']:
+            assert 'narrative' not in response.data['features'][0]['properties']
 
 
 # ── StoryDetailView — media_items ─────────────────────────────────────────────
