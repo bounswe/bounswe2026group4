@@ -272,13 +272,16 @@ class FeedQuerySerializer(serializers.Serializer):
         return data
 
 
-class StoryMapGeoJSONSerializer(serializers.ModelSerializer):
+class StoryMapGeoJSONSerializer(serializers.BaseSerializer):
     """
     Serializes a Story as a GeoJSON Feature (RFC 7946).
 
     Coordinates follow the RFC 7946 §3.1.1 mandate: [longitude, latitude].
     Decimal fields are cast to float so the JSON encoder emits numeric values,
     not quoted decimal strings.
+
+    BaseSerializer is used intentionally — we own the full output shape via
+    to_representation, so ModelSerializer's field introspection is pure overhead.
     """
 
     def to_representation(self, instance):
@@ -299,10 +302,6 @@ class StoryMapGeoJSONSerializer(serializers.ModelSerializer):
                 "year_end": instance.year_end,
             },
         }
-
-    class Meta:
-        model = Story
-        fields = []
 
 
 class SearchQuerySerializer(serializers.Serializer):
