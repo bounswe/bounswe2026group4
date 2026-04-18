@@ -14,8 +14,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 
 const publicLinks = [
-  { to: "/map", label: "Map" },
-  { to: "/", label: "Feed" },
+  { to: "/map", label: "Map", preserveSearch: true },
+  { to: "/", label: "Feed", preserveSearch: true },
   { to: "/submit-story", label: "Submit Story", icon: Plus },
 ];
 
@@ -49,7 +49,12 @@ function AppLayout() {
     navigate("/");
   };
 
-  const links = publicLinks;
+  const isFilterPage = location.pathname === "/" || location.pathname.startsWith("/map");
+  const links = publicLinks.map((link) =>
+    link.preserveSearch && isFilterPage
+      ? { ...link, to: `${link.to}${location.search}` }
+      : link
+  );
 
   return (
     <div className="min-h-screen">
