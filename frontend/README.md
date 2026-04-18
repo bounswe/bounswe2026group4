@@ -48,6 +48,7 @@ Create a `.env` file in the `frontend/` directory. All custom variables must be 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VITE_API_URL` | `http://localhost:8000` | Backend API base URL |
+| `VITE_SITE_URL` | `https://storymap.page` | Public site origin used in Schema.org JSON-LD `@id` / `url` fields. Override in staging/dev so structured data doesn't point to production. |
 
 ## Testing
 
