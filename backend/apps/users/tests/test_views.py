@@ -1,8 +1,42 @@
+import io
+import os
+from decimal import Decimal
+
 import pytest
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.users.models import User
+from apps.stories.models import Story
+
+
+def _make_image_file(fmt='JPEG'):
+    buf = io.BytesIO()
+    Image.new('RGB', (10, 10), color=(100, 149, 237)).save(buf, format=fmt)
+    buf.seek(0)
+    ext = 'jpg' if fmt == 'JPEG' else fmt.lower()
+    content_type = 'image/jpeg' if fmt == 'JPEG' else f'image/{fmt.lower()}'
+    return InMemoryUploadedFile(buf, 'photo', f'test.{ext}', content_type, buf.getbuffer().nbytes, None)
+
+
+def _make_gif_file():
+    """GIF is a valid image Pillow accepts but our MIME whitelist rejects."""
+    buf = io.BytesIO()
+    Image.new('P', (10, 10), 0).save(buf, format='GIF')
+    buf.seek(0)
+    return InMemoryUploadedFile(buf, 'photo', 'test.gif', 'image/gif', buf.getbuffer().nbytes, None)
+
+
+def _make_oversized_png_file():
+    """Real PNG > 2 MB: random pixels at compress_level=0 prevent compression."""
+    raw = os.urandom(3 * 900 * 900)
+    img = Image.frombytes('RGB', (900, 900), raw)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG', compress_level=0)
+    buf.seek(0)
+    return InMemoryUploadedFile(buf, 'photo', 'big.png', 'image/png', buf.getbuffer().nbytes, None)
 
 
 @pytest.fixture
@@ -465,6 +499,19 @@ class TestCurrentUserView:
         assert response.data['success'] is True
         assert 'data' in response.data
 
+    def test_patch_profile_photo_is_ignored(self, auth_client, registered_user):
+        # profile_photo must be uploaded via POST /users/me/photo/ only;
+        # PATCH silently ignores it rather than storing an unvalidated file
+        response = auth_client.patch(
+            self.url,
+            {'profile_photo': _make_image_file('JPEG')},
+            format='multipart',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        from apps.users.models import UserProfile
+        profile = UserProfile.objects.filter(user=registered_user).first()
+        assert profile is None or not profile.profile_photo
+
     def test_patch_name_fields_updates_in_db(self, auth_client, registered_user):
         from apps.users.models import UserProfile
         response = auth_client.patch(
@@ -499,3 +546,178 @@ class TestCurrentUserView:
         assert profile['first_name'] == 'Ada'
         assert profile['last_name'] == 'Lovelace'
         assert profile['is_name_public'] is False
+
+
+# ── POST /users/me/photo/ and DELETE /users/me/photo/ ─────────────────────────
+
+@pytest.mark.django_db
+class TestProfilePhotoView:
+    url = '/users/me/photo/'
+
+    # ── POST ─────────────────────────────────────────────────────────────────
+
+    def test_upload_jpeg_returns_200(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_upload_png_returns_200(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_image_file('PNG')}, format='multipart')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_upload_response_contains_photo_url(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        assert response.data['success'] is True
+        assert 'photo_url' in response.data
+        assert response.data['photo_url'] is not None
+
+    def test_upload_photo_url_is_absolute(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        assert response.data['photo_url'].startswith('http')
+
+    def test_upload_saves_photo_to_profile(self, auth_client, registered_user):
+        auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        from apps.users.models import UserProfile
+        assert UserProfile.objects.get(user=registered_user).profile_photo
+
+    def test_upload_unsupported_mime_type_returns_400(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_gif_file()}, format='multipart')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_upload_unsupported_mime_type_error_references_photo_field(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_gif_file()}, format='multipart')
+        assert 'photo' in response.data['errors']
+
+    def test_upload_oversized_file_returns_400(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_oversized_png_file()}, format='multipart')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_upload_oversized_file_error_references_photo_field(self, auth_client):
+        response = auth_client.post(self.url, {'photo': _make_oversized_png_file()}, format='multipart')
+        assert 'photo' in response.data['errors']
+
+    def test_upload_without_file_returns_400(self, auth_client):
+        response = auth_client.post(self.url, {}, format='multipart')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_upload_unauthenticated_returns_401(self, client):
+        response = client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # ── DELETE ───────────────────────────────────────────────────────────────
+
+    def test_delete_after_upload_returns_204(self, auth_client):
+        auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        response = auth_client.delete(self.url)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_delete_clears_photo_field(self, auth_client, registered_user):
+        auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        auth_client.delete(self.url)
+        from apps.users.models import UserProfile
+        assert not UserProfile.objects.get(user=registered_user).profile_photo
+
+    def test_delete_when_no_photo_returns_204(self, auth_client):
+        response = auth_client.delete(self.url)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_delete_unauthenticated_returns_401(self, client):
+        response = client.delete(self.url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # ── is_photo_public toggle ────────────────────────────────────────────────
+
+    def test_photo_hidden_on_public_profile_after_toggling_flag_off(self, auth_client, registered_user, client):
+        auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        auth_client.patch('/users/me/', {'profile': {'is_photo_public': False}}, format='json')
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['profile_photo'] is None
+
+    def test_photo_visible_on_public_profile_after_toggling_flag_back_on(self, auth_client, registered_user, client):
+        auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
+        auth_client.patch('/users/me/', {'profile': {'is_photo_public': False}}, format='json')
+        auth_client.patch('/users/me/', {'profile': {'is_photo_public': True}}, format='json')
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['profile_photo'] is not None
+        assert response.data['profile_photo'].startswith('http')
+
+
+# ── DELETE /users/me/ ─────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteAccountView:
+    url = '/users/me/'
+
+    def _make_story(self, user):
+        return Story.objects.create(
+            user=user,
+            title='My Story',
+            narrative='Narrative',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_delete_unauthenticated_returns_401(self, client):
+        response = client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_hard_delete_returns_204(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_hard_delete_removes_user_from_db(self, auth_client, registered_user):
+        auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert not User.objects.filter(pk=registered_user.pk).exists()
+
+    def test_hard_delete_removes_stories(self, auth_client, registered_user):
+        story = self._make_story(registered_user)
+        auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert not Story.objects.filter(pk=story.pk).exists()
+
+    def test_soft_delete_returns_204(self, auth_client):
+        response = auth_client.delete(
+            self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_soft_delete_deactivates_user(self, auth_client, registered_user):
+        auth_client.delete(
+            self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
+        )
+        assert User.objects.get(pk=registered_user.pk).is_active is False
+
+    def test_soft_delete_anonymizes_stories(self, auth_client, registered_user):
+        story = self._make_story(registered_user)
+        auth_client.delete(
+            self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
+        )
+        assert Story.objects.get(pk=story.pk).user is None
+
+    def test_with_refresh_token_blacklists_it(self, auth_client):
+        refresh = auth_client.refresh_token
+        auth_client.delete(
+            self.url,
+            {'password': 'Password1', 'refresh': refresh},
+            format='json',
+        )
+        response = auth_client.post('/auth/token/refresh/', {'refresh': refresh})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_without_refresh_token_still_returns_204(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_wrong_password_returns_400(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'WrongPassword'}, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_wrong_password_error_references_password_field(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'WrongPassword'}, format='json')
+        assert 'password' in response.data['errors']
+
+    def test_missing_password_returns_400(self, auth_client):
+        response = auth_client.delete(self.url, {}, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST

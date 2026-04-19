@@ -1,12 +1,36 @@
+import io
 from decimal import Decimal
 
 import pytest
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import Http404
+from PIL import Image
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
 from apps.users.models import EmailVerificationCode, User, UserProfile
-from apps.users.services import get_own_profile, get_public_profile, login_user, logout_user, register_user, update_own_profile
+from apps.users.services import (
+    delete_account,
+    delete_profile_photo,
+    get_own_profile,
+    get_public_profile,
+    login_user,
+    logout_user,
+    register_user,
+    update_own_profile,
+    upload_profile_photo,
+)
 from apps.stories.models import Story
+
+
+def _make_image_file(fmt='JPEG'):
+    """Return a real in-memory image file that python-magic can identify."""
+    buf = io.BytesIO()
+    Image.new('RGB', (10, 10), color=(100, 149, 237)).save(buf, format=fmt)
+    buf.seek(0)
+    ext = 'jpg' if fmt == 'JPEG' else fmt.lower()
+    content_type = 'image/jpeg' if fmt == 'JPEG' else 'image/png'
+    return InMemoryUploadedFile(buf, 'photo', f'test.{ext}', content_type, buf.getbuffer().nbytes, None)
 
 
 @pytest.mark.django_db
@@ -280,3 +304,189 @@ class TestUpdateOwnProfile:
         profile = UserProfile.objects.get(user=self.user)
         assert profile.is_location_public is False
         assert profile.is_birth_date_public is False
+
+
+# ── upload_profile_photo ──────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUploadProfilePhoto:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='photo@example.com',
+            username='photouser',
+            password='Password1',
+        )
+
+    def test_upload_jpeg_succeeds(self):
+        profile = upload_profile_photo(self.user, _make_image_file('JPEG'))
+        assert profile.profile_photo
+
+    def test_upload_png_succeeds(self):
+        profile = upload_profile_photo(self.user, _make_image_file('PNG'))
+        assert profile.profile_photo
+
+    def test_wrong_mime_type_raises_validation_error(self):
+        buf = io.BytesIO(b'this is plaintext, not an image')
+        file = InMemoryUploadedFile(buf, 'photo', 'evil.jpg', 'image/jpeg', buf.getbuffer().nbytes, None)
+        with pytest.raises(ValidationError) as exc_info:
+            upload_profile_photo(self.user, file)
+        assert 'photo' in exc_info.value.detail
+
+    def test_oversized_file_raises_validation_error(self):
+        # Pass a large reported size; service rejects before reading bytes
+        buf = io.BytesIO(b'\x00' * 10)
+        oversized = InMemoryUploadedFile(buf, 'photo', 'big.jpg', 'image/jpeg', 3 * 1024 * 1024, None)
+        with pytest.raises(ValidationError) as exc_info:
+            upload_profile_photo(self.user, oversized)
+        assert 'photo' in exc_info.value.detail
+
+    def test_creates_profile_if_not_exists(self):
+        assert not UserProfile.objects.filter(user=self.user).exists()
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        assert UserProfile.objects.filter(user=self.user).exists()
+
+    def test_replace_removes_old_file_from_storage(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        old_name = UserProfile.objects.get(user=self.user).profile_photo.name
+        assert default_storage.exists(old_name)
+
+        upload_profile_photo(self.user, _make_image_file('PNG'))
+        assert not default_storage.exists(old_name)
+
+    def test_replace_stores_new_file(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        old_name = UserProfile.objects.get(user=self.user).profile_photo.name
+
+        upload_profile_photo(self.user, _make_image_file('PNG'))
+        new_name = UserProfile.objects.get(user=self.user).profile_photo.name
+        assert new_name != old_name
+
+
+# ── delete_account ───────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteAccount:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='del@example.com',
+            username='deluser',
+            password='Password1',
+        )
+
+    def _make_story(self, title='Story'):
+        return Story.objects.create(
+            user=self.user,
+            title=title,
+            narrative='Narrative',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_hard_delete_removes_user(self):
+        pk = self.user.pk
+        delete_account(self.user, hard_delete=True)
+        assert not User.objects.filter(pk=pk).exists()
+
+    def test_hard_delete_removes_stories(self):
+        story = self._make_story()
+        delete_account(self.user, hard_delete=True)
+        assert not Story.objects.filter(pk=story.pk).exists()
+
+    def test_hard_delete_deletes_profile_photo_file(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        photo_name = UserProfile.objects.get(user=self.user).profile_photo.name
+        delete_account(self.user, hard_delete=True)
+        assert not default_storage.exists(photo_name)
+
+    def test_hard_delete_with_no_photo_does_not_raise(self):
+        delete_account(self.user, hard_delete=True)
+
+    def test_hard_delete_with_no_stories_does_not_raise(self):
+        delete_account(self.user, hard_delete=True)
+
+    def test_soft_delete_deactivates_user(self):
+        delete_account(self.user, hard_delete=False)
+        self.user.refresh_from_db()
+        assert self.user.is_active is False
+
+    def test_soft_delete_anonymizes_stories(self):
+        story = self._make_story()
+        delete_account(self.user, hard_delete=False)
+        assert Story.objects.get(pk=story.pk).user is None
+
+    def test_soft_delete_preserves_story_data(self):
+        story = self._make_story(title='Keep Me')
+        delete_account(self.user, hard_delete=False)
+        preserved = Story.objects.get(pk=story.pk)
+        assert preserved.title == 'Keep Me'
+        assert preserved.narrative == 'Narrative'
+
+    def test_soft_delete_does_not_delete_user_row(self):
+        delete_account(self.user, hard_delete=False)
+        assert User.objects.filter(pk=self.user.pk).exists()
+
+    def test_blacklists_refresh_token_on_hard_delete(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.exceptions import TokenError
+        refresh = RefreshToken.for_user(self.user)
+        token_str = str(refresh)
+        delete_account(self.user, hard_delete=True, refresh_token=token_str)
+        with pytest.raises(TokenError):
+            RefreshToken(token_str).blacklist()
+
+    def test_blacklists_refresh_token_on_soft_delete(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.exceptions import TokenError
+        refresh = RefreshToken.for_user(self.user)
+        token_str = str(refresh)
+        delete_account(self.user, hard_delete=False, refresh_token=token_str)
+        with pytest.raises(TokenError):
+            RefreshToken(token_str).blacklist()
+
+    def test_empty_refresh_token_does_not_raise(self):
+        delete_account(self.user, hard_delete=True, refresh_token='')
+
+    def test_already_blacklisted_token_does_not_raise(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(self.user)
+        token_str = str(refresh)
+        refresh.blacklist()
+        delete_account(self.user, hard_delete=True, refresh_token=token_str)
+
+    def test_malformed_refresh_token_does_not_raise(self):
+        delete_account(self.user, hard_delete=True, refresh_token='not-a-token')
+
+
+# ── delete_profile_photo ──────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteProfilePhoto:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='del@example.com',
+            username='deluser',
+            password='Password1',
+        )
+
+    def test_clears_photo_field(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        delete_profile_photo(self.user)
+        assert not UserProfile.objects.get(user=self.user).profile_photo
+
+    def test_deletes_file_from_storage(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        name = UserProfile.objects.get(user=self.user).profile_photo.name
+        delete_profile_photo(self.user)
+        assert not default_storage.exists(name)
+
+    def test_no_op_when_no_profile_exists(self):
+        # Must not raise even if UserProfile row is absent
+        delete_profile_photo(self.user)
+
+    def test_no_op_when_profile_has_no_photo(self):
+        UserProfile.objects.create(user=self.user)
+        delete_profile_photo(self.user)  # must not raise

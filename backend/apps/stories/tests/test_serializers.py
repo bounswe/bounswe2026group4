@@ -5,7 +5,7 @@ import pytest
 from apps.stories.models import Story
 from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
-from apps.stories.serializers import SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
+from apps.stories.serializers import SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
 from apps.users.models import User
 
 
@@ -303,63 +303,6 @@ class TestSearchQuerySerializer:
         assert 'location' not in s.validated_data
 
 
-# ── StoryMapSerializer ────────────────────────────────────────────────────────
-
-@pytest.mark.django_db
-class TestStoryMapSerializer:
-    MAP_FIELDS = {
-        'id', 'title', 'location_name', 'location_lat', 'location_lng',
-        'time_type', 'year', 'year_start', 'year_end',
-    }
-    EXCLUDED_FIELDS = {
-        'narrative', 'contributor_name', 'preview_text', 'status',
-        'like_count', 'save_count', 'submitted_at', 'updated_at',
-        'region', 'contributor_visible', 'user',
-    }
-
-    def _make_story(self, **kwargs):
-        user = make_user()
-        return make_story(user=user, **kwargs)
-
-    def test_contains_exactly_required_map_fields(self):
-        story = self._make_story()
-        data = StoryMapSerializer(story).data
-        assert set(data.keys()) == self.MAP_FIELDS
-
-    def test_excludes_heavy_fields(self):
-        story = self._make_story()
-        data = StoryMapSerializer(story).data
-        for field in self.EXCLUDED_FIELDS:
-            assert field not in data
-
-    def test_coordinates_are_present_and_correct(self):
-        story = self._make_story(
-            location_lat='41.015137', location_lng='28.979530',
-            location_name='Galata Bridge',
-        )
-        data = StoryMapSerializer(story).data
-        assert str(data['location_lat']) == '41.015137'
-        assert str(data['location_lng']) == '28.979530'
-        assert data['location_name'] == 'Galata Bridge'
-
-    def test_exact_year_story_has_year_set(self):
-        story = self._make_story(time_type=Story.TIME_EXACT, year=1923)
-        data = StoryMapSerializer(story).data
-        assert data['time_type'] == Story.TIME_EXACT
-        assert data['year'] == 1923
-        assert data['year_start'] is None
-        assert data['year_end'] is None
-
-    def test_year_range_story_has_year_start_and_end(self):
-        story = self._make_story(
-            time_type=Story.TIME_RANGE, year=None, year_start=1900, year_end=1950,
-        )
-        data = StoryMapSerializer(story).data
-        assert data['time_type'] == Story.TIME_RANGE
-        assert data['year'] is None
-        assert data['year_start'] == 1900
-        assert data['year_end'] == 1950
-
 
 # ── StoryDetailSerializer ─────────────────────────────────────────────────────
 
@@ -549,3 +492,72 @@ class TestStoryFeedSerializerUserInteractionFields:
         data = StoryFeedSerializer(story).data
         assert data['user_has_liked'] is False
         assert data['user_has_saved'] is True
+
+
+# ── StoryMapGeoJSONSerializer ─────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryMapGeoJSONSerializer:
+    def _make_story(self, **kwargs):
+        user = make_user()
+        return make_story(user=user, **kwargs)
+
+    def test_feature_has_required_geojson_keys(self):
+        story = self._make_story()
+        data = StoryMapGeoJSONSerializer(story).data
+        assert data['type'] == 'Feature'
+        assert data['id'] == story.id
+        assert 'geometry' in data
+        assert 'properties' in data
+
+    def test_geometry_is_point_with_coordinates(self):
+        story = self._make_story(location_lat='41.015137', location_lng='28.979530')
+        data = StoryMapGeoJSONSerializer(story).data
+        assert data['geometry']['type'] == 'Point'
+        assert len(data['geometry']['coordinates']) == 2
+
+    def test_coordinates_are_lng_lat_order(self):
+        # RFC 7946 §3.1.1 mandates [longitude, latitude] ordering
+        story = self._make_story(location_lat='41.015137', location_lng='28.979530')
+        data = StoryMapGeoJSONSerializer(story).data
+        coords = data['geometry']['coordinates']
+        assert coords[0] == pytest.approx(28.979530)
+        assert coords[1] == pytest.approx(41.015137)
+
+    def test_coordinates_are_float_not_decimal_strings(self):
+        story = self._make_story(location_lat='41.015137', location_lng='28.979530')
+        data = StoryMapGeoJSONSerializer(story).data
+        coords = data['geometry']['coordinates']
+        assert isinstance(coords[0], float)
+        assert isinstance(coords[1], float)
+
+    def test_properties_contains_required_fields(self):
+        story = self._make_story(title='Bridge', location_name='Galata', time_type=Story.TIME_EXACT, year=1950)
+        data = StoryMapGeoJSONSerializer(story).data
+        props = data['properties']
+        assert props['title'] == 'Bridge'
+        assert props['location_name'] == 'Galata'
+        assert props['time_type'] == Story.TIME_EXACT
+        assert props['year'] == 1950
+        assert props['year_start'] is None
+        assert props['year_end'] is None
+
+    def test_properties_contains_year_range_fields(self):
+        story = self._make_story(
+            time_type=Story.TIME_RANGE,
+            year=None,
+            year_start=1950,
+            year_end=1970,
+        )
+        data = StoryMapGeoJSONSerializer(story).data
+        props = data['properties']
+        assert props['year_start'] == 1950
+        assert props['year_end'] == 1970
+
+    def test_many_true_returns_list_of_features(self):
+        make_story(user=make_user(email='u1@example.com', username='u1'))
+        make_story(user=make_user(email='u2@example.com', username='u2'))
+        qs = Story.objects.all()
+        data = StoryMapGeoJSONSerializer(qs, many=True).data
+        assert len(data) == 2
+        assert all(f['type'] == 'Feature' for f in data)
