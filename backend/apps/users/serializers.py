@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.users.models import User
+from apps.users.models import Follow, User
 from common.validators import validate_password_strength
 
 
@@ -239,3 +239,11 @@ class DeleteAccountSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError('Incorrect password.')
         return value
+
+
+class FollowUserSerializer(serializers.Serializer):
+    """Response body for POST /users/:id/follow/ — confirms the relationship."""
+
+    follower_id = serializers.IntegerField(read_only=True)
+    followed_id = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)

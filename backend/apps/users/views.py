@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from apps.users.serializers import (
     CurrentUserSerializer,
     DeleteAccountSerializer,
+    FollowUserSerializer,
     LoginSerializer,
     LogoutSerializer,
     ProfilePhotoSerializer,
@@ -17,11 +18,13 @@ from apps.users.serializers import (
 from apps.users.services import (
     delete_account,
     delete_profile_photo,
+    follow_user,
     get_own_profile,
     get_public_profile,
     login_user,
     logout_user,
     register_user,
+    unfollow_user,
     update_own_profile,
     upload_profile_photo,
 )
@@ -131,3 +134,19 @@ class UserPublicProfileView(APIView):
             PublicUserProfileSerializer(user, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
+
+
+class FollowView(APIView):
+    """POST /users/<id>/follow/ — follow a user; DELETE — unfollow."""
+
+    permission_classes = [IsRegisteredUser]
+
+    def post(self, request, user_id):
+        follow, created = follow_user(request.user, user_id)
+        serializer = FollowUserSerializer(follow)
+        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response({'success': True, 'data': serializer.data}, status=http_status)
+
+    def delete(self, request, user_id):
+        unfollow_user(request.user, user_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
