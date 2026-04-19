@@ -23,6 +23,7 @@ interface WebMapViewProps {
   interactive?: boolean;
   onMarkerPress?: (markerId: string) => void;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
+  onRegionChangeComplete?: (region: RegionLike) => void;
 }
 
 const mapHtml = ({
@@ -77,6 +78,7 @@ const mapHtml = ({
       const region = ${JSON.stringify(region)};
       const markers = ${JSON.stringify(markers)};
       const interactive = ${interactive ? 'true' : 'false'};
+      let hasCompletedInitialMove = false;
 
       const zoom = Math.max(
         2,
@@ -100,6 +102,22 @@ const mapHtml = ({
         pitchWithRotate: false,
         keyboard: false,
       });
+
+      const postCurrentRegion = () => {
+        const bounds = map.getBounds();
+        const northEast = bounds.getNorthEast();
+        const southWest = bounds.getSouthWest();
+
+        window.ReactNativeWebView?.postMessage(
+          JSON.stringify({
+            type: 'regionChange',
+            latitude: map.getCenter().lat,
+            longitude: map.getCenter().lng,
+            latitudeDelta: Math.max(Math.abs(northEast.lat - southWest.lat), 0.0001),
+            longitudeDelta: Math.max(Math.abs(northEast.lng - southWest.lng), 0.0001),
+          })
+        );
+      };
 
       markers.forEach((marker) => {
         const element = document.createElement('div');
@@ -132,6 +150,19 @@ const mapHtml = ({
           })
         );
       });
+
+      map.on('moveend', () => {
+        if (!interactive) {
+          return;
+        }
+
+        if (!hasCompletedInitialMove) {
+          hasCompletedInitialMove = true;
+          return;
+        }
+
+        postCurrentRegion();
+      });
     </script>
   </body>
 </html>`;
@@ -142,6 +173,7 @@ export function WebMapView({
   interactive = true,
   onMarkerPress,
   onMapPress,
+  onRegionChangeComplete,
 }: WebMapViewProps) {
   const source = useMemo(
     () => ({
@@ -178,6 +210,21 @@ export function WebMapView({
               onMapPress?.({
                 latitude: payload.latitude,
                 longitude: payload.longitude,
+              });
+            }
+
+            if (
+              payload.type === 'regionChange' &&
+              typeof payload.latitude === 'number' &&
+              typeof payload.longitude === 'number' &&
+              typeof payload.latitudeDelta === 'number' &&
+              typeof payload.longitudeDelta === 'number'
+            ) {
+              onRegionChangeComplete?.({
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+                latitudeDelta: payload.latitudeDelta,
+                longitudeDelta: payload.longitudeDelta,
               });
             }
           } catch {

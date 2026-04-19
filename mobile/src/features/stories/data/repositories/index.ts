@@ -49,8 +49,7 @@ export class StoryRepositoryImpl implements StoryRepository {
 
   async getMapPins(filters: StoryFilters = {}): Promise<StoryMapPin[]> {
     try {
-      const response = await storiesRemoteSource.getMapStoriesFromApi(filters);
-      const remotePins = response.map(mapStoryMapPin);
+      const remotePins = await this.getRemoteMapPins(filters);
 
       if (env.environment === 'development') {
         return mergeById(remotePins, storiesLocalSource.getStories(filters).map(mapStoryMapPin));
@@ -61,6 +60,24 @@ export class StoryRepositoryImpl implements StoryRepository {
       const response = await storiesRemoteSource.getStories(filters);
       return response.map(mapStoryMapPin);
     }
+  }
+
+  private async getRemoteMapPins(filters: StoryFilters) {
+    const mapStories = await storiesRemoteSource.getMapStoriesFromApi(filters);
+
+    if (mapStories.length > 0) {
+      return mapStories.map(mapStoryMapPin);
+    }
+
+    const stories = await storiesRemoteSource.getStoriesFromApi(filters);
+
+    return stories.flatMap((story) => {
+      try {
+        return [mapStoryMapPin(story)];
+      } catch {
+        return [];
+      }
+    });
   }
 }
 
