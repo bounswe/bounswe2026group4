@@ -222,7 +222,10 @@ def get_public_profile(user_id: int) -> User:
                 published_story_count=Count(
                     'stories',
                     filter=Q(stories__status=Story.STATUS_PUBLISHED),
-                )
+                    distinct=True,
+                ),
+                followers_count=Count('followers', distinct=True),
+                following_count=Count('following', distinct=True),
             )
             .get(pk=user_id, is_active=True)
         )

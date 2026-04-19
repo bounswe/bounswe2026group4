@@ -174,6 +174,8 @@ class PublicUserProfileSerializer(serializers.Serializer):
     total_points = serializers.IntegerField()
     date_joined = serializers.DateTimeField()
     published_story_count = serializers.IntegerField()
+    followers_count = serializers.IntegerField()
+    following_count = serializers.IntegerField()
     profile_photo = serializers.SerializerMethodField()
     first_name = serializers.SerializerMethodField()
     last_name = serializers.SerializerMethodField()
