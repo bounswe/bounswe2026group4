@@ -167,6 +167,41 @@ def delete_profile_photo(user: User) -> None:
         profile.save(update_fields=['profile_photo'])
 
 
+def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> None:
+    """
+    Deletes or deactivates a user account based on the hard_delete flag.
+
+    Hard delete: removes profile photo file, explicitly deletes all user stories
+    (required because Story.user has on_delete=SET_NULL — without this the stories
+    would be anonymized instead of removed), then deletes the User row (cascades
+    UserProfile and EmailVerificationCode).
+
+    Soft delete: sets is_active=False to block login, then bulk-sets story.user=NULL
+    to anonymize community content without removing it.
+
+    In both cases, if a non-empty refresh_token is provided it is blacklisted.
+    TokenError is silently ignored — a stale or already-blacklisted token is harmless
+    once the account is gone or inactive.
+    """
+    from apps.stories.models import Story  # local import to avoid circular imports
+
+    if refresh_token:
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            pass
+
+    if hard_delete:
+        delete_profile_photo(user)
+        Story.objects.filter(user=user).delete()
+        user.delete()
+    else:
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        Story.objects.filter(user=user).update(user=None)
+
+
 def get_public_profile(user_id: int) -> User:
     """
     Return a User annotated with published_story_count for the public profile endpoint.
