@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 const YEAR_MIN = 1000;
 const YEAR_MAX = 2030;
 const YEAR_SPINNER_FROM = 1980;
-const YEAR_SPINNER_TO = 2026;
+const YEAR_SPINNER_TO = new Date().getFullYear();
 
 /**
  * Collapsible filter panel for year range and location.

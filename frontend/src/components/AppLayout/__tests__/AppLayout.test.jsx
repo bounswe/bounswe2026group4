@@ -145,6 +145,26 @@ describe("AppLayout", () => {
     expect(mapLinks[0]).toHaveAttribute("href", "/map");
   });
 
+  it("Map link is still highlighted when filters are active on /map", () => {
+    renderWithRouter("/map?q=galata&year_from=1980");
+
+    const mapLink = screen.getByText("Map");
+    const feedLink = screen.getByText("Feed");
+
+    expect(mapLink.className).toContain("text-primary");
+    expect(feedLink.className).toContain("text-muted-foreground");
+  });
+
+  it("Feed link is still highlighted when filters are active on /", () => {
+    renderWithRouter("/?q=galata&year_from=1980");
+
+    const feedLink = screen.getByText("Feed");
+    const mapLink = screen.getByText("Map");
+
+    expect(feedLink.className).toContain("text-primary");
+    expect(mapLink.className).toContain("text-muted-foreground");
+  });
+
   it("renders mobile hamburger button", () => {
     renderWithRouter();
 

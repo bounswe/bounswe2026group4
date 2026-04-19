@@ -19,8 +19,9 @@ const publicLinks = [
   { to: "/submit-story", label: "Submit Story", icon: Plus },
 ];
 
-function NavLink({ to, label, icon: Icon, pathname, onClick }) {
-  const isActive = to === "/" ? pathname === "/" : pathname.startsWith(to);
+function NavLink({ to, basePath, label, icon: Icon, pathname, onClick }) {
+  const base = basePath ?? to;
+  const isActive = base === "/" ? pathname === "/" : pathname === base || pathname.startsWith(base + "/");
 
   return (
     <Link
@@ -49,10 +50,10 @@ function AppLayout() {
     navigate("/");
   };
 
-  const isFilterPage = location.pathname === "/" || location.pathname.startsWith("/map");
+  const isFilterPage = location.pathname === "/" || location.pathname === "/map";
   const links = publicLinks.map((link) =>
-    link.preserveSearch && isFilterPage
-      ? { ...link, to: `${link.to}${location.search}` }
+    link.preserveSearch && isFilterPage && location.search
+      ? { ...link, basePath: link.to, to: `${link.to}${location.search}` }
       : link
   );
 
@@ -70,8 +71,9 @@ function AppLayout() {
           <nav className="hidden md:flex items-center space-x-6">
             {links.map((link) => (
               <NavLink
-                key={link.to}
+                key={link.label}
                 to={link.to}
+                basePath={link.basePath}
                 label={link.label}
                 icon={link.icon}
                 pathname={location.pathname}
@@ -123,8 +125,9 @@ function AppLayout() {
                 <nav className="flex flex-col space-y-4 mt-4">
                   {links.map((link) => (
                     <NavLink
-                      key={link.to}
+                      key={link.label}
                       to={link.to}
+                      basePath={link.basePath}
                       label={link.label}
                       icon={link.icon}
                       pathname={location.pathname}
