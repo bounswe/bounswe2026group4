@@ -176,6 +176,60 @@ describe("ProfileCompletionPage", () => {
     expect(await screen.findByAltText("Profile preview")).toBeInTheDocument();
   });
 
+  it("remove photo button is not shown before a photo is selected", () => {
+    renderPage();
+
+    expect(screen.queryByRole("button", { name: /remove photo/i })).not.toBeInTheDocument();
+  });
+
+  it("remove photo button appears after a photo is selected", async () => {
+    renderPage();
+
+    const fileInput = screen.getByLabelText(/upload profile photo/i);
+    const imageFile = new File(["img"], "photo.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [imageFile] } });
+
+    expect(await screen.findByRole("button", { name: /remove photo/i })).toBeInTheDocument();
+  });
+
+  it("clicking remove photo clears the preview, filename, and remove button", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const fileInput = screen.getByLabelText(/upload profile photo/i);
+    const imageFile = new File(["img"], "photo.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [imageFile] } });
+    expect(await screen.findByAltText("Profile preview")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /remove photo/i }));
+
+    expect(screen.queryByAltText("Profile preview")).not.toBeInTheDocument();
+    expect(screen.queryByText("photo.jpg")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove photo/i })).not.toBeInTheDocument();
+  });
+
+  it("submits without a photo after removing the selected file", async () => {
+    const user = userEvent.setup();
+    updateCurrentUser.mockResolvedValue({ success: true, data: {} });
+    renderPage();
+
+    const fileInput = screen.getByLabelText(/upload profile photo/i);
+    const imageFile = new File(["img"], "photo.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [imageFile] } });
+    await screen.findByRole("button", { name: /remove photo/i });
+    await user.click(screen.getByRole("button", { name: /remove photo/i }));
+
+    await user.type(screen.getByLabelText(/^name/i), "John");
+    await user.type(screen.getByLabelText(/^surname/i), "Smith");
+    await user.click(screen.getByRole("button", { name: /complete profile/i }));
+
+    await waitFor(() => {
+      expect(updateCurrentUser).toHaveBeenCalledWith(
+        expect.objectContaining({ profilePhoto: undefined })
+      );
+    });
+  });
+
   // 5. Successful submission with only required fields
   it("calls updateCurrentUser with required fields only", async () => {
     const user = userEvent.setup();

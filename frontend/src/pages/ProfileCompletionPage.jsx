@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { MapPin, User, Calendar, Camera, Loader2 } from "lucide-react";
+import { MapPin, User, Calendar, Camera, Loader2, Trash2 } from "lucide-react";
 
 import {
   Button,
@@ -25,10 +25,13 @@ const INITIAL_ERRORS = {
   profile_photo: "",
 };
 
+const MAX_PHOTO_SIZE_MB = 2;
+
 function validateBirthDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Date must be in YYYY-MM-DD format.";
   const d = new Date(value);
   if (isNaN(d.getTime())) return "Enter a valid date.";
+  if (d > new Date()) return "Birth date cannot be in the future.";
   return "";
 }
 
@@ -58,11 +61,28 @@ function ProfileCompletionPage() {
     setFieldErrors((prev) => ({ ...prev, [field]: "" }));
   }
 
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
+  function handlePhotoRemove() {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setFieldErrors((prev) => ({ ...prev, profile_photo: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setFieldErrors((prev) => ({ ...prev, profile_photo: "Please upload a valid image file." }));
+      return;
+    }
+    if (file.size > MAX_PHOTO_SIZE_MB * 1024 * 1024) {
+      setFieldErrors((prev) => ({ ...prev, profile_photo: `Photo must be smaller than ${MAX_PHOTO_SIZE_MB} MB.` }));
       return;
     }
     setFieldErrors((prev) => ({ ...prev, profile_photo: "" }));
@@ -239,7 +259,6 @@ function ProfileCompletionPage() {
                   checked={isNamePublic}
                   onChange={(e) => setIsNamePublic(e.target.checked)}
                   disabled={isLoading}
-                  aria-label="Show name publicly"
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 Show name publicly
@@ -250,7 +269,6 @@ function ProfileCompletionPage() {
                   checked={isUsernamePublic}
                   onChange={(e) => setIsUsernamePublic(e.target.checked)}
                   disabled={isLoading}
-                  aria-label="Show username publicly"
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 Show username publicly
@@ -286,15 +304,30 @@ function ProfileCompletionPage() {
                     onChange={handlePhotoChange}
                     disabled={isLoading}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isLoading}
-                  >
-                    {photoFile ? "Change photo" : "Upload photo"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isLoading}
+                    >
+                      {photoFile ? "Change photo" : "Upload photo"}
+                    </Button>
+                    {photoFile && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={handlePhotoRemove}
+                        disabled={isLoading}
+                        aria-label="Remove photo"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   {photoFile && (
                     <p className="text-xs text-muted-foreground">{photoFile.name}</p>
                   )}
@@ -309,7 +342,6 @@ function ProfileCompletionPage() {
                   checked={isPhotoPublic}
                   onChange={(e) => setIsPhotoPublic(e.target.checked)}
                   disabled={isLoading}
-                  aria-label="Show profile photo publicly"
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 Show profile photo publicly
@@ -345,7 +377,6 @@ function ProfileCompletionPage() {
                   checked={isLocationPublic}
                   onChange={(e) => setIsLocationPublic(e.target.checked)}
                   disabled={isLoading}
-                  aria-label="Show location publicly"
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 Show location publicly
@@ -380,7 +411,6 @@ function ProfileCompletionPage() {
                   checked={isBirthDatePublic}
                   onChange={(e) => setIsBirthDatePublic(e.target.checked)}
                   disabled={isLoading}
-                  aria-label="Show birth date publicly"
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 Show birth date publicly

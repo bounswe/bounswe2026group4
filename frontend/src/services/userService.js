@@ -6,22 +6,11 @@ export async function getProfile(userId) {
 }
 
 export async function updateCurrentUser({ profile = {}, userFields = {}, profilePhoto }) {
+  const response = await api.patch("/users/me/", { ...userFields, profile });
   if (profilePhoto) {
     const formData = new FormData();
-    Object.entries(userFields).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, typeof value === "boolean" ? String(value) : value);
-      }
-    });
-    Object.entries(profile).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(`profile[${key}]`, typeof value === "boolean" ? String(value) : value);
-      }
-    });
-    formData.append("profile[profile_photo]", profilePhoto);
-    const response = await api.patch("/users/me/", formData);
-    return response.data;
+    formData.append("photo", profilePhoto);
+    await api.post("/users/me/photo/", formData);
   }
-  const response = await api.patch("/users/me/", { ...userFields, profile });
   return response.data;
 }
