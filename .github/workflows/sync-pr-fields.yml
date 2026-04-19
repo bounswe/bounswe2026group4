@@ -184,7 +184,7 @@ jobs:
             local field="$1" date="$2"
             [ -z "$date" ] && return
             gh api graphql -f query='
-              mutation($p:ID!,$i:ID!,$f:ID!,$v:String!) {
+              mutation($p:ID!,$i:ID!,$f:ID!,$v:Date!) {
                 updateProjectV2ItemFieldValue(input:{
                   projectId:$p, itemId:$i, fieldId:$f,
                   value:{ date:$v }
