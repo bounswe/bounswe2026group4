@@ -272,29 +272,36 @@ class FeedQuerySerializer(serializers.Serializer):
         return data
 
 
-class StoryMapSerializer(serializers.ModelSerializer):
+class StoryMapGeoJSONSerializer(serializers.BaseSerializer):
     """
-    Read-only serializer returning only the fields needed to render a map pin.
+    Serializes a Story as a GeoJSON Feature (RFC 7946).
 
-    Intentionally minimal — the map view only needs coordinates, place name,
-    title, and time info to position a pin and show a preview tooltip.
-    Full story content is loaded separately when a pin is clicked.
+    Coordinates follow the RFC 7946 §3.1.1 mandate: [longitude, latitude].
+    Decimal fields are cast to float so the JSON encoder emits numeric values,
+    not quoted decimal strings.
+
+    BaseSerializer is used intentionally — we own the full output shape via
+    to_representation, so ModelSerializer's field introspection is pure overhead.
     """
 
-    class Meta:
-        model = Story
-        fields = [
-            'id',
-            'title',
-            'location_name',
-            'location_lat',
-            'location_lng',
-            'time_type',
-            'year',
-            'year_start',
-            'year_end',
-        ]
-        read_only_fields = fields
+    def to_representation(self, instance):
+        return {
+            "type": "Feature",
+            "id": instance.id,
+            "geometry": {
+                "type": "Point",
+                # RFC 7946 §3.1.1: coordinate order is [longitude, latitude]
+                "coordinates": [float(instance.location_lng), float(instance.location_lat)],
+            },
+            "properties": {
+                "title": instance.title,
+                "location_name": instance.location_name,
+                "time_type": instance.time_type,
+                "year": instance.year,
+                "year_start": instance.year_start,
+                "year_end": instance.year_end,
+            },
+        }
 
 
 class SearchQuerySerializer(serializers.Serializer):

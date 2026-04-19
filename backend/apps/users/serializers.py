@@ -51,9 +51,12 @@ class UserResponseSerializer(serializers.ModelSerializer):
 
 
 class UpdateProfileSerializer(serializers.Serializer):
-    """Validates editable UserProfile fields accepted by PATCH /users/me/."""
+    """Validates editable UserProfile fields accepted by PATCH /users/me/.
 
-    profile_photo = serializers.ImageField(required=False, allow_null=True)
+    profile_photo is intentionally excluded — use POST /users/me/photo/ instead,
+    which enforces MIME type and size limits via the service layer.
+    """
+
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     location = serializers.CharField(max_length=255, required=False, allow_blank=True)
@@ -147,6 +150,12 @@ class UpdateCurrentUserSerializer(serializers.Serializer):
         return user_fields, profile_fields
 
 
+class ProfilePhotoSerializer(serializers.Serializer):
+    """Validates the multipart photo field for POST /users/me/photo/."""
+
+    photo = serializers.ImageField()
+
+
 class PublicUserProfileSerializer(serializers.Serializer):
     """
     Read-only serializer for the public user profile endpoint (GET /users/{id}/).
@@ -215,3 +224,18 @@ class PublicUserProfileSerializer(serializers.Serializer):
         if profile and profile.is_birth_date_public and profile.birth_date:
             return profile.birth_date.year
         return None
+
+
+class DeleteAccountSerializer(serializers.Serializer):
+    """Validates an account deletion request. Requires the current password as confirmation."""
+
+    password = serializers.CharField(write_only=True)
+    hard_delete = serializers.BooleanField(default=True, required=False)
+    refresh = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_password(self, value):
+        """Reject the request immediately if the password is wrong."""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('Incorrect password.')
+        return value

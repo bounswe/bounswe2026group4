@@ -5,14 +5,26 @@ from rest_framework.views import APIView
 
 from apps.users.serializers import (
     CurrentUserSerializer,
+    DeleteAccountSerializer,
     LoginSerializer,
     LogoutSerializer,
+    ProfilePhotoSerializer,
     PublicUserProfileSerializer,
     RegisterSerializer,
     UpdateCurrentUserSerializer,
     UserResponseSerializer,
 )
-from apps.users.services import get_own_profile, get_public_profile, login_user, logout_user, register_user, update_own_profile
+from apps.users.services import (
+    delete_account,
+    delete_profile_photo,
+    get_own_profile,
+    get_public_profile,
+    login_user,
+    logout_user,
+    register_user,
+    update_own_profile,
+    upload_profile_photo,
+)
 from common.permissions import IsRegisteredUser
 
 
@@ -76,6 +88,36 @@ class CurrentUserView(APIView):
             {'success': True, 'data': CurrentUserSerializer(user, context={'request': request}).data},
             status=status.HTTP_200_OK,
         )
+
+    def delete(self, request):
+        """Hard-deletes (default) or soft-deletes the authenticated user's account."""
+        serializer = DeleteAccountSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        delete_account(
+            user=request.user,
+            hard_delete=serializer.validated_data['hard_delete'],
+            refresh_token=serializer.validated_data.get('refresh', ''),
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProfilePhotoView(APIView):
+    """POST /users/me/photo/ — upload a profile photo; DELETE — remove it."""
+
+    permission_classes = [IsRegisteredUser]
+
+    def post(self, request):
+        serializer = ProfilePhotoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile = upload_profile_photo(request.user, serializer.validated_data['photo'])
+        return Response(
+            {'success': True, 'photo_url': request.build_absolute_uri(profile.profile_photo.url)},
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request):
+        delete_profile_photo(request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class UserPublicProfileView(APIView):

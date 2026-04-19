@@ -1,11 +1,12 @@
 from django.db.models import Exists, OuterRef
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.interactions.models import Like, SavedStory
 from apps.stories.models import Story
-from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapSerializer, StorySerializer
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
 from apps.stories.services import delete_story, get_story_feed, get_story_search
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
@@ -68,16 +69,16 @@ class StoryMapView(APIView):
     """
     GET /stories/map/
 
-    Returns a paginated list of published stories with only the fields needed
-    to render map pins: coordinates, place name, title, and time info.
-    Guests and authenticated users both have read access.
+    Returns all published stories as a GeoJSON FeatureCollection (RFC 7946).
+    No pagination — map clients need the full set of pins in a single response.
+    Each story is a Feature with a Point geometry and basic metadata in properties.
+
+    Coordinates follow RFC 7946 §3.1.1: [longitude, latitude].
 
     Query params:
       year_from  — include stories from this year onwards
       year_to    — include stories up to and including this year
       location   — case-insensitive substring match against location_name
-      page       — page number (default 1)
-      page_size  — results per page (default 10, max 100)
     """
 
     permission_classes = [AllowAny]
@@ -93,10 +94,11 @@ class StoryMapView(APIView):
             location=params.get('location'),
         )
 
-        paginator = StoryPagination()
-        page = paginator.paginate_queryset(qs, request)
-        serializer = StoryMapSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        serializer = StoryMapGeoJSONSerializer(qs, many=True)
+        return Response({
+            "type": "FeatureCollection",
+            "features": serializer.data,
+        })
 
 
 class StorySearchView(APIView):
