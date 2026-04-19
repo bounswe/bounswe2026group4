@@ -90,6 +90,7 @@ class CurrentUserView(APIView):
         )
 
     def delete(self, request):
+        """Hard-deletes (default) or soft-deletes the authenticated user's account."""
         serializer = DeleteAccountSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         delete_account(

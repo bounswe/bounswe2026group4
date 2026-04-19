@@ -227,6 +227,8 @@ class PublicUserProfileSerializer(serializers.Serializer):
 
 
 class DeleteAccountSerializer(serializers.Serializer):
+    """Validates an account deletion request. Requires the current password as confirmation."""
+
     password = serializers.CharField(write_only=True)
     hard_delete = serializers.BooleanField(default=True, required=False)
     refresh = serializers.CharField(required=False, allow_blank=True, default='')
