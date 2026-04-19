@@ -439,12 +439,17 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('keeps feed and map search states independent', async () => {
+  it('persists search and filter state between feed and map views', async () => {
     renderNavigator();
 
     await screen.findByLabelText('Search stories');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
     fireEvent.press(screen.getByLabelText('Apply search'));
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    fireEvent.changeText(screen.getByLabelText('Start year'), '1990');
+    fireEvent.changeText(screen.getByLabelText('End year'), '2000');
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
@@ -452,23 +457,17 @@ describe('RootNavigator auth flow', () => {
 
     fireEvent.press(screen.getByLabelText('Map'));
     await screen.findByLabelText('Search stories');
-    expect(screen.getByLabelText('Search stories').props.value).toBe('');
-
-    fireEvent.changeText(screen.getByLabelText('Search stories'), 'pier');
-    fireEvent.press(screen.getByLabelText('Apply search'));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search stories').props.value).toBe('pier');
-    });
+    expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
+    fireEvent.press(screen.getByText('Show filters'));
+    expect(screen.getByLabelText('Location filter').props.value).toBe('Golden Horn');
+    expect(screen.getByLabelText('Start year').props.value).toBe('1990');
+    expect(screen.getByLabelText('End year').props.value).toBe('2000');
+    fireEvent.press(screen.getByLabelText('Close filters'));
 
     fireEvent.press(screen.getByLabelText('Feed'));
 
     await screen.findByLabelText('Search stories');
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
-
-    fireEvent.press(screen.getByLabelText('Map'));
-    await screen.findByLabelText('Search stories');
-    expect(screen.getByLabelText('Search stories').props.value).toBe('pier');
   });
 
   it('opens a protected screen after login and returns with the back button', async () => {

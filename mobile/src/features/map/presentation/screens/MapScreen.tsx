@@ -30,8 +30,8 @@ const ISTANBUL_REGION: Region = {
   longitudeDelta: 0.12,
 };
 
-const MIN_FIT_DELTA = 0.02;
-const FIT_PADDING_FACTOR = 1.4;
+const MIN_FIT_DELTA = 0.03;
+const FIT_PADDING_FACTOR = 1.8;
 type StatusIndicatorMode = 'hidden' | 'filters' | 'area';
 
 export function MapScreen({
@@ -208,12 +208,6 @@ export function MapScreen({
     <View style={{ gap: spacing.md }}>
       {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
       {activeFilterSummary.length ? <Text style={{ color: colors.muted }}>{activeFilterSummary.join('  |  ')}</Text> : null}
-
-      {hasActiveFilters ? (
-        <Text style={{ color: colors.muted, fontSize: typography.caption }}>
-          {state.markers.reduce((sum, marker) => sum + marker.count, 0)} stories currently match the active filters.
-        </Text>
-      ) : null}
 
       <View
         testID="map-card-container"

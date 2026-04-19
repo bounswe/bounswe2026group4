@@ -4,5 +4,6 @@ export const storageKeys = {
   legacySearchFilters: 'searchFilters',
   feedSearchFilters: 'feedSearchFilters',
   mapSearchFilters: 'mapSearchFilters',
+  mainSearchFilters: 'mainSearchFilters',
   draftStory: 'draftStory',
 };

@@ -221,7 +221,7 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0192:28.96735:');
-      expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain(':0.02');
+      expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain(':0.03');
     });
   });
 
@@ -231,6 +231,7 @@ describe('MapScreen', () => {
     await screen.findByText('No stories match the current filters.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Beykoz');
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     expect(await screen.findByText('No stories found in Beykoz')).toBeTruthy();
   });
@@ -276,6 +277,7 @@ describe('MapScreen', () => {
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
@@ -306,6 +308,7 @@ describe('MapScreen', () => {
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({

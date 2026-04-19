@@ -169,7 +169,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
-    fireEvent.press(screen.getByLabelText('Apply search'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getFeed).toHaveBeenLastCalledWith({
@@ -184,7 +184,9 @@ describe('FeedScreen', () => {
       });
     });
 
-    expect(screen.getByText('Filters')).toBeTruthy();
+    expect(screen.getByLabelText('Remove Location: Istanbul')).toBeTruthy();
+    expect(screen.getByLabelText('Remove From: 1900')).toBeTruthy();
+    expect(screen.getByLabelText('Remove To: 1950')).toBeTruthy();
   });
 
   it('closes the filter panel when tapping outside of it', async () => {
@@ -214,7 +216,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
     fireEvent.press(screen.getByText('Reset filter form'));
-    fireEvent.press(screen.getByLabelText('Apply search'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getFeed).toHaveBeenLastCalledWith({

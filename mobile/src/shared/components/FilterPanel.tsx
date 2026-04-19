@@ -3,6 +3,11 @@ import { Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { Input } from '../ui/Input';
 
+export const DEFAULT_FROM_YEAR = '1980';
+export const DEFAULT_TO_YEAR = '2026';
+export const MIN_YEAR = 1000;
+export const MAX_YEAR = 2030;
+
 function normalizeYearInput(value: string) {
   if (value === '') {
     return value;
@@ -17,6 +22,20 @@ function normalizeYearInput(value: string) {
   }
 
   return value;
+}
+
+function clampYearValue(value: string) {
+  if (!value.trim()) {
+    return value;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return value;
+  }
+
+  return String(Math.min(MAX_YEAR, Math.max(MIN_YEAR, parsed)));
 }
 
 interface FilterPanelProps {
@@ -70,6 +89,17 @@ export function FilterPanel({
     onTimeToChange(normalized);
   };
 
+  const stepYear = (
+    currentValue: string,
+    nextValue: (value: string) => void,
+    delta: number,
+    fallbackValue: string,
+  ) => {
+    const baseValue = currentValue.trim() ? Number(currentValue) : Number(fallbackValue);
+    const clamped = Math.min(MAX_YEAR, Math.max(MIN_YEAR, baseValue + delta));
+    nextValue(String(clamped));
+  };
+
   return (
     <View
       style={{
@@ -106,9 +136,40 @@ export function FilterPanel({
           <Input
             value={timeFrom}
             onChangeText={handleTimeFromChange}
-            placeholder="1900"
+            onBlur={() => onTimeFromChange(clampYearValue(timeFrom))}
+            placeholder={DEFAULT_FROM_YEAR}
             keyboardType="number-pad"
             accessibilityLabel="Start year"
+            trailingElement={
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease start year"
+                  onPress={() => stepYear(timeFrom, onTimeFromChange, -1, DEFAULT_FROM_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>-</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase start year"
+                  disabled={Number(clampYearValue(timeFrom || DEFAULT_FROM_YEAR)) >= MAX_YEAR}
+                  onPress={() => stepYear(timeFrom, onTimeFromChange, 1, DEFAULT_FROM_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity:
+                      Number(clampYearValue(timeFrom || DEFAULT_FROM_YEAR)) >= MAX_YEAR ? 0.4 : pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
+                </Pressable>
+              </View>
+            }
           />
         </View>
         <View style={{ flex: 1, gap: spacing.sm }}>
@@ -116,9 +177,40 @@ export function FilterPanel({
           <Input
             value={timeTo}
             onChangeText={handleTimeToChange}
-            placeholder="2024"
+            onBlur={() => onTimeToChange(clampYearValue(timeTo))}
+            placeholder={DEFAULT_TO_YEAR}
             keyboardType="number-pad"
             accessibilityLabel="End year"
+            trailingElement={
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease end year"
+                  onPress={() => stepYear(timeTo, onTimeToChange, -1, DEFAULT_TO_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>-</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase end year"
+                  disabled={Number(clampYearValue(timeTo || DEFAULT_TO_YEAR)) >= MAX_YEAR}
+                  onPress={() => stepYear(timeTo, onTimeToChange, 1, DEFAULT_TO_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity:
+                      Number(clampYearValue(timeTo || DEFAULT_TO_YEAR)) >= MAX_YEAR ? 0.4 : pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
+                </Pressable>
+              </View>
+            }
           />
         </View>
       </View>

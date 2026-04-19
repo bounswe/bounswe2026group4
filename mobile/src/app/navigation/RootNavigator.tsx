@@ -581,6 +581,7 @@ export function RootNavigator() {
                   onMarkerPreviewRequested={(targetY) => scrollTo(targetY)}
                   showSearchControls={false}
                   onRegisterRefresh={registerRefreshHandler}
+                  searchScope="main"
                 />
               )}
             </ScreenShell>
@@ -593,7 +594,7 @@ export function RootNavigator() {
               fillContent
               hideHeader
             >
-              <FeedScreen onOpenStory={handleOpenStoryDetail} showSearchControls={false} />
+              <FeedScreen onOpenStory={handleOpenStoryDetail} showSearchControls={false} searchScope="main" />
             </ScreenShell>
           </View>
         </ScrollView>
@@ -632,7 +633,7 @@ export function RootNavigator() {
             <TopIconButton label="Login" onPress={() => handleNavigate(ROUTES.AUTH)} />
           )}
         </View>
-      {isMainRoute ? <StorySearchControls hideHeading scope={currentRoute === ROUTES.MAP ? 'map' : 'feed'} /> : null}
+      {isMainRoute ? <StorySearchControls hideHeading scope="main" /> : null}
       </View>
       <View style={{ flex: 1, backgroundColor: colors.background }}>{content}</View>
       {isMainRoute ? (
