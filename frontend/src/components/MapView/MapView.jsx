@@ -1,4 +1,7 @@
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
+import { MemoryRouter, useNavigate } from "react-router-dom";
+import { renderToStaticMarkup } from "react-dom/server";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -17,8 +20,66 @@ L.Icon.Default.mergeOptions({
 
 const ISTANBUL_CENTER = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 12;
+const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 
-function MapView({ stories = [], loading = false }) {
+function featureToStory(feature) {
+  const props = feature.properties ?? {};
+  return {
+    id: feature.id,
+    title: props.title,
+    location_name: props.location_name,
+    time_type: props.time_type,
+    year: props.year,
+    year_start: props.year_start,
+    year_end: props.year_end,
+  };
+}
+
+const pointToLayer = (_feature, latlng) => L.marker(latlng);
+
+const onEachFeature = (feature, layer) => {
+  // Leaflet popups live outside React's tree, so render the content to a
+  // static HTML string. A MemoryRouter wrapper satisfies <Link>'s context.
+  const html = renderToStaticMarkup(
+    <MemoryRouter>
+      <StoryPopup story={featureToStory(feature)} />
+    </MemoryRouter>,
+  );
+  layer.bindPopup(html);
+};
+
+// Intercepts clicks on story links inside popup HTML so they perform
+// client-side navigation instead of a full page reload.
+function StoryLinkInterceptor() {
+  const map = useMap();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const container = map?.getContainer?.();
+    if (!container) return undefined;
+    const handler = (event) => {
+      const anchor = event.target.closest?.("a[href^='/stories/']");
+      if (!anchor || event.defaultPrevented) return;
+      event.preventDefault();
+      navigate(anchor.getAttribute("href"), { state: { from: "/map" } });
+    };
+    container.addEventListener("click", handler);
+    return () => container.removeEventListener("click", handler);
+  }, [map, navigate]);
+  return null;
+}
+
+function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false }) {
+  const features = useMemo(
+    () => featureCollection?.features ?? [],
+    [featureCollection],
+  );
+  // react-leaflet's <GeoJSON> only initializes the layer once, so force a
+  // remount whenever the feature set changes (filter/search results).
+  const geoJSONKey = useMemo(
+    () => features.map((f) => f.id).join("|"),
+    [features],
+  );
+
   return (
     <div className="relative h-full w-full" data-testid="map-wrapper">
       <MapContainer
@@ -31,17 +92,15 @@ function MapView({ stories = [], loading = false }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {stories.filter((story) => story.location_lat != null && story.location_lng != null).map((story) => (
-          <Marker
-            key={story.id}
-            position={[story.location_lat, story.location_lng]}
-            data-testid="map-marker"
-          >
-            <Popup>
-              <StoryPopup story={story} />
-            </Popup>
-          </Marker>
-        ))}
+        {features.length > 0 && (
+          <GeoJSON
+            key={geoJSONKey}
+            data={featureCollection}
+            pointToLayer={pointToLayer}
+            onEachFeature={onEachFeature}
+          />
+        )}
+        <StoryLinkInterceptor />
       </MapContainer>
       {loading && (
         <div
