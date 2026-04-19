@@ -170,13 +170,13 @@ class TestMediaFileUploadSerializer:
         assert s.validated_data['media_type'] == MediaType.VIDEO
 
     def test_oversized_audio_rejected(self):
-        oversized = make_media_file('mp3', size_override=50 * 1024 * 1024 + 1)
+        oversized = make_media_file('mp3', size_override=10 * 1024 * 1024 + 1)
         s = self._serialize(oversized)
         assert not s.is_valid()
         assert 'file' in s.errors
 
     def test_oversized_video_rejected(self):
-        oversized = make_media_file('mp4', size_override=200 * 1024 * 1024 + 1)
+        oversized = make_media_file('mp4', size_override=50 * 1024 * 1024 + 1)
         s = self._serialize(oversized)
         assert not s.is_valid()
         assert 'file' in s.errors

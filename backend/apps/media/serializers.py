@@ -15,8 +15,8 @@ MIME_TO_MEDIA_TYPE = {
     **{mime: MediaType.VIDEO for mime in ALLOWED_VIDEO_MIME_TYPES},
 }
 
-MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024   # 50 MB
-MAX_VIDEO_FILE_SIZE = 200 * 1024 * 1024  # 200 MB
+MAX_AUDIO_FILE_SIZE = 10 * 1024 * 1024   # 10 MB
+MAX_VIDEO_FILE_SIZE = 50 * 1024 * 1024   # 50 MB
 
 
 class ImageUploadSerializer(serializers.Serializer):
@@ -64,10 +64,10 @@ class MediaFileUploadSerializer(serializers.Serializer):
 
     def validate_file(self, value):
         value.seek(0)
-        self._detected_mime = magic.from_buffer(value.read(1024), mime=True)
+        detected_mime = magic.from_buffer(value.read(1024), mime=True)
         value.seek(0)
 
-        if self._detected_mime not in ALLOWED_MEDIA_MIME_TYPES:
+        if detected_mime not in ALLOWED_MEDIA_MIME_TYPES:
             raise serializers.ValidationError(
                 'Unsupported file type. '
                 'Accepted audio formats: mp3, wav, ogg. '
@@ -76,7 +76,7 @@ class MediaFileUploadSerializer(serializers.Serializer):
 
         max_size = (
             MAX_AUDIO_FILE_SIZE
-            if self._detected_mime in ALLOWED_AUDIO_MIME_TYPES
+            if detected_mime in ALLOWED_AUDIO_MIME_TYPES
             else MAX_VIDEO_FILE_SIZE
         )
         if value.size > max_size:
@@ -85,10 +85,11 @@ class MediaFileUploadSerializer(serializers.Serializer):
                 f'File size must not exceed {limit_mb} MB.'
             )
 
+        value._detected_mime = detected_mime
         return value
 
     def validate(self, attrs):
-        attrs['media_type'] = MIME_TO_MEDIA_TYPE[self._detected_mime]
+        attrs['media_type'] = MIME_TO_MEDIA_TYPE[attrs['file']._detected_mime]
         return attrs
 
 
