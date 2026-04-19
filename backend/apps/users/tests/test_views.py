@@ -861,3 +861,33 @@ class TestFollowingListView:
         entry = response.data['results'][0]
         for field in ('id', 'username', 'profile_photo'):
             assert field in entry
+
+
+# ── /users/:id/ public profile: follow counts ────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestPublicProfileFollowCounts:
+    def test_profile_includes_count_fields(self, client, registered_user):
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert 'followers_count' in response.data
+        assert 'following_count' in response.data
+
+    def test_counts_are_zero_initially(self, client, registered_user):
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['followers_count'] == 0
+        assert response.data['following_count'] == 0
+
+    def test_followers_count_reflects_state(self, client, registered_user, second_user):
+        from apps.users.models import Follow
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['followers_count'] == 1
+        assert response.data['following_count'] == 0
+
+    def test_following_count_reflects_state(self, client, registered_user, second_user):
+        from apps.users.models import Follow
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['following_count'] == 1
+        assert response.data['followers_count'] == 0
