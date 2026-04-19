@@ -5,6 +5,7 @@ from django.db import models
 class NotificationType(models.TextChoices):
     NEW_COMMENT = 'new_comment', 'New Comment'
     NEW_LIKE = 'new_like', 'New Like'
+    NEW_FOLLOWER = 'new_follower', 'New Follower'
     MODERATION_ACTION = 'moderation_action', 'Moderation Action'
     STORY_REMOVED = 'story_removed', 'Story Removed'
     REPORT_RESOLVED = 'report_resolved', 'Report Resolved'
