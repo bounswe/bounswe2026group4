@@ -1,6 +1,13 @@
 from django.urls import path
 
-from apps.users.views import CurrentUserView, FollowView, ProfilePhotoView, UserPublicProfileView
+from apps.users.views import (
+    CurrentUserView,
+    FollowerListView,
+    FollowingListView,
+    FollowView,
+    ProfilePhotoView,
+    UserPublicProfileView,
+)
 
 app_name = 'users_profile'
 
@@ -12,4 +19,6 @@ urlpatterns = [
     path('me/photo/', ProfilePhotoView.as_view(), name='current-user-photo'),
     path('<int:user_id>/', UserPublicProfileView.as_view(), name='user-public-profile'),
     path('<int:user_id>/follow/', FollowView.as_view(), name='user-follow'),
+    path('<int:user_id>/followers/', FollowerListView.as_view(), name='user-followers'),
+    path('<int:user_id>/following/', FollowingListView.as_view(), name='user-following'),
 ]

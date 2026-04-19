@@ -773,3 +773,91 @@ class TestFollowView:
     def test_delete_unknown_user_returns_404(self, auth_client):
         response = auth_client.delete(self.url.format(user_id=99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ── GET /users/:id/followers/ ────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowerListView:
+    url = '/users/{user_id}/followers/'
+
+    def test_returns_200(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_unauthenticated_returns_200(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_unknown_user_returns_404(self, client):
+        response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_response_is_paginated(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        for key in ('count', 'results'):
+            assert key in response.data
+
+    def test_lists_correct_followers(self, client, registered_user, second_user):
+        from apps.users.models import Follow
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['id'] == second_user.pk
+
+    def test_non_follower_not_in_list(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 0
+
+    def test_result_contains_expected_fields(self, client, registered_user, second_user):
+        from apps.users.models import Follow
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        entry = response.data['results'][0]
+        for field in ('id', 'username', 'profile_photo'):
+            assert field in entry
+
+
+# ── GET /users/:id/following/ ────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowingListView:
+    url = '/users/{user_id}/following/'
+
+    def test_returns_200(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_unauthenticated_returns_200(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_unknown_user_returns_404(self, client):
+        response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_response_is_paginated(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        for key in ('count', 'results'):
+            assert key in response.data
+
+    def test_lists_correct_following(self, client, registered_user, second_user):
+        from apps.users.models import Follow
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['id'] == second_user.pk
+
+    def test_not_following_returns_empty(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 0
+
+    def test_result_contains_expected_fields(self, client, registered_user, second_user):
+        from apps.users.models import Follow
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        entry = response.data['results'][0]
+        for field in ('id', 'username', 'profile_photo'):
+            assert field in entry

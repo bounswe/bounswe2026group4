@@ -1,11 +1,17 @@
+from django.http import Http404
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.pagination import StoryPagination
+
+from apps.users.models import User
 from apps.users.serializers import (
     CurrentUserSerializer,
     DeleteAccountSerializer,
+    FollowedUserSerializer,
     FollowUserSerializer,
     LoginSerializer,
     LogoutSerializer,
@@ -150,3 +156,43 @@ class FollowView(APIView):
     def delete(self, request, user_id):
         unfollow_user(request.user, user_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FollowerListView(APIView):
+    """GET /users/<id>/followers/ — paginated list of users who follow the given user."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        if not User.objects.filter(pk=user_id, is_active=True).exists():
+            raise Http404
+        qs = (
+            User.objects
+            .filter(following__followed_id=user_id)
+            .select_related('profile')
+            .order_by('-following__created_at')
+        )
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = FollowedUserSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class FollowingListView(APIView):
+    """GET /users/<id>/following/ — paginated list of users the given user follows."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        if not User.objects.filter(pk=user_id, is_active=True).exists():
+            raise Http404
+        qs = (
+            User.objects
+            .filter(followers__follower_id=user_id)
+            .select_related('profile')
+            .order_by('-followers__created_at')
+        )
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = FollowedUserSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
