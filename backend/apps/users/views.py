@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from apps.users.serializers import (
     CurrentUserSerializer,
+    DeleteAccountSerializer,
     LoginSerializer,
     LogoutSerializer,
     ProfilePhotoSerializer,
@@ -14,6 +15,7 @@ from apps.users.serializers import (
     UserResponseSerializer,
 )
 from apps.users.services import (
+    delete_account,
     delete_profile_photo,
     get_own_profile,
     get_public_profile,
@@ -86,6 +88,16 @@ class CurrentUserView(APIView):
             {'success': True, 'data': CurrentUserSerializer(user, context={'request': request}).data},
             status=status.HTTP_200_OK,
         )
+
+    def delete(self, request):
+        serializer = DeleteAccountSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        delete_account(
+            user=request.user,
+            hard_delete=serializer.validated_data['hard_delete'],
+            refresh_token=serializer.validated_data.get('refresh', ''),
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProfilePhotoView(APIView):

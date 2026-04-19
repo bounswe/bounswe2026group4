@@ -11,6 +11,7 @@ from rest_framework.test import APIRequestFactory
 from apps.users.models import User, UserProfile
 from apps.users.serializers import (
     CurrentUserSerializer,
+    DeleteAccountSerializer,
     LoginSerializer,
     ProfilePhotoSerializer,
     PublicUserProfileSerializer,
@@ -481,3 +482,65 @@ class TestProfilePhotoSerializer:
         serializer = ProfilePhotoSerializer(data={'photo': file})
         assert not serializer.is_valid()
         assert 'photo' in serializer.errors
+
+
+# ── DeleteAccountSerializer ───────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteAccountSerializer:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='del@example.com',
+            username='deluser',
+            password='Password1',
+        )
+
+    def _make_request(self):
+        from unittest.mock import Mock
+        req = Mock()
+        req.user = self.user
+        return req
+
+    def _serializer(self, data):
+        return DeleteAccountSerializer(data=data, context={'request': self._make_request()})
+
+    def test_valid_data_with_hard_delete_true_passes(self):
+        s = self._serializer({'password': 'Password1', 'hard_delete': True})
+        assert s.is_valid(), s.errors
+
+    def test_valid_data_with_hard_delete_false_passes(self):
+        s = self._serializer({'password': 'Password1', 'hard_delete': False})
+        assert s.is_valid(), s.errors
+
+    def test_hard_delete_defaults_to_true(self):
+        s = self._serializer({'password': 'Password1'})
+        assert s.is_valid(), s.errors
+        assert s.validated_data['hard_delete'] is True
+
+    def test_refresh_is_optional(self):
+        s = self._serializer({'password': 'Password1'})
+        assert s.is_valid(), s.errors
+
+    def test_refresh_with_token_passes(self):
+        s = self._serializer({'password': 'Password1', 'refresh': 'sometoken'})
+        assert s.is_valid(), s.errors
+
+    def test_password_is_write_only(self):
+        s = self._serializer({'password': 'Password1'})
+        s.is_valid()
+        assert 'password' not in s.data
+
+    def test_missing_password_fails(self):
+        s = self._serializer({})
+        assert not s.is_valid()
+        assert 'password' in s.errors
+
+    def test_wrong_password_fails(self):
+        s = self._serializer({'password': 'WrongPassword1'})
+        assert not s.is_valid()
+        assert 'password' in s.errors
+
+    def test_wrong_password_error_message_is_clear(self):
+        s = self._serializer({'password': 'WrongPassword1'})
+        s.is_valid()
+        assert s.errors['password'][0] == 'Incorrect password.'

@@ -224,3 +224,16 @@ class PublicUserProfileSerializer(serializers.Serializer):
         if profile and profile.is_birth_date_public and profile.birth_date:
             return profile.birth_date.year
         return None
+
+
+class DeleteAccountSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+    hard_delete = serializers.BooleanField(default=True, required=False)
+    refresh = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_password(self, value):
+        """Reject the request immediately if the password is wrong."""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('Incorrect password.')
+        return value
