@@ -64,4 +64,41 @@ describe('StoryRepositoryImpl', () => {
 
     expect(deleteStorySpy).toHaveBeenCalledWith('42');
   });
+
+  it('falls back to the story feed when the map endpoint returns no pins', async () => {
+    jest.spyOn(storiesRemoteSource, 'getMapStoriesFromApi').mockResolvedValue([]);
+    jest.spyOn(storiesRemoteSource, 'getStoriesFromApi').mockResolvedValue([
+      {
+        id: 7,
+        title: 'Bosphorus Memory',
+        preview_text: 'A waterfront story.',
+        location_name: 'Istanbul',
+        location_lat: '41.0082',
+        location_lng: '28.9784',
+        time_period: '1980s',
+      },
+      {
+        id: 8,
+        title: 'Missing Coordinates',
+        preview_text: 'This one should not become a pin.',
+        location_name: 'Unknown',
+        time_period: '1990s',
+      },
+    ]);
+
+    const repository = new StoryRepositoryImpl();
+    const result = await repository.getMapPins();
+
+    expect(result).toEqual([
+      {
+        id: '7',
+        title: 'Bosphorus Memory',
+        previewText: 'A waterfront story.',
+        placeName: 'Istanbul',
+        timePeriod: '1980s',
+        latitude: 41.0082,
+        longitude: 28.9784,
+      },
+    ]);
+  });
 });
