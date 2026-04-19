@@ -128,6 +128,7 @@ describe('MapScreen', () => {
 
     expect(screen.getByLabelText('Loading map pins')).toBeTruthy();
     expect(await screen.findByTestId('story-map')).toBeTruthy();
+    expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0082:28.9784:0.32:0.48');
     await waitFor(() => {
       expect(screen.getAllByTestId('story-marker')).toHaveLength(2);
     });
@@ -221,7 +222,7 @@ describe('MapScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0192:28.96735:');
-      expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain(':0.03');
+      expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain(':0.06');
     });
   });
 
@@ -234,6 +235,25 @@ describe('MapScreen', () => {
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     expect(await screen.findByText('No stories found in Beykoz')).toBeTruthy();
+  });
+
+  it('applies the default year filters when submitted unchanged', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
+      });
+    });
   });
 
   it('hides the badge when the active search is cleared', async () => {
@@ -283,8 +303,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
-        yearFrom: undefined,
-        yearTo: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
       });
     });
 
@@ -294,8 +314,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: undefined,
-        yearFrom: undefined,
-        yearTo: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
       });
     });
   });
@@ -314,8 +334,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
-        yearFrom: undefined,
-        yearTo: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
       });
     });
 

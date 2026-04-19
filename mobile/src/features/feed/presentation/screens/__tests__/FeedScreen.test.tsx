@@ -189,6 +189,29 @@ describe('FeedScreen', () => {
     expect(screen.getByLabelText('Remove To: 1950')).toBeTruthy();
   });
 
+  it('applies the default year filters when submitted unchanged', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'recent',
+        filters: {
+          q: undefined,
+          location: undefined,
+          yearFrom: 1980,
+          yearTo: 2026,
+        },
+      });
+    });
+  });
+
   it('closes the filter panel when tapping outside of it', async () => {
     renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} />);
 
@@ -225,8 +248,8 @@ describe('FeedScreen', () => {
         filters: {
           q: 'harbor',
           location: undefined,
-          yearFrom: undefined,
-          yearTo: undefined,
+          yearFrom: 1980,
+          yearTo: 2026,
         },
       });
     });

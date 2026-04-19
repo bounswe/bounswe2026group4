@@ -26,12 +26,12 @@ const EMPTY_FILTERS: StoryFilters = {};
 const ISTANBUL_REGION: Region = {
   latitude: 41.0082,
   longitude: 28.9784,
-  latitudeDelta: 0.12,
-  longitudeDelta: 0.12,
+  latitudeDelta: 0.32,
+  longitudeDelta: 0.48,
 };
 
-const MIN_FIT_DELTA = 0.03;
-const FIT_PADDING_FACTOR = 1.8;
+const MIN_FIT_DELTA = 0.06;
+const FIT_PADDING_FACTOR = 2.6;
 type StatusIndicatorMode = 'hidden' | 'filters' | 'area';
 
 export function MapScreen({

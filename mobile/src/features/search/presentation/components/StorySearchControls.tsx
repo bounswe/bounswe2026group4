@@ -118,8 +118,8 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
               onApply={() => {
                 updateFilters({
                   location: draftLocation,
-                  timeFrom: draftTimeFrom === DEFAULT_FROM_YEAR ? '' : draftTimeFrom,
-                  timeTo: draftTimeTo === DEFAULT_TO_YEAR ? '' : draftTimeTo,
+                  timeFrom: draftTimeFrom,
+                  timeTo: draftTimeTo,
                 }, { refresh: true });
                 applyFilters();
                 setShowFilters(false);
