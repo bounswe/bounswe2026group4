@@ -7,6 +7,7 @@ import { storyService } from '../../../stories/application/services';
 import { StoryFilters } from '../../../stories/domain/repositories';
 import { StorySearchControls } from '../../../search/presentation/components/StorySearchControls';
 import {
+  SearchFilterScope,
   SearchFiltersState,
   toSearchParams,
   useSearchFilters,
@@ -20,7 +21,7 @@ interface FeedScreenProps {
   onOpenStory?: (storyId: string) => void;
   getFeed?: typeof storyService.getFeed;
   showSearchControls?: boolean;
-  searchScope?: 'feed' | 'map';
+  searchScope?: SearchFilterScope;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
