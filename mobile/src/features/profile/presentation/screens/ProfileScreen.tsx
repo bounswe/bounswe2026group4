@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button, ErrorState, Input, Loader, Skeleton } from '../../../../shared';
+import { useToast } from '../../../../shared/hooks/useToast';
 import { useAuth } from '../../../auth';
 import { userService } from '../../application/services';
 import { ProfileEntity, UpdateProfileInput } from '../../domain/entities';
@@ -14,6 +15,7 @@ interface ProfileScreenProps {
   getCurrentProfile?: typeof userService.getCurrentProfile;
   getPublicProfile?: typeof userService.getPublicProfile;
   updateCurrentProfile?: typeof userService.updateCurrentProfile;
+  deleteAccount?: typeof userService.deleteAccount;
 }
 
 interface ProfileFormState {
@@ -168,17 +170,23 @@ export function ProfileScreen({
   getCurrentProfile = userService.getCurrentProfile,
   getPublicProfile = userService.getPublicProfile,
   updateCurrentProfile = userService.updateCurrentProfile,
+  deleteAccount = userService.deleteAccount,
 }: ProfileScreenProps) {
   const { user, updateUser, logout } = useAuth();
+  const { toast } = useToast();
   const { colors, spacing, typography } = useAppTheme();
   const isSelfMode = mode === 'self';
   const [profile, setProfile] = useState<ProfileEntity | null>(null);
   const [formState, setFormState] = useState<ProfileFormState>(createFormState());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
   const [error, setError] = useState<string>();
   const [saveMessage, setSaveMessage] = useState<string>();
+  const [deleteError, setDeleteError] = useState<string>();
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -242,6 +250,41 @@ export function ProfileScreen({
     }
   }, [formState, updateCurrentProfile, updateUser, user?.username]);
 
+  const handleCloseDeleteModal = useCallback(() => {
+    if (isDeleting) {
+      return;
+    }
+
+    setIsDeleteModalVisible(false);
+    setDeletePassword('');
+    setDeleteError(undefined);
+  }, [isDeleting]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!deletePassword.trim()) {
+      setDeleteError('Please re-enter your password to confirm account deletion.');
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(undefined);
+
+    try {
+      await deleteAccount(deletePassword, true);
+      handleCloseDeleteModal();
+      toast.success('Your account has been deleted.');
+      await logout();
+    } catch (deleteRequestError) {
+      setDeleteError(
+        deleteRequestError instanceof Error
+          ? deleteRequestError.message
+          : 'Unable to delete your account.',
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteAccount, deletePassword, handleCloseDeleteModal, logout, toast]);
+
   const title = useMemo(() => {
     if (isSelfMode) {
       return 'Your profile';
@@ -282,73 +325,14 @@ export function ProfileScreen({
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        paddingBottom: spacing.xl,
-        gap: spacing.lg,
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View
-        style={{
-          padding: spacing.lg,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.surface,
-          gap: spacing.md,
+    <>
+      <ScrollView
+        contentContainerStyle={{
+          paddingBottom: spacing.xl,
+          gap: spacing.lg,
         }}
+        showsVerticalScrollIndicator={false}
       >
-        <View
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.infoSurface,
-          }}
-        >
-          <Text style={{ color: colors.primary, fontSize: typography.title, fontWeight: '800' }}>
-            {resolvedName.slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
-
-        <View>
-          <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>{title}</Text>
-          <Text style={{ marginTop: spacing.xs, color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
-            {resolvedName}
-          </Text>
-          {isSelfMode && profile.email ? (
-            <Text style={{ marginTop: spacing.xs, color: colors.muted }}>{profile.email}</Text>
-          ) : null}
-        </View>
-
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
-          {joinedDate ? <StatChip label="Joined" value={joinedDate} /> : null}
-          {isSelfMode ? <StatChip label="Points" value={String(profile.totalPoints)} /> : null}
-          <StatChip label="Stories" value={String(profile.publishedStoryCount ?? 0)} />
-          {profile.location ? <StatChip label="Location" value={profile.location} /> : null}
-          {profile.birthYear ? <StatChip label="Birth year" value={String(profile.birthYear)} /> : null}
-        </View>
-
-        {profile.bio ? (
-          <View
-            style={{
-              padding: spacing.md,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.background,
-            }}
-          >
-            <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>Bio</Text>
-            <Text style={{ marginTop: spacing.sm, color: colors.text }}>{profile.bio}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {isSelfMode ? (
         <View
           style={{
             padding: spacing.lg,
@@ -361,145 +345,346 @@ export function ProfileScreen({
         >
           <View
             style={{
-              flexDirection: 'row',
+              width: 56,
+              height: 56,
+              borderRadius: 28,
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
+              backgroundColor: colors.infoSurface,
+            }}
+          >
+            <Text style={{ color: colors.primary, fontSize: typography.title, fontWeight: '800' }}>
+              {resolvedName.slice(0, 1).toUpperCase()}
+            </Text>
+          </View>
+
+          <View>
+            <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>{title}</Text>
+            <Text style={{ marginTop: spacing.xs, color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+              {resolvedName}
+            </Text>
+            {isSelfMode && profile.email ? (
+              <Text style={{ marginTop: spacing.xs, color: colors.muted }}>{profile.email}</Text>
+            ) : null}
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
+            {joinedDate ? <StatChip label="Joined" value={joinedDate} /> : null}
+            {isSelfMode ? <StatChip label="Points" value={String(profile.totalPoints)} /> : null}
+            <StatChip label="Stories" value={String(profile.publishedStoryCount ?? 0)} />
+            {profile.location ? <StatChip label="Location" value={profile.location} /> : null}
+            {profile.birthYear ? <StatChip label="Birth year" value={String(profile.birthYear)} /> : null}
+          </View>
+
+          {profile.bio ? (
+            <View
+              style={{
+                padding: spacing.md,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+              }}
+            >
+              <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>Bio</Text>
+              <Text style={{ marginTop: spacing.sm, color: colors.text }}>{profile.bio}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {isSelfMode ? (
+          <View
+            style={{
+              padding: spacing.lg,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
               gap: spacing.md,
             }}
           >
-            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
-              Edit profile
-            </Text>
-            <Button
-              onPress={() => {
-                setSaveMessage(undefined);
-                setError(undefined);
-                setIsEditing((current) => {
-                  const nextValue = !current;
-
-                  if (!nextValue) {
-                    setFormState(createFormState(profile));
-                  }
-
-                  return nextValue;
-                });
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: spacing.md,
               }}
-              variant="outline"
             >
-              <Text style={{ color: colors.text, fontWeight: '700' }}>
-                {isEditing ? 'Cancel' : 'Edit profile'}
+              <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+                Edit profile
               </Text>
-            </Button>
-          </View>
+              <Button
+                onPress={() => {
+                  setSaveMessage(undefined);
+                  setError(undefined);
+                  setIsEditing((current) => {
+                    const nextValue = !current;
 
-          {saveMessage ? <Text style={{ color: colors.success }}>{saveMessage}</Text> : null}
+                    if (!nextValue) {
+                      setFormState(createFormState(profile));
+                    }
 
-          {isEditing ? (
-            <>
-              <Input
-                accessibilityLabel="Username"
-                value={formState.username}
-                onChangeText={(value) => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, username: value }));
+                    return nextValue;
+                  });
                 }}
-                placeholder="Username"
-              />
-              <Input
-                accessibilityLabel="Location"
-                value={formState.location}
-                onChangeText={(value) => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, location: value }));
-                }}
-                placeholder="Location"
-              />
-              <Input
-                accessibilityLabel="Birth date"
-                value={formState.birthDate}
-                onChangeText={(value) => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, birthDate: value }));
-                }}
-                placeholder="YYYY-MM-DD"
-              />
-              <Input
-                accessibilityLabel="Bio"
-                value={formState.bio}
-                onChangeText={(value) => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, bio: value }));
-                }}
-                placeholder="Tell people about yourself"
-                style={{ minHeight: 110, textAlignVertical: 'top' as const }}
-              />
+                variant="outline"
+              >
+                <Text style={{ color: colors.text, fontWeight: '700' }}>
+                  {isEditing ? 'Cancel' : 'Edit profile'}
+                </Text>
+              </Button>
+            </View>
 
-              <ToggleRow
-                label="Show username on your public profile"
-                value={formState.isUsernamePublic}
-                onToggle={() => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, isUsernamePublic: !current.isUsernamePublic }));
-                }}
-              />
-              <ToggleRow
-                label="Show location publicly"
-                value={formState.isLocationPublic}
-                onToggle={() => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, isLocationPublic: !current.isLocationPublic }));
-                }}
-              />
-              <ToggleRow
-                label="Show birth date publicly"
-                value={formState.isBirthDatePublic}
-                onToggle={() => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, isBirthDatePublic: !current.isBirthDatePublic }));
-                }}
-              />
-              <ToggleRow
-                label="Show profile photo publicly"
-                value={formState.isPhotoPublic}
-                onToggle={() => {
-                  setSaveMessage(undefined);
-                  setFormState((current) => ({ ...current, isPhotoPublic: !current.isPhotoPublic }));
-                }}
-              />
+            {saveMessage ? <Text style={{ color: colors.success }}>{saveMessage}</Text> : null}
 
-              {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
+            {isEditing ? (
+              <>
+                <Input
+                  accessibilityLabel="Username"
+                  value={formState.username}
+                  onChangeText={(value) => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, username: value }));
+                  }}
+                  placeholder="Username"
+                />
+                <Input
+                  accessibilityLabel="Location"
+                  value={formState.location}
+                  onChangeText={(value) => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, location: value }));
+                  }}
+                  placeholder="Location"
+                />
+                <Input
+                  accessibilityLabel="Birth date"
+                  value={formState.birthDate}
+                  onChangeText={(value) => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, birthDate: value }));
+                  }}
+                  placeholder="YYYY-MM-DD"
+                />
+                <Input
+                  accessibilityLabel="Bio"
+                  value={formState.bio}
+                  onChangeText={(value) => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, bio: value }));
+                  }}
+                  placeholder="Tell people about yourself"
+                  style={{ minHeight: 110, textAlignVertical: 'top' as const }}
+                />
 
-              {isDirty || isSaving ? (
-                <Button onPress={() => void handleSave()} disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save changes'}
+                <ToggleRow
+                  label="Show username on your public profile"
+                  value={formState.isUsernamePublic}
+                  onToggle={() => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, isUsernamePublic: !current.isUsernamePublic }));
+                  }}
+                />
+                <ToggleRow
+                  label="Show location publicly"
+                  value={formState.isLocationPublic}
+                  onToggle={() => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, isLocationPublic: !current.isLocationPublic }));
+                  }}
+                />
+                <ToggleRow
+                  label="Show birth date publicly"
+                  value={formState.isBirthDatePublic}
+                  onToggle={() => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, isBirthDatePublic: !current.isBirthDatePublic }));
+                  }}
+                />
+                <ToggleRow
+                  label="Show profile photo publicly"
+                  value={formState.isPhotoPublic}
+                  onToggle={() => {
+                    setSaveMessage(undefined);
+                    setFormState((current) => ({ ...current, isPhotoPublic: !current.isPhotoPublic }));
+                  }}
+                />
+
+                {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
+
+                {isDirty || isSaving ? (
+                  <Button onPress={() => void handleSave()} disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save changes'}
+                  </Button>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onPress={() => void logout()}>
+                  Sign out
                 </Button>
-              ) : null}
-            </>
-          ) : (
-            <Button variant="outline" onPress={() => void logout()}>
-              Sign out
-            </Button>
-          )}
-        </View>
-      ) : (
+
+                <View
+                  style={{
+                    marginTop: spacing.sm,
+                    paddingTop: spacing.md,
+                    borderTopWidth: 1,
+                    borderTopColor: colors.border,
+                    gap: spacing.sm,
+                  }}
+                >
+                  <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+                    Danger zone
+                  </Text>
+                  <Text style={{ color: colors.muted }}>
+                    Account deletion is permanent. You will need your password to continue.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Delete Account"
+                    onPress={() => {
+                      setDeletePassword('');
+                      setDeleteError(undefined);
+                      setIsDeleteModalVisible(true);
+                    }}
+                    style={({ pressed }) => ({
+                      alignSelf: 'flex-start',
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: spacing.sm,
+                      borderRadius: 10,
+                      opacity: pressed ? 0.8 : 1,
+                    })}
+                  >
+                    <Text style={{ color: colors.danger, fontWeight: '700' }}>Delete Account</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
+        ) : (
+          <View
+            style={{
+              padding: spacing.lg,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
+              gap: spacing.sm,
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+              Stories
+            </Text>
+            <Text style={{ color: colors.muted }}>
+              Stories are intentionally out of scope for this profile version and will be added later.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={isDeleteModalVisible}
+        onRequestClose={handleCloseDeleteModal}
+      >
         <View
           style={{
-            padding: spacing.lg,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.surface,
-            gap: spacing.sm,
+            flex: 1,
+            backgroundColor: 'rgba(10, 10, 10, 0.4)',
+            justifyContent: 'flex-end',
           }}
         >
-          <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
-            Stories
-          </Text>
-          <Text style={{ color: colors.muted }}>
-            Stories are intentionally out of scope for this profile version and will be added later.
-          </Text>
+          <Pressable style={{ flex: 1 }} onPress={handleCloseDeleteModal} disabled={isDeleting} />
+          <View
+            style={{
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.lg,
+              paddingBottom: spacing.xl,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              backgroundColor: colors.background,
+              gap: spacing.md,
+            }}
+          >
+            <View
+              style={{
+                alignSelf: 'center',
+                width: 48,
+                height: 5,
+                borderRadius: 999,
+                backgroundColor: colors.border,
+              }}
+            />
+
+            <Text style={{ color: colors.danger, fontSize: typography.caption, fontWeight: '800', textTransform: 'uppercase' }}>
+              Delete account
+            </Text>
+            <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+              This action cannot be undone
+            </Text>
+
+            <View
+              style={{
+                padding: spacing.md,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.danger,
+                backgroundColor: colors.dangerSurface,
+                gap: spacing.sm,
+              }}
+            >
+              <Text style={{ color: colors.text }}>
+                Your account will be permanently deleted.
+              </Text>
+              <Text style={{ color: colors.text }}>
+                Your stories and related likes will be permanently deleted.
+              </Text>
+            </View>
+
+            <Input
+              accessibilityLabel="Account deletion password"
+              value={deletePassword}
+              onChangeText={(value) => {
+                setDeleteError(undefined);
+                setDeletePassword(value);
+              }}
+              placeholder="Re-enter your password"
+              secureTextEntry
+              autoCapitalize="none"
+              editable={!isDeleting}
+            />
+
+            {deleteError ? <Text style={{ color: colors.danger }}>{deleteError}</Text> : null}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete My Account"
+              disabled={isDeleting}
+              onPress={() => void handleDeleteAccount()}
+              style={({ pressed }) => ({
+                minHeight: 48,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.md - 2,
+                borderRadius: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.danger,
+                opacity: isDeleting ? 0.7 : pressed ? 0.88 : 1,
+              })}
+            >
+              <Text style={{ color: colors.background, fontWeight: '800' }}>
+                {isDeleting ? 'Deleting account...' : 'Delete My Account'}
+              </Text>
+            </Pressable>
+
+            <Button variant="outline" onPress={handleCloseDeleteModal} disabled={isDeleting}>
+              Cancel
+            </Button>
+          </View>
         </View>
-      )}
-    </ScrollView>
+      </Modal>
+    </>
   );
 }

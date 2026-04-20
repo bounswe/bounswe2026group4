@@ -168,4 +168,25 @@ describe('userService', () => {
       publishedStoryCount: 4,
     });
   });
+
+  it('deletes the authenticated account via DELETE /users/me/', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'DELETE' && config.url === '/users/me/') {
+        expect(config.data).toMatchObject({
+          password: 'Password1',
+          hard_delete: true,
+        });
+
+        return {
+          status: 204,
+          data: null as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.deleteAccount('Password1', true)).resolves.toBeUndefined();
+  });
 });

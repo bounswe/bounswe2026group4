@@ -1,6 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { ProfileScreen } from '../ProfileScreen';
+
+const mockLogout = jest.fn(async () => undefined);
+const mockUpdateUser = jest.fn(async () => undefined);
+const mockToastSuccess = jest.fn();
 
 jest.mock('../../../../auth', () => ({
   useAuth: () => ({
@@ -10,7 +14,20 @@ jest.mock('../../../../auth', () => ({
       username: 'Traveler',
       role: 'user',
     },
-    updateUser: jest.fn(async () => undefined),
+    updateUser: mockUpdateUser,
+    logout: mockLogout,
+  }),
+}));
+
+jest.mock('../../../../../shared/hooks/useToast', () => ({
+  useToast: () => ({
+    toast: {
+      success: mockToastSuccess,
+      error: jest.fn(),
+      info: jest.fn(),
+      show: jest.fn(),
+    },
+    dismiss: jest.fn(),
   }),
 }));
 
@@ -42,6 +59,12 @@ const publicProfile = {
 };
 
 describe('ProfileScreen', () => {
+  beforeEach(() => {
+    mockLogout.mockClear();
+    mockUpdateUser.mockClear();
+    mockToastSuccess.mockClear();
+  });
+
   it('renders a loading state while profile data is being fetched', () => {
     render(
       <ProfileScreen
@@ -52,7 +75,7 @@ describe('ProfileScreen', () => {
     expect(screen.getByLabelText('Loading profile')).toBeTruthy();
   });
 
-  it('renders self profile data with edit controls', async () => {
+  it('renders self profile data with edit controls and delete action', async () => {
     render(
       <ProfileScreen
         mode="self"
@@ -63,6 +86,7 @@ describe('ProfileScreen', () => {
     expect(await screen.findByText('Traveler')).toBeTruthy();
     expect(screen.getByText('traveler@example.com')).toBeTruthy();
     expect(screen.getAllByText('Edit profile')).toHaveLength(2);
+    expect(screen.getByLabelText('Delete Account')).toBeTruthy();
 
     fireEvent.press(screen.getAllByText('Edit profile').at(-1)!);
 
@@ -98,6 +122,62 @@ describe('ProfileScreen', () => {
       }),
     );
     expect(await screen.findByText('Profile updated successfully.')).toBeTruthy();
+  });
+
+  it('opens the delete confirmation flow with direct hard delete messaging', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Delete Account'));
+
+    expect(await screen.findByText('This action cannot be undone')).toBeTruthy();
+    expect(screen.getByText('Your account will be permanently deleted.')).toBeTruthy();
+    expect(screen.getByText('Your stories and related likes will be permanently deleted.')).toBeTruthy();
+    expect(screen.queryByLabelText('Also delete all my stories')).toBeNull();
+  });
+
+  it('requires password before deleting the account', async () => {
+    const deleteAccount = jest.fn(async () => undefined);
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        deleteAccount={deleteAccount}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Delete Account'));
+    fireEvent.press(screen.getByLabelText('Delete My Account'));
+
+    expect(await screen.findByText('Please re-enter your password to confirm account deletion.')).toBeTruthy();
+    expect(deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('deletes the account, shows success toast, and logs out', async () => {
+    const deleteAccount = jest.fn(async () => undefined);
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        deleteAccount={deleteAccount}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Delete Account'));
+    fireEvent.changeText(screen.getByLabelText('Account deletion password'), 'Password1');
+    fireEvent.press(screen.getByLabelText('Delete My Account'));
+
+    await waitFor(() => {
+      expect(deleteAccount).toHaveBeenCalledWith('Password1', true);
+    });
+    expect(mockToastSuccess).toHaveBeenCalledWith('Your account has been deleted.');
+    expect(mockLogout).toHaveBeenCalled();
   });
 
   it('renders a public profile in read-only mode', async () => {
