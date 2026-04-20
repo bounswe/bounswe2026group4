@@ -115,6 +115,56 @@ describe("AppLayout", () => {
     expect(screen.getByText("Feed Content")).toBeInTheDocument();
   });
 
+  it("Map link carries current search params when on the Feed page", () => {
+    renderWithRouter("/?q=galata&year_from=1980");
+
+    const mapLinks = screen.getAllByRole("link", { name: /^map$/i });
+    expect(mapLinks[0]).toHaveAttribute("href", "/map?q=galata&year_from=1980");
+  });
+
+  it("Feed link carries current search params when on the Map page", () => {
+    renderWithRouter("/map?q=galata&year_from=1980");
+
+    const feedLinks = screen.getAllByRole("link", { name: /^feed$/i });
+    expect(feedLinks[0]).toHaveAttribute("href", "/?q=galata&year_from=1980");
+  });
+
+  it("Map and Feed links use bare paths when on a non-filter page", () => {
+    renderWithRouter("/profile?some=param");
+
+    const mapLinks = screen.getAllByRole("link", { name: /^map$/i });
+    const feedLinks = screen.getAllByRole("link", { name: /^feed$/i });
+    expect(mapLinks[0]).toHaveAttribute("href", "/map");
+    expect(feedLinks[0]).toHaveAttribute("href", "/");
+  });
+
+  it("Map and Feed links use bare paths when there are no active filters", () => {
+    renderWithRouter("/");
+
+    const mapLinks = screen.getAllByRole("link", { name: /^map$/i });
+    expect(mapLinks[0]).toHaveAttribute("href", "/map");
+  });
+
+  it("Map link is still highlighted when filters are active on /map", () => {
+    renderWithRouter("/map?q=galata&year_from=1980");
+
+    const mapLink = screen.getByText("Map");
+    const feedLink = screen.getByText("Feed");
+
+    expect(mapLink.className).toContain("text-primary");
+    expect(feedLink.className).toContain("text-muted-foreground");
+  });
+
+  it("Feed link is still highlighted when filters are active on /", () => {
+    renderWithRouter("/?q=galata&year_from=1980");
+
+    const feedLink = screen.getByText("Feed");
+    const mapLink = screen.getByText("Map");
+
+    expect(feedLink.className).toContain("text-primary");
+    expect(mapLink.className).toContain("text-muted-foreground");
+  });
+
   it("renders mobile hamburger button", () => {
     renderWithRouter();
 

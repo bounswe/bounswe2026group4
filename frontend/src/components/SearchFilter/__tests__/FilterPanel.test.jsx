@@ -63,7 +63,9 @@ describe("FilterPanel", () => {
     renderPanel({ onApply });
 
     await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.clear(screen.getByLabelText("From year"));
     await user.type(screen.getByLabelText("From year"), "1900");
+    await user.clear(screen.getByLabelText("To year"));
     await user.type(screen.getByLabelText("To year"), "2000");
     await user.type(screen.getByLabelText("Location filter"), "Galata");
     await user.click(screen.getByRole("button", { name: /apply/i }));
@@ -71,18 +73,6 @@ describe("FilterPanel", () => {
     expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata" });
   });
 
-  it("shows validation error when year is zero or negative", async () => {
-    const user = userEvent.setup();
-    const onApply = vi.fn();
-    renderPanel({ onApply });
-
-    await user.click(screen.getByRole("button", { name: /^filters$/i }));
-    await user.type(screen.getByLabelText("From year"), "-500");
-    await user.click(screen.getByRole("button", { name: /apply/i }));
-
-    expect(screen.getByRole("alert")).toHaveTextContent(/year must be a positive number/i);
-    expect(onApply).not.toHaveBeenCalled();
-  });
 
   it("shows validation error when yearFrom > yearTo", async () => {
     const user = userEvent.setup();
@@ -90,7 +80,9 @@ describe("FilterPanel", () => {
     renderPanel({ onApply });
 
     await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.clear(screen.getByLabelText("From year"));
     await user.type(screen.getByLabelText("From year"), "2000");
+    await user.clear(screen.getByLabelText("To year"));
     await user.type(screen.getByLabelText("To year"), "1900");
     await user.click(screen.getByRole("button", { name: /apply/i }));
 
@@ -118,5 +110,90 @@ describe("FilterPanel", () => {
     expect(screen.getByLabelText("From year")).toHaveValue(1453);
     expect(screen.getByLabelText("To year")).toHaveValue(1923);
     expect(screen.getByLabelText("Location filter")).toHaveValue("Galata");
+  });
+
+  it("year fields are empty on first open (placeholder visible)", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+    expect(screen.getByLabelText("From year")).toHaveValue(null);
+    expect(screen.getByLabelText("To year")).toHaveValue(null);
+  });
+
+  it("both inputs have min=1000 and max=2030", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+    expect(screen.getByLabelText("From year")).toHaveAttribute("min", "1000");
+    expect(screen.getByLabelText("To year")).toHaveAttribute("min", "1000");
+    expect(screen.getByLabelText("From year")).toHaveAttribute("max", "2030");
+    expect(screen.getByLabelText("To year")).toHaveAttribute("max", "2030");
+  });
+
+  it("ArrowUp on empty From year sets it to 1980", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("From year"), "{ArrowUp}");
+
+    expect(screen.getByLabelText("From year")).toHaveValue(1980);
+  });
+
+  it("ArrowUp on empty To year sets it to 2026", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("To year"), "{ArrowUp}");
+
+    expect(screen.getByLabelText("To year")).toHaveValue(2026);
+  });
+
+  it("shows validation error when year is below 1000", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    renderPanel({ onApply });
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("From year"), "500");
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/1000 or later/i);
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it("clamps typed year above 2030 to 2030 on From year field", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("From year"), "2050");
+
+    expect(screen.getByLabelText("From year")).toHaveValue(2030);
+  });
+
+  it("clamps typed year above 2030 to 2030 on To year field", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("To year"), "3000");
+
+    expect(screen.getByLabelText("To year")).toHaveValue(2030);
+  });
+
+  it("does not clamp years within valid range", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("From year"), "2020");
+
+    expect(screen.getByLabelText("From year")).toHaveValue(2020);
   });
 });
