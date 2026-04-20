@@ -1,10 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+
+// Hoisted reference to the fake Leaflet container so the StoryLinkInterceptor
+// in MapView registers its click handler on an element we can dispatch events
+// against from tests.
+const { fakeMapContainer } = vi.hoisted(() => ({
+  fakeMapContainer: document.createElement("div"),
+}));
 
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children, ...props }) => (
-    <div data-testid="map-container" {...props}>{children}</div>
+    <div data-testid="map-container" {...props}>
+      <div ref={(el) => el && el.appendChild(fakeMapContainer)} />
+      {children}
+    </div>
   ),
   TileLayer: () => null,
   GeoJSON: ({ data, pointToLayer, onEachFeature }) => {
@@ -32,7 +43,7 @@ vi.mock("react-leaflet", () => ({
       </div>
     );
   },
-  useMap: () => ({ getContainer: () => document.createElement("div") }),
+  useMap: () => ({ getContainer: () => fakeMapContainer }),
 }));
 
 vi.mock("leaflet", () => {
@@ -45,6 +56,7 @@ vi.mock("leaflet", () => {
 });
 
 import MapView from "../MapView";
+import { onEachFeature } from "../mapFeatureUtils";
 
 function makeFeature(id, overrides = {}) {
   return {
@@ -70,17 +82,23 @@ function makeFeatureCollection(features) {
   return { type: "FeatureCollection", features };
 }
 
-function renderMapView(props = {}) {
+function renderMapView(props = {}, { initialEntries = ["/map"] } = {}) {
   return render(
-    <BrowserRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <MapView {...props} />
-    </BrowserRouter>,
+    </MemoryRouter>,
   );
 }
 
 describe("MapView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the shared fake container so event listeners from a prior test
+    // don't leak into the next one.
+    while (fakeMapContainer.firstChild) {
+      fakeMapContainer.removeChild(fakeMapContainer.firstChild);
+    }
+    fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
   });
 
   it("renders the map container", () => {
@@ -127,5 +145,88 @@ describe("MapView", () => {
     const fc = makeFeatureCollection([makeFeature(1)]);
     renderMapView({ featureCollection: fc });
     expect(screen.getByText("Story 1")).toBeInTheDocument();
+  });
+});
+
+describe("onEachFeature", () => {
+  it("binds a popup whose HTML contains title, location, time period, and a Read more link", () => {
+    const feature = makeFeature(42, {
+      title: "The Old Bridge",
+      location_name: "Galata",
+      year: 1920,
+    });
+    const bindPopup = vi.fn();
+    onEachFeature(feature, { bindPopup });
+
+    expect(bindPopup).toHaveBeenCalledTimes(1);
+    const html = bindPopup.mock.calls[0][0];
+    expect(html).toContain("The Old Bridge");
+    expect(html).toContain("Galata");
+    expect(html).toContain("1920");
+    expect(html).toContain("Read more");
+    expect(html).toContain('href="/stories/42"');
+  });
+
+  it("omits the location line when location_name is missing", () => {
+    const feature = makeFeature(7, { location_name: undefined });
+    const bindPopup = vi.fn();
+    onEachFeature(feature, { bindPopup });
+
+    const html = bindPopup.mock.calls[0][0];
+    expect(html).toContain("Story 7");
+    expect(html).not.toContain("Location 7");
+  });
+});
+
+describe("StoryLinkInterceptor", () => {
+  function LocationProbe() {
+    const loc = useLocation();
+    return (
+      <>
+        <div data-testid="current-pathname">{loc.pathname}</div>
+        <div data-testid="current-state-from">{loc.state?.from ?? ""}</div>
+      </>
+    );
+  }
+
+  function Harness({ initialEntries }) {
+    return (
+      <MemoryRouter initialEntries={initialEntries}>
+        <Routes>
+          <Route
+            path="/map"
+            element={
+              <>
+                <MapView featureCollection={makeFeatureCollection([makeFeature(99)])} />
+                <LocationProbe />
+              </>
+            }
+          />
+          <Route path="/stories/:id" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  it("intercepts clicks on /stories/ anchors inside the map and navigates via react-router", async () => {
+    const user = userEvent.setup();
+    render(<Harness initialEntries={["/map?category=nature"]} />);
+
+    // Simulate the popup HTML Leaflet would have injected into the map container.
+    const anchor = document.createElement("a");
+    anchor.setAttribute("href", "/stories/99");
+    anchor.textContent = "Read more";
+    fakeMapContainer.appendChild(anchor);
+
+    expect(screen.getByTestId("current-pathname").textContent).toBe("/map");
+
+    await user.click(anchor);
+
+    expect(screen.getByTestId("current-pathname").textContent).toBe("/stories/99");
+    // Filter state must survive the SPA navigation so the Back navigation
+    // returns the user to the filtered map.
+    expect(screen.getByTestId("current-state-from").textContent).toBe(
+      "/map?category=nature",
+    );
   });
 });

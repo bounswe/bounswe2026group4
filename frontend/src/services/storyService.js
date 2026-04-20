@@ -34,7 +34,7 @@ export async function getStories({
   return response.data; // { count, next, previous, results }
 }
 
-const EMPTY_FEATURE_COLLECTION = Object.freeze({
+export const EMPTY_FEATURE_COLLECTION = Object.freeze({
   type: "FeatureCollection",
   features: [],
 });

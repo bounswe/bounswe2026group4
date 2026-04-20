@@ -1,14 +1,14 @@
 import { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
-import { MemoryRouter, useNavigate } from "react-router-dom";
-import { renderToStaticMarkup } from "react-dom/server";
+import { useNavigate, useLocation } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
-import StoryPopup from "./StoryPopup";
+import { EMPTY_FEATURE_COLLECTION } from "@/services/storyService";
+import { pointToLayer, onEachFeature } from "./mapFeatureUtils";
 
 // Fix Leaflet default marker icon paths for Vite bundler
 delete L.Icon.Default.prototype._getIconUrl;
@@ -20,51 +20,28 @@ L.Icon.Default.mergeOptions({
 
 const ISTANBUL_CENTER = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 12;
-const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
-
-function featureToStory(feature) {
-  const props = feature.properties ?? {};
-  return {
-    id: feature.id,
-    title: props.title,
-    location_name: props.location_name,
-    time_type: props.time_type,
-    year: props.year,
-    year_start: props.year_start,
-    year_end: props.year_end,
-  };
-}
-
-const pointToLayer = (_feature, latlng) => L.marker(latlng);
-
-const onEachFeature = (feature, layer) => {
-  // Leaflet popups live outside React's tree, so render the content to a
-  // static HTML string. A MemoryRouter wrapper satisfies <Link>'s context.
-  const html = renderToStaticMarkup(
-    <MemoryRouter>
-      <StoryPopup story={featureToStory(feature)} />
-    </MemoryRouter>,
-  );
-  layer.bindPopup(html);
-};
 
 // Intercepts clicks on story links inside popup HTML so they perform
-// client-side navigation instead of a full page reload.
+// client-side navigation instead of a full page reload. Captures the
+// current map URL (including search params) as `from` state so back-
+// navigation preserves active filters.
 function StoryLinkInterceptor() {
   const map = useMap();
   const navigate = useNavigate();
+  const location = useLocation();
   useEffect(() => {
     const container = map?.getContainer?.();
     if (!container) return undefined;
+    const from = `${location.pathname}${location.search}`;
     const handler = (event) => {
       const anchor = event.target.closest?.("a[href^='/stories/']");
       if (!anchor || event.defaultPrevented) return;
       event.preventDefault();
-      navigate(anchor.getAttribute("href"), { state: { from: "/map" } });
+      navigate(anchor.getAttribute("href"), { state: { from } });
     };
     container.addEventListener("click", handler);
     return () => container.removeEventListener("click", handler);
-  }, [map, navigate]);
+  }, [map, navigate, location.pathname, location.search]);
   return null;
 }
 
