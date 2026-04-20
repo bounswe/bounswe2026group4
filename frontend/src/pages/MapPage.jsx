@@ -5,10 +5,12 @@ import SearchFilter from "@/components/SearchFilter/SearchFilter";
 import { getMapStories } from "@/services/storyService";
 import { useFilterState } from "@/hooks/useFilterState";
 
+const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
+
 function MapPage() {
   const { q, yearFrom, yearTo, location } = useFilterState();
 
-  const [stories, setStories] = useState([]);
+  const [featureCollection, setFeatureCollection] = useState(EMPTY_FEATURE_COLLECTION);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,7 +19,7 @@ function MapPage() {
     setError(null);
     try {
       const data = await getMapStories({ q, yearFrom, yearTo, location });
-      setStories(data);
+      setFeatureCollection(data ?? EMPTY_FEATURE_COLLECTION);
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
@@ -35,7 +37,7 @@ function MapPage() {
 
   return (
     <div className="relative isolate" style={{ height: "calc(100vh - 3.5rem)" }}>
-      <MapView stories={stories} loading={loading} />
+      <MapView featureCollection={featureCollection} loading={loading} />
 
       {/* Search & filter overlay */}
       <div className="absolute top-3 left-3 right-3 z-[1000] sm:left-4 sm:right-auto sm:w-[32rem]">

@@ -1,14 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
 import StoryPopup from "../StoryPopup";
 
 function renderPopup(story) {
-  return render(
-    <MemoryRouter>
-      <StoryPopup story={story} />
-    </MemoryRouter>,
-  );
+  return render(<StoryPopup story={story} />);
 }
 
 describe("StoryPopup", () => {

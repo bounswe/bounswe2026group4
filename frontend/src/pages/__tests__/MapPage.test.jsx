@@ -8,14 +8,25 @@ vi.mock("react-leaflet", () => ({
     <div data-testid="map-container" {...props}>{children}</div>
   ),
   TileLayer: () => null,
-  Marker: ({ children }) => <div data-testid="map-marker">{children}</div>,
-  Popup: ({ children }) => <div data-testid="map-popup">{children}</div>,
-  useMap: () => ({ setView: vi.fn() }),
+  GeoJSON: ({ data }) => {
+    const features = data?.features ?? [];
+    return (
+      <div data-testid="map-geojson" data-feature-count={features.length}>
+        {features.map((f) => (
+          <div key={f.id} data-testid="map-marker">
+            {f.properties?.title}
+          </div>
+        ))}
+      </div>
+    );
+  },
+  useMap: () => ({ getContainer: () => document.createElement("div") }),
 }));
 
 vi.mock("leaflet", () => {
   const L = {
     Icon: { Default: { prototype: { _getIconUrl: "" }, mergeOptions: vi.fn() } },
+    marker: vi.fn(() => ({ bindPopup: vi.fn() })),
   };
   return { default: L };
 });
@@ -32,37 +43,45 @@ vi.mock("react-router-dom", async () => {
 import { getMapStories } from "@/services/storyService";
 import MapPage from "../MapPage";
 
-function makePin(id, overrides = {}) {
+function makeFeature(id, overrides = {}) {
   return {
+    type: "Feature",
     id,
-    title: `Story ${id}`,
-    location_lat: 41.0 + id * 0.01,
-    location_lng: 28.9 + id * 0.01,
-    location_name: `Location ${id}`,
-    time_type: "exact_year",
-    year: 1900 + id,
-    year_start: null,
-    year_end: null,
-    ...overrides,
+    geometry: {
+      type: "Point",
+      coordinates: [28.9 + id * 0.01, 41.0 + id * 0.01],
+    },
+    properties: {
+      title: `Story ${id}`,
+      location_name: `Location ${id}`,
+      time_type: "exact_year",
+      year: 1900 + id,
+      year_start: null,
+      year_end: null,
+      ...overrides,
+    },
   };
+}
+
+function makeFeatureCollection(features) {
+  return { type: "FeatureCollection", features };
 }
 
 function renderPage() {
   return render(
     <BrowserRouter>
       <MapPage />
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 }
 
 describe("MapPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
   });
 
   it("renders the map container", async () => {
-    getMapStories.mockResolvedValue([]);
+    getMapStories.mockResolvedValue(makeFeatureCollection([]));
     renderPage();
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });
@@ -74,7 +93,9 @@ describe("MapPage", () => {
   });
 
   it("renders markers after successful fetch", async () => {
-    getMapStories.mockResolvedValue([makePin(1), makePin(2)]);
+    getMapStories.mockResolvedValue(
+      makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+    );
     renderPage();
 
     await waitFor(() => {
@@ -95,7 +116,7 @@ describe("MapPage", () => {
     const user = userEvent.setup();
     getMapStories
       .mockRejectedValueOnce(new Error("fail"))
-      .mockResolvedValue([makePin(1)]);
+      .mockResolvedValue(makeFeatureCollection([makeFeature(1)]));
 
     renderPage();
 
@@ -112,8 +133,8 @@ describe("MapPage", () => {
     expect(getMapStories).toHaveBeenCalledTimes(2);
   });
 
-  it("shows no markers when API returns empty array", async () => {
-    getMapStories.mockResolvedValue([]);
+  it("shows no markers when API returns an empty FeatureCollection", async () => {
+    getMapStories.mockResolvedValue(makeFeatureCollection([]));
     renderPage();
 
     await waitFor(() => {
