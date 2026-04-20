@@ -1,4 +1,4 @@
-import { ProfileEntity, UpdateProfileInput } from '../../domain/entities';
+import { ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 import { ProfileRepository } from '../../domain/repositories';
 import { profileRemoteSource } from '../sources';
 
@@ -129,7 +129,17 @@ export class ProfileRepositoryImpl implements ProfileRepository {
     }
   }
 
-  async deleteAccount(password: string, deleteStories: boolean): Promise<void> {
+  async uploadProfilePhoto(input: ProfilePhotoUploadInput): Promise<ProfileEntity> {
+    await profileRemoteSource.uploadProfilePhoto(input);
+    return this.getCurrentProfile();
+  }
+
+  async removeProfilePhoto(): Promise<ProfileEntity> {
+    await profileRemoteSource.removeProfilePhoto();
+    return this.getCurrentProfile();
+  }
+
+  async deleteAccount(password: string, deleteStories = true): Promise<void> {
     await profileRemoteSource.deleteAccount(password, deleteStories);
   }
 }

@@ -17,6 +17,12 @@ export interface ProfileEntity {
   isPhotoPublic?: boolean;
 }
 
+export interface ProfilePhotoUploadInput {
+  uri: string;
+  fileName: string;
+  mimeType: 'image/jpeg' | 'image/png';
+}
+
 export interface UpdateProfileInput {
   username: string;
   isUsernamePublic: boolean;

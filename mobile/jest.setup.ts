@@ -15,6 +15,9 @@ jest.mock('react-native-maps', () => {
 
 jest.mock('expo-image-picker', () => ({
   __esModule: true,
+  MediaTypeOptions: {
+    Images: 'images',
+  },
   requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: [] })),

@@ -1,5 +1,5 @@
 import { apiClient } from '../../../../core/api/client';
-import { UpdateProfileInput } from '../../domain/entities';
+import { ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 
 interface CurrentUserProfilePayload {
   success?: boolean;
@@ -54,11 +54,33 @@ export const profileRemoteSource = {
     return unwrapCurrentUser(response);
   },
 
-  async deleteAccount(password: string, deleteStories: boolean) {
+  async uploadProfilePhoto(input: ProfilePhotoUploadInput) {
+    const formData = new FormData();
+
+    formData.append('photo', {
+      uri: input.uri,
+      name: input.fileName,
+      type: input.mimeType,
+    } as unknown as Blob);
+
+    const response = await apiClient.post<Record<string, unknown>>('/users/me/photo/', formData);
+
+    if (!response || typeof response !== 'object') {
+      throw new Error('Profile photo upload did not return a response.');
+    }
+
+    return response;
+  },
+
+  async removeProfilePhoto() {
+    await apiClient.delete<void>('/users/me/photo/');
+  },
+
+  async deleteAccount(password: string, hardDelete = true) {
     await apiClient.delete<void>('/users/me/', {
       data: {
         password,
-        hard_delete: deleteStories,
+        hard_delete: hardDelete,
       },
     });
   },

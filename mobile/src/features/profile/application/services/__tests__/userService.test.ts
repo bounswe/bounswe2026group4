@@ -169,11 +169,137 @@ describe('userService', () => {
     });
   });
 
+  it('uploads a profile photo via POST /users/me/photo/', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'POST' && config.url === '/users/me/photo/') {
+        expect(config.data).toBeInstanceOf(FormData);
+
+        return {
+          status: 200,
+          data: {
+            success: true,
+            photo_url: 'https://cdn.example.com/profile.jpg',
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/me/') {
+        return {
+          status: 200,
+          data: {
+            success: true,
+            data: {
+              id: 7,
+              username: 'Traveler',
+              email: 'traveler@example.com',
+              total_points: 5,
+              is_username_public: true,
+              is_email_verified: true,
+              profile: {
+                bio: 'Collecting neighborhood memories.',
+                location: 'Istanbul',
+                profile_photo: 'https://cdn.example.com/profile.jpg',
+                is_location_public: true,
+                is_birth_date_public: false,
+                is_photo_public: true,
+              },
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/7/') {
+        return {
+          status: 200,
+          data: {
+            id: 7,
+            username: 'Traveler',
+            total_points: 5,
+            published_story_count: 3,
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(
+      userService.uploadProfilePhoto({
+        uri: 'file:///profile.jpg',
+        fileName: 'profile.jpg',
+        mimeType: 'image/jpeg',
+      }),
+    ).resolves.toMatchObject({
+      profilePhoto: 'https://cdn.example.com/profile.jpg',
+    });
+  });
+
+  it('removes a profile photo via DELETE /users/me/photo/', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'DELETE' && config.url === '/users/me/photo/') {
+        return {
+          status: 204,
+          data: null as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/me/') {
+        return {
+          status: 200,
+          data: {
+            success: true,
+            data: {
+              id: 7,
+              username: 'Traveler',
+              email: 'traveler@example.com',
+              total_points: 5,
+              is_username_public: true,
+              is_email_verified: true,
+              profile: {
+                bio: 'Collecting neighborhood memories.',
+                location: 'Istanbul',
+                profile_photo: null,
+                is_location_public: true,
+                is_birth_date_public: false,
+                is_photo_public: false,
+              },
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/7/') {
+        return {
+          status: 200,
+          data: {
+            id: 7,
+            username: 'Traveler',
+            total_points: 5,
+            published_story_count: 3,
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.removeProfilePhoto()).resolves.toMatchObject({
+      profilePhoto: null,
+      isPhotoPublic: false,
+    });
+  });
+
   it('deletes the authenticated account via DELETE /users/me/', async () => {
     setApiTransport(async (method: any, config: any) => {
       if (method === 'DELETE' && config.url === '/users/me/') {
         expect(config.data).toMatchObject({
-          password: 'Password1',
+          password: 'top-secret',
           hard_delete: true,
         });
 
@@ -187,6 +313,6 @@ describe('userService', () => {
       throw new Error(`Unexpected request: ${method} ${config.url}`);
     });
 
-    await expect(userService.deleteAccount('Password1', true)).resolves.toBeUndefined();
+    await expect(userService.deleteAccount('top-secret', true)).resolves.toBeUndefined();
   });
 });

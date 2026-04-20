@@ -208,8 +208,20 @@ export const apiClient = {
     tokenOrConfig?: string | RequestConfigInput,
   ) =>
     request<T>('PATCH', url, { ...normalizeConfig(tokenOrConfig), data }),
-  delete: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
-    request<T>('DELETE', url, normalizeConfig(tokenOrConfig)),
+  delete: async <T>(
+    url: string,
+    tokenOrConfigOrData?: string | RequestConfigInput,
+    configOverride?: RequestConfigInput,
+  ) => {
+    if (configOverride) {
+      return request<T>('DELETE', url, {
+        ...normalizeConfig(configOverride),
+        data: tokenOrConfigOrData,
+      });
+    }
+
+    return request<T>('DELETE', url, normalizeConfig(tokenOrConfigOrData));
+  },
 };
 
 function normalizeConfig(tokenOrConfig?: string | RequestConfigInput): Omit<ApiRequestConfig, 'url'> {
