@@ -13,4 +13,7 @@ export const userService = {
   async updateCurrentProfile(input: UpdateProfileInput): Promise<ProfileEntity> {
     return repository.updateCurrentProfile(input);
   },
+  async deleteAccount(password: string, deleteStories: boolean): Promise<void> {
+    return repository.deleteAccount(password, deleteStories);
+  },
 };

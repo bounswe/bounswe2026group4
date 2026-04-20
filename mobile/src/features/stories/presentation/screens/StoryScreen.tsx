@@ -197,7 +197,7 @@ function sortCommentsNewestFirst<T extends { createdAt: string }>(comments: T[])
 function mapStoryCommentPreview(comment: StoryCommentEntity) {
   return {
     id: comment.id,
-    authorName: comment.authorUsername || 'Anonymous',
+    authorName: comment.authorUsername || (comment.isAnonymized ? 'Deleted account' : 'Anonymous'),
     body: comment.text,
     createdAt: comment.createdAt,
   };
@@ -371,7 +371,7 @@ export function StoryScreen({
   const [isStoryDeleting, setIsStoryDeleting] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [interactionError, setInteractionError] = useState<string>();
-  const [isContributorAnonymous, setIsContributorAnonymous] = useState(false);
+  const [contributorVisibilityOverride, setContributorVisibilityOverride] = useState<string | null>(null);
   const deletedCommentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -386,7 +386,7 @@ export function StoryScreen({
     setStoryDeleteError(undefined);
     setConfirmDeleteId(undefined);
     setInteractionError(undefined);
-    setIsContributorAnonymous(false);
+    setContributorVisibilityOverride(null);
     deletedCommentIdsRef.current = new Set();
 
     loadStoryDetail(storyId, session?.role, getStory).then((nextState) => {
@@ -431,7 +431,7 @@ export function StoryScreen({
 
     const story = state.story;
     if (!story?.contributorUserId) {
-      setIsContributorAnonymous(story?.contributorName === 'Anonymous');
+      setContributorVisibilityOverride(story?.contributorName === 'Deleted user' ? 'Deleted user' : null);
       return () => {
         isMounted = false;
       };
@@ -442,13 +442,13 @@ export function StoryScreen({
       String(session.user.id) === story.contributorUserId;
 
     if (isOwnStory) {
-      setIsContributorAnonymous(false);
+      setContributorVisibilityOverride(null);
       return () => {
         isMounted = false;
       };
     }
 
-    setIsContributorAnonymous(story.contributorName === 'Anonymous');
+    setContributorVisibilityOverride(story.contributorName === 'Deleted user' ? 'Deleted user' : null);
 
     getPublicProfile(story.contributorUserId)
       .then((profile) => {
@@ -456,7 +456,7 @@ export function StoryScreen({
           return;
         }
 
-        setIsContributorAnonymous(!profile.username);
+        setContributorVisibilityOverride(!profile.username ? 'Anonymous' : null);
       })
       .catch(() => undefined);
 
@@ -641,7 +641,7 @@ export function StoryScreen({
   const story = state.story;
   const isStoryOwner = session?.user?.id !== undefined && String(session.user.id) === story.contributorUserId;
   const canDeleteStory = session?.role === roles.admin || isStoryOwner;
-  const contributorName = isContributorAnonymous ? 'Anonymous' : getResolvedContributorName(story);
+  const contributorName = contributorVisibilityOverride ?? getResolvedContributorName(story);
   const contributorDisplayName = getDisplayNameWithYouLabel(contributorName, isStoryOwner);
   const canOpenContributorProfile = Boolean(story.contributorUserId);
 

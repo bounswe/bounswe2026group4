@@ -4,7 +4,7 @@ import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
-type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
+type RequestConfigInput = Omit<ApiRequestConfig, 'url'> & { token?: string };
 const REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string) {

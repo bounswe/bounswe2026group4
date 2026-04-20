@@ -53,6 +53,15 @@ export const profileRemoteSource = {
 
     return unwrapCurrentUser(response);
   },
+
+  async deleteAccount(password: string, deleteStories: boolean) {
+    await apiClient.delete<void>('/users/me/', {
+      data: {
+        password,
+        hard_delete: deleteStories,
+      },
+    });
+  },
 };
 
 export const profileLocalSource = {};

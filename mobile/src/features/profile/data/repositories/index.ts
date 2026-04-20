@@ -128,4 +128,8 @@ export class ProfileRepositoryImpl implements ProfileRepository {
       return mappedProfile;
     }
   }
+
+  async deleteAccount(password: string, deleteStories: boolean): Promise<void> {
+    await profileRemoteSource.deleteAccount(password, deleteStories);
+  }
 }
