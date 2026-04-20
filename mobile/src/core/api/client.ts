@@ -4,7 +4,7 @@ import { ApiRequestConfig, ApiResponse, interceptors } from './interceptors';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type ApiTransport = <T>(method: HttpMethod, config: ApiRequestConfig) => Promise<ApiResponse<T>>;
-type RequestConfigInput = Omit<ApiRequestConfig, 'url' | 'data'> & { token?: string };
+type RequestConfigInput = Omit<ApiRequestConfig, 'url'> & { token?: string };
 const REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string) {
@@ -208,8 +208,20 @@ export const apiClient = {
     tokenOrConfig?: string | RequestConfigInput,
   ) =>
     request<T>('PATCH', url, { ...normalizeConfig(tokenOrConfig), data }),
-  delete: async <T>(url: string, tokenOrConfig?: string | RequestConfigInput) =>
-    request<T>('DELETE', url, normalizeConfig(tokenOrConfig)),
+  delete: async <T>(
+    url: string,
+    tokenOrConfigOrData?: string | RequestConfigInput,
+    configOverride?: RequestConfigInput,
+  ) => {
+    if (configOverride) {
+      return request<T>('DELETE', url, {
+        ...normalizeConfig(configOverride),
+        data: tokenOrConfigOrData,
+      });
+    }
+
+    return request<T>('DELETE', url, normalizeConfig(tokenOrConfigOrData));
+  },
 };
 
 function normalizeConfig(tokenOrConfig?: string | RequestConfigInput): Omit<ApiRequestConfig, 'url'> {
