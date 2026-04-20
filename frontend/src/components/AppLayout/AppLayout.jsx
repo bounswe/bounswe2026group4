@@ -14,13 +14,14 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 
 const publicLinks = [
-  { to: "/map", label: "Map" },
-  { to: "/", label: "Feed" },
+  { to: "/map", label: "Map", preserveSearch: true },
+  { to: "/", label: "Feed", preserveSearch: true },
   { to: "/submit-story", label: "Submit Story", icon: Plus },
 ];
 
-function NavLink({ to, label, icon: Icon, pathname, onClick }) {
-  const isActive = to === "/" ? pathname === "/" : pathname.startsWith(to);
+function NavLink({ to, basePath, label, icon: Icon, pathname, onClick }) {
+  const base = basePath ?? to;
+  const isActive = base === "/" ? pathname === "/" : pathname === base || pathname.startsWith(base + "/");
 
   return (
     <Link
@@ -49,7 +50,12 @@ function AppLayout() {
     navigate("/");
   };
 
-  const links = publicLinks;
+  const isFilterPage = location.pathname === "/" || location.pathname === "/map";
+  const links = publicLinks.map((link) =>
+    link.preserveSearch && isFilterPage && location.search
+      ? { ...link, basePath: link.to, to: `${link.to}${location.search}` }
+      : link
+  );
 
   return (
     <div className="min-h-screen">
@@ -65,8 +71,9 @@ function AppLayout() {
           <nav className="hidden md:flex items-center space-x-6">
             {links.map((link) => (
               <NavLink
-                key={link.to}
+                key={link.label}
                 to={link.to}
+                basePath={link.basePath}
                 label={link.label}
                 icon={link.icon}
                 pathname={location.pathname}
@@ -118,8 +125,9 @@ function AppLayout() {
                 <nav className="flex flex-col space-y-4 mt-4">
                   {links.map((link) => (
                     <NavLink
-                      key={link.to}
+                      key={link.label}
                       to={link.to}
+                      basePath={link.basePath}
                       label={link.label}
                       icon={link.icon}
                       pathname={location.pathname}

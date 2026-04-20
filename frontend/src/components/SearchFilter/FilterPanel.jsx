@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const YEAR_MIN = 1000;
+const YEAR_MAX = 2030;
+const YEAR_SPINNER_FROM = 1980;
+const YEAR_SPINNER_TO = new Date().getFullYear();
+
 /**
  * Collapsible filter panel for year range and location.
  * Maintains local form state; commits to URL only on "Apply".
@@ -18,12 +23,19 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
   const [localLocation, setLocalLocation] = useState(location);
   const [yearError, setYearError] = useState("");
 
+  function clampYear(value) {
+    if (value === "") return value;
+    const num = Number(value);
+    if (isNaN(num)) return value;
+    return num > YEAR_MAX ? YEAR_MAX : num;
+  }
+
   function handleApply() {
     const from = localYearFrom === "" ? "" : Number(localYearFrom);
     const to = localYearTo === "" ? "" : Number(localYearTo);
 
-    if ((from !== "" && from < 1) || (to !== "" && to < 1)) {
-      setYearError("Year must be a positive number.");
+    if ((from !== "" && (isNaN(from) || from < YEAR_MIN)) || (to !== "" && (isNaN(to) || to < YEAR_MIN))) {
+      setYearError(`Year must be ${YEAR_MIN} or later.`);
       return;
     }
     if (from !== "" && to !== "" && from > to) {
@@ -87,12 +99,26 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
                     type="number"
                     placeholder="From"
                     value={localYearFrom}
+                    onKeyDown={(e) => {
+                      if ((e.key === "ArrowUp" || e.key === "ArrowDown") && localYearFrom === "") {
+                        e.preventDefault();
+                        setLocalYearFrom(YEAR_SPINNER_FROM);
+                        setYearError("");
+                      }
+                    }}
                     onChange={(e) => {
-                      setLocalYearFrom(e.target.value);
+                      const val = e.target.value;
+                      if (val === "") { setLocalYearFrom(""); setYearError(""); return; }
+                      // When mouse-spinner is clicked on empty field the browser fires YEAR_MIN; override with default
+                      if (localYearFrom === "" && Number(val) === YEAR_MIN) {
+                        setLocalYearFrom(YEAR_SPINNER_FROM);
+                      } else {
+                        setLocalYearFrom(clampYear(val));
+                      }
                       setYearError("");
                     }}
-                    min="1"
-                    max="2999"
+                    min={YEAR_MIN}
+                    max={YEAR_MAX}
                     aria-label="From year"
                   />
                 </div>
@@ -108,12 +134,26 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
                     type="number"
                     placeholder="To"
                     value={localYearTo}
+                    onKeyDown={(e) => {
+                      if ((e.key === "ArrowUp" || e.key === "ArrowDown") && localYearTo === "") {
+                        e.preventDefault();
+                        setLocalYearTo(YEAR_SPINNER_TO);
+                        setYearError("");
+                      }
+                    }}
                     onChange={(e) => {
-                      setLocalYearTo(e.target.value);
+                      const val = e.target.value;
+                      if (val === "") { setLocalYearTo(""); setYearError(""); return; }
+                      // When mouse-spinner is clicked on empty field the browser fires YEAR_MIN; override with default
+                      if (localYearTo === "" && Number(val) === YEAR_MIN) {
+                        setLocalYearTo(YEAR_SPINNER_TO);
+                      } else {
+                        setLocalYearTo(clampYear(val));
+                      }
                       setYearError("");
                     }}
-                    min="1"
-                    max="2999"
+                    min={YEAR_MIN}
+                    max={YEAR_MAX}
                     aria-label="To year"
                   />
                 </div>
