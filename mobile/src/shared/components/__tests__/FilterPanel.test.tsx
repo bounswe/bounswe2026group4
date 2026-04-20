@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { FilterPanel } from '../FilterPanel';
+import { DEFAULT_FROM_YEAR, DEFAULT_TO_YEAR, FilterPanel, MAX_YEAR } from '../FilterPanel';
 
 describe('FilterPanel', () => {
   it('forwards location and valid year filter updates', () => {
@@ -27,6 +27,23 @@ describe('FilterPanel', () => {
     expect(onLocationChange).toHaveBeenCalledWith('Fatih');
     expect(onTimeFromChange).toHaveBeenCalledWith('1900');
     expect(onTimeToChange).toHaveBeenCalledWith('1950');
+  });
+
+  it('shows the expected default year values when initialized', () => {
+    render(
+      <FilterPanel
+        location=""
+        timeFrom={DEFAULT_FROM_YEAR}
+        timeTo={DEFAULT_TO_YEAR}
+        onLocationChange={jest.fn()}
+        onTimeFromChange={jest.fn()}
+        onTimeToChange={jest.fn()}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Start year').props.value).toBe(DEFAULT_FROM_YEAR);
+    expect(screen.getByLabelText('End year').props.value).toBe(DEFAULT_TO_YEAR);
   });
 
   it('accepts only positive four-digit-or-shorter numeric years', () => {
@@ -58,6 +75,69 @@ describe('FilterPanel', () => {
     expect(onTimeFromChange).not.toHaveBeenCalledWith('fvbnj');
     expect(onTimeFromChange).not.toHaveBeenCalledWith('99999');
     expect(onTimeToChange).not.toHaveBeenCalledWith('10000');
+  });
+
+  it('clamps manual year entries to the supported bounds on blur', () => {
+    const onTimeFromChange = jest.fn();
+    const onTimeToChange = jest.fn();
+
+    render(
+      <FilterPanel
+        location=""
+        timeFrom="2050"
+        timeTo="0999"
+        onLocationChange={jest.fn()}
+        onTimeFromChange={onTimeFromChange}
+        onTimeToChange={onTimeToChange}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    fireEvent(screen.getByLabelText('Start year'), 'blur');
+    fireEvent(screen.getByLabelText('End year'), 'blur');
+
+    expect(onTimeFromChange).toHaveBeenCalledWith(String(MAX_YEAR));
+    expect(onTimeToChange).toHaveBeenCalledWith('1000');
+  });
+
+  it('disables increment once the maximum year is reached', () => {
+    render(
+      <FilterPanel
+        location=""
+        timeFrom={String(MAX_YEAR)}
+        timeTo={String(MAX_YEAR)}
+        onLocationChange={jest.fn()}
+        onTimeFromChange={jest.fn()}
+        onTimeToChange={jest.fn()}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Increase start year').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByLabelText('Increase end year').props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('increments and decrements year values with the step buttons', () => {
+    const onTimeFromChange = jest.fn();
+    const onTimeToChange = jest.fn();
+
+    render(
+      <FilterPanel
+        location=""
+        timeFrom="1980"
+        timeTo="2026"
+        onLocationChange={jest.fn()}
+        onTimeFromChange={onTimeFromChange}
+        onTimeToChange={onTimeToChange}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Increase start year'));
+    fireEvent.press(screen.getByLabelText('Decrease end year'));
+
+    expect(onTimeFromChange).toHaveBeenCalledWith('1981');
+    expect(onTimeToChange).toHaveBeenCalledWith('2025');
   });
 
   it('allows entering an end year even before the start year and shows the range warning', () => {

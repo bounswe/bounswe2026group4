@@ -69,6 +69,22 @@ const mapHtml = ({
       .marker.selected {
         background: #0a0a0a;
       }
+
+      .marker-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 14px;
+        max-width: 18px;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -122,6 +138,14 @@ const mapHtml = ({
       markers.forEach((marker) => {
         const element = document.createElement('div');
         element.className = marker.selected ? 'marker selected' : 'marker';
+
+        if (marker.label) {
+          const label = document.createElement('span');
+          label.className = 'marker-label';
+          label.textContent = marker.label;
+          element.appendChild(label);
+        }
+
         element.addEventListener('click', () => {
           window.ReactNativeWebView?.postMessage(
             JSON.stringify({ type: 'markerPress', markerId: marker.id })

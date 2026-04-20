@@ -3,7 +3,7 @@ import { storageKeys } from '../../../../core/storage/keys';
 import { storage } from '../../../../core/storage/storage';
 import { StoryFilters } from '../../../stories/domain/repositories';
 
-export type SearchFilterScope = 'feed' | 'map';
+export type SearchFilterScope = 'feed' | 'map' | 'main';
 
 export interface SearchFiltersState {
   query: string;
@@ -33,11 +33,13 @@ const initialFilters: SearchFiltersState = {
 const initialFiltersByScope: Record<SearchFilterScope, SearchFiltersState> = {
   feed: initialFilters,
   map: initialFilters,
+  main: initialFilters,
 };
 
 const storageKeyByScope: Record<SearchFilterScope, string> = {
   feed: storageKeys.feedSearchFilters,
   map: storageKeys.mapSearchFilters,
+  main: storageKeys.mainSearchFilters,
 };
 
 const SearchFiltersContext = createContext<SearchFiltersContextValue | undefined>(undefined);
@@ -47,6 +49,7 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
   const [refreshTokensByScope, setRefreshTokensByScope] = useState<Record<SearchFilterScope, number>>({
     feed: 0,
     map: 0,
+    main: 0,
   });
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -56,18 +59,21 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
     Promise.all([
       storage.get<Partial<SearchFiltersState>>(storageKeys.feedSearchFilters),
       storage.get<Partial<SearchFiltersState>>(storageKeys.mapSearchFilters),
+      storage.get<Partial<SearchFiltersState>>(storageKeys.mainSearchFilters),
       storage.get<Partial<SearchFiltersState>>(storageKeys.legacySearchFilters),
     ])
-      .then(([storedFeedFilters, storedMapFilters, legacyFilters]) => {
+      .then(([storedFeedFilters, storedMapFilters, storedMainFilters, legacyFilters]) => {
         if (!isMounted) {
           return;
         }
 
         const fallbackFilters = normalizeStoredFilters(legacyFilters);
+        const mainFilters = normalizeStoredFilters(storedMainFilters ?? storedFeedFilters ?? storedMapFilters ?? fallbackFilters);
 
         setFiltersState({
           feed: normalizeStoredFilters(storedFeedFilters ?? fallbackFilters),
           map: normalizeStoredFilters(storedMapFilters),
+          main: mainFilters,
         });
       })
       .finally(() => {
