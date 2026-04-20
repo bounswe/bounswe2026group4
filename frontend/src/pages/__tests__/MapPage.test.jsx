@@ -143,14 +143,6 @@ describe("MapPage", () => {
   });
 
   describe("search status indicator", () => {
-    function renderPageWithSearch(search = "") {
-      return render(
-        <MemoryRouter initialEntries={[`/${search}`]}>
-          <MapPage />
-        </MemoryRouter>,
-      );
-    }
-
     it("shows story count when filters are active and results exist", async () => {
       getMapStories.mockResolvedValue({
         ...makeFeatureCollection([makeFeature(1), makeFeature(2)]),
