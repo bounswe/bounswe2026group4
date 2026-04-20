@@ -74,11 +74,13 @@ export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
     const response = await api.get("/stories/search/", { params });
+    const features = response.data.results
+      .filter((s) => s.location_lat != null && s.location_lng != null)
+      .map(storyToFeature);
     return {
       type: "FeatureCollection",
-      features: response.data.results
-        .filter((s) => s.location_lat != null && s.location_lng != null)
-        .map(storyToFeature),
+      features,
+      totalCount: response.data.count,
     };
   }
 
@@ -88,7 +90,8 @@ export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
   if (location?.trim()) params.location = location.trim();
 
   const response = await api.get("/stories/map/", { params });
-  return response.data ?? EMPTY_FEATURE_COLLECTION;
+  const fc = response.data ?? EMPTY_FEATURE_COLLECTION;
+  return { ...fc, totalCount: fc.features?.length ?? 0 };
 }
 
 export async function createStory(formData) {

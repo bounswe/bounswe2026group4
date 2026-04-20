@@ -139,7 +139,7 @@ describe("storyService", () => {
       expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: {} });
     });
 
-    it("returns the GeoJSON FeatureCollection from the map endpoint as-is", async () => {
+    it("returns the GeoJSON FeatureCollection from the map endpoint with totalCount", async () => {
       const featureCollection = {
         type: "FeatureCollection",
         features: [
@@ -155,7 +155,7 @@ describe("storyService", () => {
 
       const result = await getMapStories();
 
-      expect(result).toEqual(featureCollection);
+      expect(result).toEqual({ ...featureCollection, totalCount: 1 });
     });
 
     it("passes yearFrom, yearTo and location filter params to map API", async () => {
@@ -190,6 +190,8 @@ describe("storyService", () => {
       expect(feature.geometry).toEqual({ type: "Point", coordinates: [28.9, 41.0] });
       expect(feature.properties.title).toBe("Bridge");
       expect(feature.properties.location_name).toBe("Galata");
+      // totalCount reflects the full API count, not the filtered feature count
+      expect(result.totalCount).toBe(2);
     });
 
     it("passes year and location filters to search API when q and filters are combined", async () => {

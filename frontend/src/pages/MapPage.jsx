@@ -8,9 +8,10 @@ import { useFilterState } from "@/hooks/useFilterState";
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 
 function MapPage() {
-  const { q, yearFrom, yearTo, location } = useFilterState();
+  const { q, yearFrom, yearTo, location, hasActiveFilters } = useFilterState();
 
   const [featureCollection, setFeatureCollection] = useState(EMPTY_FEATURE_COLLECTION);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -19,7 +20,9 @@ function MapPage() {
     setError(null);
     try {
       const data = await getMapStories({ q, yearFrom, yearTo, location });
-      setFeatureCollection(data ?? EMPTY_FEATURE_COLLECTION);
+      const fc = data ?? EMPTY_FEATURE_COLLECTION;
+      setFeatureCollection(fc);
+      setTotalCount(fc.totalCount ?? fc.features?.length ?? 0);
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
@@ -43,6 +46,16 @@ function MapPage() {
       <div className="absolute top-3 left-3 right-3 z-[1000] sm:left-4 sm:right-auto sm:w-[32rem]">
         <div className="rounded-lg border bg-background/95 p-3 shadow-md backdrop-blur-sm">
           <SearchFilter />
+          {hasActiveFilters && !loading && !error && (
+            <p className="mt-2 text-sm text-muted-foreground" aria-live="polite">
+              {featureCollection.features.length === 0
+                ? "No stories match your search."
+                : `${featureCollection.features.length} ${featureCollection.features.length === 1 ? "story" : "stories"} found.`}
+              {featureCollection.features.length > 0 && q && totalCount > 100 && (
+                <span className="block text-xs">Showing first 100 results.</span>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
