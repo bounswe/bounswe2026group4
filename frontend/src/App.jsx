@@ -7,6 +7,7 @@ import { ToastProvider } from "@/context/ToastContext";
 import { Toaster } from "@/components/ui/toaster";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
+import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import FeedPage from "@/pages/FeedPage";
 import MapPage from "@/pages/MapPage";
@@ -25,6 +26,14 @@ function App() {
               <Route path="/map" element={<MapPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route
+                path="/complete-profile"
+                element={(
+                  <ProtectedRoute>
+                    <ProfileCompletionPage />
+                  </ProtectedRoute>
+                )}
+              />
               <Route
                 path="/profile"
                 element={(

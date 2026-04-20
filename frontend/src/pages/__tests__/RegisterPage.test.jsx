@@ -236,7 +236,7 @@ describe("RegisterPage", () => {
     });
   });
 
-  it("navigates to home after successful registration and auto-login", async () => {
+  it("navigates to /complete-profile after successful registration and auto-login", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
     mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
@@ -246,11 +246,14 @@ describe("RegisterPage", () => {
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
+        state: { from: null },
+        replace: true,
+      });
     });
   });
 
-  it("navigates to the original destination after auto-login when 'from' state exists", async () => {
+  it("passes the original destination in state when navigating to /complete-profile", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
     mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
@@ -260,14 +263,14 @@ describe("RegisterPage", () => {
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith(
-        { pathname: "/submit-story", search: "", hash: "" },
-        { replace: true }
-      );
+      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
+        state: { from: { pathname: "/submit-story", search: "", hash: "", state: null, key: "testkey" } },
+        replace: true,
+      });
     });
   });
 
-  it("preserves URL search params (filters) when redirecting after auto-login", async () => {
+  it("preserves URL search params in state when navigating to /complete-profile", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
     mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
@@ -277,10 +280,10 @@ describe("RegisterPage", () => {
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith(
-        { pathname: "/map", search: "?q=castle&year_from=1900", hash: "" },
-        { replace: true }
-      );
+      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
+        state: { from: { pathname: "/map", search: "?q=castle&year_from=1900", hash: "", state: null, key: "testkey" } },
+        replace: true,
+      });
     });
   });
 
