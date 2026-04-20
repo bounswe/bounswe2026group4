@@ -155,7 +155,7 @@ describe("MapPage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/2 stories found in this area/i)).toBeInTheDocument();
+        expect(screen.getByText(/2 stories found/i)).toBeInTheDocument();
       });
     });
 
@@ -171,7 +171,7 @@ describe("MapPage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/1 story found in this area/i)).toBeInTheDocument();
+        expect(screen.getByText(/1 story found/i)).toBeInTheDocument();
       });
     });
 
@@ -185,7 +185,7 @@ describe("MapPage", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/no stories found with this criteria/i),
+          screen.getByText(/no stories match your search/i),
         ).toBeInTheDocument();
       });
     });
@@ -226,7 +226,7 @@ describe("MapPage", () => {
       renderPage();
 
       await waitFor(() => {
-        expect(screen.queryByText(/found in this area/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/stories found/i)).not.toBeInTheDocument();
       });
     });
   });
