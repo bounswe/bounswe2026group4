@@ -460,6 +460,56 @@ class TestDeleteAccount:
     def test_malformed_refresh_token_does_not_raise(self):
         delete_account(self.user, hard_delete=True, refresh_token='not-a-token')
 
+    def test_hard_delete_removes_user_comments_on_other_stories(self):
+        from apps.interactions.models import Comment
+        other_user = User.objects.create_user(
+            email='other@example.com', username='otheruser', password='Password1'
+        )
+        other_story = Story.objects.create(
+            user=other_user, title='Other', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        comment = Comment.objects.create(story=other_story, author=self.user, text='Hello')
+        delete_account(self.user, hard_delete=True)
+        assert not Comment.objects.filter(pk=comment.pk).exists()
+
+    def test_hard_delete_deletes_story_media_files(self):
+        from apps.media.models import MediaItem
+        from django.core.files.base import ContentFile
+        story = self._make_story()
+        item = MediaItem.objects.create(
+            story=story,
+            file=ContentFile(b'fake media', name='test.jpg'),
+            media_type='image',
+            file_size=10,
+            original_filename='test.jpg',
+        )
+        file_name = item.file.name
+        assert default_storage.exists(file_name)
+        delete_account(self.user, hard_delete=True)
+        assert not default_storage.exists(file_name)
+
+    def test_hard_delete_with_no_comments_does_not_raise(self):
+        delete_account(self.user, hard_delete=True)
+
+    def test_soft_delete_does_not_remove_user_comments(self):
+        from apps.interactions.models import Comment
+        other_user = User.objects.create_user(
+            email='other2@example.com', username='otheruser2', password='Password1'
+        )
+        other_story = Story.objects.create(
+            user=other_user, title='Other', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        comment = Comment.objects.create(story=other_story, author=self.user, text='Hello')
+        delete_account(self.user, hard_delete=False)
+        # Comment survives on soft delete — community content is preserved
+        assert Comment.objects.filter(pk=comment.pk).exists()
+
 
 # ── delete_profile_photo ──────────────────────────────────────────────────────
 

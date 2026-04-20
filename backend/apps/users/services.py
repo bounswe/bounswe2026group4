@@ -171,19 +171,29 @@ def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> No
     """
     Deletes or deactivates a user account based on the hard_delete flag.
 
-    Hard delete: removes profile photo file, explicitly deletes all user stories
-    (required because Story.user has on_delete=SET_NULL — without this the stories
-    would be anonymized instead of removed), then deletes the User row (cascades
-    UserProfile and EmailVerificationCode).
+    Hard delete order:
+      1. Profile photo file removed from disk (FileField.delete avoids orphan).
+      2. Story media files removed from disk — queryset .delete() bypasses
+         FileField.delete(), so files must be explicitly removed before the rows go.
+      3. User's comments on other people's stories deleted — Comment.author has
+         on_delete=SET_NULL, so without this step they would be anonymized instead
+         of removed, contradicting hard delete semantics.
+      4. User's own stories deleted (cascades MediaItem rows, comments on those
+         stories, likes, saved_stories, reports targeting those stories).
+      5. User row deleted (cascades UserProfile, EmailVerificationCode, Like,
+         SavedStory, UserBadge, Notification.recipient, NotificationPreference).
 
     Soft delete: sets is_active=False to block login, then bulk-sets story.user=NULL
-    to anonymize community content without removing it.
+    to anonymize community content without removing it. Comments are kept — consistent
+    with the story anonymization policy (community content outlives the account).
 
     In both cases, if a non-empty refresh_token is provided it is blacklisted.
     TokenError is silently ignored — a stale or already-blacklisted token is harmless
     once the account is gone or inactive.
     """
     from apps.stories.models import Story  # local import to avoid circular imports
+    from apps.media.models import MediaItem  # local import to avoid circular imports
+    from apps.interactions.models import Comment  # local import to avoid circular imports
 
     if refresh_token:
         try:
@@ -194,6 +204,9 @@ def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> No
 
     if hard_delete:
         delete_profile_photo(user)
+        for item in MediaItem.objects.filter(story__user=user).only('file'):
+            item.file.delete(save=False)
+        Comment.objects.filter(author=user).delete()
         Story.objects.filter(user=user).delete()
         user.delete()
     else:
