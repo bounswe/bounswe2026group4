@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { User } from "lucide-react";
 
@@ -13,9 +13,13 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/hooks/useToast";
 import { getFollowers, getFollowing } from "@/services/followService";
 
 function FollowListSheet({ userId, mode, open, onOpenChange }) {
+  const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const [users, setUsers] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -35,16 +39,23 @@ function FollowListSheet({ userId, mode, open, onOpenChange }) {
       try {
         const fetcher = isFollowers ? getFollowers : getFollowing;
         const data = await fetcher(userId, { page: pageNumber });
-        const results = data.results ?? data ?? [];
+        const results = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+            ? data
+            : [];
         setUsers((prev) => (append ? [...prev, ...results] : results));
         setHasMore(Boolean(data?.next));
         setPage(pageNumber);
       } catch (err) {
-        setError(
+        const message =
           err?.response?.data?.detail ||
-            err?.message ||
-            "Failed to load list. Please try again."
-        );
+          err?.message ||
+          "Failed to load list. Please try again.";
+        setError(message);
+        if (append) {
+          toastRef.current.error(message);
+        }
       } finally {
         setLoading(false);
       }
@@ -127,6 +138,7 @@ function FollowListSheet({ userId, mode, open, onOpenChange }) {
               size="sm"
               disabled={loading}
               onClick={() => fetchPage(page + 1, { append: true })}
+              aria-label={`Load more ${title.toLowerCase()}`}
             >
               {loading ? "Loading..." : "Load more"}
             </Button>

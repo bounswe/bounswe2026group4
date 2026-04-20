@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { UserPlus, UserCheck } from "lucide-react";
+import { UserPlus, UserCheck, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -69,7 +69,9 @@ function FollowButton({
       aria-label={following ? "Unfollow user" : "Follow user"}
       className={cn("gap-1.5", className)}
     >
-      {following ? (
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      ) : following ? (
         <UserCheck className="h-4 w-4" aria-hidden="true" />
       ) : (
         <UserPlus className="h-4 w-4" aria-hidden="true" />

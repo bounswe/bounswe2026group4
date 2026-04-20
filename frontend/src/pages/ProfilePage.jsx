@@ -141,6 +141,7 @@ function ProfilePage() {
             {!isOwnProfile && (
               <div className="sm:shrink-0">
                 <FollowButton
+                  key={profile.id}
                   targetUserId={profile.id}
                   initialFollowing={Boolean(profile.is_followed_by_me)}
                   onChange={handleFollowChange}
