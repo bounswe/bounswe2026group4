@@ -230,7 +230,17 @@ function getPrimaryMediaUrl(value: StoryRecord) {
 }
 
 function getContributorName(value: StoryRecord) {
-  return asString(value.contributorName) || asString(value.contributor_name) || 'Anonymous';
+  const resolvedName = asString(value.contributorName) || asString(value.contributor_name);
+
+  if (resolvedName) {
+    return resolvedName;
+  }
+
+  if (!asStringId(value.user)) {
+    return 'Deleted user';
+  }
+
+  return 'Anonymous';
 }
 
 export function mapStory(value: unknown): StoryEntity {
@@ -343,7 +353,7 @@ export function mapStoryComment(value: unknown): StoryCommentPreview {
   const authorName =
     asString(comment.authorName) ||
     asString(comment.author_username) ||
-    (comment.is_anonymized === true ? 'Anonymous' : '') ||
+    (comment.is_anonymized === true || comment.isAnonymized === true ? 'Deleted account' : '') ||
     'Anonymous';
 
   if (!id || !body || !createdAt) {

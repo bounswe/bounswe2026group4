@@ -73,6 +73,7 @@ function installAuthTransport(options?: {
   unauthorizedOnProfile?: boolean;
   unauthorizedOnceOnProfile?: boolean;
   refreshFails?: boolean;
+  logoutFails?: boolean;
   rotatedRefreshToken?: string;
   onProfileRequest?: (config: ApiRequestConfig) => void;
 }) {
@@ -88,6 +89,10 @@ function installAuthTransport(options?: {
     }
 
     if (method === 'POST' && config.url === '/auth/logout/') {
+      if (options?.logoutFails) {
+        throw new Error('Logout failed');
+      }
+
       return {
         status: 204,
         data: null as never,
@@ -197,6 +202,29 @@ describe('AuthProvider', () => {
 
     const storedSession = await storage.get<{ accessToken: string }>(storageKeys.authSession);
     expect(storedSession?.accessToken).toBe(loginResponse.access);
+
+    fireEvent.press(screen.getByText('logout'));
+
+    await waitFor(() => {
+      expect(screen.getByText('guest')).toBeTruthy();
+    });
+    expect(await storage.get(storageKeys.authSession)).toBeNull();
+  });
+
+  it('clears auth state even when the logout request fails', async () => {
+    installAuthTransport({ logoutFails: true });
+
+    render(
+      <AuthProvider>
+        <AuthHarness />
+      </AuthProvider>,
+    );
+
+    fireEvent.press(await screen.findByText('login'));
+
+    await waitFor(() => {
+      expect(screen.getByText('authenticated')).toBeTruthy();
+    });
 
     fireEvent.press(screen.getByText('logout'));
 
