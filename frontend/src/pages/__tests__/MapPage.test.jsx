@@ -33,6 +33,7 @@ vi.mock("leaflet", () => {
 
 vi.mock("@/services/storyService", () => ({
   getMapStories: vi.fn(),
+  MAP_SEARCH_CAP: 100,
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -215,7 +216,7 @@ describe("MapPage", () => {
         </MemoryRouter>,
       );
 
-      expect(screen.queryByRole("paragraph")).not.toBeInTheDocument();
+      expect(screen.queryByText(/stories? found|no stories match/i)).not.toBeInTheDocument();
     });
 
     it("does not show indicator when no filters are active", async () => {

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 
 import MapView from "@/components/MapView/MapView";
 import SearchFilter from "@/components/SearchFilter/SearchFilter";
-import { getMapStories } from "@/services/storyService";
+import { getMapStories, MAP_SEARCH_CAP } from "@/services/storyService";
 import { useFilterState } from "@/hooks/useFilterState";
 
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
@@ -11,7 +11,6 @@ function MapPage() {
   const { q, yearFrom, yearTo, location, hasActiveFilters } = useFilterState();
 
   const [featureCollection, setFeatureCollection] = useState(EMPTY_FEATURE_COLLECTION);
-  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,9 +19,7 @@ function MapPage() {
     setError(null);
     try {
       const data = await getMapStories({ q, yearFrom, yearTo, location });
-      const fc = data ?? EMPTY_FEATURE_COLLECTION;
-      setFeatureCollection(fc);
-      setTotalCount(fc.totalCount ?? fc.features?.length ?? 0);
+      setFeatureCollection(data ?? EMPTY_FEATURE_COLLECTION);
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
@@ -51,7 +48,7 @@ function MapPage() {
               {featureCollection.features.length === 0
                 ? "No stories match your search."
                 : `${featureCollection.features.length} ${featureCollection.features.length === 1 ? "story" : "stories"} found.`}
-              {featureCollection.features.length > 0 && q && totalCount > 100 && (
+              {featureCollection.features.length > 0 && q && (featureCollection.totalCount ?? featureCollection.features.length) > MAP_SEARCH_CAP && (
                 <span className="block text-xs">Showing first 100 results.</span>
               )}
             </p>

@@ -39,6 +39,8 @@ export const EMPTY_FEATURE_COLLECTION = Object.freeze({
   features: [],
 });
 
+export const MAP_SEARCH_CAP = 100;
+
 function storyToFeature(story) {
   return {
     type: "Feature",
@@ -68,8 +70,8 @@ function storyToFeature(story) {
  */
 export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
   if (q?.trim()) {
-    // Hard cap at 100 results — pins beyond the first 100 are silently dropped.
-    const params = { q: q.trim(), page_size: 100 };
+    // Hard cap — pins beyond MAP_SEARCH_CAP are silently dropped.
+    const params = { q: q.trim(), page_size: MAP_SEARCH_CAP };
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
