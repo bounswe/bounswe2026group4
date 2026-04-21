@@ -98,6 +98,13 @@ DATABASES = {
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
 
+# Password hashing — Argon2 first (NIST SP 800-63B), PBKDF2 as legacy fallback.
+# Existing PBKDF2 hashes are transparently re-hashed to Argon2 on next successful login.
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -137,6 +144,16 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'common.exceptions.custom_exception_handler',
+    # Rate limiting (RFC 6585 — 429 Too Many Requests)
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/minute',
+        'user': '300/minute',
+        'login': '10/minute',
+    },
 }
 
 # SimpleJWT
