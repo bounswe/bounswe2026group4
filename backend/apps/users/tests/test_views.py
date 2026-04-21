@@ -721,3 +721,55 @@ class TestDeleteAccountView:
     def test_missing_password_returns_400(self, auth_client):
         response = auth_client.delete(self.url, {}, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# ── POST/DELETE /users/:id/follow/ ───────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowView:
+    url = '/users/{user_id}/follow/'
+
+    def test_first_follow_returns_201(self, auth_client, second_user):
+        response = auth_client.post(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_first_follow_response_shape(self, auth_client, second_user):
+        response = auth_client.post(self.url.format(user_id=second_user.pk))
+        assert response.data['success'] is True
+        for field in ('follower_id', 'followed_id', 'created_at'):
+            assert field in response.data['data']
+
+    def test_refollow_returns_200(self, auth_client, second_user):
+        auth_client.post(self.url.format(user_id=second_user.pk))
+        response = auth_client.post(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_self_follow_returns_400(self, auth_client, registered_user):
+        response = auth_client.post(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_unauthenticated_post_returns_401(self, client, second_user):
+        response = client.post(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_post_unknown_user_returns_404(self, auth_client):
+        response = auth_client.post(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unfollow_returns_204(self, auth_client, second_user):
+        auth_client.post(self.url.format(user_id=second_user.pk))
+        response = auth_client.delete(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_unfollow_idempotent_returns_204(self, auth_client, second_user):
+        response = auth_client.delete(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_unauthenticated_delete_returns_401(self, client, second_user):
+        response = client.delete(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_delete_unknown_user_returns_404(self, auth_client):
+        response = auth_client.delete(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND

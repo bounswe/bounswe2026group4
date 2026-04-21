@@ -8,15 +8,17 @@ from django.http import Http404
 from PIL import Image
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
-from apps.users.models import EmailVerificationCode, User, UserProfile
+from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 from apps.users.services import (
     delete_account,
     delete_profile_photo,
+    follow_user,
     get_own_profile,
     get_public_profile,
     login_user,
     logout_user,
     register_user,
+    unfollow_user,
     update_own_profile,
     upload_profile_photo,
 )
@@ -540,3 +542,73 @@ class TestDeleteProfilePhoto:
     def test_no_op_when_profile_has_no_photo(self):
         UserProfile.objects.create(user=self.user)
         delete_profile_photo(self.user)  # must not raise
+
+
+# ── follow_user ───────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowUser:
+    def setup_method(self):
+        self.follower = User.objects.create_user(
+            email='fw1@example.com', username='fwuser1', password='Password1'
+        )
+        self.target = User.objects.create_user(
+            email='fw2@example.com', username='fwuser2', password='Password1'
+        )
+
+    def test_creates_follow_record(self):
+        follow, created = follow_user(self.follower, self.target.pk)
+        assert created is True
+        assert Follow.objects.filter(follower=self.follower, followed=self.target).exists()
+
+    def test_returns_follow_instance(self):
+        follow, created = follow_user(self.follower, self.target.pk)
+        assert follow.follower_id == self.follower.pk
+        assert follow.followed_id == self.target.pk
+
+    def test_refollow_returns_created_false(self):
+        follow_user(self.follower, self.target.pk)
+        follow, created = follow_user(self.follower, self.target.pk)
+        assert created is False
+        assert Follow.objects.filter(follower=self.follower, followed=self.target).count() == 1
+
+    def test_self_follow_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            follow_user(self.follower, self.follower.pk)
+
+    def test_unknown_followed_id_raises_404(self):
+        with pytest.raises(Http404):
+            follow_user(self.follower, 99999)
+
+    def test_inactive_target_raises_404(self):
+        self.target.is_active = False
+        self.target.save()
+        with pytest.raises(Http404):
+            follow_user(self.follower, self.target.pk)
+
+
+# ── unfollow_user ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestUnfollowUser:
+    def setup_method(self):
+        self.follower = User.objects.create_user(
+            email='uf1@example.com', username='ufuser1', password='Password1'
+        )
+        self.target = User.objects.create_user(
+            email='uf2@example.com', username='ufuser2', password='Password1'
+        )
+
+    def test_removes_follow_record(self):
+        Follow.objects.create(follower=self.follower, followed=self.target)
+        unfollow_user(self.follower, self.target.pk)
+        assert not Follow.objects.filter(follower=self.follower, followed=self.target).exists()
+
+    def test_unfollow_non_followed_is_noop(self):
+        unfollow_user(self.follower, self.target.pk)  # must not raise
+
+    def test_unknown_followed_id_raises_404(self):
+        with pytest.raises(Http404):
+            unfollow_user(self.follower, 99999)

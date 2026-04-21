@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.users.models import EmailVerificationCode, RoleChoices, User, UserProfile
+from apps.users.models import EmailVerificationCode, Follow, RoleChoices, User, UserProfile
 
 
 @pytest.mark.django_db
@@ -240,3 +240,42 @@ class TestEmailVerificationCode:
         )
         assert 'user@example.com' in str(verification)
         assert '123456' in str(verification)
+
+
+# ── Follow model ──────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowModel:
+    def setup_method(self):
+        self.user1 = User.objects.create_user(
+            email='m1@example.com', username='muser1', password='Password1'
+        )
+        self.user2 = User.objects.create_user(
+            email='m2@example.com', username='muser2', password='Password1'
+        )
+
+    def test_follow_can_be_created(self):
+        follow = Follow.objects.create(follower=self.user1, followed=self.user2)
+        assert follow.pk is not None
+        assert follow.created_at is not None
+
+    def test_str_representation(self):
+        follow = Follow.objects.create(follower=self.user1, followed=self.user2)
+        assert str(follow) == f'Follow({self.user1.pk} → {self.user2.pk})'
+
+    def test_unique_constraint_prevents_duplicate(self):
+        Follow.objects.create(follower=self.user1, followed=self.user2)
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                Follow.objects.create(follower=self.user1, followed=self.user2)
+
+    def test_deleting_follower_cascades(self):
+        Follow.objects.create(follower=self.user1, followed=self.user2)
+        self.user1.delete()
+        assert not Follow.objects.filter(followed=self.user2).exists()
+
+    def test_deleting_followed_cascades(self):
+        Follow.objects.create(follower=self.user1, followed=self.user2)
+        self.user2.delete()
+        assert not Follow.objects.filter(follower=self.user1).exists()
