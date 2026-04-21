@@ -60,8 +60,9 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
 
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')
-
-    # TODO: add sort_by='popular' ordered by like_count once interactions app is implemented
+        
+    if sort_by == 'popular':
+        qs = qs.order_by('-like_count')
 
     return qs
 
