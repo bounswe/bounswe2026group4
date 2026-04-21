@@ -794,6 +794,12 @@ class TestFollowerListView:
         response = client.get(self.url.format(user_id=99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_inactive_user_returns_404(self, client, registered_user):
+        registered_user.is_active = False
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_response_is_paginated(self, client, registered_user):
         response = client.get(self.url.format(user_id=registered_user.pk))
         for key in ('count', 'results'):
@@ -836,6 +842,12 @@ class TestFollowingListView:
 
     def test_unknown_user_returns_404(self, client):
         response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_inactive_user_returns_404(self, client, registered_user):
+        registered_user.is_active = False
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_response_is_paginated(self, client, registered_user):
