@@ -241,9 +241,9 @@ class DeleteAccountSerializer(serializers.Serializer):
         return value
 
 
-class FollowUserSerializer(serializers.Serializer):
+class FollowUserSerializer(serializers.ModelSerializer):
     """Response body for POST /users/:id/follow/ — confirms the relationship."""
 
-    follower_id = serializers.IntegerField(read_only=True)
-    followed_id = serializers.IntegerField(read_only=True)
-    created_at = serializers.DateTimeField(read_only=True)
+    class Meta:
+        model = Follow
+        fields = ['follower_id', 'followed_id', 'created_at']

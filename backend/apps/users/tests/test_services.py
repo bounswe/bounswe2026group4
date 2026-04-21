@@ -8,15 +8,17 @@ from django.http import Http404
 from PIL import Image
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
-from apps.users.models import EmailVerificationCode, User, UserProfile
+from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 from apps.users.services import (
     delete_account,
     delete_profile_photo,
+    follow_user,
     get_own_profile,
     get_public_profile,
     login_user,
     logout_user,
     register_user,
+    unfollow_user,
     update_own_profile,
     upload_profile_photo,
 )
@@ -493,9 +495,6 @@ class TestDeleteProfilePhoto:
 
 
 # ── follow_user ───────────────────────────────────────────────────────────────
-
-from apps.users.models import Follow
-from apps.users.services import follow_user, unfollow_user
 
 
 @pytest.mark.django_db

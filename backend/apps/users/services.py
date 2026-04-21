@@ -269,6 +269,11 @@ def unfollow_user(follower: User, followed_id: int) -> None:
 
     Idempotent — no exception if the user is not currently following.
     Raises Http404 if the target user does not exist at all.
+
+    Intentionally does not check is_active: a deactivated account must still
+    be unfollowable so callers can clean up stale follow relationships.
+    Blocking unfollow on inactive targets would leave orphaned edges with no
+    way to remove them.
     """
     if not User.objects.filter(pk=followed_id).exists():
         raise Http404
