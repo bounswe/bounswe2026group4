@@ -782,10 +782,6 @@ class TestFollowView:
 class TestFollowerListView:
     url = '/users/{user_id}/followers/'
 
-    def test_returns_200(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
-        assert response.status_code == status.HTTP_200_OK
-
     def test_unauthenticated_returns_200(self, client, registered_user):
         response = client.get(self.url.format(user_id=registered_user.pk))
         assert response.status_code == status.HTTP_200_OK
@@ -831,10 +827,6 @@ class TestFollowerListView:
 @pytest.mark.django_db
 class TestFollowingListView:
     url = '/users/{user_id}/following/'
-
-    def test_returns_200(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
-        assert response.status_code == status.HTTP_200_OK
 
     def test_unauthenticated_returns_200(self, client, registered_user):
         response = client.get(self.url.format(user_id=registered_user.pk))

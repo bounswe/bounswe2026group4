@@ -1,5 +1,3 @@
-from django.http import Http404
-
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -7,7 +5,6 @@ from rest_framework.views import APIView
 
 from common.pagination import StoryPagination
 
-from apps.users.models import User
 from apps.users.serializers import (
     CurrentUserSerializer,
     DeleteAccountSerializer,
@@ -25,6 +22,8 @@ from apps.users.services import (
     delete_account,
     delete_profile_photo,
     follow_user,
+    get_followers,
+    get_following,
     get_own_profile,
     get_public_profile,
     login_user,
@@ -164,14 +163,7 @@ class FollowerListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, user_id):
-        if not User.objects.filter(pk=user_id, is_active=True).exists():
-            raise Http404
-        qs = (
-            User.objects
-            .filter(following__followed_id=user_id)
-            .select_related('profile')
-            .order_by('-following__created_at')
-        )
+        qs = get_followers(user_id)
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = FollowedUserSerializer(page, many=True, context={'request': request})
@@ -184,14 +176,7 @@ class FollowingListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, user_id):
-        if not User.objects.filter(pk=user_id, is_active=True).exists():
-            raise Http404
-        qs = (
-            User.objects
-            .filter(followers__follower_id=user_id)
-            .select_related('profile')
-            .order_by('-followers__created_at')
-        )
+        qs = get_following(user_id)
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = FollowedUserSerializer(page, many=True, context={'request': request})
