@@ -39,6 +39,8 @@ export const EMPTY_FEATURE_COLLECTION = Object.freeze({
   features: [],
 });
 
+export const MAP_SEARCH_CAP = 100;
+
 function storyToFeature(story) {
   return {
     type: "Feature",
@@ -68,17 +70,19 @@ function storyToFeature(story) {
  */
 export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
   if (q?.trim()) {
-    // Hard cap at 100 results — pins beyond the first 100 are silently dropped.
-    const params = { q: q.trim(), page_size: 100 };
+    // Hard cap — pins beyond MAP_SEARCH_CAP are silently dropped.
+    const params = { q: q.trim(), page_size: MAP_SEARCH_CAP };
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
     const response = await api.get("/stories/search/", { params });
+    const features = response.data.results
+      .filter((s) => s.location_lat != null && s.location_lng != null)
+      .map(storyToFeature);
     return {
       type: "FeatureCollection",
-      features: response.data.results
-        .filter((s) => s.location_lat != null && s.location_lng != null)
-        .map(storyToFeature),
+      features,
+      totalCount: response.data.count,
     };
   }
 
@@ -88,7 +92,8 @@ export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
   if (location?.trim()) params.location = location.trim();
 
   const response = await api.get("/stories/map/", { params });
-  return response.data ?? EMPTY_FEATURE_COLLECTION;
+  const fc = response.data ?? EMPTY_FEATURE_COLLECTION;
+  return { ...fc, totalCount: fc.features?.length ?? 0 };
 }
 
 export async function createStory(formData) {

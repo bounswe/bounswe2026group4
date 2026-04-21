@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, MemoryRouter } from "react-router-dom";
 
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children, ...props }) => (
@@ -33,6 +33,7 @@ vi.mock("leaflet", () => {
 
 vi.mock("@/services/storyService", () => ({
   getMapStories: vi.fn(),
+  MAP_SEARCH_CAP: 100,
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -139,6 +140,95 @@ describe("MapPage", () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("search status indicator", () => {
+    it("shows story count when filters are active and results exist", async () => {
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+        totalCount: 2,
+      });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/2 stories found/i)).toBeInTheDocument();
+      });
+    });
+
+    it("shows singular 'story' when exactly one result exists", async () => {
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection([makeFeature(1)]),
+        totalCount: 1,
+      });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/1 story found/i)).toBeInTheDocument();
+      });
+    });
+
+    it("shows empty message when filters are active but no results exist", async () => {
+      getMapStories.mockResolvedValue({ ...makeFeatureCollection([]), totalCount: 0 });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/no stories match your search/i),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("shows cap notice when totalCount exceeds 100 with q filter", async () => {
+      const features = Array.from({ length: 100 }, (_, i) => makeFeature(i + 1));
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection(features),
+        totalCount: 150,
+      });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/showing first 100 results/i)).toBeInTheDocument();
+      });
+    });
+
+    it("does not show indicator while loading", () => {
+      getMapStories.mockReturnValue(new Promise(() => {}));
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByText(/stories? found|no stories match/i)).not.toBeInTheDocument();
+    });
+
+    it("does not show indicator when no filters are active", async () => {
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection([makeFeature(1)]),
+        totalCount: 1,
+      });
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.queryByText(/stories found/i)).not.toBeInTheDocument();
+      });
     });
   });
 });
