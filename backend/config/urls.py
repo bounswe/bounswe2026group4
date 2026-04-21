@@ -10,6 +10,7 @@ urlpatterns = [
     path('', include('apps.interactions.urls', namespace='interactions')),
     path('', include('apps.media.urls', namespace='media')),
     path('stories/', include('apps.stories.urls', namespace='stories')),
+    path('tags/', include('apps.tags.urls', namespace='tags')),
 ]
 
 if settings.DEBUG and 'debug_toolbar' in settings.INSTALLED_APPS:
