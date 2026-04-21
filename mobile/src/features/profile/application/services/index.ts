@@ -1,5 +1,5 @@
 import { ProfileRepositoryImpl } from '../../data/repositories';
-import { ProfileEntity, UpdateProfileInput } from '../../domain/entities';
+import { ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 
 const repository = new ProfileRepositoryImpl();
 
@@ -12,5 +12,17 @@ export const userService = {
   },
   async updateCurrentProfile(input: UpdateProfileInput): Promise<ProfileEntity> {
     return repository.updateCurrentProfile(input);
+  },
+  async updateProfile(input: UpdateProfileInput): Promise<ProfileEntity> {
+    return repository.updateCurrentProfile(input);
+  },
+  async uploadProfilePhoto(input: ProfilePhotoUploadInput): Promise<ProfileEntity> {
+    return repository.uploadProfilePhoto(input);
+  },
+  async removeProfilePhoto(): Promise<ProfileEntity> {
+    return repository.removeProfilePhoto();
+  },
+  async deleteAccount(password: string, deleteStories = true): Promise<void> {
+    return repository.deleteAccount(password, deleteStories);
   },
 };

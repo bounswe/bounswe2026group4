@@ -171,6 +171,50 @@ describe('StoryScreen', () => {
     expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
   });
 
+  it('shows deleted user when the story belongs to a deleted account', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          contributorUserId: undefined,
+          contributorName: 'Deleted user',
+        })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.getByText('Deleted user')).toBeTruthy();
+    expect(screen.queryByLabelText('Open profile: Deleted user')).toBeNull();
+  });
+
+  it('shows deleted account for anonymized comments from deleted users', async () => {
+    (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'comment-deleted',
+        authorUsername: null,
+        text: 'I used to work there too.',
+        createdAt: '2026-03-20T12:00:00Z',
+        isAnonymized: true,
+        is_anonymized: true,
+      },
+    ]);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          comments: [],
+        })}
+      />,
+    );
+
+    await screen.findByText(baseStory.title);
+    expect(await screen.findByText('Deleted account')).toBeTruthy();
+    expect(screen.getByText('I used to work there too.')).toBeTruthy();
+  });
+
   it('marks the signed-in user on their own story even if their username is private', async () => {
     render(
       <StoryScreen

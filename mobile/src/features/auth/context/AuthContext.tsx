@@ -221,13 +221,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const logout = useCallback(async () => {
     const activeSession = sessionRef.current;
 
-    await authService.logout(activeSession);
-    sessionRef.current = null;
-    setState({
-      isLoading: false,
-      session: null,
-    });
-    navigationRef.redirectToPublic?.();
+    try {
+      await authService.logout(activeSession);
+    } catch {
+      await authService.clear();
+    } finally {
+      sessionRef.current = null;
+      refreshSessionPromiseRef.current = null;
+      setState({
+        isLoading: false,
+        session: null,
+      });
+      navigationRef.redirectToPublic?.();
+    }
   }, []);
 
   const updateUser = useCallback(async (userPatch: Partial<AuthUser>) => {
