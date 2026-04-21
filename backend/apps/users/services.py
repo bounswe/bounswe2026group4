@@ -171,19 +171,19 @@ def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> No
     """
     Deletes or deactivates a user account based on the hard_delete flag.
 
-    Hard delete: removes profile photo file, explicitly deletes all user stories
-    (required because Story.user has on_delete=SET_NULL — without this the stories
-    would be anonymized instead of removed), then deletes the User row (cascades
-    UserProfile and EmailVerificationCode).
+    Hard delete: cleans up storage files first (profile photo, story media — queryset
+    .delete() bypasses FileField.delete()), explicitly deletes the user's comments on
+    other stories (Comment.author is SET_NULL, so they would survive otherwise), then
+    deletes the user's stories and finally the user row via cascade.
 
-    Soft delete: sets is_active=False to block login, then bulk-sets story.user=NULL
-    to anonymize community content without removing it.
+    Soft delete: sets is_active=False and anonymizes the user's stories (story.user=NULL).
+    Comments and all other content are kept — community content outlives the account.
 
-    In both cases, if a non-empty refresh_token is provided it is blacklisted.
-    TokenError is silently ignored — a stale or already-blacklisted token is harmless
-    once the account is gone or inactive.
+    If a refresh_token is provided it is blacklisted; TokenError is silently ignored.
     """
     from apps.stories.models import Story  # local import to avoid circular imports
+    from apps.media.models import MediaItem  # local import to avoid circular imports
+    from apps.interactions.models import Comment  # local import to avoid circular imports
 
     if refresh_token:
         try:
@@ -194,6 +194,9 @@ def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> No
 
     if hard_delete:
         delete_profile_photo(user)
+        for item in MediaItem.objects.filter(story__user=user).only('file'):
+            item.file.delete(save=False)
+        Comment.objects.filter(author=user).delete()
         Story.objects.filter(user=user).delete()
         user.delete()
     else:
