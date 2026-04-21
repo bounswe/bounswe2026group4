@@ -41,7 +41,8 @@ class TagSerializer(serializers.ModelSerializer):
         # is not duplicated here.
         tag = Tag(name=normalized)
         try:
-            tag.full_clean(exclude=['id'])
+            # validate_unique=False: duplicate detection is the service layer's job.
+            tag.full_clean(exclude=['id'], validate_unique=False)
         except Exception as exc:
             # Surface only the name-related messages.
             raise serializers.ValidationError(

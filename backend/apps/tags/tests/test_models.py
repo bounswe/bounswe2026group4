@@ -22,31 +22,31 @@ def _make_story(user, title='T'):
 @pytest.mark.django_db
 class TestTag:
     def test_tag_can_be_created(self):
-        tag = Tag.objects.create(name='history')
+        tag = Tag.objects.create(name='model-test-tag')
         assert tag.pk is not None
 
     def test_is_predefined_defaults_to_false(self):
-        tag = Tag.objects.create(name='history')
+        tag = Tag.objects.create(name='model-test-tag')
         assert tag.is_predefined is False
 
     def test_story_count_defaults_to_zero(self):
-        tag = Tag.objects.create(name='history')
+        tag = Tag.objects.create(name='model-test-tag')
         assert tag.story_count == 0
 
     def test_str_returns_name(self):
-        tag = Tag.objects.create(name='history')
-        assert str(tag) == 'history'
+        tag = Tag.objects.create(name='model-test-tag')
+        assert str(tag) == 'model-test-tag'
 
     def test_tag_name_must_be_unique(self):
-        Tag.objects.create(name='history')
+        Tag.objects.create(name='model-test-tag')
         with pytest.raises(IntegrityError):
             with transaction.atomic():
-                Tag.objects.create(name='history')
+                Tag.objects.create(name='model-test-tag')
 
     # ── Format validation (req. 1.3.6.4) ─────────────────────────────────────
 
     def test_valid_single_lowercase_word(self):
-        Tag(name='history').full_clean()  # must not raise
+        Tag(name='model-test-tag').full_clean()  # must not raise
 
     def test_valid_hyphen_separated_words(self):
         Tag(name='ottoman-era').full_clean()  # must not raise
