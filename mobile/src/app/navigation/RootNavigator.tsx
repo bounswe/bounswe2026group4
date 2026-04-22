@@ -7,7 +7,7 @@ import { useAuth, AuthScreen } from '../../features/auth';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { ProtectedScreen } from './ProtectedScreen';
 import { FeedScreen } from '../../features/feed';
-import { ProfileScreen } from '../../features/profile';
+import { ProfileCompletionScreen, ProfileScreen } from '../../features/profile';
 import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
 import { MapScreen } from '../../features/map';
@@ -283,8 +283,9 @@ export function RootNavigator() {
   const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
   const canGoBack = backStack.length > 0;
   const isMainRoute = currentRoute === ROUTES.FEED || currentRoute === ROUTES.MAP;
+  const isProfileCompletionRoute = currentRoute === ROUTES.PROFILE_COMPLETION;
   const resolvedRedirectTarget = useMemo<RouteSnapshot>(() => {
-    if (redirectTarget.route === ROUTES.AUTH) {
+    if (redirectTarget.route === ROUTES.AUTH || redirectTarget.route === ROUTES.PROFILE_COMPLETION) {
       return { route: ROUTES.FEED };
     }
 
@@ -429,7 +430,15 @@ export function RootNavigator() {
     pagerRef.current?.scrollTo({ x: pageIndex * width, animated: false });
   }, [currentRoute, isMainRoute, width]);
 
-  const handleLoginComplete = () => {
+  const handleLoginComplete = (context?: { source: 'signIn' | 'register' }) => {
+    if (context?.source === 'register') {
+      navigateToSnapshot(
+        { route: ROUTES.PROFILE_COMPLETION },
+        { resetStack: true, preserveCurrent: false },
+      );
+      return;
+    }
+
     setBackStack((current) => {
       const nextStack = [...current];
       const previousSnapshot = nextStack[nextStack.length - 1];
@@ -446,6 +455,10 @@ export function RootNavigator() {
     });
     restoreSnapshot(resolvedRedirectTarget);
   };
+
+  const handleProfileCompletionComplete = useCallback(() => {
+    navigateToSnapshot(resolvedRedirectTarget, { resetStack: true, preserveCurrent: false });
+  }, [navigateToSnapshot, resolvedRedirectTarget]);
 
   useEffect(() => {
     if (!isAuthenticated || currentRoute !== ROUTES.AUTH) {
@@ -477,6 +490,15 @@ export function RootNavigator() {
       <Screen>
         <StatusBar barStyle="dark-content" />
         <Loader fullScreen message="Restoring session..." />
+      </Screen>
+    );
+  }
+
+  if (isProfileCompletionRoute) {
+    return (
+      <Screen>
+        <StatusBar barStyle="dark-content" />
+        <ProfileCompletionScreen onCompleted={handleProfileCompletionComplete} />
       </Screen>
     );
   }

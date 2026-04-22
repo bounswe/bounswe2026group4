@@ -10,5 +10,6 @@ export type RootStackParamList = {
   Search: undefined;
   Submission: undefined;
   Notifications: undefined;
+  ProfileCompletion: undefined;
   Profile: undefined;
 };
