@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { limits } from '../../../../core/constants/limits';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button, Input } from '../../../../shared';
@@ -18,6 +18,22 @@ type FieldErrors = {
 };
 
 type StepKey = 'identity' | 'photo' | 'location' | 'birthDate' | 'bio';
+
+const MIN_BIRTH_YEAR = 1900;
+const MONTH_OPTIONS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
 
 interface PendingPhotoState extends ProfilePhotoUploadInput {
   fileSize: number;
@@ -79,6 +95,79 @@ function parseBirthDate(value: string) {
   return parsedDate;
 }
 
+function formatBirthDateLabel(value: string) {
+  const parsedDate = parseBirthDate(value);
+
+  if (!parsedDate) {
+    return 'Choose birth date';
+  }
+
+  return parsedDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function daysInMonth(year: number, monthIndex: number) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function clampDayInput(value: string, maxDay: number) {
+  const digitsOnly = value.replace(/[^0-9]/g, '').slice(0, 2);
+
+  if (!digitsOnly) {
+    return '';
+  }
+
+  const parsedDay = Number.parseInt(digitsOnly, 10);
+
+  if (!Number.isFinite(parsedDay)) {
+    return '';
+  }
+
+  return String(Math.min(Math.max(parsedDay, 1), maxDay));
+}
+
+function clampBirthDateParts(yearValue: string, monthIndex: number, dayValue: string) {
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonthIndex = today.getMonth();
+  const todayDay = today.getDate();
+
+  const parsedYear = Number.parseInt(yearValue.replace(/[^0-9]/g, '').slice(0, 4), 10);
+  const safeYear = Number.isFinite(parsedYear) ? Math.max(parsedYear, MIN_BIRTH_YEAR) : todayYear;
+  const maxDayForMonth = daysInMonth(safeYear, monthIndex);
+  const parsedDay = Number.parseInt(dayValue.replace(/[^0-9]/g, '').slice(0, 2), 10);
+  const safeDay = Number.isFinite(parsedDay) ? Math.min(Math.max(parsedDay, 1), maxDayForMonth) : 1;
+
+  const candidate = new Date(safeYear, monthIndex, safeDay);
+
+  if (candidate.getTime() <= today.getTime()) {
+    return {
+      year: String(safeYear),
+      monthIndex,
+      day: String(safeDay),
+    };
+  }
+
+  return {
+    year: String(todayYear),
+    monthIndex: todayMonthIndex,
+    day: String(todayDay),
+  };
+}
+
+function getDraftMaxBirthDay(yearValue: string, monthIndex: number) {
+  const parsedYear = Number.parseInt(yearValue.replace(/[^0-9]/g, '').slice(0, 4), 10);
+
+  if (!Number.isFinite(parsedYear)) {
+    return 31;
+  }
+
+  return daysInMonth(Math.max(parsedYear, MIN_BIRTH_YEAR), monthIndex);
+}
+
 function validateBirthDate(value: string) {
   if (!value) {
     return undefined;
@@ -88,6 +177,10 @@ function validateBirthDate(value: string) {
 
   if (!parsedDate) {
     return 'Use the YYYY-MM-DD format for a valid date.';
+  }
+
+  if (parsedDate.getFullYear() < MIN_BIRTH_YEAR) {
+    return `Birth date must be after ${MIN_BIRTH_YEAR}.`;
   }
 
   if (parsedDate.getTime() > Date.now()) {
@@ -250,6 +343,11 @@ export function ProfileCompletionScreen({
   const [isBirthDatePublic, setIsBirthDatePublic] = useState(false);
   const [isPhotoPublic, setIsPhotoPublic] = useState(true);
   const [pendingPhoto, setPendingPhoto] = useState<PendingPhotoState | null>(null);
+  const [isBirthDateModalVisible, setIsBirthDateModalVisible] = useState(false);
+  const [isMonthPickerVisible, setIsMonthPickerVisible] = useState(false);
+  const [birthMonthDraft, setBirthMonthDraft] = useState<number>(0);
+  const [birthDayDraft, setBirthDayDraft] = useState('1');
+  const [birthYearDraft, setBirthYearDraft] = useState('1995');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string>();
   const [isSaving, setIsSaving] = useState(false);
@@ -257,6 +355,9 @@ export function ProfileCompletionScreen({
   const currentStep = STEPS[currentStepIndex];
   const isLastStep = currentStepIndex === STEPS.length - 1;
   const canGoBack = currentStepIndex > 0 && !isSaving;
+  const normalizedBirthYear = Number.parseInt(birthYearDraft.replace(/[^0-9]/g, '').slice(0, 4), 10);
+  const maxBirthDay = getDraftMaxBirthDay(birthYearDraft, birthMonthDraft);
+  const normalizedBirthDay = Number.parseInt(birthDayDraft.replace(/[^0-9]/g, '').slice(0, 2), 10);
 
   const clearFieldError = useCallback((field: keyof FieldErrors) => {
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
@@ -412,6 +513,15 @@ export function ProfileCompletionScreen({
 
     setCurrentStepIndex((current) => current + 1);
   }, [currentStep.key, isLastStep, submit, validateCurrentStep]);
+
+  const handleOpenBirthDateModal = useCallback(() => {
+    const existingDate = parseBirthDate(birthDate);
+    setBirthMonthDraft(existingDate?.getUTCMonth() ?? 0);
+    setBirthDayDraft(String(existingDate?.getUTCDate() ?? 1));
+    setBirthYearDraft(String(existingDate?.getUTCFullYear() ?? 1995));
+    setIsMonthPickerVisible(false);
+    setIsBirthDateModalVisible(true);
+  }, [birthDate]);
 
   const handleSelectPhoto = useCallback(async () => {
     clearFieldError('photo');
@@ -584,17 +694,21 @@ export function ProfileCompletionScreen({
       case 'birthDate':
         return (
           <View style={{ gap: spacing.md }}>
-            <Input
-              value={birthDate}
-              onChangeText={(value) => {
-                setBirthDate(value);
-                clearFieldError('birthDate');
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open birth date picker"
+              onPress={handleOpenBirthDateModal}
+              style={{
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.md,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
               }}
-              accessibilityLabel="Birth date"
-              placeholder="YYYY-MM-DD"
-              editable={!isSaving}
-              autoCapitalize="none"
-            />
+            >
+              <Text style={{ color: birthDate ? colors.text : colors.muted }}>{formatBirthDateLabel(birthDate)}</Text>
+            </Pressable>
             <PrivacyToggle
               label="Birth date visibility"
               hint="Control whether your birth date is visible to others."
@@ -649,6 +763,7 @@ export function ProfileCompletionScreen({
     fieldErrors.location,
     fieldErrors.photo,
     firstName,
+    handleOpenBirthDateModal,
     handleSelectPhoto,
     isBioPublic,
     isBirthDatePublic,
@@ -740,6 +855,207 @@ export function ProfileCompletionScreen({
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={isBirthDateModalVisible}
+        onRequestClose={() => setIsBirthDateModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(10, 10, 10, 0.35)',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <Pressable style={{ flex: 1 }} onPress={() => setIsBirthDateModalVisible(false)} />
+          <View
+            style={{
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.lg,
+              paddingBottom: spacing.xl,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              backgroundColor: colors.background,
+              gap: spacing.md,
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+              Select birth date
+            </Text>
+            <Text style={{ color: colors.muted }}>
+              {birthYearDraft && birthDayDraft
+                ? `${MONTH_OPTIONS[birthMonthDraft]} ${birthDayDraft}, ${birthYearDraft}`
+                : 'Choose month, then enter day and year.'}
+            </Text>
+
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ gap: spacing.sm }}>
+                <Text style={{ color: colors.text, fontWeight: '700' }}>Month</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Open month picker"
+                  onPress={() => setIsMonthPickerVisible((current) => !current)}
+                  style={{
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.md,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  }}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>{MONTH_OPTIONS[birthMonthDraft]}</Text>
+                </Pressable>
+                {isMonthPickerVisible ? (
+                  <View
+                    style={{
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      padding: spacing.sm,
+                      gap: spacing.xs,
+                    }}
+                  >
+                    {MONTH_OPTIONS.map((month, index) => {
+                      const active = index === birthMonthDraft;
+
+                      return (
+                        <Pressable
+                          key={month}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select ${month}`}
+                          onPress={() => {
+                            setBirthMonthDraft(index);
+                            setBirthDayDraft((current) =>
+                              clampDayInput(current, getDraftMaxBirthDay(birthYearDraft, index)),
+                            );
+                            setIsMonthPickerVisible(false);
+                          }}
+                          style={{
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.sm,
+                            borderRadius: 12,
+                            backgroundColor: active ? colors.infoSurface : colors.background,
+                          }}
+                        >
+                          <Text style={{ color: active ? colors.primary : colors.text, fontWeight: active ? '700' : '500' }}>
+                            {month}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View style={{ flex: 1, gap: spacing.sm }}>
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>Day</Text>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: spacing.sm,
+                    }}
+                  >
+                    <Button
+                      variant="outline"
+                      onPress={() => {
+                        const nextDay = Number.isFinite(normalizedBirthDay)
+                          ? Math.max(normalizedBirthDay - 1, 1)
+                          : 1;
+                        setBirthDayDraft(String(nextDay));
+                      }}
+                    >
+                      -
+                    </Button>
+                    <View style={{ flex: 1 }}>
+                      <Input
+                        accessibilityLabel="Birth day"
+                        value={birthDayDraft}
+                        onChangeText={(value) => {
+                          setBirthDayDraft(clampDayInput(value, maxBirthDay));
+                        }}
+                        placeholder="DD"
+                        keyboardType="numeric"
+                      />
+                    </View>
+                    <Button
+                      variant="outline"
+                      onPress={() => {
+                        const nextDay = Number.isFinite(normalizedBirthDay)
+                          ? Math.min(normalizedBirthDay + 1, maxBirthDay)
+                          : 1;
+                        setBirthDayDraft(String(nextDay));
+                      }}
+                    >
+                      +
+                    </Button>
+                  </View>
+                  <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+                    Day range: 1-{maxBirthDay}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, gap: spacing.sm }}>
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>Year</Text>
+                  <Input
+                    accessibilityLabel="Birth year"
+                    value={birthYearDraft}
+                    onChangeText={(value) => {
+                      const normalizedYearValue = value.replace(/[^0-9]/g, '').slice(0, 4);
+                      setBirthYearDraft(normalizedYearValue);
+                      setBirthDayDraft((current) =>
+                        clampDayInput(current, getDraftMaxBirthDay(normalizedYearValue, birthMonthDraft)),
+                      );
+                    }}
+                    placeholder="YYYY"
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+              <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+                Enter the calendar day and full year. We will validate the date when you save it.
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button
+                onPress={() => {
+                  const clampedDate = clampBirthDateParts(birthYearDraft, birthMonthDraft, birthDayDraft);
+                  const normalizedDay = clampedDate.day;
+                  const normalizedYear = clampedDate.year;
+                  const nextBirthDate =
+                    normalizedDay && normalizedYear
+                      ? `${normalizedYear.padStart(4, '0')}-${`${clampedDate.monthIndex + 1}`.padStart(2, '0')}-${normalizedDay.padStart(2, '0')}`
+                      : '';
+                  setFieldErrors((current) => ({ ...current, birthDate: undefined }));
+                  setBirthDate(nextBirthDate);
+                  setBirthMonthDraft(clampedDate.monthIndex);
+                  setBirthDayDraft(clampedDate.day);
+                  setBirthYearDraft(clampedDate.year);
+                  setIsBirthDateModalVisible(false);
+                }}
+              >
+                Use Date
+              </Button>
+              <Button
+                variant="outline"
+                onPress={() => {
+                  setFieldErrors((current) => ({ ...current, birthDate: undefined }));
+                  setBirthDate('');
+                  setIsBirthDateModalVisible(false);
+                }}
+              >
+                Clear
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
