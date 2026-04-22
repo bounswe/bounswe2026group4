@@ -57,6 +57,14 @@ describe('FeedScreen', () => {
     expect(screen.queryByText('Story feed')).toBeNull();
   });
 
+  it('hides top feed controls when search controls are disabled', async () => {
+    renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} showSearchControls={false} />);
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Sort: Most Recent' })).toBeNull();
+    expect(screen.queryByLabelText('Search stories')).toBeNull();
+  });
+
   it('shows an empty state when no stories are returned', async () => {
     renderScreen(<FeedScreen getFeed={async () => makeFeedPage({ items: [], totalCount: 0 })} />);
 
