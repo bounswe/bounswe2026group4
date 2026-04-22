@@ -65,26 +65,39 @@ describe('StoryRepositoryImpl', () => {
     expect(deleteStorySpy).toHaveBeenCalledWith('42');
   });
 
-  it('falls back to the story feed when the map endpoint returns no pins', async () => {
-    jest.spyOn(storiesRemoteSource, 'getMapStoriesFromApi').mockResolvedValue([]);
-    jest.spyOn(storiesRemoteSource, 'getStoriesFromApi').mockResolvedValue([
-      {
-        id: 7,
-        title: 'Bosphorus Memory',
-        preview_text: 'A waterfront story.',
-        location_name: 'Istanbul',
-        location_lat: '41.0082',
-        location_lng: '28.9784',
-        time_period: '1980s',
-      },
-      {
-        id: 8,
-        title: 'Missing Coordinates',
-        preview_text: 'This one should not become a pin.',
-        location_name: 'Unknown',
-        time_period: '1990s',
-      },
-    ]);
+  it('maps a GeoJSON FeatureCollection into mobile story pins', async () => {
+    jest.spyOn(storiesRemoteSource, 'getMapFeatureCollectionFromApi').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          id: 7,
+          geometry: {
+            type: 'Point',
+            coordinates: [28.9784, 41.0082],
+          },
+          properties: {
+            title: 'Bosphorus Memory',
+            preview_text: 'A waterfront story.',
+            location_name: 'Istanbul',
+            time_type: 'decade',
+            year: 1980,
+          },
+        },
+        {
+          type: 'Feature',
+          id: 8,
+          geometry: {
+            type: 'Point',
+            coordinates: ['invalid', 41.1],
+          },
+          properties: {
+            title: 'Missing Coordinates',
+            location_name: 'Unknown',
+          },
+        },
+      ],
+    });
 
     const repository = new StoryRepositoryImpl();
     const result = await repository.getMapPins();
@@ -100,5 +113,16 @@ describe('StoryRepositoryImpl', () => {
         longitude: 28.9784,
       },
     ]);
+  });
+
+  it('returns an empty list when the GeoJSON FeatureCollection is empty', async () => {
+    jest.spyOn(storiesRemoteSource, 'getMapFeatureCollectionFromApi').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [],
+    });
+
+    const repository = new StoryRepositoryImpl();
+
+    await expect(repository.getMapPins()).resolves.toEqual([]);
   });
 });

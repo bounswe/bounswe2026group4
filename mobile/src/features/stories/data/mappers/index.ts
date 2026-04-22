@@ -41,6 +41,12 @@ interface StoryRecord {
   comments?: unknown;
 }
 
+interface StoryMapFeatureRecord {
+  id?: unknown;
+  geometry?: unknown;
+  properties?: unknown;
+}
+
 function isCommentPreview(value: unknown): value is StoryCommentPreview {
   if (!value || typeof value !== 'object') {
     return false;
@@ -243,6 +249,15 @@ function getContributorName(value: StoryRecord) {
   return 'Anonymous';
 }
 
+function formatTimePeriodFromProperties(properties: Record<string, unknown>) {
+  return formatTimePeriod({
+    time_type: properties.time_type,
+    year: properties.year,
+    year_start: properties.year_start,
+    year_end: properties.year_end,
+  });
+}
+
 export function mapStory(value: unknown): StoryEntity {
   if (!value || typeof value !== 'object') {
     throw new Error('Invalid story payload.');
@@ -338,6 +353,41 @@ export function mapStoryMapPin(value: unknown): StoryMapPin {
     timePeriod: summary.timePeriod,
     latitude: summary.latitude,
     longitude: summary.longitude,
+  };
+}
+
+export function mapGeoJSONStoryMapPin(value: unknown): StoryMapPin {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Invalid story map pin payload.');
+  }
+
+  const feature = value as StoryMapFeatureRecord;
+  const id = asIdentifier(feature.id);
+  const properties =
+    feature.properties && typeof feature.properties === 'object'
+      ? (feature.properties as Record<string, unknown>)
+      : undefined;
+  const geometry =
+    feature.geometry && typeof feature.geometry === 'object'
+      ? (feature.geometry as Record<string, unknown>)
+      : undefined;
+  const coordinates = Array.isArray(geometry?.coordinates) ? geometry.coordinates : undefined;
+  const longitude = asNumber(coordinates?.[0]);
+  const latitude = asNumber(coordinates?.[1]);
+  const title = asString(properties?.title);
+
+  if (!id || !title || latitude === undefined || longitude === undefined) {
+    throw new Error('Invalid story map pin payload.');
+  }
+
+  return {
+    id,
+    title,
+    previewText: asString(properties?.preview_text),
+    placeName: asString(properties?.location_name),
+    timePeriod: formatTimePeriodFromProperties(properties ?? {}),
+    latitude,
+    longitude,
   };
 }
 

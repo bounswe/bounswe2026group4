@@ -1,6 +1,6 @@
 import { StoryEntity, StoryMapPin, StorySummaryEntity } from '../../domain/entities';
 import { StoryFilters, StoryRepository } from '../../domain/repositories';
-import { mapStory, mapStoryComment, mapStoryMapPin, mapStorySummary } from '../mappers';
+import { mapGeoJSONStoryMapPin, mapStory, mapStoryComment, mapStoryMapPin, mapStorySummary } from '../mappers';
 import { storiesLocalSource, storiesRemoteSource } from '../sources';
 import { env } from '../../../../app/config/env';
 
@@ -49,7 +49,14 @@ export class StoryRepositoryImpl implements StoryRepository {
 
   async getMapPins(filters: StoryFilters = {}): Promise<StoryMapPin[]> {
     try {
-      const remotePins = await this.getRemoteMapPins(filters);
+      const featureCollection = await storiesRemoteSource.getMapFeatureCollectionFromApi(filters);
+      const remotePins = featureCollection.features.flatMap((feature) => {
+        try {
+          return [mapGeoJSONStoryMapPin(feature)];
+        } catch {
+          return [];
+        }
+      });
 
       if (env.environment === 'development') {
         return mergeById(remotePins, storiesLocalSource.getStories(filters).map(mapStoryMapPin));
@@ -60,24 +67,6 @@ export class StoryRepositoryImpl implements StoryRepository {
       const response = await storiesRemoteSource.getStories(filters);
       return response.map(mapStoryMapPin);
     }
-  }
-
-  private async getRemoteMapPins(filters: StoryFilters) {
-    const mapStories = await storiesRemoteSource.getMapStoriesFromApi(filters);
-
-    if (mapStories.length > 0) {
-      return mapStories.map(mapStoryMapPin);
-    }
-
-    const stories = await storiesRemoteSource.getStoriesFromApi(filters);
-
-    return stories.flatMap((story) => {
-      try {
-        return [mapStoryMapPin(story)];
-      } catch {
-        return [];
-      }
-    });
   }
 }
 
