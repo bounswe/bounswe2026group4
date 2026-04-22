@@ -11,6 +11,7 @@ export const ROUTES = {
   SUBMISSION: 'Submission',
   NOTIFICATIONS: 'Notifications',
   REGISTER: 'register',
+  PROFILE_COMPLETION: 'ProfileCompletion',
   PROFILE: 'Profile',
   USER_PROFILE: 'UserProfile',
 } as const;

@@ -169,6 +169,90 @@ describe('userService', () => {
     });
   });
 
+  it('supports profile completion updates without sending username fields', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'PATCH' && config.url === '/users/me/') {
+        expect(config.data).toMatchObject({
+          profile: {
+            first_name: 'Ada',
+            last_name: 'Lovelace',
+            location: '',
+            birth_date: null,
+            bio: '',
+            is_name_public: true,
+            is_location_public: true,
+            is_birth_date_public: false,
+            is_photo_public: true,
+          },
+        });
+        expect(config.data.username).toBeUndefined();
+        expect(config.data.is_username_public).toBeUndefined();
+
+        return {
+          status: 200,
+          data: {
+            success: true,
+            data: {
+              id: 7,
+              username: 'Traveler',
+              email: 'traveler@example.com',
+              total_points: 5,
+              is_username_public: true,
+              is_email_verified: true,
+              profile: {
+                first_name: 'Ada',
+                last_name: 'Lovelace',
+                bio: '',
+                location: '',
+                birth_date: null,
+                is_name_public: true,
+                is_location_public: true,
+                is_birth_date_public: false,
+                is_photo_public: true,
+              },
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/7/') {
+        return {
+          status: 200,
+          data: {
+            id: 7,
+            username: 'Traveler',
+            total_points: 5,
+            published_story_count: 4,
+            first_name: 'Ada',
+            last_name: 'Lovelace',
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(
+      userService.updateCurrentProfile({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        bio: '',
+        location: '',
+        birthDate: null,
+        isNamePublic: true,
+        isLocationPublic: true,
+        isBirthDatePublic: false,
+        isPhotoPublic: true,
+      }),
+    ).resolves.toMatchObject({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      isNamePublic: true,
+    });
+  });
+
   it('uploads a profile photo via POST /users/me/photo/', async () => {
     setApiTransport(async (method: any, config: any) => {
       if (method === 'POST' && config.url === '/users/me/photo/') {

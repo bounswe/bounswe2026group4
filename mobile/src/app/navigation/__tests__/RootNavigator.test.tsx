@@ -78,6 +78,13 @@ const publicProfileDetail = {
   birth_year: 1988,
 };
 
+const ownPublicProfileDetail = {
+  id: 1,
+  username: 'Traveler',
+  total_points: 12,
+  published_story_count: 2,
+};
+
 function installAuthTransport() {
   setApiTransport(async (method, config) => {
     if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
@@ -138,6 +145,14 @@ function installAuthTransport() {
       };
     }
 
+    if (method === 'GET' && config.url === '/users/1/') {
+      return {
+        status: 200,
+        data: ownPublicProfileDetail as never,
+        config,
+      };
+    }
+
     if (method === 'GET' && config.url?.startsWith('/stories/?')) {
       return {
         status: 200,
@@ -192,6 +207,51 @@ function installAuthTransport() {
       return {
         status: 204,
         data: null as never,
+        config,
+      };
+    }
+
+    if (method === 'PATCH' && config.url === '/users/me/') {
+      const payload = config.data as {
+        profile?: {
+          first_name?: string;
+          last_name?: string;
+          bio?: string;
+          location?: string;
+          birth_date?: string | null;
+          is_name_public?: boolean;
+          is_location_public?: boolean;
+          is_birth_date_public?: boolean;
+          is_photo_public?: boolean;
+        };
+      };
+
+      return {
+        status: 200,
+        data: {
+          success: true,
+          data: {
+            id: 1,
+            username: 'Traveler',
+            email: 'traveler@example.com',
+            role: 'user',
+            total_points: 12,
+            is_username_public: true,
+            is_email_verified: true,
+            date_joined: '2026-01-15T10:00:00Z',
+            profile: {
+              first_name: payload.profile?.first_name ?? '',
+              last_name: payload.profile?.last_name ?? '',
+              bio: payload.profile?.bio ?? '',
+              location: payload.profile?.location ?? '',
+              birth_date: payload.profile?.birth_date ?? null,
+              is_name_public: payload.profile?.is_name_public ?? true,
+              is_location_public: payload.profile?.is_location_public ?? true,
+              is_birth_date_public: payload.profile?.is_birth_date_public ?? false,
+              is_photo_public: payload.profile?.is_photo_public ?? true,
+            },
+          },
+        } as never,
         config,
       };
     }
@@ -261,7 +321,7 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('automatically signs in after registration and persists the session', async () => {
+  it('opens profile completion after registration and persists the session', async () => {
     renderNavigator();
 
     fireEvent.press(await screen.findByLabelText('Login'));
@@ -275,11 +335,43 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getAllByText('Create account').at(-1)!);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Profile')).toBeTruthy();
+      expect(screen.getByLabelText('Name')).toBeTruthy();
     });
 
     expect(await storage.get<{ accessToken?: string }>(storageKeys.authSession)).toMatchObject({
       accessToken: 'access-token-123',
+    });
+  });
+
+  it('returns to the feed after profile completion is submitted', async () => {
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Login'));
+    await screen.findByLabelText('Email address');
+    fireEvent.press(screen.getByText('Sign up'));
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'newtraveler');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'newuser@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
+    fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
+    fireEvent.press(screen.getAllByText('Create account').at(-1)!);
+
+    await screen.findByLabelText('Name');
+
+    fireEvent.changeText(screen.getByLabelText('Name'), 'Ada');
+    fireEvent.changeText(screen.getByLabelText('Surname'), 'Lovelace');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Profile photo');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Location');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Birth date');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Bio');
+    fireEvent.press(screen.getByText('Finish'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search stories')).toBeTruthy();
     });
   });
 

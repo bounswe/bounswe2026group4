@@ -43,6 +43,8 @@ jest.mock('../../../../auth', () => ({
 const selfProfile = {
   id: '7',
   username: 'Traveler',
+  firstName: 'Ada',
+  lastName: 'Lovelace',
   email: 'traveler@example.com',
   totalPoints: 12,
   publishedStoryCount: 4,
@@ -51,6 +53,7 @@ const selfProfile = {
   location: 'Istanbul',
   birthDate: '1995-05-20',
   profilePhoto: 'https://cdn.example.com/original.jpg',
+  isNamePublic: true,
   isUsernamePublic: true,
   isEmailVerified: true,
   isLocationPublic: true,
@@ -61,6 +64,8 @@ const selfProfile = {
 const publicProfile = {
   id: '12',
   username: 'Aylin',
+  firstName: 'Aylin',
+  lastName: 'Demir',
   totalPoints: 30,
   publishedStoryCount: 4,
   dateJoined: '2025-02-10T10:00:00Z',
@@ -99,11 +104,25 @@ describe('ProfileScreen', () => {
     fireEvent.press(screen.getByText('Edit Profile'));
 
     expect(screen.getByLabelText('Username')).toBeTruthy();
+    expect(screen.getByLabelText('First name')).toBeTruthy();
+    expect(screen.getByLabelText('Last name')).toBeTruthy();
     expect(screen.getByLabelText('Location')).toBeTruthy();
     expect(screen.getByLabelText('Bio')).toBeTruthy();
     expect(screen.getByText('Choose Photo')).toBeTruthy();
     expect(screen.getByText('Remove Photo')).toBeTruthy();
-    expect(screen.getAllByRole('switch')).toHaveLength(5);
+    expect(screen.getAllByRole('switch')).toHaveLength(6);
+  });
+
+  it('shows the saved full name on the profile header when available', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('Ada Lovelace')).toBeTruthy();
   });
 
   it('shows a photo preview after selecting a valid image and can remove it before saving', async () => {
@@ -224,10 +243,13 @@ describe('ProfileScreen', () => {
 
     const updateCurrentProfile = jest.fn(async (input) => ({
       ...selfProfile,
+      firstName: input.firstName,
+      lastName: input.lastName,
       username: input.username,
       location: input.location,
       bio: input.bio,
       birthDate: input.birthDate,
+      isNamePublic: input.isNamePublic,
       isUsernamePublic: input.isUsernamePublic,
       isLocationPublic: input.isLocationPublic,
       isBirthDatePublic: input.isBirthDatePublic,
@@ -255,6 +277,8 @@ describe('ProfileScreen', () => {
 
     await screen.findByText('Traveler');
     fireEvent.press(screen.getByText('Edit Profile'));
+    fireEvent.changeText(screen.getByLabelText('First name'), 'Ada');
+    fireEvent.changeText(screen.getByLabelText('Last name'), 'Byron');
     fireEvent.changeText(screen.getByLabelText('Username'), 'Traveler Updated');
     fireEvent.changeText(screen.getByLabelText('Location'), 'Ankara');
     fireEvent.changeText(screen.getByLabelText('Bio'), 'Updated bio');
