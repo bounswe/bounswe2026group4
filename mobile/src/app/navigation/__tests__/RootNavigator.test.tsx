@@ -335,7 +335,7 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getAllByText('Create account').at(-1)!);
 
     await waitFor(() => {
-      expect(screen.getByText('Complete your profile')).toBeTruthy();
+      expect(screen.getByLabelText('Name')).toBeTruthy();
     });
 
     expect(await storage.get<{ accessToken?: string }>(storageKeys.authSession)).toMatchObject({
@@ -356,11 +356,19 @@ describe('RootNavigator auth flow', () => {
     fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
     fireEvent.press(screen.getAllByText('Create account').at(-1)!);
 
-    await screen.findByText('Complete your profile');
+    await screen.findByLabelText('Name');
 
     fireEvent.changeText(screen.getByLabelText('Name'), 'Ada');
     fireEvent.changeText(screen.getByLabelText('Surname'), 'Lovelace');
     fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Profile photo');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Location');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Birth date');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Bio');
+    fireEvent.press(screen.getByText('Finish'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Search stories')).toBeTruthy();

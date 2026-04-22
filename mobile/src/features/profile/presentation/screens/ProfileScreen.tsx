@@ -42,10 +42,13 @@ interface ProfileScreenProps {
 }
 
 interface ProfileFormState {
+  firstName: string;
+  lastName: string;
   username: string;
   bio: string;
   location: string;
   birthDate: string;
+  isNamePublic: boolean;
   isUsernamePublic: boolean;
   isBioPublic: boolean;
   isLocationPublic: boolean;
@@ -191,10 +194,13 @@ function getDraftMaxBirthDay(yearValue: string, monthIndex: number) {
 
 function createFormState(profile?: ProfileEntity | null): ProfileFormState {
   return {
+    firstName: profile?.firstName ?? '',
+    lastName: profile?.lastName ?? '',
     username: profile?.username ?? '',
     bio: profile?.bio ?? '',
     location: profile?.location ?? '',
     birthDate: profile?.birthDate ?? '',
+    isNamePublic: profile?.isNamePublic ?? true,
     isUsernamePublic: profile?.isUsernamePublic ?? true,
     isBioPublic: true,
     isLocationPublic: profile?.isLocationPublic ?? true,
@@ -205,10 +211,13 @@ function createFormState(profile?: ProfileEntity | null): ProfileFormState {
 
 function areFormStatesEqual(left: ProfileFormState, right: ProfileFormState) {
   return (
+    left.firstName === right.firstName &&
+    left.lastName === right.lastName &&
     left.username === right.username &&
     left.bio === right.bio &&
     left.location === right.location &&
     left.birthDate === right.birthDate &&
+    left.isNamePublic === right.isNamePublic &&
     left.isUsernamePublic === right.isUsernamePublic &&
     left.isBioPublic === right.isBioPublic &&
     left.isLocationPublic === right.isLocationPublic &&
@@ -557,7 +566,10 @@ export function ProfileScreen({
     }
 
     const payload: UpdateProfileInput = {
+      firstName: formState.firstName,
+      lastName: formState.lastName,
       username: formState.username,
+      isNamePublic: formState.isNamePublic,
       bio: formState.bio,
       location: formState.location,
       birthDate: formState.birthDate,
@@ -648,6 +660,9 @@ export function ProfileScreen({
   }, [isSelfMode]);
 
   const resolvedName = profile?.username || (isSelfMode ? user?.username : null) || 'Anonymous user';
+  const resolvedFullName = [profile?.firstName, profile?.lastName]
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
   const joinedDate = formatJoinedDate(profile?.dateJoined);
   const isDirty = useMemo(() => {
     if (!profile) {
@@ -735,6 +750,11 @@ export function ProfileScreen({
             <Text style={{ marginTop: spacing.xs, color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
               {resolvedName}
             </Text>
+            {resolvedFullName ? (
+              <Text style={{ marginTop: spacing.xs, color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
+                {resolvedFullName}
+              </Text>
+            ) : null}
             {isSelfMode && profile.email ? (
               <Text style={{ marginTop: spacing.xs, color: colors.muted }}>{profile.email}</Text>
             ) : null}
@@ -871,6 +891,34 @@ export function ProfileScreen({
                     value={formState.isUsernamePublic}
                     onToggle={() => {
                       setFormState((current) => ({ ...current, isUsernamePublic: !current.isUsernamePublic }));
+                    }}
+                  />
+                </FieldCard>
+
+                <FieldCard title="Name">
+                  <Input
+                    accessibilityLabel="First name"
+                    value={formState.firstName}
+                    onChangeText={(value) => {
+                      setFormState((current) => ({ ...current, firstName: value }));
+                    }}
+                    placeholder="First name"
+                    autoCapitalize="words"
+                  />
+                  <Input
+                    accessibilityLabel="Last name"
+                    value={formState.lastName}
+                    onChangeText={(value) => {
+                      setFormState((current) => ({ ...current, lastName: value }));
+                    }}
+                    placeholder="Last name"
+                    autoCapitalize="words"
+                  />
+                  <ToggleRow
+                    label="Show your full name publicly"
+                    value={formState.isNamePublic}
+                    onToggle={() => {
+                      setFormState((current) => ({ ...current, isNamePublic: !current.isNamePublic }));
                     }}
                   />
                 </FieldCard>

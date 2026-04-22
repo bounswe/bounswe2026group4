@@ -1,12 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { limits } from '../../../../core/constants/limits';
+import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button, Input } from '../../../../shared';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { userService } from '../../application/services';
-import { ProfilePhotoUploadInput, ProfileEntity } from '../../domain/entities';
+import { ProfileEntity, ProfilePhotoUploadInput } from '../../domain/entities';
 
 type FieldErrors = {
   firstName?: string;
@@ -16,6 +16,8 @@ type FieldErrors = {
   bio?: string;
   photo?: string;
 };
+
+type StepKey = 'identity' | 'photo' | 'location' | 'birthDate' | 'bio';
 
 interface PendingPhotoState extends ProfilePhotoUploadInput {
   fileSize: number;
@@ -27,6 +29,32 @@ interface ProfileCompletionScreenProps {
   updateCurrentProfile?: typeof userService.updateCurrentProfile;
   uploadProfilePhoto?: typeof userService.uploadProfilePhoto;
 }
+
+const STEPS: Array<{
+  key: StepKey;
+  title: string;
+}> = [
+  {
+    key: 'identity',
+    title: 'Your details',
+  },
+  {
+    key: 'photo',
+    title: 'Profile photo',
+  },
+  {
+    key: 'location',
+    title: 'Location',
+  },
+  {
+    key: 'birthDate',
+    title: 'Birth date',
+  },
+  {
+    key: 'bio',
+    title: 'Bio',
+  },
+];
 
 function parseBirthDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -103,6 +131,51 @@ function validatePhoto(photo: PendingPhotoState | null) {
   return undefined;
 }
 
+function StepIndicator({
+  currentStepIndex,
+}: {
+  currentStepIndex: number;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+      {STEPS.map((step, index) => {
+        const isActive = index === currentStepIndex;
+        const isCompleted = index < currentStepIndex;
+
+        return (
+          <View
+            key={step.key}
+            style={{
+              flex: 1,
+              height: 6,
+              borderRadius: 999,
+              backgroundColor: isCompleted || isActive ? colors.primary : colors.border,
+              opacity: isActive ? 1 : isCompleted ? 0.8 : 1,
+            }}
+            accessibilityLabel={`Progress step ${index + 1}`}
+          >
+            {isActive ? (
+              <Text
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  left: 0,
+                  color: colors.muted,
+                  fontSize: typography.caption,
+                }}
+              >
+                {index + 1}/{STEPS.length}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function PrivacyToggle({
   label,
   hint,
@@ -134,7 +207,7 @@ function PrivacyToggle({
         backgroundColor: colors.background,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.md - 2,
-        opacity: pressed ? 0.9 : 1,
+        opacity: pressed ? 0.92 : 1,
       })}
     >
       <View style={{ flex: 1, gap: spacing.xs }}>
@@ -159,71 +232,6 @@ function PrivacyToggle({
   );
 }
 
-function OptionalCard({
-  title,
-  description,
-  isActive,
-  onActivate,
-  onSkip,
-  children,
-}: {
-  title: string;
-  description: string;
-  isActive: boolean;
-  onActivate: () => void;
-  onSkip: () => void;
-  children: React.ReactNode;
-}) {
-  const { colors, spacing, typography } = useAppTheme();
-
-  if (!isActive) {
-    return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Add ${title}`}
-        onPress={onActivate}
-        style={({ pressed }) => ({
-          borderRadius: 18,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-          padding: spacing.md,
-          gap: spacing.xs,
-          opacity: pressed ? 0.92 : 1,
-        })}
-      >
-        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{title}</Text>
-        <Text style={{ color: colors.muted }}>{description}</Text>
-        <Text style={{ color: colors.primary, fontWeight: '700' }}>Add now</Text>
-      </Pressable>
-    );
-  }
-
-  return (
-    <View
-      style={{
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.background,
-        padding: spacing.md,
-        gap: spacing.md,
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
-        <View style={{ flex: 1, gap: spacing.xs }}>
-          <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{title}</Text>
-          <Text style={{ color: colors.muted }}>{description}</Text>
-        </View>
-        <Pressable accessibilityRole="button" onPress={onSkip}>
-          <Text style={{ color: colors.muted, fontWeight: '700' }}>Skip</Text>
-        </Pressable>
-      </View>
-      {children}
-    </View>
-  );
-}
-
 export function ProfileCompletionScreen({
   onCompleted,
   updateCurrentProfile = userService.updateCurrentProfile,
@@ -231,36 +239,33 @@ export function ProfileCompletionScreen({
 }: ProfileCompletionScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [location, setLocation] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [bio, setBio] = useState('');
+  const [isBioPublic, setIsBioPublic] = useState(true);
   const [isLocationPublic, setIsLocationPublic] = useState(true);
   const [isBirthDatePublic, setIsBirthDatePublic] = useState(false);
   const [isPhotoPublic, setIsPhotoPublic] = useState(true);
   const [pendingPhoto, setPendingPhoto] = useState<PendingPhotoState | null>(null);
-  const [showPhotoSection, setShowPhotoSection] = useState(false);
-  const [showLocationSection, setShowLocationSection] = useState(false);
-  const [showBirthDateSection, setShowBirthDateSection] = useState(false);
-  const [showBioSection, setShowBioSection] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string>();
   const [isSaving, setIsSaving] = useState(false);
 
-  const selectedOptionalCount = useMemo(
-    () => [showPhotoSection, showLocationSection, showBirthDateSection, showBioSection].filter(Boolean).length,
-    [showBioSection, showBirthDateSection, showLocationSection, showPhotoSection],
-  );
+  const currentStep = STEPS[currentStepIndex];
+  const isLastStep = currentStepIndex === STEPS.length - 1;
+  const canGoBack = currentStepIndex > 0 && !isSaving;
 
   const clearFieldError = useCallback((field: keyof FieldErrors) => {
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }, []);
 
-  const validateForm = useCallback(
-    (options?: { onlyRequired?: boolean }) => {
-      const nextErrors: FieldErrors = {};
+  const validateCurrentStep = useCallback((stepKey: StepKey) => {
+    const nextErrors: FieldErrors = {};
 
+    if (stepKey === 'identity') {
       if (!firstName.trim()) {
         nextErrors.firstName = 'Name is required.';
       } else if (firstName.trim().length > 150) {
@@ -272,40 +277,141 @@ export function ProfileCompletionScreen({
       } else if (lastName.trim().length > 150) {
         nextErrors.lastName = 'Surname must be 150 characters or fewer.';
       }
+    }
 
-      if (!options?.onlyRequired || showLocationSection) {
-        if (location.length > 255) {
-          nextErrors.location = 'Location cannot exceed 255 characters.';
+    if (stepKey === 'photo') {
+      const photoError = validatePhoto(pendingPhoto);
+
+      if (photoError) {
+        nextErrors.photo = photoError;
+      }
+    }
+
+    if (stepKey === 'location' && location.length > 255) {
+      nextErrors.location = 'Location cannot exceed 255 characters.';
+    }
+
+    if (stepKey === 'birthDate') {
+      const birthDateError = validateBirthDate(birthDate);
+
+      if (birthDateError) {
+        nextErrors.birthDate = birthDateError;
+      }
+    }
+
+    if (stepKey === 'bio' && bio.length > 1000) {
+      nextErrors.bio = 'Bio must be 1000 characters or fewer.';
+    }
+
+    setFieldErrors((current) => ({ ...current, ...nextErrors }));
+    return Object.keys(nextErrors).length === 0;
+  }, [bio.length, birthDate, firstName, lastName, location.length, pendingPhoto]);
+
+  const extractErrors = useCallback((error: unknown) => {
+    const data = (error as { response?: { data?: unknown } })?.response?.data as
+      | {
+          message?: string;
+          detail?: string;
+          errors?: {
+            profile?: Record<string, string | string[]>;
+            photo?: string | string[];
+          };
         }
+      | undefined;
+    const profileErrors = data?.errors?.profile;
+    const nextFieldErrors: FieldErrors = {};
+
+    const readMessage = (value: unknown) => {
+      if (Array.isArray(value) && typeof value[0] === 'string') {
+        return value[0];
       }
 
-      if (!options?.onlyRequired || showBirthDateSection) {
-        const birthDateError = validateBirthDate(birthDate);
+      return typeof value === 'string' ? value : undefined;
+    };
 
-        if (birthDateError) {
-          nextErrors.birthDate = birthDateError;
-        }
+    if (profileErrors) {
+      nextFieldErrors.firstName = readMessage(profileErrors.first_name);
+      nextFieldErrors.lastName = readMessage(profileErrors.last_name);
+      nextFieldErrors.location = readMessage(profileErrors.location);
+      nextFieldErrors.birthDate = readMessage(profileErrors.birth_date);
+      nextFieldErrors.bio = readMessage(profileErrors.bio);
+    }
+
+    if (data?.errors?.photo) {
+      nextFieldErrors.photo = readMessage(data.errors.photo);
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors((current) => ({ ...current, ...nextFieldErrors }));
+      return undefined;
+    }
+
+    return data?.message ?? data?.detail ?? (error instanceof Error ? error.message : 'Unable to save your profile.');
+  }, []);
+
+  const submit = useCallback(async () => {
+    setApiError(undefined);
+    setIsSaving(true);
+
+    try {
+      let nextProfile = await updateCurrentProfile({
+        firstName,
+        lastName,
+        isNamePublic: true,
+        location,
+        birthDate: birthDate || null,
+        bio,
+        isLocationPublic,
+        isBirthDatePublic,
+        isPhotoPublic,
+      });
+
+      if (pendingPhoto) {
+        nextProfile = await uploadProfilePhoto(pendingPhoto);
       }
 
-      if (!options?.onlyRequired || showBioSection) {
-        if (bio.length > 1000) {
-          nextErrors.bio = 'Bio must be 1000 characters or fewer.';
-        }
+      toast.success('Profile saved. You are all set.');
+      onCompleted?.(nextProfile);
+    } catch (error) {
+      const message = extractErrors(error);
+
+      if (message) {
+        setApiError(message);
       }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    birthDate,
+    bio,
+    extractErrors,
+    firstName,
+    isBirthDatePublic,
+    isLocationPublic,
+    isPhotoPublic,
+    lastName,
+    location,
+    onCompleted,
+    pendingPhoto,
+    toast,
+    updateCurrentProfile,
+    uploadProfilePhoto,
+  ]);
 
-      if (!options?.onlyRequired || showPhotoSection) {
-        const photoError = validatePhoto(pendingPhoto);
+  const advance = useCallback(async () => {
+    setApiError(undefined);
 
-        if (photoError) {
-          nextErrors.photo = photoError;
-        }
-      }
+    if (!validateCurrentStep(currentStep.key)) {
+      return;
+    }
 
-      setFieldErrors(nextErrors);
-      return Object.keys(nextErrors).length === 0;
-    },
-    [bio.length, birthDate, firstName, lastName, location.length, pendingPhoto, showBioSection, showBirthDateSection, showLocationSection, showPhotoSection],
-  );
+    if (isLastStep) {
+      await submit();
+      return;
+    }
+
+    setCurrentStepIndex((current) => current + 1);
+  }, [currentStep.key, isLastStep, submit, validateCurrentStep]);
 
   const handleSelectPhoto = useCallback(async () => {
     clearFieldError('photo');
@@ -352,139 +458,210 @@ export function ProfileCompletionScreen({
     }
 
     setPendingPhoto(nextPhoto);
-    setShowPhotoSection(true);
   }, [clearFieldError]);
 
-  const handleSkipOptionalSection = useCallback((section: 'photo' | 'location' | 'birthDate' | 'bio') => {
-    setApiError(undefined);
+  const screenBody = useMemo(() => {
+    switch (currentStep.key) {
+      case 'identity':
+        return (
+          <View style={{ gap: spacing.md }}>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={{ color: colors.text, fontWeight: '700' }}>
+                Name <Text style={{ color: colors.danger }}>*</Text>
+              </Text>
+              <Input
+                value={firstName}
+                onChangeText={(value) => {
+                  setFirstName(value);
+                  clearFieldError('firstName');
+                }}
+                accessibilityLabel="Name"
+                placeholder="Your name"
+                editable={!isSaving}
+                autoCapitalize="words"
+                autoComplete="name-given"
+                textContentType="givenName"
+              />
+              {fieldErrors.firstName ? <Text style={{ color: colors.danger }}>{fieldErrors.firstName}</Text> : null}
+            </View>
 
-    if (section === 'photo') {
-      setPendingPhoto(null);
-      setShowPhotoSection(false);
-      clearFieldError('photo');
-      return;
-    }
-
-    if (section === 'location') {
-      setLocation('');
-      setIsLocationPublic(true);
-      setShowLocationSection(false);
-      clearFieldError('location');
-      return;
-    }
-
-    if (section === 'birthDate') {
-      setBirthDate('');
-      setIsBirthDatePublic(false);
-      setShowBirthDateSection(false);
-      clearFieldError('birthDate');
-      return;
-    }
-
-    setBio('');
-    setShowBioSection(false);
-    clearFieldError('bio');
-  }, [clearFieldError]);
-
-  const extractErrors = useCallback((error: unknown) => {
-    const data = (error as { response?: { data?: unknown } })?.response?.data as
-      | {
-          message?: string;
-          detail?: string;
-          errors?: {
-            profile?: Record<string, string | string[]>;
-            photo?: string | string[];
-          };
-        }
-      | undefined;
-    const profileErrors = data?.errors?.profile;
-    const nextFieldErrors: FieldErrors = {};
-
-    const readMessage = (value: unknown) => {
-      if (Array.isArray(value) && typeof value[0] === 'string') {
-        return value[0];
-      }
-
-      return typeof value === 'string' ? value : undefined;
-    };
-
-    if (profileErrors) {
-      nextFieldErrors.firstName = readMessage(profileErrors.first_name);
-      nextFieldErrors.lastName = readMessage(profileErrors.last_name);
-      nextFieldErrors.location = readMessage(profileErrors.location);
-      nextFieldErrors.birthDate = readMessage(profileErrors.birth_date);
-      nextFieldErrors.bio = readMessage(profileErrors.bio);
-    }
-
-    if (data?.errors?.photo) {
-      nextFieldErrors.photo = readMessage(data.errors.photo);
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setFieldErrors(nextFieldErrors);
-      return undefined;
-    }
-
-    return data?.message ?? data?.detail ?? (error instanceof Error ? error.message : 'Unable to save your profile.');
-  }, []);
-
-  const submit = useCallback(async (options?: { onlyRequired?: boolean }) => {
-    setApiError(undefined);
-
-    if (!validateForm(options)) {
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      let nextProfile = await updateCurrentProfile({
-        firstName,
-        lastName,
-        isNamePublic: true,
-        location: options?.onlyRequired ? '' : showLocationSection ? location : '',
-        birthDate: options?.onlyRequired ? null : showBirthDateSection ? birthDate : null,
-        bio: options?.onlyRequired ? '' : showBioSection ? bio : '',
-        isLocationPublic,
-        isBirthDatePublic,
-        isPhotoPublic,
-      });
-
-      if (!options?.onlyRequired && showPhotoSection && pendingPhoto) {
-        nextProfile = await uploadProfilePhoto(pendingPhoto);
-      }
-
-      toast.success('Profile saved. You are all set.');
-      onCompleted?.(nextProfile);
-    } catch (error) {
-      const message = extractErrors(error);
-
-      if (message) {
-        setApiError(message);
-      }
-    } finally {
-      setIsSaving(false);
+            <View style={{ gap: spacing.sm }}>
+              <Text style={{ color: colors.text, fontWeight: '700' }}>
+                Surname <Text style={{ color: colors.danger }}>*</Text>
+              </Text>
+              <Input
+                value={lastName}
+                onChangeText={(value) => {
+                  setLastName(value);
+                  clearFieldError('lastName');
+                }}
+                accessibilityLabel="Surname"
+                placeholder="Your surname"
+                editable={!isSaving}
+                autoCapitalize="words"
+                autoComplete="name-family"
+                textContentType="familyName"
+              />
+              {fieldErrors.lastName ? <Text style={{ color: colors.danger }}>{fieldErrors.lastName}</Text> : null}
+            </View>
+          </View>
+        );
+      case 'photo':
+        return (
+          <View style={{ gap: spacing.md }}>
+            {pendingPhoto ? (
+              <Image
+                source={{ uri: pendingPhoto.previewUri }}
+                accessibilityLabel="Selected profile photo"
+                style={{
+                  width: 104,
+                  height: 104,
+                  borderRadius: 28,
+                  backgroundColor: colors.infoSurface,
+                  alignSelf: 'center',
+                }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: 104,
+                  height: 104,
+                  borderRadius: 28,
+                  alignSelf: 'center',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.infoSurface,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: typography.title, fontWeight: '800' }}>
+                  {firstName.trim().slice(0, 1).toUpperCase() || '?'}
+                </Text>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button onPress={() => void handleSelectPhoto()} disabled={isSaving}>
+                {pendingPhoto ? 'Choose another photo' : 'Choose photo'}
+              </Button>
+              {pendingPhoto ? (
+                <Button variant="outline" onPress={() => setPendingPhoto(null)} disabled={isSaving}>
+                  Remove
+                </Button>
+              ) : null}
+            </View>
+            <PrivacyToggle
+              label="Photo visibility"
+              hint="Choose whether your photo appears on your public profile."
+              value={isPhotoPublic}
+              onToggle={() => setIsPhotoPublic((current) => !current)}
+            />
+            {fieldErrors.photo ? <Text style={{ color: colors.danger }}>{fieldErrors.photo}</Text> : null}
+          </View>
+        );
+      case 'location':
+        return (
+          <View style={{ gap: spacing.md }}>
+            <Input
+              value={location}
+              onChangeText={(value) => {
+                setLocation(value);
+                clearFieldError('location');
+              }}
+              accessibilityLabel="Location"
+              placeholder="City, district, or region"
+              editable={!isSaving}
+              autoCapitalize="words"
+            />
+            <Text style={{ color: colors.muted, fontSize: typography.caption }}>{location.length}/255 characters</Text>
+            <PrivacyToggle
+              label="Location visibility"
+              hint="Show or hide your location on your public profile."
+              value={isLocationPublic}
+              onToggle={() => setIsLocationPublic((current) => !current)}
+            />
+            {fieldErrors.location ? <Text style={{ color: colors.danger }}>{fieldErrors.location}</Text> : null}
+          </View>
+        );
+      case 'birthDate':
+        return (
+          <View style={{ gap: spacing.md }}>
+            <Input
+              value={birthDate}
+              onChangeText={(value) => {
+                setBirthDate(value);
+                clearFieldError('birthDate');
+              }}
+              accessibilityLabel="Birth date"
+              placeholder="YYYY-MM-DD"
+              editable={!isSaving}
+              autoCapitalize="none"
+            />
+            <PrivacyToggle
+              label="Birth date visibility"
+              hint="Control whether your birth date is visible to others."
+              value={isBirthDatePublic}
+              onToggle={() => setIsBirthDatePublic((current) => !current)}
+            />
+            {fieldErrors.birthDate ? <Text style={{ color: colors.danger }}>{fieldErrors.birthDate}</Text> : null}
+          </View>
+        );
+      case 'bio':
+        return (
+          <View style={{ gap: spacing.md }}>
+            <Input
+              value={bio}
+              onChangeText={(value) => {
+                setBio(value);
+                clearFieldError('bio');
+              }}
+              accessibilityLabel="Bio"
+              placeholder="A quick intro"
+              editable={!isSaving}
+              multiline
+              numberOfLines={4}
+              autoCapitalize="sentences"
+              inputStyle={{ minHeight: 112 }}
+            />
+            <Text style={{ color: colors.muted, fontSize: typography.caption }}>{bio.length}/1000 characters</Text>
+            {fieldErrors.bio ? <Text style={{ color: colors.danger }}>{fieldErrors.bio}</Text> : null}
+            <PrivacyToggle
+              label="Show bio publicly"
+              hint="Bio privacy UI is ready and will work once backend support is added."
+              value={isBioPublic}
+              onToggle={() => setIsBioPublic((current) => !current)}
+            />
+          </View>
+        );
     }
   }, [
-    birthDate,
     bio,
-    extractErrors,
+    birthDate,
+    clearFieldError,
+    colors.danger,
+    colors.infoSurface,
+    colors.muted,
+    colors.primary,
+    colors.text,
+    currentStep.key,
+    fieldErrors.bio,
+    fieldErrors.birthDate,
+    fieldErrors.firstName,
+    fieldErrors.lastName,
+    fieldErrors.location,
+    fieldErrors.photo,
     firstName,
+    handleSelectPhoto,
+    isBioPublic,
     isBirthDatePublic,
     isLocationPublic,
     isPhotoPublic,
+    isSaving,
     lastName,
     location,
-    onCompleted,
     pendingPhoto,
-    showBirthDateSection,
-    showBioSection,
-    showLocationSection,
-    showPhotoSection,
-    toast,
-    updateCurrentProfile,
-    uploadProfilePhoto,
-    validateForm,
+    spacing.md,
+    spacing.sm,
+    typography.caption,
+    typography.title,
   ]);
 
   return (
@@ -507,255 +684,59 @@ export function ProfileCompletionScreen({
               borderColor: colors.border,
               backgroundColor: colors.surface,
               padding: spacing.lg,
-              gap: spacing.md,
+              gap: spacing.sm,
             }}
           >
-            <View style={{ gap: spacing.xs }}>
-              <Text style={{ color: colors.muted, fontSize: typography.caption, fontWeight: '700', textTransform: 'uppercase' }}>
-                Step 2 of 2
-              </Text>
-              <Text style={{ color: colors.text, fontSize: typography.title + 4, fontWeight: '800' }}>
-                Complete your profile
-              </Text>
-              <Text style={{ color: colors.muted, fontSize: typography.body }}>
-                Name and surname are required. Everything else is optional and can be skipped for now.
-              </Text>
-            </View>
-
-            <View
-              style={{
-                flexDirection: 'row',
-                gap: spacing.sm,
-                flexWrap: 'wrap',
-              }}
-            >
-              <View
-                style={{
-                  borderRadius: 999,
-                  backgroundColor: colors.background,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                }}
-              >
-                <Text style={{ color: colors.text, fontWeight: '700' }}>Required: 2 fields</Text>
-              </View>
-              <View
-                style={{
-                  borderRadius: 999,
-                  backgroundColor: colors.infoSurface,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                }}
-              >
-                <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                  Optional sections selected: {selectedOptionalCount}
-                </Text>
-              </View>
-            </View>
+            <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+              Complete your profile
+            </Text>
+            <StepIndicator currentStepIndex={currentStepIndex} />
           </View>
 
           <View
             style={{
-              borderRadius: 20,
+              borderRadius: 22,
               borderWidth: 1,
               borderColor: colors.border,
               backgroundColor: colors.surface,
               padding: spacing.lg,
-              gap: spacing.md,
+              gap: spacing.lg,
             }}
           >
-            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
-              Required details
-            </Text>
-
-            <View style={{ gap: spacing.sm }}>
-              <Text style={{ color: colors.text, fontWeight: '700' }}>Name</Text>
-              <Input
-                value={firstName}
-                onChangeText={(value) => {
-                  setFirstName(value);
-                  clearFieldError('firstName');
-                }}
-                accessibilityLabel="Name"
-                placeholder="Your name"
-                editable={!isSaving}
-                autoCapitalize="words"
-                autoComplete="name-given"
-                textContentType="givenName"
-              />
-              {fieldErrors.firstName ? <Text style={{ color: colors.danger }}>{fieldErrors.firstName}</Text> : null}
+            <View style={{ gap: spacing.xs }}>
+              <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+                {currentStep.title}
+              </Text>
             </View>
 
-            <View style={{ gap: spacing.sm }}>
-              <Text style={{ color: colors.text, fontWeight: '700' }}>Surname</Text>
-              <Input
-                value={lastName}
-                onChangeText={(value) => {
-                  setLastName(value);
-                  clearFieldError('lastName');
+            {screenBody}
+
+            {apiError ? (
+              <View
+                style={{
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: colors.danger,
+                  backgroundColor: colors.dangerSurface,
+                  padding: spacing.md,
                 }}
-                accessibilityLabel="Surname"
-                placeholder="Your surname"
-                editable={!isSaving}
-                autoCapitalize="words"
-                autoComplete="name-family"
-                textContentType="familyName"
-              />
-              {fieldErrors.lastName ? <Text style={{ color: colors.danger }}>{fieldErrors.lastName}</Text> : null}
-            </View>
-          </View>
-
-          <View style={{ gap: spacing.md }}>
-            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
-              Optional touches
-            </Text>
-
-            <OptionalCard
-              title="Profile photo"
-              description="Pick a photo so people can recognize you faster."
-              isActive={showPhotoSection}
-              onActivate={() => setShowPhotoSection(true)}
-              onSkip={() => handleSkipOptionalSection('photo')}
-            >
-              {pendingPhoto ? (
-                <Image
-                  source={{ uri: pendingPhoto.previewUri }}
-                  accessibilityLabel="Selected profile photo"
-                  style={{ width: 92, height: 92, borderRadius: 24, backgroundColor: colors.infoSurface }}
-                />
-              ) : null}
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                <Button onPress={() => void handleSelectPhoto()} disabled={isSaving}>
-                  {pendingPhoto ? 'Choose another photo' : 'Choose photo'}
-                </Button>
-                {pendingPhoto ? (
-                  <Button variant="outline" onPress={() => setPendingPhoto(null)} disabled={isSaving}>
-                    Remove
-                  </Button>
-                ) : null}
+              >
+                <Text style={{ color: colors.danger }}>{apiError}</Text>
               </View>
-              <PrivacyToggle
-                label="Photo visibility"
-                hint="Choose whether your photo appears on your public profile."
-                value={isPhotoPublic}
-                onToggle={() => setIsPhotoPublic((current) => !current)}
-              />
-              {fieldErrors.photo ? <Text style={{ color: colors.danger }}>{fieldErrors.photo}</Text> : null}
-            </OptionalCard>
+            ) : null}
 
-            <OptionalCard
-              title="Location"
-              description="Help others understand the places that matter to you."
-              isActive={showLocationSection}
-              onActivate={() => setShowLocationSection(true)}
-              onSkip={() => handleSkipOptionalSection('location')}
-            >
-              <Input
-                value={location}
-                onChangeText={(value) => {
-                  setLocation(value);
-                  clearFieldError('location');
-                }}
-                accessibilityLabel="Location"
-                placeholder="City, district, or region"
-                editable={!isSaving}
-                autoCapitalize="words"
-              />
-              <Text style={{ color: colors.muted, fontSize: typography.caption }}>
-                {location.length}/255 characters
-              </Text>
-              <PrivacyToggle
-                label="Location visibility"
-                hint="Show or hide your location on your public profile."
-                value={isLocationPublic}
-                onToggle={() => setIsLocationPublic((current) => !current)}
-              />
-              {fieldErrors.location ? <Text style={{ color: colors.danger }}>{fieldErrors.location}</Text> : null}
-            </OptionalCard>
-
-            <OptionalCard
-              title="Birth date"
-              description="Add it now if you want it to be part of your story."
-              isActive={showBirthDateSection}
-              onActivate={() => setShowBirthDateSection(true)}
-              onSkip={() => handleSkipOptionalSection('birthDate')}
-            >
-              <Input
-                value={birthDate}
-                onChangeText={(value) => {
-                  setBirthDate(value);
-                  clearFieldError('birthDate');
-                }}
-                accessibilityLabel="Birth date"
-                placeholder="YYYY-MM-DD"
-                editable={!isSaving}
-                autoCapitalize="none"
-              />
-              <PrivacyToggle
-                label="Birth date visibility"
-                hint="Control whether your birth date is visible to others."
-                value={isBirthDatePublic}
-                onToggle={() => setIsBirthDatePublic((current) => !current)}
-              />
-              {fieldErrors.birthDate ? <Text style={{ color: colors.danger }}>{fieldErrors.birthDate}</Text> : null}
-            </OptionalCard>
-
-            <OptionalCard
-              title="Bio"
-              description="Share a short sentence about what brings you here."
-              isActive={showBioSection}
-              onActivate={() => setShowBioSection(true)}
-              onSkip={() => handleSkipOptionalSection('bio')}
-            >
-              <Input
-                value={bio}
-                onChangeText={(value) => {
-                  setBio(value);
-                  clearFieldError('bio');
-                }}
-                accessibilityLabel="Bio"
-                placeholder="A quick intro"
-                editable={!isSaving}
-                multiline
-                numberOfLines={4}
-                autoCapitalize="sentences"
-                inputStyle={{ minHeight: 112 }}
-              />
-              <Text style={{ color: colors.muted, fontSize: typography.caption }}>
-                {bio.length}/1000 characters
-              </Text>
-              {fieldErrors.bio ? <Text style={{ color: colors.danger }}>{fieldErrors.bio}</Text> : null}
-            </OptionalCard>
-          </View>
-
-          {apiError ? (
-            <View
-              style={{
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: colors.danger,
-                backgroundColor: colors.dangerSurface,
-                padding: spacing.md,
-              }}
-            >
-              <Text style={{ color: colors.danger }}>{apiError}</Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {canGoBack ? (
+                <Button variant="outline" onPress={() => setCurrentStepIndex((current) => current - 1)} disabled={isSaving}>
+                  Back
+                </Button>
+              ) : null}
+              <View style={{ flex: 1 }}>
+                <Button onPress={() => void advance()} disabled={isSaving} fullWidth>
+                  {isSaving ? 'Saving profile...' : isLastStep ? 'Finish' : 'Continue'}
+                </Button>
+              </View>
             </View>
-          ) : null}
-
-          <View style={{ gap: spacing.sm }}>
-            <Button onPress={() => void submit()} disabled={isSaving} fullWidth>
-              {isSaving ? 'Saving profile...' : 'Continue'}
-            </Button>
-            <Button
-              variant="outline"
-              onPress={() => void submit({ onlyRequired: true })}
-              disabled={isSaving}
-              fullWidth
-            >
-              Skip optional for now
-            </Button>
           </View>
         </View>
       </ScrollView>

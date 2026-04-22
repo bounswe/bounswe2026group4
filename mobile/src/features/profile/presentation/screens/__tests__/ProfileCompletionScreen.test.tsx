@@ -40,7 +40,23 @@ describe('ProfileCompletionScreen', () => {
     expect(updateCurrentProfile).not.toHaveBeenCalled();
   });
 
-  it('submits only required fields when skipping optional sections', async () => {
+  it('moves through optional steps one by one with continue', async () => {
+    render(<ProfileCompletionScreen updateCurrentProfile={jest.fn()} />);
+
+    fireEvent.changeText(screen.getByLabelText('Name'), 'Ada');
+    fireEvent.changeText(screen.getByLabelText('Surname'), 'Lovelace');
+    fireEvent.press(screen.getByText('Continue'));
+
+    expect(await screen.findByText('Profile photo')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Continue'));
+    expect(await screen.findByText('Location')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Continue'));
+    expect(await screen.findByText('Birth date')).toBeTruthy();
+  });
+
+  it('submits with only required fields when optional steps are left blank', async () => {
     const updateCurrentProfile = jest.fn(async () => ({
       id: '7',
       username: 'Traveler',
@@ -60,7 +76,15 @@ describe('ProfileCompletionScreen', () => {
 
     fireEvent.changeText(screen.getByLabelText('Name'), 'Ada');
     fireEvent.changeText(screen.getByLabelText('Surname'), 'Lovelace');
-    fireEvent.press(screen.getByText('Skip optional for now'));
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Profile photo');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Location');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Birth date');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Bio');
+    fireEvent.press(screen.getByText('Finish'));
 
     await waitFor(() => {
       expect(updateCurrentProfile).toHaveBeenCalledWith({
@@ -116,16 +140,24 @@ describe('ProfileCompletionScreen', () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText('Add Profile photo'));
+    fireEvent.changeText(screen.getByLabelText('Name'), 'Ada');
+    fireEvent.changeText(screen.getByLabelText('Surname'), 'Lovelace');
+    fireEvent.press(screen.getByText('Continue'));
+
+    await screen.findByText('Profile photo');
     fireEvent.press(screen.getByText('Choose photo'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Selected profile photo')).toBeTruthy();
     });
 
-    fireEvent.changeText(screen.getByLabelText('Name'), 'Ada');
-    fireEvent.changeText(screen.getByLabelText('Surname'), 'Lovelace');
     fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Location');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Birth date');
+    fireEvent.press(screen.getByText('Continue'));
+    await screen.findByText('Bio');
+    fireEvent.press(screen.getByText('Finish'));
 
     await waitFor(() => {
       expect(updateCurrentProfile).toHaveBeenCalled();
