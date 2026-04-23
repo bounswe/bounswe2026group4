@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Image,
+  LayoutChangeEvent,
   Pressable,
   ScrollView,
   Text,
@@ -50,6 +51,20 @@ type FieldName =
   | 'yearEnd'
   | 'tags'
   | 'image';
+
+type LayoutTargetName = FieldName | 'time';
+
+const FIELD_SCROLL_ORDER: FieldName[] = [
+  'title',
+  'narrative',
+  'location',
+  'placeName',
+  'year',
+  'yearStart',
+  'yearEnd',
+  'tags',
+  'image',
+];
 
 interface SubmissionFormState {
   title: string;
@@ -113,6 +128,8 @@ function buildFieldLabel(tag: string) {
 export function SubmissionScreen() {
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldPositionsRef = useRef<Partial<Record<LayoutTargetName, { y: number; parent?: LayoutTargetName }>>>({});
   const [state, setState] = useState<SubmissionFormState>(initialState);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
 
@@ -135,6 +152,41 @@ export function SubmissionScreen() {
         ...current,
         [field]: undefined,
       };
+    });
+  };
+
+  const registerFieldLayout = (field: LayoutTargetName, parent?: LayoutTargetName) => (event: LayoutChangeEvent) => {
+    fieldPositionsRef.current[field] = { y: event.nativeEvent.layout.y, parent };
+  };
+
+  const getInputShellStyle = (field: FieldName) => ({
+    borderColor: fieldErrors[field] ? colors.danger : colors.border,
+  });
+
+  const scrollToFirstError = (errors: Partial<Record<FieldName, string>>) => {
+    const firstInvalidField = FIELD_SCROLL_ORDER.find((field) => errors[field]);
+
+    if (!firstInvalidField) {
+      return;
+    }
+
+    let fieldY = 0;
+    let layoutTarget: LayoutTargetName | undefined = firstInvalidField;
+
+    while (layoutTarget) {
+      const position: { y: number; parent?: LayoutTargetName } | undefined = fieldPositionsRef.current[layoutTarget];
+
+      if (!position) {
+        break;
+      }
+
+      fieldY += position.y;
+      layoutTarget = position.parent;
+    }
+
+    scrollViewRef.current?.scrollTo({
+      y: Math.max(fieldY - spacing.md, 0),
+      animated: true,
     });
   };
 
@@ -188,6 +240,7 @@ export function SubmissionScreen() {
     }
 
     setFieldErrors(nextErrors);
+    scrollToFirstError(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -364,6 +417,8 @@ export function SubmissionScreen() {
   return (
     <View style={{ width: '100%' }}>
       <ScrollView
+        ref={scrollViewRef}
+        testID="submission-scroll-view"
         style={{ width: '100%' }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -401,7 +456,7 @@ export function SubmissionScreen() {
           </View>
         ) : null}
 
-        <View style={{ gap: spacing.sm }}>
+        <View testID="submission-field-title" onLayout={registerFieldLayout('title')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Title</Text>
           <Input
             value={state.title}
@@ -412,11 +467,12 @@ export function SubmissionScreen() {
             placeholder="Enter a story title"
             editable={!state.isSubmitting}
             accessibilityLabel="Story title"
+            style={getInputShellStyle('title')}
           />
           {fieldErrors.title ? <Text style={{ color: colors.danger }}>{fieldErrors.title}</Text> : null}
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View testID="submission-field-narrative" onLayout={registerFieldLayout('narrative')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Narrative text</Text>
           <TextInput
             value={state.narrative}
@@ -445,7 +501,7 @@ export function SubmissionScreen() {
           {fieldErrors.narrative ? <Text style={{ color: colors.danger }}>{fieldErrors.narrative}</Text> : null}
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View testID="submission-field-location" onLayout={registerFieldLayout('location')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Location picker</Text>
           <StoryLocationPicker
             latitude={state.latitude}
@@ -459,7 +515,7 @@ export function SubmissionScreen() {
           />
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View testID="submission-field-place-name" onLayout={registerFieldLayout('placeName')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Place name</Text>
           <Input
             value={state.placeName}
@@ -471,11 +527,12 @@ export function SubmissionScreen() {
             editable={!state.isSubmitting}
             autoCapitalize="words"
             accessibilityLabel="Place name"
+            style={getInputShellStyle('placeName')}
           />
           {fieldErrors.placeName ? <Text style={{ color: colors.danger }}>{fieldErrors.placeName}</Text> : null}
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View testID="submission-field-time" onLayout={registerFieldLayout('time')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Time information</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
             {TIME_TYPES.map((timeType) => {
@@ -509,7 +566,11 @@ export function SubmissionScreen() {
 
           {state.timeType === 'year_range' ? (
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View style={{ flex: 1, gap: spacing.sm }}>
+              <View
+                testID="submission-field-year-start"
+                onLayout={registerFieldLayout('yearStart', 'time')}
+                style={{ flex: 1, gap: spacing.sm }}
+              >
                 <Input
                   value={state.yearStart}
                   onChangeText={(value) => {
@@ -520,10 +581,15 @@ export function SubmissionScreen() {
                   keyboardType="numeric"
                   editable={!state.isSubmitting}
                   accessibilityLabel="Start year"
+                  style={getInputShellStyle('yearStart')}
                 />
                 {fieldErrors.yearStart ? <Text style={{ color: colors.danger }}>{fieldErrors.yearStart}</Text> : null}
               </View>
-              <View style={{ flex: 1, gap: spacing.sm }}>
+              <View
+                testID="submission-field-year-end"
+                onLayout={registerFieldLayout('yearEnd', 'time')}
+                style={{ flex: 1, gap: spacing.sm }}
+              >
                 <Input
                   value={state.yearEnd}
                   onChangeText={(value) => {
@@ -534,12 +600,13 @@ export function SubmissionScreen() {
                   keyboardType="numeric"
                   editable={!state.isSubmitting}
                   accessibilityLabel="End year"
+                  style={getInputShellStyle('yearEnd')}
                 />
                 {fieldErrors.yearEnd ? <Text style={{ color: colors.danger }}>{fieldErrors.yearEnd}</Text> : null}
               </View>
             </View>
           ) : (
-            <View style={{ gap: spacing.sm }}>
+            <View testID="submission-field-year" onLayout={registerFieldLayout('year', 'time')} style={{ gap: spacing.sm }}>
               <Input
                 value={state.year}
                 onChangeText={(value) => {
@@ -550,13 +617,14 @@ export function SubmissionScreen() {
                 keyboardType="numeric"
                 editable={!state.isSubmitting}
                 accessibilityLabel="Year"
+                style={getInputShellStyle('year')}
               />
               {fieldErrors.year ? <Text style={{ color: colors.danger }}>{fieldErrors.year}</Text> : null}
             </View>
           )}
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View testID="submission-field-tags" onLayout={registerFieldLayout('tags')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>
             Tags (up to {limits.maxTagsPerStory})
           </Text>
@@ -622,7 +690,7 @@ export function SubmissionScreen() {
           {fieldErrors.tags ? <Text style={{ color: colors.danger }}>{fieldErrors.tags}</Text> : null}
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View testID="submission-field-image" onLayout={registerFieldLayout('image')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Image upload</Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <Button onPress={handlePickImage} disabled={state.isSubmitting}>
