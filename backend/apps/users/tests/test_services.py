@@ -6,7 +6,7 @@ from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import Http404
 from PIL import Image
-from rest_framework.exceptions import AuthenticationFailed, ValidationError
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 
 from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 from apps.users.services import (
@@ -15,6 +15,7 @@ from apps.users.services import (
     follow_user,
     get_own_profile,
     get_public_profile,
+    get_user_bookmarks,
     login_user,
     logout_user,
     register_user,
@@ -22,6 +23,7 @@ from apps.users.services import (
     update_own_profile,
     upload_profile_photo,
 )
+from apps.interactions.models import SavedStory
 from apps.stories.models import Story
 
 
@@ -664,3 +666,66 @@ class TestGetPublicProfileFollowCounts:
         self.other.save()
         user = get_public_profile(self.subject.pk)
         assert user.following_count == 0
+
+
+# ── get_user_bookmarks ────────────────────────────────────────────────────────
+
+def _make_published_story(user, title='Test Story'):
+    return Story.objects.create(
+        user=user,
+        title=title,
+        narrative='Narrative text.',
+        status=Story.STATUS_PUBLISHED,
+        location_lat=Decimal('41.0'),
+        location_lng=Decimal('29.0'),
+        location_name='Istanbul',
+        time_type=Story.TIME_EXACT,
+        year=2000,
+    )
+
+
+@pytest.mark.django_db
+class TestGetUserBookmarks:
+    def test_returns_bookmarked_stories(self, user, story):
+        SavedStory.objects.create(user=user, story=story)
+        qs = get_user_bookmarks(user.pk, user)
+        assert story in qs
+
+    def test_returns_only_published_stories(self, user, story):
+        SavedStory.objects.create(user=user, story=story)
+        story.status = Story.STATUS_REMOVED
+        story.save()
+        qs = get_user_bookmarks(user.pk, user)
+        assert story not in qs
+
+    def test_empty_when_no_bookmarks(self, user):
+        qs = get_user_bookmarks(user.pk, user)
+        assert qs.count() == 0
+
+    def test_ordered_most_recently_saved_first(self, user, second_user):
+        story1 = _make_published_story(second_user, title='Older Story')
+        story2 = _make_published_story(second_user, title='Newer Story')
+        SavedStory.objects.create(user=user, story=story1)
+        SavedStory.objects.create(user=user, story=story2)
+        result = list(get_user_bookmarks(user.pk, user))
+        assert result[0] == story2
+        assert result[1] == story1
+
+    def test_only_returns_own_bookmarks(self, user, second_user, story):
+        SavedStory.objects.create(user=second_user, story=story)
+        qs = get_user_bookmarks(user.pk, user)
+        assert qs.count() == 0
+
+    def test_nonexistent_user_raises_404(self, user):
+        with pytest.raises(Http404):
+            get_user_bookmarks(99999, user)
+
+    def test_inactive_user_raises_404(self, user, second_user):
+        second_user.is_active = False
+        second_user.save()
+        with pytest.raises(Http404):
+            get_user_bookmarks(second_user.pk, user)
+
+    def test_non_owner_raises_permission_denied(self, user, second_user):
+        with pytest.raises(PermissionDenied):
+            get_user_bookmarks(user.pk, second_user)
