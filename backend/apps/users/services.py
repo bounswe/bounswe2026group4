@@ -281,3 +281,33 @@ def unfollow_user(follower: User, followed_id: int) -> None:
     if not User.objects.filter(pk=followed_id).exists():
         raise Http404
     Follow.objects.filter(follower=follower, followed_id=followed_id).delete()
+
+
+def get_user_bookmarks(user_id: int, requesting_user):
+    """
+    Return a published Story queryset saved by user_id, ordered most-recently-bookmarked first.
+
+    Raises Http404 if the target user does not exist or is inactive.
+    Raises PermissionDenied if the requesting user is not the owner.
+
+    Local imports avoid circular dependencies between the users, interactions, and stories apps.
+    The ordering traverses saved_by (Story → SavedStory) via the reverse FK so no separate
+    ordering column is needed.
+    """
+    from apps.stories.models import Story
+    from rest_framework.exceptions import PermissionDenied
+
+    try:
+        User.objects.get(pk=user_id, is_active=True)
+    except User.DoesNotExist:
+        raise Http404
+
+    if requesting_user.pk != user_id:
+        raise PermissionDenied
+
+    return (
+        Story.objects
+        .filter(saved_by__user_id=user_id, status=Story.STATUS_PUBLISHED)
+        .select_related('user')
+        .order_by('-saved_by__saved_at')
+    )
