@@ -4,7 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.interactions.models import Comment, Like, SavedStory
+from apps.interactions.models import Comment
 from apps.interactions.permissions import IsCommentAuthorOrAdmin
 from apps.interactions.serializers import (
     BookmarkResponseSerializer,
@@ -98,6 +98,9 @@ class StoryBookmarkView(APIView):
     POST   /stories/<story_id>/bookmark/ — bookmark a published story.
     DELETE /stories/<story_id>/bookmark/ — remove an existing bookmark.
     Both require authentication.
+
+    POST returns 201 on creation, 200 if already bookmarked (idempotent).
+    DELETE always returns 204 regardless of whether a bookmark existed.
     """
 
     permission_classes = [IsRegisteredUser]
