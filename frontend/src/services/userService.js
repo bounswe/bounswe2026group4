@@ -1,16 +1,48 @@
 import api from "./api";
 
-export async function getProfile(userId) {
+/** GET /users/<id>/ — public profile, visibility-filtered by server */
+export async function getPublicProfile(userId) {
   const response = await api.get(`/users/${userId}/`);
   return response.data;
 }
 
-export async function updateCurrentUser({ profile = {}, userFields = {}, profilePhoto }) {
-  const response = await api.patch("/users/me/", { ...userFields, profile });
-  if (profilePhoto) {
-    const formData = new FormData();
-    formData.append("photo", profilePhoto);
-    await api.post("/users/me/photo/", formData);
-  }
+/** Alias kept for callers that use the old name */
+export const getProfile = getPublicProfile;
+
+/** GET /users/me/ — authenticated user's own full profile (includes privacy flags) */
+export async function getOwnProfile() {
+  const response = await api.get("/users/me/");
   return response.data;
+}
+
+/**
+ * PATCH /users/me/ — update username, visibility, and nested profile fields.
+ *
+ * @param {object} userFields  Top-level user fields: { username, is_username_public }
+ * @param {object} profileFields  Profile sub-fields: { location, bio, birth_date,
+ *   is_location_public, is_birth_date_public, is_photo_public, is_name_public,
+ *   first_name, last_name }
+ */
+export async function updateProfile(userFields = {}, profileFields = {}) {
+  const body = { ...userFields };
+  if (Object.keys(profileFields).length > 0) {
+    body.profile = profileFields;
+  }
+  const response = await api.patch("/users/me/", body);
+  return response.data;
+}
+
+/** POST /users/me/photo/ — upload profile photo as multipart/form-data */
+export async function uploadProfilePhoto(file) {
+  const formData = new FormData();
+  formData.append("photo", file);
+  const response = await api.post("/users/me/photo/", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
+/** DELETE /users/me/photo/ — remove profile photo */
+export async function removeProfilePhoto() {
+  await api.delete("/users/me/photo/");
 }
