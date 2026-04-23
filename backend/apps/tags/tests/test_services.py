@@ -185,9 +185,9 @@ class TestAttachTagsToStory:
 
     def test_does_not_double_increment_for_existing_link(self):
         story = _make_story('attach4@x.com', 'attach4')
-        tag = Tag.objects.create(name='svc-attach-d', story_count=1)
-        StoryTag.objects.create(story=story, tag=tag)
-        attach_tags_to_story(story, [tag.pk])
+        tag = Tag.objects.create(name='svc-attach-d', story_count=0)
+        StoryTag.objects.create(story=story, tag=tag)  # signal → story_count=1
+        attach_tags_to_story(story, [tag.pk])          # already linked, skipped
         tag.refresh_from_db()
         assert tag.story_count == 1
 
@@ -218,9 +218,9 @@ class TestSyncStoryTags:
 
     def test_decrements_story_count_on_remove(self):
         story = _make_story('sync4@x.com', 'sync4')
-        tag = Tag.objects.create(name='svc-sync-c', story_count=1)
-        StoryTag.objects.create(story=story, tag=tag)
-        sync_story_tags(story, [])
+        tag = Tag.objects.create(name='svc-sync-c', story_count=0)
+        StoryTag.objects.create(story=story, tag=tag)  # signal → story_count=1
+        sync_story_tags(story, [])                     # removes tag, signal → story_count=0
         tag.refresh_from_db()
         assert tag.story_count == 0
 
@@ -235,9 +235,9 @@ class TestSyncStoryTags:
 
     def test_unchanged_tags_not_recreated(self):
         story = _make_story('sync6@x.com', 'sync6')
-        tag = Tag.objects.create(name='svc-sync-f', story_count=1)
-        StoryTag.objects.create(story=story, tag=tag)
-        sync_story_tags(story, [tag.pk])
+        tag = Tag.objects.create(name='svc-sync-f', story_count=0)
+        StoryTag.objects.create(story=story, tag=tag)  # signal → story_count=1
+        sync_story_tags(story, [tag.pk])               # unchanged, no create/delete
         tag.refresh_from_db()
         assert tag.story_count == 1
         assert StoryTag.objects.filter(story=story, tag=tag).count() == 1
