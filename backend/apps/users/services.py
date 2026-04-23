@@ -8,7 +8,7 @@ from django.http import Http404
 
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.exceptions import AuthenticationFailed, ValidationError
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 
 from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 
@@ -295,7 +295,6 @@ def get_user_bookmarks(user_id: int, requesting_user):
     ordering column is needed.
     """
     from apps.stories.models import Story
-    from rest_framework.exceptions import PermissionDenied
 
     try:
         User.objects.get(pk=user_id, is_active=True)

@@ -619,7 +619,6 @@ class TestUnfollowUser:
 # ── get_user_bookmarks ────────────────────────────────────────────────────────
 
 def _make_published_story(user, title='Test Story'):
-    from decimal import Decimal
     return Story.objects.create(
         user=user,
         title=title,
@@ -652,9 +651,14 @@ class TestGetUserBookmarks:
         assert qs.count() == 0
 
     def test_ordered_most_recently_saved_first(self, user, second_user):
+        import datetime
+        from django.utils import timezone
         story1 = _make_published_story(second_user, title='Older Story')
         story2 = _make_published_story(second_user, title='Newer Story')
-        SavedStory.objects.create(user=user, story=story1)
+        ss1 = SavedStory.objects.create(user=user, story=story1)
+        SavedStory.objects.filter(pk=ss1.pk).update(
+            saved_at=timezone.now() - datetime.timedelta(seconds=5)
+        )
         SavedStory.objects.create(user=user, story=story2)
         result = list(get_user_bookmarks(user.pk, user))
         assert result[0] == story2
