@@ -1,13 +1,5 @@
 import api from "./api";
 
-/**
- * Follow/unfollow service.
- *
- * NOTE: The backend follow/unfollow API is not implemented yet (tracked in a
- * separate backend issue). The endpoint shapes below match the assumptions in
- * the frontend issue and must be reconfirmed when the backend lands.
- */
-
 export async function followUser(userId) {
   const response = await api.post(`/users/${userId}/follow/`);
   return response.data;

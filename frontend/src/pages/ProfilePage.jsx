@@ -31,7 +31,7 @@ function ProfilePage() {
     try {
       const profileData = await getProfile(targetUserId);
       setProfile(profileData);
-      setFollowerCount(profileData.follower_count ?? 0);
+      setFollowerCount(profileData.followers_count ?? 0);
       setFollowingCount(profileData.following_count ?? 0);
       setError(null);
     } catch (err) {

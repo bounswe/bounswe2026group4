@@ -51,7 +51,7 @@ const mockProfileData = {
   location: "Istanbul",
   profile_photo: null,
   birth_year: 1990,
-  follower_count: 12,
+  followers_count: 12,
   following_count: 5,
   is_followed_by_me: false,
 };
@@ -211,7 +211,7 @@ describe("ProfilePage", () => {
     });
 
     it("uses singular 'follower' when count is 1", async () => {
-      getProfile.mockResolvedValue({ ...mockProfileData, follower_count: 1 });
+      getProfile.mockResolvedValue({ ...mockProfileData, followers_count: 1 });
       renderPage();
 
       await waitFor(() => {
@@ -258,7 +258,7 @@ describe("ProfilePage", () => {
       useAuth.mockReturnValue({ user: { id: 99 }, isAuthenticated: true });
       getProfile.mockResolvedValue({
         ...mockProfileData,
-        follower_count: 10,
+        followers_count: 10,
         is_followed_by_me: false,
       });
       renderPage();
@@ -272,7 +272,7 @@ describe("ProfilePage", () => {
     });
 
     it("defaults follower/following counts to zero when missing from payload", async () => {
-      const { follower_count: _f, following_count: _g, ...rest } = mockProfileData;
+      const { followers_count: _f, following_count: _g, ...rest } = mockProfileData;
       getProfile.mockResolvedValue(rest);
       renderPage();
 

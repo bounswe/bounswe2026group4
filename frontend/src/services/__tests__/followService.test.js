@@ -23,12 +23,20 @@ describe("followService", () => {
 
   describe("followUser", () => {
     it("POSTs to /users/<id>/follow/ and returns response data", async () => {
-      api.post.mockResolvedValue({ data: { is_followed_by_me: true } });
+      const responseBody = {
+        success: true,
+        data: {
+          follower_id: 1,
+          followed_id: 42,
+          created_at: "2026-04-23T00:00:00Z",
+        },
+      };
+      api.post.mockResolvedValue({ data: responseBody });
 
       const result = await followUser(42);
 
       expect(api.post).toHaveBeenCalledWith("/users/42/follow/");
-      expect(result).toEqual({ is_followed_by_me: true });
+      expect(result).toEqual(responseBody);
     });
 
     it("propagates API errors", async () => {
