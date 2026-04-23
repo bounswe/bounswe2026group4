@@ -46,3 +46,15 @@ export async function uploadProfilePhoto(file) {
 export async function removeProfilePhoto() {
   await api.delete("/users/me/photo/");
 }
+
+/**
+ * Convenience wrapper used by ProfileCompletionPage: patch profile fields then
+ * optionally upload a photo in a single call.
+ */
+export async function updateCurrentUser({ profile = {}, userFields = {}, profilePhoto }) {
+  const response = await api.patch("/users/me/", { ...userFields, profile });
+  if (profilePhoto) {
+    await uploadProfilePhoto(profilePhoto);
+  }
+  return response.data;
+}
