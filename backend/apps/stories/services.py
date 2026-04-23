@@ -38,8 +38,7 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
     Location filtering is a case-insensitive substring match on location_name so
     that partial queries like "galata" match "Galata Bridge".
 
-    sort_by='popular' is reserved for when the interactions app provides like_count
-    data. Until then only 'recent' is supported.
+    sort_by — 'recent' (default) orders by submission date; 'popular' orders by like_count
     """
     qs = Story.objects.filter(status=Story.STATUS_PUBLISHED)
 
@@ -60,8 +59,9 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
 
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')
-
-    # TODO: add sort_by='popular' ordered by like_count once interactions app is implemented
+        
+    elif sort_by == 'popular':
+        qs = qs.order_by('-like_count')
 
     return qs
 
