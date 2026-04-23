@@ -127,6 +127,7 @@ class TestStorySerializerFields:
             'time_type', 'year', 'year_start', 'year_end',
             'status', 'contributor_visible', 'like_count', 'save_count',
             'user_has_liked', 'user_has_saved', 'submitted_at', 'updated_at',
+            'tags',
         }
         assert set(serializer.data.keys()) == expected
 

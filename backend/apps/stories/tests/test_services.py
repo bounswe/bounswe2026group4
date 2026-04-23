@@ -355,7 +355,8 @@ class TestUpdateStoryWithTags:
         assert StoryTag.objects.filter(story=story).count() == 0
 
     def test_update_story_decrements_story_count_for_removed_tags(self, story):
-        tag = Tag.objects.create(name='svc-upd-dec', story_count=1)
+        # story_count starts at 0; signal increments to 1 on StoryTag creation
+        tag = Tag.objects.create(name='svc-upd-dec')
         StoryTag.objects.create(story=story, tag=tag)
         update_story(story=story, validated_data={'tag_ids': []})
         tag.refresh_from_db()
