@@ -77,6 +77,15 @@ class Story(models.Model):
     # Users can choose to post anonymously. When False, their username is hidden on the story page.
     contributor_visible = models.BooleanField(default=True)
 
+    # Explicit through-table; ManyToManyField added here for ORM convenience (prefetch_related,
+    # story.tags.all()). The DB schema (story_tags table) is owned by the tags app.
+    tags = models.ManyToManyField(
+        'tags.Tag',
+        through='tags.StoryTag',
+        related_name='stories',
+        blank=True,
+    )
+
     # Denormalized counters kept in sync via signals in the interactions app.
     # Avoids expensive COUNT aggregates on every feed and profile page load.
     # Increments must use F() expressions to stay DB-atomic under concurrent requests.

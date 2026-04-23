@@ -6,6 +6,7 @@ from apps.stories.models import Story
 from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
 from apps.stories.serializers import SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
+from apps.tags.models import StoryTag, Tag
 from apps.users.models import User
 
 
@@ -561,3 +562,78 @@ class TestStoryMapGeoJSONSerializer:
         data = StoryMapGeoJSONSerializer(qs, many=True).data
         assert len(data) == 2
         assert all(f['type'] == 'Feature' for f in data)
+
+
+# ── StorySerializer — tag_ids / tags ──────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStorySerializerTags:
+    """Tests for tag_ids write field and tags read field on StorySerializer."""
+
+    def _serializer(self, data, instance=None):
+        user = make_user(email='tag-ser@example.com', username='tagser')
+        request = type('R', (), {'user': user})()
+        return StorySerializer(
+            instance=instance,
+            data=data,
+            context={'request': request},
+            partial=instance is not None,
+        )
+
+    def _story(self):
+        user = make_user(email='tag-story@example.com', username='tagstory')
+        return make_story(user=user)
+
+    def test_tag_ids_accepted_on_create(self):
+        tag = Tag.objects.create(name='ser-create-tag')
+        data = make_story_data(tag_ids=[tag.pk])
+        s = self._serializer(data)
+        assert s.is_valid(), s.errors
+
+    def test_tag_ids_optional_on_create(self):
+        data = make_story_data()  # no tag_ids key
+        s = self._serializer(data)
+        assert s.is_valid(), s.errors
+
+    def test_tag_ids_max_3_enforced(self):
+        tags = [Tag.objects.create(name=f'ser-max-{i}') for i in range(4)]
+        data = make_story_data(tag_ids=[t.pk for t in tags])
+        s = self._serializer(data)
+        assert not s.is_valid()
+        assert 'tag_ids' in s.errors
+
+    def test_tag_ids_duplicate_rejected(self):
+        tag = Tag.objects.create(name='ser-dup-tag')
+        data = make_story_data(tag_ids=[tag.pk, tag.pk])
+        s = self._serializer(data)
+        assert not s.is_valid()
+        assert 'tag_ids' in s.errors
+
+    def test_tag_ids_nonexistent_rejected(self):
+        data = make_story_data(tag_ids=[999999])
+        s = self._serializer(data)
+        assert not s.is_valid()
+        assert 'tag_ids' in s.errors
+
+    def test_tags_read_field_present_in_output(self):
+        story = self._story()
+        tag = Tag.objects.create(name='ser-read-tag')
+        StoryTag.objects.create(story=story, tag=tag)
+        data = StorySerializer(story).data
+        assert 'tags' in data
+        assert data['tags'][0]['name'] == 'ser-read-tag'
+
+    def test_tag_ids_absent_in_patch_leaves_tags_unchanged(self):
+        story = self._story()
+        tag = Tag.objects.create(name='ser-unchanged-tag')
+        StoryTag.objects.create(story=story, tag=tag)
+        # PATCH without tag_ids — serializer should not include tag_ids in validated_data
+        s = self._serializer({'title': 'New Title'}, instance=story)
+        assert s.is_valid(), s.errors
+        assert 'tag_ids' not in s.validated_data
+
+    def test_empty_tag_ids_in_patch_is_valid(self):
+        story = self._story()
+        s = self._serializer({'tag_ids': []}, instance=story)
+        assert s.is_valid(), s.errors
+        assert s.validated_data['tag_ids'] == []
