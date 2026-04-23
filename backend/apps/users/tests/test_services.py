@@ -8,14 +8,17 @@ from django.http import Http404
 from PIL import Image
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
-from apps.users.models import EmailVerificationCode, User, UserProfile
+from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 from apps.users.services import (
+    delete_account,
     delete_profile_photo,
+    follow_user,
     get_own_profile,
     get_public_profile,
     login_user,
     logout_user,
     register_user,
+    unfollow_user,
     update_own_profile,
     upload_profile_photo,
 )
@@ -361,6 +364,155 @@ class TestUploadProfilePhoto:
         assert new_name != old_name
 
 
+# ── delete_account ───────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteAccount:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='del@example.com',
+            username='deluser',
+            password='Password1',
+        )
+
+    def _make_story(self, title='Story'):
+        return Story.objects.create(
+            user=self.user,
+            title=title,
+            narrative='Narrative',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_hard_delete_removes_user(self):
+        pk = self.user.pk
+        delete_account(self.user, hard_delete=True)
+        assert not User.objects.filter(pk=pk).exists()
+
+    def test_hard_delete_removes_stories(self):
+        story = self._make_story()
+        delete_account(self.user, hard_delete=True)
+        assert not Story.objects.filter(pk=story.pk).exists()
+
+    def test_hard_delete_deletes_profile_photo_file(self):
+        upload_profile_photo(self.user, _make_image_file('JPEG'))
+        photo_name = UserProfile.objects.get(user=self.user).profile_photo.name
+        delete_account(self.user, hard_delete=True)
+        assert not default_storage.exists(photo_name)
+
+    def test_hard_delete_with_no_photo_does_not_raise(self):
+        delete_account(self.user, hard_delete=True)
+
+    def test_hard_delete_with_no_stories_does_not_raise(self):
+        delete_account(self.user, hard_delete=True)
+
+    def test_soft_delete_deactivates_user(self):
+        delete_account(self.user, hard_delete=False)
+        self.user.refresh_from_db()
+        assert self.user.is_active is False
+
+    def test_soft_delete_anonymizes_stories(self):
+        story = self._make_story()
+        delete_account(self.user, hard_delete=False)
+        assert Story.objects.get(pk=story.pk).user is None
+
+    def test_soft_delete_preserves_story_data(self):
+        story = self._make_story(title='Keep Me')
+        delete_account(self.user, hard_delete=False)
+        preserved = Story.objects.get(pk=story.pk)
+        assert preserved.title == 'Keep Me'
+        assert preserved.narrative == 'Narrative'
+
+    def test_soft_delete_does_not_delete_user_row(self):
+        delete_account(self.user, hard_delete=False)
+        assert User.objects.filter(pk=self.user.pk).exists()
+
+    def test_blacklists_refresh_token_on_hard_delete(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.exceptions import TokenError
+        refresh = RefreshToken.for_user(self.user)
+        token_str = str(refresh)
+        delete_account(self.user, hard_delete=True, refresh_token=token_str)
+        with pytest.raises(TokenError):
+            RefreshToken(token_str).blacklist()
+
+    def test_blacklists_refresh_token_on_soft_delete(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.exceptions import TokenError
+        refresh = RefreshToken.for_user(self.user)
+        token_str = str(refresh)
+        delete_account(self.user, hard_delete=False, refresh_token=token_str)
+        with pytest.raises(TokenError):
+            RefreshToken(token_str).blacklist()
+
+    def test_empty_refresh_token_does_not_raise(self):
+        delete_account(self.user, hard_delete=True, refresh_token='')
+
+    def test_already_blacklisted_token_does_not_raise(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(self.user)
+        token_str = str(refresh)
+        refresh.blacklist()
+        delete_account(self.user, hard_delete=True, refresh_token=token_str)
+
+    def test_malformed_refresh_token_does_not_raise(self):
+        delete_account(self.user, hard_delete=True, refresh_token='not-a-token')
+
+    def test_hard_delete_removes_user_comments_on_other_stories(self):
+        from apps.interactions.models import Comment
+        other_user = User.objects.create_user(
+            email='other@example.com', username='otheruser', password='Password1'
+        )
+        other_story = Story.objects.create(
+            user=other_user, title='Other', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        comment = Comment.objects.create(story=other_story, author=self.user, text='Hello')
+        delete_account(self.user, hard_delete=True)
+        assert not Comment.objects.filter(pk=comment.pk).exists()
+
+    def test_hard_delete_deletes_story_media_files(self):
+        from apps.media.models import MediaItem
+        from django.core.files.base import ContentFile
+        story = self._make_story()
+        item = MediaItem.objects.create(
+            story=story,
+            file=ContentFile(b'fake media', name='test.jpg'),
+            media_type='image',
+            file_size=10,
+            original_filename='test.jpg',
+        )
+        file_name = item.file.name
+        assert default_storage.exists(file_name)
+        delete_account(self.user, hard_delete=True)
+        assert not default_storage.exists(file_name)
+
+    def test_hard_delete_with_no_comments_does_not_raise(self):
+        delete_account(self.user, hard_delete=True)
+
+    def test_soft_delete_does_not_remove_user_comments(self):
+        from apps.interactions.models import Comment
+        other_user = User.objects.create_user(
+            email='other2@example.com', username='otheruser2', password='Password1'
+        )
+        other_story = Story.objects.create(
+            user=other_user, title='Other', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        comment = Comment.objects.create(story=other_story, author=self.user, text='Hello')
+        delete_account(self.user, hard_delete=False)
+        # Comment survives on soft delete — community content is preserved
+        assert Comment.objects.filter(pk=comment.pk).exists()
+
+
 # ── delete_profile_photo ──────────────────────────────────────────────────────
 
 @pytest.mark.django_db
@@ -390,3 +542,73 @@ class TestDeleteProfilePhoto:
     def test_no_op_when_profile_has_no_photo(self):
         UserProfile.objects.create(user=self.user)
         delete_profile_photo(self.user)  # must not raise
+
+
+# ── follow_user ───────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowUser:
+    def setup_method(self):
+        self.follower = User.objects.create_user(
+            email='fw1@example.com', username='fwuser1', password='Password1'
+        )
+        self.target = User.objects.create_user(
+            email='fw2@example.com', username='fwuser2', password='Password1'
+        )
+
+    def test_creates_follow_record(self):
+        follow, created = follow_user(self.follower, self.target.pk)
+        assert created is True
+        assert Follow.objects.filter(follower=self.follower, followed=self.target).exists()
+
+    def test_returns_follow_instance(self):
+        follow, created = follow_user(self.follower, self.target.pk)
+        assert follow.follower_id == self.follower.pk
+        assert follow.followed_id == self.target.pk
+
+    def test_refollow_returns_created_false(self):
+        follow_user(self.follower, self.target.pk)
+        follow, created = follow_user(self.follower, self.target.pk)
+        assert created is False
+        assert Follow.objects.filter(follower=self.follower, followed=self.target).count() == 1
+
+    def test_self_follow_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            follow_user(self.follower, self.follower.pk)
+
+    def test_unknown_followed_id_raises_404(self):
+        with pytest.raises(Http404):
+            follow_user(self.follower, 99999)
+
+    def test_inactive_target_raises_404(self):
+        self.target.is_active = False
+        self.target.save()
+        with pytest.raises(Http404):
+            follow_user(self.follower, self.target.pk)
+
+
+# ── unfollow_user ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestUnfollowUser:
+    def setup_method(self):
+        self.follower = User.objects.create_user(
+            email='uf1@example.com', username='ufuser1', password='Password1'
+        )
+        self.target = User.objects.create_user(
+            email='uf2@example.com', username='ufuser2', password='Password1'
+        )
+
+    def test_removes_follow_record(self):
+        Follow.objects.create(follower=self.follower, followed=self.target)
+        unfollow_user(self.follower, self.target.pk)
+        assert not Follow.objects.filter(follower=self.follower, followed=self.target).exists()
+
+    def test_unfollow_non_followed_is_noop(self):
+        unfollow_user(self.follower, self.target.pk)  # must not raise
+
+    def test_unknown_followed_id_raises_404(self):
+        with pytest.raises(Http404):
+            unfollow_user(self.follower, 99999)

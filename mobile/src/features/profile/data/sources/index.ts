@@ -1,5 +1,5 @@
 import { apiClient } from '../../../../core/api/client';
-import { UpdateProfileInput } from '../../domain/entities';
+import { ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 
 interface CurrentUserProfilePayload {
   success?: boolean;
@@ -15,18 +15,58 @@ function unwrapCurrentUser(payload: CurrentUserProfilePayload | null) {
 }
 
 function normalizePatchPayload(input: UpdateProfileInput) {
-  return {
-    username: input.username.trim(),
-    is_username_public: input.isUsernamePublic,
-    profile: {
-      bio: input.bio.trim(),
-      location: input.location.trim(),
-      birth_date: input.birthDate.trim() || null,
-      is_location_public: input.isLocationPublic,
-      is_birth_date_public: input.isBirthDatePublic,
-      is_photo_public: input.isPhotoPublic,
-    },
-  };
+  const payload: Record<string, unknown> = {};
+  const profile: Record<string, unknown> = {};
+
+  if (input.username !== undefined) {
+    payload.username = input.username.trim();
+  }
+
+  if (input.isUsernamePublic !== undefined) {
+    payload.is_username_public = input.isUsernamePublic;
+  }
+
+  if (input.firstName !== undefined) {
+    profile.first_name = input.firstName.trim();
+  }
+
+  if (input.lastName !== undefined) {
+    profile.last_name = input.lastName.trim();
+  }
+
+  if (input.bio !== undefined) {
+    profile.bio = input.bio.trim();
+  }
+
+  if (input.location !== undefined) {
+    profile.location = input.location.trim();
+  }
+
+  if (input.birthDate !== undefined) {
+    profile.birth_date = input.birthDate?.trim() ? input.birthDate.trim() : null;
+  }
+
+  if (input.isNamePublic !== undefined) {
+    profile.is_name_public = input.isNamePublic;
+  }
+
+  if (input.isLocationPublic !== undefined) {
+    profile.is_location_public = input.isLocationPublic;
+  }
+
+  if (input.isBirthDatePublic !== undefined) {
+    profile.is_birth_date_public = input.isBirthDatePublic;
+  }
+
+  if (input.isPhotoPublic !== undefined) {
+    profile.is_photo_public = input.isPhotoPublic;
+  }
+
+  if (Object.keys(profile).length > 0) {
+    payload.profile = profile;
+  }
+
+  return payload;
 }
 
 export const profileRemoteSource = {
@@ -52,6 +92,37 @@ export const profileRemoteSource = {
     );
 
     return unwrapCurrentUser(response);
+  },
+
+  async uploadProfilePhoto(input: ProfilePhotoUploadInput) {
+    const formData = new FormData();
+
+    formData.append('photo', {
+      uri: input.uri,
+      name: input.fileName,
+      type: input.mimeType,
+    } as unknown as Blob);
+
+    const response = await apiClient.post<Record<string, unknown>>('/users/me/photo/', formData);
+
+    if (!response || typeof response !== 'object') {
+      throw new Error('Profile photo upload did not return a response.');
+    }
+
+    return response;
+  },
+
+  async removeProfilePhoto() {
+    await apiClient.delete<void>('/users/me/photo/');
+  },
+
+  async deleteAccount(password: string, hardDelete = true) {
+    await apiClient.delete<void>('/users/me/', {
+      data: {
+        password,
+        hard_delete: hardDelete,
+      },
+    });
   },
 };
 

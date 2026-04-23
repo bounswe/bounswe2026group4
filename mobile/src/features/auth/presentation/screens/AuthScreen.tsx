@@ -8,7 +8,7 @@ import { AuthFieldErrors, AuthFormCard, AuthMode, PasswordRule } from '../compon
 import { AuthUiState } from '../state/authUiState';
 
 interface AuthScreenProps {
-  onAuthenticated?: () => void;
+  onAuthenticated?: (context: { source: 'signIn' | 'register' }) => void;
 }
 
 const initialState: AuthUiState = {
@@ -277,7 +277,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         try {
           const session = await login({ email, password });
           toast.success(`Welcome, ${session.user.username}.`);
-          onAuthenticated?.();
+          onAuthenticated?.({ source: 'register' });
           setState(initialFormState);
         } catch {
           const successMessage = result.message || 'Account created successfully.';
@@ -300,7 +300,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
       const password = state.password;
       const session = await login({ email, password });
       toast.success(`Welcome back, ${session.user.username}.`);
-      onAuthenticated?.();
+      onAuthenticated?.({ source: 'signIn' });
       setState(initialFormState);
     } catch (loginError) {
       if (isRegister) {

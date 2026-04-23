@@ -1,5 +1,6 @@
 import io
 import os
+from decimal import Decimal
 
 import pytest
 from django.core.files.uploadedfile import InMemoryUploadedFile
@@ -8,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.users.models import User
+from apps.stories.models import Story
 
 
 def _make_image_file(fmt='JPEG'):
@@ -637,3 +639,137 @@ class TestProfilePhotoView:
         response = client.get(f'/users/{registered_user.pk}/')
         assert response.data['profile_photo'] is not None
         assert response.data['profile_photo'].startswith('http')
+
+
+# ── DELETE /users/me/ ─────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteAccountView:
+    url = '/users/me/'
+
+    def _make_story(self, user):
+        return Story.objects.create(
+            user=user,
+            title='My Story',
+            narrative='Narrative',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_delete_unauthenticated_returns_401(self, client):
+        response = client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_hard_delete_returns_204(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_hard_delete_removes_user_from_db(self, auth_client, registered_user):
+        auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert not User.objects.filter(pk=registered_user.pk).exists()
+
+    def test_hard_delete_removes_stories(self, auth_client, registered_user):
+        story = self._make_story(registered_user)
+        auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert not Story.objects.filter(pk=story.pk).exists()
+
+    def test_soft_delete_returns_204(self, auth_client):
+        response = auth_client.delete(
+            self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_soft_delete_deactivates_user(self, auth_client, registered_user):
+        auth_client.delete(
+            self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
+        )
+        assert User.objects.get(pk=registered_user.pk).is_active is False
+
+    def test_soft_delete_anonymizes_stories(self, auth_client, registered_user):
+        story = self._make_story(registered_user)
+        auth_client.delete(
+            self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
+        )
+        assert Story.objects.get(pk=story.pk).user is None
+
+    def test_with_refresh_token_blacklists_it(self, auth_client):
+        refresh = auth_client.refresh_token
+        auth_client.delete(
+            self.url,
+            {'password': 'Password1', 'refresh': refresh},
+            format='json',
+        )
+        response = auth_client.post('/auth/token/refresh/', {'refresh': refresh})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_without_refresh_token_still_returns_204(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'Password1'}, format='json')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_wrong_password_returns_400(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'WrongPassword'}, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_wrong_password_error_references_password_field(self, auth_client):
+        response = auth_client.delete(self.url, {'password': 'WrongPassword'}, format='json')
+        assert 'password' in response.data['errors']
+
+    def test_missing_password_returns_400(self, auth_client):
+        response = auth_client.delete(self.url, {}, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# ── POST/DELETE /users/:id/follow/ ───────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowView:
+    url = '/users/{user_id}/follow/'
+
+    def test_first_follow_returns_201(self, auth_client, second_user):
+        response = auth_client.post(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_first_follow_response_shape(self, auth_client, second_user):
+        response = auth_client.post(self.url.format(user_id=second_user.pk))
+        assert response.data['success'] is True
+        for field in ('follower_id', 'followed_id', 'created_at'):
+            assert field in response.data['data']
+
+    def test_refollow_returns_200(self, auth_client, second_user):
+        auth_client.post(self.url.format(user_id=second_user.pk))
+        response = auth_client.post(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_self_follow_returns_400(self, auth_client, registered_user):
+        response = auth_client.post(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_unauthenticated_post_returns_401(self, client, second_user):
+        response = client.post(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_post_unknown_user_returns_404(self, auth_client):
+        response = auth_client.post(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unfollow_returns_204(self, auth_client, second_user):
+        auth_client.post(self.url.format(user_id=second_user.pk))
+        response = auth_client.delete(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_unfollow_idempotent_returns_204(self, auth_client, second_user):
+        response = auth_client.delete(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_unauthenticated_delete_returns_401(self, client, second_user):
+        response = client.delete(self.url.format(user_id=second_user.pk))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_delete_unknown_user_returns_404(self, auth_client):
+        response = auth_client.delete(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -29,16 +29,21 @@ interface InputProps {
   blurOnSubmit?: TextInputProps['blurOnSubmit'];
   submitBehavior?: TextInputProps['submitBehavior'];
   onSubmitEditing?: TextInputProps['onSubmitEditing'];
+  onBlur?: TextInputProps['onBlur'];
   trailingActionLabel?: string;
   trailingActionAccessibilityLabel?: string;
   onTrailingActionPress?: () => void;
   trailingElement?: ReactNode;
+  multiline?: boolean;
+  numberOfLines?: number;
+  inputStyle?: StyleProp<TextStyle>;
 }
 
 export const Input = forwardRef<TextInput, InputProps>(function Input({
   value,
   onChangeText,
   onSubmitEditing,
+  onBlur,
   placeholder,
   secureTextEntry,
   autoCapitalize = 'none',
@@ -56,6 +61,9 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({
   trailingActionAccessibilityLabel,
   onTrailingActionPress,
   trailingElement,
+  multiline = false,
+  numberOfLines,
+  inputStyle,
 }: InputProps, ref) {
   const { colors, spacing, typography } = useAppTheme();
   const hasTrailingContent = Boolean(trailingElement || (trailingActionLabel && onTrailingActionPress));
@@ -81,24 +89,31 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({
         placeholderTextColor={colors.muted}
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
+        onBlur={onBlur}
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
         autoCorrect={autoCorrect}
         editable={editable}
+        multiline={multiline}
+        numberOfLines={numberOfLines}
         textContentType={textContentType}
         autoComplete={autoComplete}
         returnKeyType={returnKeyType}
         accessibilityLabel={accessibilityLabel}
         blurOnSubmit={blurOnSubmit}
         submitBehavior={submitBehavior}
-        style={{
-          flex: 1,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.md - 2,
-          color: colors.text,
-          fontSize: typography.body,
-        }}
+        style={[
+          {
+            flex: 1,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.md - 2,
+            color: colors.text,
+            fontSize: typography.body,
+            textAlignVertical: multiline ? 'top' : 'center',
+          },
+          inputStyle,
+        ]}
       />
       {trailingElement}
       {!trailingElement && trailingActionLabel && onTrailingActionPress ? (

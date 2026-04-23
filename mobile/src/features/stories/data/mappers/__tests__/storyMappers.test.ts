@@ -1,4 +1,4 @@
-import { mapStory, mapStoryComment } from '..';
+import { mapGeoJSONStoryMapPin, mapStory, mapStoryComment } from '..';
 
 describe('story mappers', () => {
   it('maps the backend story detail payload into the mobile story entity', () => {
@@ -37,13 +37,32 @@ describe('story mappers', () => {
         longitude: 28.9784,
       },
       timePeriod: '1453',
-      contributorName: 'Anonymous',
+      contributorName: 'Deleted user',
       submittedAt: '2026-03-18T10:00:00Z',
       mediaUrl: 'https://example.com/photo.jpg',
       likeCount: 7,
       likedByViewer: true,
       comments: [],
     });
+  });
+
+  it('keeps anonymous fallback when a contributor exists but their public name is hidden', () => {
+    const result = mapStory({
+      id: 52,
+      user: 7,
+      title: 'Hidden Author Story',
+      narrative: 'Only one paragraph.',
+      status: 'published',
+      location_name: 'Beyoglu',
+      location_lat: '41.0369',
+      location_lng: '28.9850',
+      time_type: 'exact_year',
+      year: 1923,
+      contributor_name: null,
+      submitted_at: '2026-03-18T10:00:00Z',
+    });
+
+    expect(result.contributorName).toBe('Anonymous');
   });
 
   it('maps backend comments into the mobile comment shape', () => {
@@ -57,9 +76,37 @@ describe('story mappers', () => {
       }),
     ).toEqual({
       id: '9',
-      authorName: 'Anonymous',
+      authorName: 'Deleted account',
       body: 'Great story!',
       createdAt: '2026-03-20T12:00:00Z',
+    });
+  });
+
+  it('maps a GeoJSON feature into the mobile story map pin shape', () => {
+    expect(
+      mapGeoJSONStoryMapPin({
+        type: 'Feature',
+        id: 42,
+        geometry: {
+          type: 'Point',
+          coordinates: [28.9784, 41.0082],
+        },
+        properties: {
+          title: 'The City Walls',
+          location_name: 'Old City',
+          time_type: 'exact_year',
+          year: 1453,
+          preview_text: 'First paragraph.',
+        },
+      }),
+    ).toEqual({
+      id: '42',
+      title: 'The City Walls',
+      previewText: 'First paragraph.',
+      placeName: 'Old City',
+      timePeriod: '1453',
+      latitude: 41.0082,
+      longitude: 28.9784,
     });
   });
 });

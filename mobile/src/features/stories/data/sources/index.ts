@@ -4,6 +4,20 @@ import { StoryFilters } from '../../domain/repositories';
 
 const storiesFixture: StoryEntity[] = [];
 type StoryRecord = Record<string, unknown>;
+type StoryMapFeatureRecord = {
+  id?: unknown;
+  properties?: unknown;
+};
+type GeoJSONFeatureCollection = {
+  type: 'FeatureCollection';
+  features: unknown[];
+};
+const MAP_PAGE_SIZE = 100;
+const GEOJSON_ACCEPT_HEADER = 'application/geo+json, application/json';
+const EMPTY_FEATURE_COLLECTION: GeoJSONFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [],
+};
 
 export const storiesRemoteSource = {
   async getStory(id: string) {
@@ -38,7 +52,7 @@ export const storiesRemoteSource = {
         await apiClient.get<{ results?: unknown[] }>(
           `/stories/feed/${buildQueryString({
             page: 1,
-            page_size: 100,
+            page_size: MAP_PAGE_SIZE,
             sort_by: 'recent',
             ...normalizeStoryFilters(filters),
           })}`,
@@ -48,31 +62,51 @@ export const storiesRemoteSource = {
 
     const results = await fetchAllPages('/stories/search/', {
       q: filters.q.trim(),
-      page_size: 100,
+      page_size: MAP_PAGE_SIZE,
     });
 
     return filterRemoteStories(results, filters);
   },
 
-  async getMapStoriesFromApi(filters: StoryFilters = {}) {
+  async getMapFeatureCollectionFromApi(filters: StoryFilters = {}) {
     if (!filters.q?.trim()) {
-      return (
-        await apiClient.get<{ results?: unknown[] }>(
-          `/stories/map/${buildQueryString({
-            page: 1,
-            page_size: 100,
-            ...normalizeStoryFilters(filters),
-          })}`,
-        )
-      )?.results ?? [];
+      const response = await apiClient.get<GeoJSONFeatureCollection | { results?: unknown[] }>(
+        `/stories/map/${buildQueryString({
+          ...normalizeStoryFilters(filters),
+        })}`,
+        {
+          headers: {
+            Accept: GEOJSON_ACCEPT_HEADER,
+          },
+        },
+      );
+
+      const featureCollection = normalizeMapFeatureCollection(response);
+
+      if (!featureCollection.features.length || featureCollectionHasPreviewText(featureCollection)) {
+        return featureCollection;
+      }
+
+      const stories = await fetchAllPages('/stories/feed/', {
+        page_size: MAP_PAGE_SIZE,
+        sort_by: 'recent',
+        ...normalizeStoryFilters(filters),
+      });
+
+      return attachPreviewTextToFeatureCollection(featureCollection, stories);
     }
 
     const results = await fetchAllPages('/stories/search/', {
       q: filters.q.trim(),
-      page_size: 100,
+      page_size: MAP_PAGE_SIZE,
     });
 
-    return filterRemoteStories(results, filters).filter(hasCoordinates);
+    return {
+      type: 'FeatureCollection',
+      features: filterRemoteStories(results, filters)
+        .filter(hasCoordinates)
+        .map(storyToFeature),
+    };
   },
 };
 
@@ -192,6 +226,117 @@ function hasCoordinates(value: unknown) {
   return asNumber(story.location_lat) !== undefined && asNumber(story.location_lng) !== undefined;
 }
 
+function storyToFeature(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Invalid story map feature payload.');
+  }
+
+  const story = value as StoryRecord;
+  const id = typeof story.id === 'string' || typeof story.id === 'number' ? story.id : undefined;
+  const latitude = asNumber(story.location_lat);
+  const longitude = asNumber(story.location_lng);
+
+  if (id === undefined || latitude === undefined || longitude === undefined || !asString(story.title)) {
+    throw new Error('Invalid story map feature payload.');
+  }
+
+  return {
+    type: 'Feature',
+    id,
+    geometry: {
+      type: 'Point',
+      coordinates: [longitude, latitude],
+    },
+    properties: {
+      title: asString(story.title),
+      location_name: asString(story.location_name),
+      time_type: story.time_type,
+      year: story.year,
+      year_start: story.year_start,
+      year_end: story.year_end,
+      preview_text: asString(story.preview_text),
+    },
+  };
+}
+
+function normalizeMapFeatureCollection(
+  response: GeoJSONFeatureCollection | { results?: unknown[] } | null,
+): GeoJSONFeatureCollection {
+  if (!response) {
+    return EMPTY_FEATURE_COLLECTION;
+  }
+
+  if (isGeoJSONFeatureCollection(response)) {
+    return {
+      type: 'FeatureCollection',
+      features: response.features,
+    };
+  }
+
+  if (isLegacyMapResponse(response)) {
+    return {
+      type: 'FeatureCollection',
+      features: response.results.filter(hasCoordinates).map(storyToFeature),
+    };
+  }
+
+  throw new Error('Invalid map response payload.');
+}
+
+function attachPreviewTextToFeatureCollection(
+  featureCollection: GeoJSONFeatureCollection,
+  stories: unknown[],
+): GeoJSONFeatureCollection {
+  const previewTextById = new Map<string, string>();
+
+  stories.forEach((value) => {
+    if (!value || typeof value !== 'object') {
+      return;
+    }
+
+    const story = value as StoryRecord;
+    const id =
+      typeof story.id === 'string' || typeof story.id === 'number' ? String(story.id) : undefined;
+    const previewText = asString(story.preview_text);
+
+    if (!id || !previewText) {
+      return;
+    }
+
+    previewTextById.set(id, previewText);
+  });
+
+  return {
+    type: 'FeatureCollection',
+    features: featureCollection.features.map((value) => {
+      if (!value || typeof value !== 'object') {
+        return value;
+      }
+
+      const feature = value as StoryMapFeatureRecord;
+      const featureId =
+        typeof feature.id === 'string' || typeof feature.id === 'number' ? String(feature.id) : undefined;
+      const properties =
+        feature.properties && typeof feature.properties === 'object'
+          ? (feature.properties as Record<string, unknown>)
+          : undefined;
+      const previewText = featureId ? previewTextById.get(featureId) : undefined;
+
+      if (!properties || !previewText || asString(properties.preview_text)) {
+        return value;
+      }
+
+      return {
+        ...feature,
+        properties: {
+          ...properties,
+          preview_text: previewText,
+        },
+      };
+    }),
+  };
+}
+
 function normalizeStoryFilters(filters: StoryFilters) {
   const params: Record<string, string | number> = {};
 
@@ -261,4 +406,37 @@ function asNumber(value: unknown) {
   }
 
   return undefined;
+}
+
+function isGeoJSONFeatureCollection(value: unknown): value is GeoJSONFeatureCollection {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      (value as { type?: unknown }).type === 'FeatureCollection' &&
+      Array.isArray((value as { features?: unknown }).features),
+  );
+}
+
+function isLegacyMapResponse(value: unknown): value is { results: unknown[] } {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      Array.isArray((value as { results?: unknown }).results),
+  );
+}
+
+function featureCollectionHasPreviewText(featureCollection: GeoJSONFeatureCollection) {
+  return featureCollection.features.every((value) => {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const feature = value as StoryMapFeatureRecord;
+    const properties =
+      feature.properties && typeof feature.properties === 'object'
+        ? (feature.properties as Record<string, unknown>)
+        : undefined;
+
+    return Boolean(properties && asString(properties.preview_text));
+  });
 }

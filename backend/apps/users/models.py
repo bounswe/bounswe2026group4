@@ -1,6 +1,7 @@
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
@@ -113,3 +114,41 @@ class EmailVerificationCode(models.Model):
 
     def __str__(self):
         return f'{self.user.email} — {self.code}'
+
+
+class Follow(models.Model):
+    """
+    Directed follow edge in the social graph (issue #399).
+
+    follower: the user who chose to follow
+    followed: the user being followed
+
+    UniqueConstraint prevents duplicate follows at the DB level.
+    on_delete=CASCADE on both sides: deleting either user removes all their
+    follow edges cleanly without orphaned rows.
+    """
+
+    follower = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='following',
+    )
+    followed = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='followers',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'follows'
+        constraints = [
+            models.UniqueConstraint(fields=['follower', 'followed'], name='unique_follow'),
+        ]
+        indexes = [
+            models.Index(fields=['followed'], name='follow_followed_idx'),
+            models.Index(fields=['follower', 'created_at'], name='follow_follower_date_idx'),
+        ]
+
+    def __str__(self):
+        return f'Follow({self.follower_id} → {self.followed_id})'

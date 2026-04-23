@@ -12,9 +12,12 @@ interface MapCardProps {
   selectedMarkerId?: string;
   isLoading?: boolean;
   error?: string;
+  statusBadgeText?: string;
+  fitToMarkers?: boolean;
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
   onMarkerPress?: () => void;
+  onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
 }
 
@@ -25,9 +28,12 @@ export function MapCard({
   selectedMarkerId,
   isLoading = false,
   error,
+  statusBadgeText,
+  fitToMarkers = false,
   onSelectMarker,
   onOpenStory,
   onMarkerPress,
+  onRegionChangeComplete,
   onPreviewLayout,
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
@@ -39,6 +45,11 @@ export function MapCard({
   );
 
   useEffect(() => {
+    if (fitToMarkers) {
+      setCurrentRegion(region);
+      return;
+    }
+
     if (!selectedMarker) {
       setCurrentRegion(region);
       return;
@@ -50,7 +61,7 @@ export function MapCard({
       latitudeDelta: current.latitudeDelta,
       longitudeDelta: current.longitudeDelta,
     }));
-  }, [region, selectedMarker]);
+  }, [fitToMarkers, region, selectedMarker]);
 
   return (
     <View
@@ -77,7 +88,45 @@ export function MapCard({
             onSelectMarker(markerId);
             onMarkerPress?.();
           }}
+          onRegionChangeComplete={onRegionChangeComplete}
         />
+
+        {statusBadgeText ? (
+          <View
+            testID="map-search-status-badge"
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: spacing.md,
+              left: spacing.md,
+              right: spacing.md,
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                maxWidth: '100%',
+                paddingHorizontal: spacing.sm + 4,
+                paddingVertical: spacing.xs + 2,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.infoSurface,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.muted,
+                  fontSize: typography.caption,
+                  fontWeight: '700',
+                  textAlign: 'center',
+                }}
+              >
+                {statusBadgeText}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {isLoading ? (
           <View

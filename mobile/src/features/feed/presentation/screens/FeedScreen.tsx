@@ -7,6 +7,7 @@ import { storyService } from '../../../stories/application/services';
 import { StoryFilters } from '../../../stories/domain/repositories';
 import { StorySearchControls } from '../../../search/presentation/components/StorySearchControls';
 import {
+  SearchFilterScope,
   SearchFiltersState,
   toSearchParams,
   useSearchFilters,
@@ -20,7 +21,7 @@ interface FeedScreenProps {
   onOpenStory?: (storyId: string) => void;
   getFeed?: typeof storyService.getFeed;
   showSearchControls?: boolean;
-  searchScope?: 'feed' | 'map';
+  searchScope?: SearchFilterScope;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
@@ -148,31 +149,37 @@ export function FeedScreen({
     loadPage(1, 'initial', { filters: activeFilters });
   };
 
-  const renderControls = () => (
-    <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
-        <Text style={{ color: colors.muted, fontSize: typography.caption }}>
-          {state.totalCount > 0 ? `${state.totalCount} stories` : hasActiveFilters ? 'No matching stories yet' : 'Newest stories'}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Sort: Most Recent"
-          style={{
-            paddingHorizontal: spacing.sm + 4,
-            paddingVertical: spacing.xs + 2,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.infoSurface,
-          }}
-        >
-          <Text style={{ color: colors.text, fontWeight: '700' }}>Most Recent</Text>
-        </Pressable>
-      </View>
+  const renderControls = () => {
+    if (!showSearchControls) {
+      return null;
+    }
 
-      {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
-    </View>
-  );
+    return (
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+          <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+            {state.totalCount > 0 ? `${state.totalCount} stories` : hasActiveFilters ? 'No matching stories yet' : 'Newest stories'}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sort: Most Recent"
+            style={{
+              paddingHorizontal: spacing.sm + 4,
+              paddingVertical: spacing.xs + 2,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.infoSurface,
+            }}
+          >
+            <Text style={{ color: colors.text, fontWeight: '700' }}>Most Recent</Text>
+          </Pressable>
+        </View>
+
+        <StorySearchControls helperText="Search by title or place." scope={searchScope} />
+      </View>
+    );
+  };
 
   if (!isHydrated) {
     return <Loader message="Restoring search filters..." />;

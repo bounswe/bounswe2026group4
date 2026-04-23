@@ -26,9 +26,13 @@ const EMPTY_FILTERS: StoryFilters = {};
 const ISTANBUL_REGION: Region = {
   latitude: 41.0082,
   longitude: 28.9784,
-  latitudeDelta: 0.12,
-  longitudeDelta: 0.12,
+  latitudeDelta: 0.32,
+  longitudeDelta: 0.48,
 };
+
+const MIN_FIT_DELTA = 0.06;
+const FIT_PADDING_FACTOR = 2.6;
+type StatusIndicatorMode = 'hidden' | 'filters' | 'area';
 
 export function MapScreen({
   initialFilters = EMPTY_FILTERS,
@@ -45,6 +49,9 @@ export function MapScreen({
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [state, setState] = useState<MapUiState>(() => createInitialMapUiState(initialFilters));
   const [mapCardTop, setMapCardTop] = useState(0);
+  const [visibleRegion, setVisibleRegion] = useState<Region | undefined>();
+  const [hasInteractedWithArea, setHasInteractedWithArea] = useState(false);
+  const [statusIndicatorMode, setStatusIndicatorMode] = useState<StatusIndicatorMode>('hidden');
   const previewOffsetRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -65,6 +72,10 @@ export function MapScreen({
       ...toSearchParams({ ...filters, query: useImmediateQuery ? filters.query : debouncedQuery }),
     }),
     [debouncedQuery, filters, initialFilters, useImmediateQuery],
+  );
+
+  const hasActiveFilters = Boolean(
+    activeFilters.q || activeFilters.location || activeFilters.yearFrom || activeFilters.yearTo,
   );
 
   const loadMarkers = React.useCallback(async () => {
@@ -113,6 +124,18 @@ export function MapScreen({
     };
   }, [isHydrated, loadMarkers, onRegisterRefresh]);
 
+  useEffect(() => {
+    setHasInteractedWithArea(false);
+    setVisibleRegion(undefined);
+
+    if (!hasActiveFilters) {
+      setStatusIndicatorMode('hidden');
+      return;
+    }
+
+    setStatusIndicatorMode('filters');
+  }, [activeFilters, hasActiveFilters]);
+
   const activeFilterSummary = useMemo(() => {
     const parts = [];
 
@@ -128,6 +151,44 @@ export function MapScreen({
 
     return parts;
   }, [state.filters]);
+
+  const totalStoryCount = useMemo(
+    () => state.markers.reduce((sum, marker) => sum + marker.count, 0),
+    [state.markers],
+  );
+
+  const mapRegion = useMemo(
+    () => (hasActiveFilters ? getRegionForMarkers(state.markers, ISTANBUL_REGION) : ISTANBUL_REGION),
+    [hasActiveFilters, state.markers],
+  );
+
+  const statusStoryCount = useMemo(() => {
+    if (statusIndicatorMode !== 'area' || !hasInteractedWithArea || !visibleRegion) {
+      return totalStoryCount;
+    }
+
+    return countStoriesInRegion(state.markers, visibleRegion);
+  }, [hasInteractedWithArea, state.markers, statusIndicatorMode, totalStoryCount, visibleRegion]);
+
+  const statusBadgeText = useMemo(() => {
+    if (state.isLoading || state.error || statusIndicatorMode === 'hidden') {
+      return undefined;
+    }
+
+    if (statusStoryCount > 0) {
+      return `${formatStoryCount(statusStoryCount)} found in this area`;
+    }
+
+    if (statusIndicatorMode === 'area') {
+      return 'No stories found in this area';
+    }
+
+    if (activeFilters.location?.trim()) {
+      return `No stories found in ${activeFilters.location.trim()}`;
+    }
+
+    return 'No stories found with this criteria';
+  }, [activeFilters.location, state.error, state.isLoading, statusIndicatorMode, statusStoryCount]);
 
   function handlePreviewLayout(event: LayoutChangeEvent) {
     previewOffsetRef.current = event.nativeEvent.layout.y;
@@ -148,24 +209,27 @@ export function MapScreen({
       {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
       {activeFilterSummary.length ? <Text style={{ color: colors.muted }}>{activeFilterSummary.join('  |  ')}</Text> : null}
 
-      <Text style={{ color: colors.muted, fontSize: typography.caption }}>
-        {state.markers.reduce((sum, marker) => sum + marker.count, 0)} stories currently match the active filters.
-      </Text>
-
       <View
         testID="map-card-container"
         style={{ minHeight: 420 }}
         onLayout={(event) => setMapCardTop(event.nativeEvent.layout.y)}
       >
         <MapCard
-          region={ISTANBUL_REGION}
+          region={mapRegion}
           markers={state.markers}
           selectedMarkerId={state.selectedMarkerId}
           isLoading={state.isLoading}
           error={state.error}
+          statusBadgeText={statusBadgeText}
+          fitToMarkers={hasActiveFilters}
           onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
           onMarkerPress={handleMarkerPreviewRequest}
+          onRegionChangeComplete={(region) => {
+            setVisibleRegion(region);
+            setHasInteractedWithArea(true);
+            setStatusIndicatorMode('area');
+          }}
           onPreviewLayout={handlePreviewLayout}
         />
       </View>
@@ -230,4 +294,45 @@ function getMarkerScore(marker: MapMarkerGroup, searchTerm?: string, locationTer
 
     return Math.max(bestScore, score);
   }, 0);
+}
+
+function countStoriesInRegion(markers: MapMarkerGroup[], region: Region) {
+  const latitudeMin = region.latitude - region.latitudeDelta / 2;
+  const latitudeMax = region.latitude + region.latitudeDelta / 2;
+  const longitudeMin = region.longitude - region.longitudeDelta / 2;
+  const longitudeMax = region.longitude + region.longitudeDelta / 2;
+
+  return markers.reduce((sum, marker) => {
+    const isMarkerVisible =
+      marker.latitude >= latitudeMin &&
+      marker.latitude <= latitudeMax &&
+      marker.longitude >= longitudeMin &&
+      marker.longitude <= longitudeMax;
+
+    return sum + (isMarkerVisible ? marker.count : 0);
+  }, 0);
+}
+
+function formatStoryCount(count: number) {
+  return `${count} ${count === 1 ? 'story' : 'stories'}`;
+}
+
+function getRegionForMarkers(markers: MapMarkerGroup[], fallbackRegion: Region): Region {
+  if (!markers.length) {
+    return fallbackRegion;
+  }
+
+  const latitudes = markers.map((marker) => marker.latitude);
+  const longitudes = markers.map((marker) => marker.longitude);
+  const minLatitude = Math.min(...latitudes);
+  const maxLatitude = Math.max(...latitudes);
+  const minLongitude = Math.min(...longitudes);
+  const maxLongitude = Math.max(...longitudes);
+
+  return {
+    latitude: (minLatitude + maxLatitude) / 2,
+    longitude: (minLongitude + maxLongitude) / 2,
+    latitudeDelta: Math.max((maxLatitude - minLatitude) * FIT_PADDING_FACTOR, MIN_FIT_DELTA),
+    longitudeDelta: Math.max((maxLongitude - minLongitude) * FIT_PADDING_FACTOR, MIN_FIT_DELTA),
+  };
 }

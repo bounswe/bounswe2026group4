@@ -129,36 +129,48 @@ describe("storyService", () => {
   });
 
   describe("getMapStories", () => {
-    it("calls GET /stories/map/ with empty params by default", async () => {
-      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+    const emptyFeatureCollection = { type: "FeatureCollection", features: [] };
+
+    it("calls GET /stories/map/ with no params by default", async () => {
+      api.get.mockResolvedValue({ data: emptyFeatureCollection });
 
       await getMapStories();
 
-      expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: { page_size: 100 } });
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", { params: {} });
     });
 
-    it("returns the .results array from paginated response", async () => {
-      const stories = [{ id: 1, title: "Story 1" }, { id: 2, title: "Story 2" }];
-      api.get.mockResolvedValue({ data: { count: 2, next: null, previous: null, results: stories } });
+    it("returns the GeoJSON FeatureCollection from the map endpoint with totalCount", async () => {
+      const featureCollection = {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            id: 1,
+            geometry: { type: "Point", coordinates: [28.9, 41.0] },
+            properties: { title: "Story 1" },
+          },
+        ],
+      };
+      api.get.mockResolvedValue({ data: featureCollection });
 
       const result = await getMapStories();
 
-      expect(result).toEqual(stories);
+      expect(result).toEqual({ ...featureCollection, totalCount: 1 });
     });
 
     it("passes yearFrom, yearTo and location filter params to map API", async () => {
-      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+      api.get.mockResolvedValue({ data: emptyFeatureCollection });
 
       await getMapStories({ yearFrom: 1900, yearTo: 2000, location: "Galata" });
 
       expect(api.get).toHaveBeenCalledWith("/stories/map/", {
-        params: { page_size: 100, year_from: 1900, year_to: 2000, location: "Galata" },
+        params: { year_from: 1900, year_to: 2000, location: "Galata" },
       });
     });
 
-    it("calls search API when q is provided and returns stories with coordinates", async () => {
+    it("calls search API when q is provided and adapts results into a FeatureCollection", async () => {
       const stories = [
-        { id: 1, title: "Bridge", location_lat: 41.0, location_lng: 28.9 },
+        { id: 1, title: "Bridge", location_lat: 41.0, location_lng: 28.9, location_name: "Galata", time_type: "exact_year", year: 1950 },
         { id: 2, title: "No location", location_lat: null, location_lng: null },
       ];
       api.get.mockResolvedValue({ data: { count: 2, next: null, previous: null, results: stories } });
@@ -168,9 +180,18 @@ describe("storyService", () => {
       expect(api.get).toHaveBeenCalledWith("/stories/search/", {
         params: { q: "bridge", page_size: 100 },
       });
-      // Filters out stories without coordinates
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe(1);
+      expect(result.type).toBe("FeatureCollection");
+      // Stories without coordinates are filtered out
+      expect(result.features).toHaveLength(1);
+      const feature = result.features[0];
+      expect(feature.type).toBe("Feature");
+      expect(feature.id).toBe(1);
+      // RFC 7946 §3.1.1: coordinate order is [longitude, latitude]
+      expect(feature.geometry).toEqual({ type: "Point", coordinates: [28.9, 41.0] });
+      expect(feature.properties.title).toBe("Bridge");
+      expect(feature.properties.location_name).toBe("Galata");
+      // totalCount reflects the full API count, not the filtered feature count
+      expect(result.totalCount).toBe(2);
     });
 
     it("passes year and location filters to search API when q and filters are combined", async () => {

@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 
 from apps.users.serializers import (
     CurrentUserSerializer,
+    DeleteAccountSerializer,
+    FollowUserSerializer,
     LoginSerializer,
     LogoutSerializer,
     ProfilePhotoSerializer,
@@ -14,12 +16,15 @@ from apps.users.serializers import (
     UserResponseSerializer,
 )
 from apps.users.services import (
+    delete_account,
     delete_profile_photo,
+    follow_user,
     get_own_profile,
     get_public_profile,
     login_user,
     logout_user,
     register_user,
+    unfollow_user,
     update_own_profile,
     upload_profile_photo,
 )
@@ -87,6 +92,17 @@ class CurrentUserView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    def delete(self, request):
+        """Hard-deletes (default) or soft-deletes the authenticated user's account."""
+        serializer = DeleteAccountSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        delete_account(
+            user=request.user,
+            hard_delete=serializer.validated_data['hard_delete'],
+            refresh_token=serializer.validated_data.get('refresh', ''),
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class ProfilePhotoView(APIView):
     """POST /users/me/photo/ — upload a profile photo; DELETE — remove it."""
@@ -118,3 +134,19 @@ class UserPublicProfileView(APIView):
             PublicUserProfileSerializer(user, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
+
+
+class FollowView(APIView):
+    """POST /users/<id>/follow/ — follow a user; DELETE — unfollow."""
+
+    permission_classes = [IsRegisteredUser]
+
+    def post(self, request, user_id):
+        follow, created = follow_user(request.user, user_id)
+        serializer = FollowUserSerializer(follow)
+        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response({'success': True, 'data': serializer.data}, status=http_status)
+
+    def delete(self, request, user_id):
+        unfollow_user(request.user, user_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)

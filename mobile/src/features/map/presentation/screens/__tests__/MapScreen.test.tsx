@@ -11,13 +11,53 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
 
   return {
     WebMapView: ({
+      region,
       markers = [],
       onMarkerPress,
+      onRegionChangeComplete,
     }: {
+      region?: {
+        latitude: number;
+        longitude: number;
+        latitudeDelta: number;
+        longitudeDelta: number;
+      };
       markers?: Array<{ id: string }>;
       onMarkerPress?: (markerId: string) => void;
+      onRegionChangeComplete?: (region: {
+        latitude: number;
+        longitude: number;
+        latitudeDelta: number;
+        longitudeDelta: number;
+      }) => void;
     }) => (
       <View testID="story-map" accessibilityLabel="Interactive story map">
+        <View
+          testID="map-region-props"
+          accessibilityLabel={`region:${region?.latitude}:${region?.longitude}:${region?.latitudeDelta}:${region?.longitudeDelta}`}
+        />
+        <Pressable
+          testID="map-region-change"
+          onPress={() =>
+            onRegionChangeComplete?.({
+              latitude: 41.0284,
+              longitude: 28.9647,
+              latitudeDelta: 0.005,
+              longitudeDelta: 0.005,
+            })
+          }
+        />
+        <Pressable
+          testID="map-region-empty"
+          onPress={() =>
+            onRegionChangeComplete?.({
+              latitude: 40.5,
+              longitude: 29.8,
+              latitudeDelta: 0.02,
+              longitudeDelta: 0.02,
+            })
+          }
+        />
         {markers.map((marker) => (
           <Pressable key={marker.id} onPress={() => onMarkerPress?.(marker.id)} testID="story-marker" />
         ))}
@@ -88,6 +128,7 @@ describe('MapScreen', () => {
 
     expect(screen.getByLabelText('Loading map pins')).toBeTruthy();
     expect(await screen.findByTestId('story-map')).toBeTruthy();
+    expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0082:28.9784:0.32:0.48');
     await waitFor(() => {
       expect(screen.getAllByTestId('story-marker')).toHaveLength(2);
     });
@@ -157,6 +198,97 @@ describe('MapScreen', () => {
     });
   });
 
+  it('shows a floating status badge after a search returns results', async () => {
+    renderScreen(
+      <MapScreen
+        getMarkerGroups={async (filters) =>
+          filters?.q === 'harbor' ? [markerGroups[0]] : markerGroups
+        }
+      />,
+    );
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
+
+    expect(await screen.findByText('1 story found in this area')).toBeTruthy();
+    expect(screen.getByTestId('map-search-status-badge')).toBeTruthy();
+  });
+
+  it('fits the map to all matched stories after a search', async () => {
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.changeText(screen.getByLabelText('Search stories'), 'market');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0192:28.96735:');
+      expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain(':0.06');
+    });
+  });
+
+  it('shows a no-results badge for a location search', async () => {
+    renderScreen(<MapScreen getMarkerGroups={async () => []} />);
+
+    await screen.findByText('No stories match the current filters.');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Beykoz');
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    expect(await screen.findByText('No stories found in Beykoz')).toBeTruthy();
+  });
+
+  it('applies the default year filters when submitted unchanged', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({
+        q: undefined,
+        location: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
+      });
+    });
+  });
+
+  it('hides the badge when the active search is cleared', async () => {
+    renderScreen(
+      <MapScreen
+        getMarkerGroups={async (filters) =>
+          filters?.q === 'harbor' ? [markerGroups[0]] : markerGroups
+        }
+      />,
+    );
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
+    expect(await screen.findByText('1 story found in this area')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByLabelText('Search stories'), '');
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('map-search-status-badge')).toBeNull();
+    });
+  });
+
+  it('updates the badge when the visible map area changes', async () => {
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('The Day the Harbor Fell Silent');
+    fireEvent.press(screen.getByTestId('map-region-empty'));
+
+    expect(await screen.findByText('No stories found in this area')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('map-region-change'));
+
+    expect(await screen.findByText('1 story found in this area')).toBeTruthy();
+  });
+
   it('refetches all markers when a chip filter is removed', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
 
@@ -165,13 +297,14 @@ describe('MapScreen', () => {
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
-        yearFrom: undefined,
-        yearTo: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
       });
     });
 
@@ -181,8 +314,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: undefined,
-        yearFrom: undefined,
-        yearTo: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
       });
     });
   });
@@ -195,13 +328,14 @@ describe('MapScreen', () => {
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
-        yearFrom: undefined,
-        yearTo: undefined,
+        yearFrom: 1980,
+        yearTo: 2026,
       });
     });
 

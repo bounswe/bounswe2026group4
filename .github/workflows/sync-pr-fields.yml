@@ -1,9 +1,13 @@
 name: Sync PR fields from linked issue
 
-# Fires whenever a PR is opened or its body is edited (e.g. to add the Fixes link).
+# Run on demand from the Actions tab. Supply the PR number as input.
 on:
-  pull_request:
-    types: [opened, edited]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to sync fields for'
+        required: true
+        type: string
 
 permissions:
   pull-requests: write   # needed to add labels and set milestone on the PR
@@ -19,12 +23,13 @@ jobs:
       - name: Sync labels and milestone from linked issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ inputs.pr_number }}
           REPO: ${{ github.repository }}
         run: |
+          # Fetch the PR body via the API; passed through env (not inline-interpolated).
+          PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq '.body' 2>/dev/null || true)
+
           # Extract the first "Fixes/Closes/Resolves #NNN" reference from the PR body.
-          # PR_BODY is passed via env (safe pattern — not inline-interpolated).
           ISSUE=$(printf '%s\n' "$PR_BODY" \
             | grep -oiE '(fixes|closes|resolves)[[:space:]]+#[0-9]+' \
             | grep -oE '[0-9]+' \
@@ -65,7 +70,7 @@ jobs:
       - name: Sync project membership and fields from linked issue
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
-          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+          PR_NUMBER: ${{ inputs.pr_number }}
           REPO: ${{ github.repository }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
@@ -76,6 +81,13 @@ jobs:
           ISSUE="$LINKED_ISSUE"
           if [ -z "$ISSUE" ]; then
             echo "No linked issue — skipping project sync."
+            exit 0
+          fi
+
+          # Fetch the PR's GraphQL node ID via the API.
+          PR_NODE_ID=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json id --jq '.id' 2>/dev/null || true)
+          if [ -z "$PR_NODE_ID" ]; then
+            echo "Could not resolve PR node ID — skipping project sync."
             exit 0
           fi
 
@@ -184,7 +196,7 @@ jobs:
             local field="$1" date="$2"
             [ -z "$date" ] && return
             gh api graphql -f query='
-              mutation($p:ID!,$i:ID!,$f:ID!,$v:String!) {
+              mutation($p:ID!,$i:ID!,$f:ID!,$v:Date!) {
                 updateProjectV2ItemFieldValue(input:{
                   projectId:$p, itemId:$i, fieldId:$f,
                   value:{ date:$v }

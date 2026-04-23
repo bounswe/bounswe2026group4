@@ -34,31 +34,66 @@ export async function getStories({
   return response.data; // { count, next, previous, results }
 }
 
+export const EMPTY_FEATURE_COLLECTION = Object.freeze({
+  type: "FeatureCollection",
+  features: [],
+});
+
+export const MAP_SEARCH_CAP = 100;
+
+function storyToFeature(story) {
+  return {
+    type: "Feature",
+    id: story.id,
+    geometry: {
+      type: "Point",
+      coordinates: [Number(story.location_lng), Number(story.location_lat)],
+    },
+    properties: {
+      title: story.title,
+      location_name: story.location_name,
+      time_type: story.time_type,
+      year: story.year,
+      year_start: story.year_start,
+      year_end: story.year_end,
+    },
+  };
+}
+
 /**
- * Fetch story pins for the map view.
- * When `q` is provided, uses /stories/search/ and returns only stories with coordinates.
- * Otherwise uses /stories/map/ with optional year and location filters.
+ * Fetch story pins for the map view as a GeoJSON FeatureCollection (RFC 7946).
+ *
+ * - Without `q`: calls /stories/map/ which already returns a FeatureCollection.
+ * - With `q`: calls /stories/search/ and adapts paginated results into a
+ *   FeatureCollection on the client, since the search endpoint still returns
+ *   the legacy paginated story list.
  */
 export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
   if (q?.trim()) {
-    // Hard cap at 100 results — pins beyond the first 100 are silently dropped.
-    const params = { q: q.trim(), page_size: 100 };
+    // Hard cap — pins beyond MAP_SEARCH_CAP are silently dropped.
+    const params = { q: q.trim(), page_size: MAP_SEARCH_CAP };
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
     const response = await api.get("/stories/search/", { params });
-    return response.data.results.filter(
-      (s) => s.location_lat != null && s.location_lng != null
-    );
+    const features = response.data.results
+      .filter((s) => s.location_lat != null && s.location_lng != null)
+      .map(storyToFeature);
+    return {
+      type: "FeatureCollection",
+      features,
+      totalCount: response.data.count,
+    };
   }
 
-  const params = { page_size: 100 };
+  const params = {};
   if (yearFrom) params.year_from = yearFrom;
   if (yearTo) params.year_to = yearTo;
   if (location?.trim()) params.location = location.trim();
 
   const response = await api.get("/stories/map/", { params });
-  return response.data.results;
+  const fc = response.data ?? EMPTY_FEATURE_COLLECTION;
+  return { ...fc, totalCount: fc.features?.length ?? 0 };
 }
 
 export async function createStory(formData) {

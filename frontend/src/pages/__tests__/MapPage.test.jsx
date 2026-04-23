@@ -1,27 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, MemoryRouter } from "react-router-dom";
 
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children, ...props }) => (
     <div data-testid="map-container" {...props}>{children}</div>
   ),
   TileLayer: () => null,
-  Marker: ({ children }) => <div data-testid="map-marker">{children}</div>,
-  Popup: ({ children }) => <div data-testid="map-popup">{children}</div>,
-  useMap: () => ({ setView: vi.fn() }),
+  GeoJSON: ({ data }) => {
+    const features = data?.features ?? [];
+    return (
+      <div data-testid="map-geojson" data-feature-count={features.length}>
+        {features.map((f) => (
+          <div key={f.id} data-testid="map-marker">
+            {f.properties?.title}
+          </div>
+        ))}
+      </div>
+    );
+  },
+  useMap: () => ({ getContainer: () => document.createElement("div") }),
 }));
 
 vi.mock("leaflet", () => {
   const L = {
     Icon: { Default: { prototype: { _getIconUrl: "" }, mergeOptions: vi.fn() } },
+    marker: vi.fn(() => ({ bindPopup: vi.fn() })),
   };
   return { default: L };
 });
 
 vi.mock("@/services/storyService", () => ({
   getMapStories: vi.fn(),
+  MAP_SEARCH_CAP: 100,
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -32,37 +44,45 @@ vi.mock("react-router-dom", async () => {
 import { getMapStories } from "@/services/storyService";
 import MapPage from "../MapPage";
 
-function makePin(id, overrides = {}) {
+function makeFeature(id, overrides = {}) {
   return {
+    type: "Feature",
     id,
-    title: `Story ${id}`,
-    location_lat: 41.0 + id * 0.01,
-    location_lng: 28.9 + id * 0.01,
-    location_name: `Location ${id}`,
-    time_type: "exact_year",
-    year: 1900 + id,
-    year_start: null,
-    year_end: null,
-    ...overrides,
+    geometry: {
+      type: "Point",
+      coordinates: [28.9 + id * 0.01, 41.0 + id * 0.01],
+    },
+    properties: {
+      title: `Story ${id}`,
+      location_name: `Location ${id}`,
+      time_type: "exact_year",
+      year: 1900 + id,
+      year_start: null,
+      year_end: null,
+      ...overrides,
+    },
   };
+}
+
+function makeFeatureCollection(features) {
+  return { type: "FeatureCollection", features };
 }
 
 function renderPage() {
   return render(
     <BrowserRouter>
       <MapPage />
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 }
 
 describe("MapPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
   });
 
   it("renders the map container", async () => {
-    getMapStories.mockResolvedValue([]);
+    getMapStories.mockResolvedValue(makeFeatureCollection([]));
     renderPage();
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });
@@ -74,7 +94,9 @@ describe("MapPage", () => {
   });
 
   it("renders markers after successful fetch", async () => {
-    getMapStories.mockResolvedValue([makePin(1), makePin(2)]);
+    getMapStories.mockResolvedValue(
+      makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+    );
     renderPage();
 
     await waitFor(() => {
@@ -95,7 +117,7 @@ describe("MapPage", () => {
     const user = userEvent.setup();
     getMapStories
       .mockRejectedValueOnce(new Error("fail"))
-      .mockResolvedValue([makePin(1)]);
+      .mockResolvedValue(makeFeatureCollection([makeFeature(1)]));
 
     renderPage();
 
@@ -112,12 +134,101 @@ describe("MapPage", () => {
     expect(getMapStories).toHaveBeenCalledTimes(2);
   });
 
-  it("shows no markers when API returns empty array", async () => {
-    getMapStories.mockResolvedValue([]);
+  it("shows no markers when API returns an empty FeatureCollection", async () => {
+    getMapStories.mockResolvedValue(makeFeatureCollection([]));
     renderPage();
 
     await waitFor(() => {
       expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("search status indicator", () => {
+    it("shows story count when filters are active and results exist", async () => {
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+        totalCount: 2,
+      });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/2 stories found/i)).toBeInTheDocument();
+      });
+    });
+
+    it("shows singular 'story' when exactly one result exists", async () => {
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection([makeFeature(1)]),
+        totalCount: 1,
+      });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/1 story found/i)).toBeInTheDocument();
+      });
+    });
+
+    it("shows empty message when filters are active but no results exist", async () => {
+      getMapStories.mockResolvedValue({ ...makeFeatureCollection([]), totalCount: 0 });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/no stories match your search/i),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("shows cap notice when totalCount exceeds 100 with q filter", async () => {
+      const features = Array.from({ length: 100 }, (_, i) => makeFeature(i + 1));
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection(features),
+        totalCount: 150,
+      });
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/showing first 100 results/i)).toBeInTheDocument();
+      });
+    });
+
+    it("does not show indicator while loading", () => {
+      getMapStories.mockReturnValue(new Promise(() => {}));
+      render(
+        <MemoryRouter initialEntries={["/?q=bridge"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByText(/stories? found|no stories match/i)).not.toBeInTheDocument();
+    });
+
+    it("does not show indicator when no filters are active", async () => {
+      getMapStories.mockResolvedValue({
+        ...makeFeatureCollection([makeFeature(1)]),
+        totalCount: 1,
+      });
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.queryByText(/stories found/i)).not.toBeInTheDocument();
+      });
     });
   });
 });

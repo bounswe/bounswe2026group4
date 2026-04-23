@@ -1,4 +1,4 @@
-import { ProfileEntity, UpdateProfileInput } from '../../domain/entities';
+import { ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 import { ProfileRepository } from '../../domain/repositories';
 import { profileRemoteSource } from '../sources';
 
@@ -56,12 +56,15 @@ function mapCurrentProfile(profile: Record<string, unknown>): ProfileEntity {
     email: asNullableString(profile.email),
     totalPoints: asNumber(profile.total_points),
     dateJoined: asString(profile.date_joined) || undefined,
+    firstName: asNullableString(nestedProfile.first_name),
+    lastName: asNullableString(nestedProfile.last_name),
     bio: asNullableString(nestedProfile.bio),
     location: asNullableString(nestedProfile.location),
     birthDate: asNullableString(nestedProfile.birth_date),
     profilePhoto: asNullableString(nestedProfile.profile_photo),
     isUsernamePublic: Boolean(profile.is_username_public),
     isEmailVerified: Boolean(profile.is_email_verified),
+    isNamePublic: nestedProfile.is_name_public === undefined ? undefined : Boolean(nestedProfile.is_name_public),
     isLocationPublic: nestedProfile.is_location_public === undefined ? undefined : Boolean(nestedProfile.is_location_public),
     isBirthDatePublic:
       nestedProfile.is_birth_date_public === undefined ? undefined : Boolean(nestedProfile.is_birth_date_public),
@@ -86,6 +89,8 @@ function mapPublicProfile(profile: Record<string, unknown>): ProfileEntity {
     totalPoints: asNumber(profile.total_points),
     dateJoined: asString(profile.date_joined) || undefined,
     publishedStoryCount: asNumber(profile.published_story_count),
+    firstName: asNullableString(profile.first_name),
+    lastName: asNullableString(profile.last_name),
     bio: asNullableString(profile.bio),
     location: asNullableString(profile.location),
     birthYear: asNullableNumber(profile.birth_year),
@@ -127,5 +132,19 @@ export class ProfileRepositoryImpl implements ProfileRepository {
     } catch {
       return mappedProfile;
     }
+  }
+
+  async uploadProfilePhoto(input: ProfilePhotoUploadInput): Promise<ProfileEntity> {
+    await profileRemoteSource.uploadProfilePhoto(input);
+    return this.getCurrentProfile();
+  }
+
+  async removeProfilePhoto(): Promise<ProfileEntity> {
+    await profileRemoteSource.removeProfilePhoto();
+    return this.getCurrentProfile();
+  }
+
+  async deleteAccount(password: string, deleteStories = true): Promise<void> {
+    await profileRemoteSource.deleteAccount(password, deleteStories);
   }
 }

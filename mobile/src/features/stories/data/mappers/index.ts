@@ -41,6 +41,12 @@ interface StoryRecord {
   comments?: unknown;
 }
 
+interface StoryMapFeatureRecord {
+  id?: unknown;
+  geometry?: unknown;
+  properties?: unknown;
+}
+
 function isCommentPreview(value: unknown): value is StoryCommentPreview {
   if (!value || typeof value !== 'object') {
     return false;
@@ -230,7 +236,26 @@ function getPrimaryMediaUrl(value: StoryRecord) {
 }
 
 function getContributorName(value: StoryRecord) {
-  return asString(value.contributorName) || asString(value.contributor_name) || 'Anonymous';
+  const resolvedName = asString(value.contributorName) || asString(value.contributor_name);
+
+  if (resolvedName) {
+    return resolvedName;
+  }
+
+  if (!asStringId(value.user)) {
+    return 'Deleted user';
+  }
+
+  return 'Anonymous';
+}
+
+function formatTimePeriodFromProperties(properties: Record<string, unknown>) {
+  return formatTimePeriod({
+    time_type: properties.time_type,
+    year: properties.year,
+    year_start: properties.year_start,
+    year_end: properties.year_end,
+  });
 }
 
 export function mapStory(value: unknown): StoryEntity {
@@ -331,6 +356,41 @@ export function mapStoryMapPin(value: unknown): StoryMapPin {
   };
 }
 
+export function mapGeoJSONStoryMapPin(value: unknown): StoryMapPin {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Invalid story map pin payload.');
+  }
+
+  const feature = value as StoryMapFeatureRecord;
+  const id = asIdentifier(feature.id);
+  const properties =
+    feature.properties && typeof feature.properties === 'object'
+      ? (feature.properties as Record<string, unknown>)
+      : undefined;
+  const geometry =
+    feature.geometry && typeof feature.geometry === 'object'
+      ? (feature.geometry as Record<string, unknown>)
+      : undefined;
+  const coordinates = Array.isArray(geometry?.coordinates) ? geometry.coordinates : undefined;
+  const longitude = asNumber(coordinates?.[0]);
+  const latitude = asNumber(coordinates?.[1]);
+  const title = asString(properties?.title);
+
+  if (!id || !title || latitude === undefined || longitude === undefined) {
+    throw new Error('Invalid story map pin payload.');
+  }
+
+  return {
+    id,
+    title,
+    previewText: asString(properties?.preview_text),
+    placeName: asString(properties?.location_name),
+    timePeriod: formatTimePeriodFromProperties(properties ?? {}),
+    latitude,
+    longitude,
+  };
+}
+
 export function mapStoryComment(value: unknown): StoryCommentPreview {
   if (!value || typeof value !== 'object') {
     throw new Error('Invalid story comment payload.');
@@ -343,7 +403,7 @@ export function mapStoryComment(value: unknown): StoryCommentPreview {
   const authorName =
     asString(comment.authorName) ||
     asString(comment.author_username) ||
-    (comment.is_anonymized === true ? 'Anonymous' : '') ||
+    (comment.is_anonymized === true || comment.isAnonymized === true ? 'Deleted account' : '') ||
     'Anonymous';
 
   if (!id || !body || !createdAt) {

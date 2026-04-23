@@ -153,11 +153,10 @@ function RegisterPage() {
       try {
         await login(email, password);
         toast.success("Account created! Welcome!");
-        const from = location.state?.from;
-        navigate(
-          from ? { pathname: from.pathname, search: from.search, hash: from.hash } : "/",
-          { replace: true }
-        );
+        navigate("/complete-profile", {
+          state: { from: location.state?.from || null },
+          replace: true,
+        });
       } catch {
         toast.info("Account created! Please sign in to continue.");
         navigate("/login", { state: { from: location.state?.from }, replace: true });

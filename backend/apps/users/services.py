@@ -2,6 +2,7 @@ import logging
 
 import magic
 
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import Http404
 
@@ -9,7 +10,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
-from apps.users.models import EmailVerificationCode, User, UserProfile
+from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 
 _MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
 _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
@@ -167,6 +168,44 @@ def delete_profile_photo(user: User) -> None:
         profile.save(update_fields=['profile_photo'])
 
 
+def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> None:
+    """
+    Deletes or deactivates a user account based on the hard_delete flag.
+
+    Hard delete: cleans up storage files first (profile photo, story media — queryset
+    .delete() bypasses FileField.delete()), explicitly deletes the user's comments on
+    other stories (Comment.author is SET_NULL, so they would survive otherwise), then
+    deletes the user's stories and finally the user row via cascade.
+
+    Soft delete: sets is_active=False and anonymizes the user's stories (story.user=NULL).
+    Comments and all other content are kept — community content outlives the account.
+
+    If a refresh_token is provided it is blacklisted; TokenError is silently ignored.
+    """
+    from apps.stories.models import Story  # local import to avoid circular imports
+    from apps.media.models import MediaItem  # local import to avoid circular imports
+    from apps.interactions.models import Comment  # local import to avoid circular imports
+
+    if refresh_token:
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            pass
+
+    if hard_delete:
+        delete_profile_photo(user)
+        for item in MediaItem.objects.filter(story__user=user).only('file'):
+            item.file.delete(save=False)
+        Comment.objects.filter(author=user).delete()
+        Story.objects.filter(user=user).delete()
+        user.delete()
+    else:
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        Story.objects.filter(user=user).update(user=None)
+
+
 def get_public_profile(user_id: int) -> User:
     """
     Return a User annotated with published_story_count for the public profile endpoint.
@@ -192,3 +231,53 @@ def get_public_profile(user_id: int) -> User:
         )
     except User.DoesNotExist:
         raise Http404
+
+
+def follow_user(follower: User, followed_id: int):
+    """
+    Create a follow relationship from follower to the user identified by followed_id.
+
+    Returns (Follow, created) — created=True on first follow, False on re-follow.
+    Raises Http404 if the target user does not exist or is inactive.
+    Raises ValidationError on self-follow attempt.
+
+    get_or_create is wrapped in transaction.atomic() because MySQL marks the
+    transaction broken on UniqueConstraint violation — the savepoint lets us
+    recover and return the existing row instead.
+    """
+    try:
+        followed_user = User.objects.get(pk=followed_id, is_active=True)
+    except User.DoesNotExist:
+        raise Http404
+
+    if follower.pk == followed_id:
+        raise ValidationError({'detail': 'Cannot follow yourself.'})
+
+    try:
+        with transaction.atomic():
+            follow, created = Follow.objects.get_or_create(
+                follower=follower,
+                followed=followed_user,
+            )
+    except IntegrityError:
+        follow = Follow.objects.get(follower=follower, followed=followed_user)
+        created = False
+
+    return follow, created
+
+
+def unfollow_user(follower: User, followed_id: int) -> None:
+    """
+    Remove the follow relationship from follower to followed_id.
+
+    Idempotent — no exception if the user is not currently following.
+    Raises Http404 if the target user does not exist at all.
+
+    Intentionally does not check is_active: a deactivated account must still
+    be unfollowable so callers can clean up stale follow relationships.
+    Blocking unfollow on inactive targets would leave orphaned edges with no
+    way to remove them.
+    """
+    if not User.objects.filter(pk=followed_id).exists():
+        raise Http404
+    Follow.objects.filter(follower=follower, followed_id=followed_id).delete()

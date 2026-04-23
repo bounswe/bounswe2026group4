@@ -57,6 +57,14 @@ describe('FeedScreen', () => {
     expect(screen.queryByText('Story feed')).toBeNull();
   });
 
+  it('hides top feed controls when search controls are disabled', async () => {
+    renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} showSearchControls={false} />);
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Sort: Most Recent' })).toBeNull();
+    expect(screen.queryByLabelText('Search stories')).toBeNull();
+  });
+
   it('shows an empty state when no stories are returned', async () => {
     renderScreen(<FeedScreen getFeed={async () => makeFeedPage({ items: [], totalCount: 0 })} />);
 
@@ -169,7 +177,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
-    fireEvent.press(screen.getByLabelText('Apply search'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getFeed).toHaveBeenLastCalledWith({
@@ -184,7 +192,32 @@ describe('FeedScreen', () => {
       });
     });
 
-    expect(screen.getByText('Filters')).toBeTruthy();
+    expect(screen.getByLabelText('Remove Location: Istanbul')).toBeTruthy();
+    expect(screen.getByLabelText('Remove From: 1900')).toBeTruthy();
+    expect(screen.getByLabelText('Remove To: 1950')).toBeTruthy();
+  });
+
+  it('applies the default year filters when submitted unchanged', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'recent',
+        filters: {
+          q: undefined,
+          location: undefined,
+          yearFrom: 1980,
+          yearTo: 2026,
+        },
+      });
+    });
   });
 
   it('closes the filter panel when tapping outside of it', async () => {
@@ -214,7 +247,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
     fireEvent.press(screen.getByText('Reset filter form'));
-    fireEvent.press(screen.getByLabelText('Apply search'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getFeed).toHaveBeenLastCalledWith({
@@ -223,8 +256,8 @@ describe('FeedScreen', () => {
         filters: {
           q: 'harbor',
           location: undefined,
-          yearFrom: undefined,
-          yearTo: undefined,
+          yearFrom: 1980,
+          yearTo: 2026,
         },
       });
     });

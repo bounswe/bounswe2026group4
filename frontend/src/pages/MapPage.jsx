@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from "react";
 
 import MapView from "@/components/MapView/MapView";
 import SearchFilter from "@/components/SearchFilter/SearchFilter";
-import { getMapStories } from "@/services/storyService";
+import { getMapStories, MAP_SEARCH_CAP } from "@/services/storyService";
 import { useFilterState } from "@/hooks/useFilterState";
 
-function MapPage() {
-  const { q, yearFrom, yearTo, location } = useFilterState();
+const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 
-  const [stories, setStories] = useState([]);
+function MapPage() {
+  const { q, yearFrom, yearTo, location, hasActiveFilters } = useFilterState();
+
+  const [featureCollection, setFeatureCollection] = useState(EMPTY_FEATURE_COLLECTION);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,7 +19,7 @@ function MapPage() {
     setError(null);
     try {
       const data = await getMapStories({ q, yearFrom, yearTo, location });
-      setStories(data);
+      setFeatureCollection(data ?? EMPTY_FEATURE_COLLECTION);
     } catch (err) {
       setError(
         err?.response?.data?.detail ||
@@ -35,12 +37,22 @@ function MapPage() {
 
   return (
     <div className="relative isolate" style={{ height: "calc(100vh - 3.5rem)" }}>
-      <MapView stories={stories} loading={loading} />
+      <MapView featureCollection={featureCollection} loading={loading} />
 
       {/* Search & filter overlay */}
       <div className="absolute top-3 left-3 right-3 z-[1000] sm:left-4 sm:right-auto sm:w-[32rem]">
         <div className="rounded-lg border bg-background/95 p-3 shadow-md backdrop-blur-sm">
           <SearchFilter />
+          {hasActiveFilters && !loading && !error && (
+            <p className="mt-2 text-sm text-muted-foreground" aria-live="polite">
+              {featureCollection.features.length === 0
+                ? "No stories match your search."
+                : `${featureCollection.features.length} ${featureCollection.features.length === 1 ? "story" : "stories"} found.`}
+              {featureCollection.features.length > 0 && q && (featureCollection.totalCount ?? featureCollection.features.length) > MAP_SEARCH_CAP && (
+                <span className="block text-xs">Showing first 100 results.</span>
+              )}
+            </p>
+          )}
         </div>
       </div>
 

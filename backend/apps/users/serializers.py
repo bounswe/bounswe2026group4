@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.users.models import User
+from apps.users.models import Follow, User
 from common.validators import validate_password_strength
 
 
@@ -224,3 +224,26 @@ class PublicUserProfileSerializer(serializers.Serializer):
         if profile and profile.is_birth_date_public and profile.birth_date:
             return profile.birth_date.year
         return None
+
+
+class DeleteAccountSerializer(serializers.Serializer):
+    """Validates an account deletion request. Requires the current password as confirmation."""
+
+    password = serializers.CharField(write_only=True)
+    hard_delete = serializers.BooleanField(default=True, required=False)
+    refresh = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_password(self, value):
+        """Reject the request immediately if the password is wrong."""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('Incorrect password.')
+        return value
+
+
+class FollowUserSerializer(serializers.ModelSerializer):
+    """Response body for POST /users/:id/follow/ — confirms the relationship."""
+
+    class Meta:
+        model = Follow
+        fields = ['follower_id', 'followed_id', 'created_at']

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
-import { FilterPanel } from '../../../../shared/components/FilterPanel';
+import { DEFAULT_FROM_YEAR, DEFAULT_TO_YEAR, FilterPanel } from '../../../../shared/components/FilterPanel';
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
 import { SearchFilterScope, useSearchFilters } from '../context/SearchFiltersContext';
@@ -40,8 +40,18 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const { colors, spacing, typography } = useAppTheme();
   const { filters, updateFilters, removeFilter, clearFilters, applyFilters } = useSearchFilters(scope);
   const [showFilters, setShowFilters] = useState(false);
+  const [draftLocation, setDraftLocation] = useState('');
+  const [draftTimeFrom, setDraftTimeFrom] = useState(DEFAULT_FROM_YEAR);
+  const [draftTimeTo, setDraftTimeTo] = useState(DEFAULT_TO_YEAR);
 
   const chips = useMemo(() => buildChips(filters), [filters]);
+
+  const openFilters = () => {
+    setDraftLocation(filters.location);
+    setDraftTimeFrom(filters.timeFrom || DEFAULT_FROM_YEAR);
+    setDraftTimeTo(filters.timeTo || DEFAULT_TO_YEAR);
+    setShowFilters(true);
+  };
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -61,7 +71,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       />
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Pressable accessibilityRole="button" onPress={() => setShowFilters((current) => !current)}>
+        <Pressable accessibilityRole="button" onPress={() => (showFilters ? setShowFilters(false) : openFilters())}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>
             {showFilters ? 'Hide filters' : 'Show filters'}
           </Text>
@@ -93,14 +103,24 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
         >
           <Pressable onPress={(event) => event.stopPropagation()} style={{ width: '100%' }}>
             <FilterPanel
-              location={filters.location}
-              timeFrom={filters.timeFrom}
-              timeTo={filters.timeTo}
-              onLocationChange={(location) => updateFilters({ location }, { refresh: true })}
-              onTimeFromChange={(timeFrom) => updateFilters({ timeFrom }, { refresh: true })}
-              onTimeToChange={(timeTo) => updateFilters({ timeTo }, { refresh: true })}
-              onClearAll={clearFilters}
+              location={draftLocation}
+              timeFrom={draftTimeFrom}
+              timeTo={draftTimeTo}
+              onLocationChange={setDraftLocation}
+              onTimeFromChange={setDraftTimeFrom}
+              onTimeToChange={setDraftTimeTo}
+              onClearAll={() => {
+                setDraftLocation('');
+                setDraftTimeFrom(DEFAULT_FROM_YEAR);
+                setDraftTimeTo(DEFAULT_TO_YEAR);
+                clearFilters();
+              }}
               onApply={() => {
+                updateFilters({
+                  location: draftLocation,
+                  timeFrom: draftTimeFrom,
+                  timeTo: draftTimeTo,
+                }, { refresh: true });
                 applyFilters();
                 setShowFilters(false);
               }}

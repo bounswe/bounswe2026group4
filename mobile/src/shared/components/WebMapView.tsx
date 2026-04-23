@@ -23,6 +23,7 @@ interface WebMapViewProps {
   interactive?: boolean;
   onMarkerPress?: (markerId: string) => void;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
+  onRegionChangeComplete?: (region: RegionLike) => void;
 }
 
 const mapHtml = ({
@@ -68,6 +69,22 @@ const mapHtml = ({
       .marker.selected {
         background: #0a0a0a;
       }
+
+      .marker-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 14px;
+        max-width: 18px;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -77,6 +94,7 @@ const mapHtml = ({
       const region = ${JSON.stringify(region)};
       const markers = ${JSON.stringify(markers)};
       const interactive = ${interactive ? 'true' : 'false'};
+      let hasCompletedInitialMove = false;
 
       const zoom = Math.max(
         2,
@@ -101,9 +119,33 @@ const mapHtml = ({
         keyboard: false,
       });
 
+      const postCurrentRegion = () => {
+        const bounds = map.getBounds();
+        const northEast = bounds.getNorthEast();
+        const southWest = bounds.getSouthWest();
+
+        window.ReactNativeWebView?.postMessage(
+          JSON.stringify({
+            type: 'regionChange',
+            latitude: map.getCenter().lat,
+            longitude: map.getCenter().lng,
+            latitudeDelta: Math.max(Math.abs(northEast.lat - southWest.lat), 0.0001),
+            longitudeDelta: Math.max(Math.abs(northEast.lng - southWest.lng), 0.0001),
+          })
+        );
+      };
+
       markers.forEach((marker) => {
         const element = document.createElement('div');
         element.className = marker.selected ? 'marker selected' : 'marker';
+
+        if (marker.label) {
+          const label = document.createElement('span');
+          label.className = 'marker-label';
+          label.textContent = marker.label;
+          element.appendChild(label);
+        }
+
         element.addEventListener('click', () => {
           window.ReactNativeWebView?.postMessage(
             JSON.stringify({ type: 'markerPress', markerId: marker.id })
@@ -132,6 +174,19 @@ const mapHtml = ({
           })
         );
       });
+
+      map.on('moveend', () => {
+        if (!interactive) {
+          return;
+        }
+
+        if (!hasCompletedInitialMove) {
+          hasCompletedInitialMove = true;
+          return;
+        }
+
+        postCurrentRegion();
+      });
     </script>
   </body>
 </html>`;
@@ -142,6 +197,7 @@ export function WebMapView({
   interactive = true,
   onMarkerPress,
   onMapPress,
+  onRegionChangeComplete,
 }: WebMapViewProps) {
   const source = useMemo(
     () => ({
@@ -178,6 +234,21 @@ export function WebMapView({
               onMapPress?.({
                 latitude: payload.latitude,
                 longitude: payload.longitude,
+              });
+            }
+
+            if (
+              payload.type === 'regionChange' &&
+              typeof payload.latitude === 'number' &&
+              typeof payload.longitude === 'number' &&
+              typeof payload.latitudeDelta === 'number' &&
+              typeof payload.longitudeDelta === 'number'
+            ) {
+              onRegionChangeComplete?.({
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+                latitudeDelta: payload.latitudeDelta,
+                longitudeDelta: payload.longitudeDelta,
               });
             }
           } catch {
