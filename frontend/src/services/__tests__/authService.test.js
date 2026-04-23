@@ -10,7 +10,13 @@ vi.mock("../tokenStore", () => ({
   clear: vi.fn(),
 }));
 
-import { login, register, logout } from "../authService";
+import {
+  login,
+  register,
+  logout,
+  verifyEmail,
+  resendVerificationCode,
+} from "../authService";
 import { setAccessToken, setRefreshToken, getRefreshToken, clear } from "../tokenStore";
 
 describe("authService", () => {
@@ -96,6 +102,50 @@ describe("authService", () => {
       await logout();
 
       expect(clear).toHaveBeenCalled();
+    });
+  });
+
+  describe("verifyEmail", () => {
+    it("POSTs email + code to /auth/verify-email/ and returns response data", async () => {
+      const responseData = { success: true, message: "Email verified." };
+      axios.post.mockResolvedValue({ data: responseData });
+
+      const result = await verifyEmail("test@example.com", "123456");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/verify-email/"),
+        { email: "test@example.com", code: "123456" }
+      );
+      expect(result).toEqual(responseData);
+    });
+
+    it("propagates API errors", async () => {
+      axios.post.mockRejectedValue(new Error("Invalid code"));
+      await expect(verifyEmail("test@example.com", "000000")).rejects.toThrow(
+        "Invalid code"
+      );
+    });
+  });
+
+  describe("resendVerificationCode", () => {
+    it("POSTs email to /auth/resend-verification/ and returns response data", async () => {
+      const responseData = { success: true, message: "Code resent." };
+      axios.post.mockResolvedValue({ data: responseData });
+
+      const result = await resendVerificationCode("test@example.com");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/resend-verification/"),
+        { email: "test@example.com" }
+      );
+      expect(result).toEqual(responseData);
+    });
+
+    it("propagates API errors", async () => {
+      axios.post.mockRejectedValue(new Error("Rate limited"));
+      await expect(resendVerificationCode("test@example.com")).rejects.toThrow(
+        "Rate limited"
+      );
     });
   });
 });
