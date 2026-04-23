@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
+from apps.tags.models import StoryTag, Tag
 from apps.users.models import RoleChoices, User
 
 FEED_URL = '/stories/feed/'
@@ -189,6 +190,31 @@ class TestStoryFeedView:
     def test_returns_400_when_year_from_greater_than_year_to(self, client):
         response = client.get(FEED_URL + '?year_from=2000&year_to=1900')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_feed_tag_filter_returns_only_tagged_stories(self, client):
+        tagged = make_story(title='Tagged')
+        make_story(title='Untagged')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=tagged, tag=tag)
+        response = client.get(FEED_URL + '?tag=folklore')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Tagged'
+
+    def test_feed_tag_filter_returns_empty_when_no_match(self, client):
+        make_story(title='Untagged')
+        Tag.objects.create(name='folklore')
+        response = client.get(FEED_URL + '?tag=folklore')
+        assert response.data['count'] == 0
+
+    def test_feed_tag_and_location_filter_combined(self, client):
+        match = make_story(title='Match', location_name='Istanbul')
+        no_match = make_story(title='Wrong Location', location_name='Ankara')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=match, tag=tag)
+        StoryTag.objects.create(story=no_match, tag=tag)
+        response = client.get(FEED_URL + '?tag=folklore&location=Istanbul')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Match'
 
 
 # ── GET /stories/ ─────────────────────────────────────────────────────────────
@@ -382,6 +408,28 @@ class TestStorySearchView:
         response = client.get(SEARCH_URL + '?q=Istanbul&sort_by=invalid')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_search_tag_filter_narrows_results(self, client):
+        tagged = make_story(title='Istanbul Tale')
+        make_story(title='Istanbul Lore')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=tagged, tag=tag)
+        response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Tale'
+
+    def test_search_tag_filter_returns_empty_when_tag_missing(self, client):
+        make_story(title='Istanbul Tale')
+        response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
+        assert response.data['count'] == 0
+
+    def test_search_tag_and_q_both_must_match(self, client):
+        # Story has the tag but q does not match its title or location_name
+        story = make_story(title='Ankara Chronicle', location_name='Ankara')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=story, tag=tag)
+        response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
+        assert response.data['count'] == 0
+
 
 # ── GET /stories/map/ ─────────────────────────────────────────────────────────
 
@@ -470,6 +518,20 @@ class TestStoryMapView:
         response = client.get(MAP_URL)
         if response.data['features']:
             assert 'narrative' not in response.data['features'][0]['properties']
+
+    def test_map_tag_filter_returns_only_tagged_stories(self, client):
+        tagged = make_story(title='Tagged')
+        make_story(title='Untagged')
+        tag = Tag.objects.create(name='ottoman-era')
+        StoryTag.objects.create(story=tagged, tag=tag)
+        response = client.get(MAP_URL + '?tag=ottoman-era')
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['title'] == 'Tagged'
+
+    def test_map_tag_filter_returns_empty_when_no_match(self, client):
+        make_story(title='Untagged')
+        response = client.get(MAP_URL + '?tag=ottoman-era')
+        assert len(response.data['features']) == 0
 
 
 # ── StoryDetailView — media_items ─────────────────────────────────────────────

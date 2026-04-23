@@ -261,6 +261,8 @@ class FeedQuerySerializer(serializers.Serializer):
     year_to = serializers.IntegerField(required=False)
     # Substring match against location_name — partial values like "galata" are valid
     location = serializers.CharField(required=False, allow_blank=False)
+    # Exact (case-insensitive) match against tag name — use the tag slug, e.g. "ottoman-era"
+    tag = serializers.CharField(required=False, allow_blank=False)
 
     def validate(self, data):
         year_from = data.get('year_from')
@@ -324,6 +326,8 @@ class SearchQuerySerializer(serializers.Serializer):
     year_to = serializers.IntegerField(required=False)
     # Substring match against location_name — partial values like "galata" are valid
     location = serializers.CharField(required=False, allow_blank=False)
+    # Exact (case-insensitive) match against tag name — use the tag slug, e.g. "ottoman-era"
+    tag = serializers.CharField(required=False, allow_blank=False)
 
     def validate(self, data):
         year_from = data.get('year_from')

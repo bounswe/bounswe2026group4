@@ -4,6 +4,7 @@ import pytest
 
 from apps.stories.models import Story
 from apps.stories.services import create_story, delete_story, get_story_feed, get_story_search, update_story
+from apps.tags.models import StoryTag, Tag
 from apps.users.models import User
 
 
@@ -291,6 +292,87 @@ class TestGetStorySearch:
         qs = get_story_search('Tower', year_from=1800, year_to=1950, location='Galata')
         assert qs.count() == 1
         assert qs.first().title == 'Tower in Galata'
+
+
+# ── get_story_feed — tag filter ───────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetStoryFeedTagFilter:
+    def test_feed_tag_filter_returns_matching_stories(self):
+        tagged = make_story(title='Tagged Story')
+        make_story(title='Untagged Story')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=tagged, tag=tag)
+        qs = get_story_feed(tag='folklore')
+        assert qs.count() == 1
+        assert qs.first().title == 'Tagged Story'
+
+    def test_feed_tag_filter_excludes_non_matching_stories(self):
+        story = make_story()
+        tag = Tag.objects.create(name='ottoman-era')
+        StoryTag.objects.create(story=story, tag=tag)
+        assert get_story_feed(tag='folklore').count() == 0
+
+    def test_feed_tag_filter_is_case_insensitive(self):
+        story = make_story()
+        tag = Tag.objects.create(name='ottoman-era')
+        StoryTag.objects.create(story=story, tag=tag)
+        assert get_story_feed(tag='Ottoman-Era').count() == 1
+        assert get_story_feed(tag='OTTOMAN-ERA').count() == 1
+
+    def test_feed_tag_filter_combined_with_year_filter(self):
+        match = make_story(title='Match', year=1950)
+        no_match = make_story(title='Too Early', year=1800)
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=match, tag=tag)
+        StoryTag.objects.create(story=no_match, tag=tag)
+        qs = get_story_feed(tag='folklore', year_from=1900)
+        assert qs.count() == 1
+        assert qs.first().title == 'Match'
+
+    def test_feed_tag_filter_combined_with_location_filter(self):
+        match = make_story(title='Match', location_name='Istanbul')
+        no_match = make_story(title='Wrong Location', location_name='Ankara')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=match, tag=tag)
+        StoryTag.objects.create(story=no_match, tag=tag)
+        qs = get_story_feed(tag='folklore', location='Istanbul')
+        assert qs.count() == 1
+        assert qs.first().title == 'Match'
+
+    def test_feed_tag_filter_does_not_return_duplicates(self):
+        story = make_story()
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        StoryTag.objects.create(story=story, tag=tag1)
+        StoryTag.objects.create(story=story, tag=tag2)
+        # Filtering by one tag on a story that has multiple tags must not produce duplicates
+        assert get_story_feed(tag='folklore').count() == 1
+
+
+# ── get_story_search — tag filter ────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetStorySearchTagFilter:
+    def test_search_tag_param_narrows_results(self):
+        tagged = make_story(title='Istanbul Tale')
+        make_story(title='Istanbul Lore')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=tagged, tag=tag)
+        qs = get_story_search('Istanbul', tag='folklore')
+        assert qs.count() == 1
+        assert qs.first().title == 'Istanbul Tale'
+
+    def test_search_tag_param_excludes_untagged(self):
+        make_story(title='Istanbul Tale')
+        assert get_story_search('Istanbul', tag='folklore').count() == 0
+
+    def test_search_tag_and_q_both_must_match(self):
+        # Story matches tag but neither title nor location_name matches q — should not appear
+        tagged = make_story(title='Ankara Chronicle', location_name='Ankara')
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=tagged, tag=tag)
+        assert get_story_search('Istanbul', tag='folklore').count() == 0
 
 
 # ── delete_story ──────────────────────────────────────────────────────────────
