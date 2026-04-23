@@ -21,6 +21,7 @@ from apps.users.services import (
     follow_user,
     get_own_profile,
     get_public_profile,
+    get_user_bookmarks,
     login_user,
     logout_user,
     register_user,
@@ -28,6 +29,8 @@ from apps.users.services import (
     update_own_profile,
     upload_profile_photo,
 )
+from apps.stories.serializers import StoryFeedSerializer
+from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
 
 
@@ -150,3 +153,16 @@ class FollowView(APIView):
     def delete(self, request, user_id):
         unfollow_user(request.user, user_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserBookmarksView(APIView):
+    """GET /users/<user_id>/bookmarks/ — owner's saved stories, paginated, newest bookmark first."""
+
+    permission_classes = [IsRegisteredUser]
+
+    def get(self, request, user_id):
+        qs = get_user_bookmarks(user_id, request.user)
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
