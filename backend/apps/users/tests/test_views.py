@@ -782,7 +782,6 @@ class TestUserBookmarksView:
     url = '/users/{user_id}/bookmarks/'
 
     def _make_story(self, user, title='Story'):
-        from decimal import Decimal
         return Story.objects.create(
             user=user,
             title=title,
@@ -847,6 +846,8 @@ class TestUserBookmarksView:
         result = response.data['results'][0]
         for field in ['id', 'title', 'location_name', 'preview_text', 'submitted_at']:
             assert field in result
+        assert result['user_has_saved'] is True
+        assert result['user_has_liked'] is False
 
     def test_unauthenticated_returns_401(self, client, registered_user):
         response = client.get(self.url.format(user_id=registered_user.pk))

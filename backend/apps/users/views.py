@@ -3,6 +3,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.stories.serializers import StoryFeedSerializer
+from apps.stories.views import annotate_user_interactions
 from apps.users.serializers import (
     CurrentUserSerializer,
     DeleteAccountSerializer,
@@ -29,7 +31,6 @@ from apps.users.services import (
     update_own_profile,
     upload_profile_photo,
 )
-from apps.stories.serializers import StoryFeedSerializer
 from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
 
@@ -161,7 +162,7 @@ class UserBookmarksView(APIView):
     permission_classes = [IsRegisteredUser]
 
     def get(self, request, user_id):
-        qs = get_user_bookmarks(user_id, request.user)
+        qs = annotate_user_interactions(get_user_bookmarks(user_id, request.user), request.user)
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = StoryFeedSerializer(page, many=True, context={'request': request})
