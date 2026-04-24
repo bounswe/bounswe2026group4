@@ -38,6 +38,7 @@ class StoryFeedView(APIView):
       year_from  — include stories from this year onwards
       year_to    — include stories up to and including this year
       location   — case-insensitive substring match against location_name
+      tag        — exact tag name filter (case-insensitive), e.g. "ottoman-era"
       page       — page number (default 1)
       page_size  — results per page (default 10, max 100)
     """
@@ -55,6 +56,7 @@ class StoryFeedView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
+            tag=params.get('tag'),
         )
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
@@ -79,6 +81,7 @@ class StoryMapView(APIView):
       year_from  — include stories from this year onwards
       year_to    — include stories up to and including this year
       location   — case-insensitive substring match against location_name
+      tag        — exact tag name filter (case-insensitive), e.g. "ottoman-era"
     """
 
     permission_classes = [AllowAny]
@@ -92,6 +95,7 @@ class StoryMapView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
+            tag=params.get('tag'),
         )
 
         serializer = StoryMapGeoJSONSerializer(qs, many=True)
@@ -109,7 +113,8 @@ class StorySearchView(APIView):
     title and location_name. Open to guests and authenticated users alike.
 
     Query params:
-      q — required, min 1 character after stripping whitespace
+      q        — required, min 1 character after stripping whitespace
+      tag      — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
     """
 
     permission_classes = [AllowAny]
@@ -125,6 +130,7 @@ class StorySearchView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
+            tag=params.get('tag'),
         )
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
