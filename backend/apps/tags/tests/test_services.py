@@ -191,6 +191,26 @@ class TestAttachTagsToStory:
         tag.refresh_from_db()
         assert tag.story_count == 1
 
+    def test_attach_tags_to_story_handles_integrity_error_gracefully(self):
+        """
+        Simulates the race: existing_ids snapshot misses the tag (other request not
+        yet committed), but then create raises IntegrityError (other request won).
+        The function must catch it silently and not let IntegrityError escape.
+        """
+        from unittest.mock import MagicMock, patch
+        from django.db import IntegrityError as DjangoIntegrityError
+
+        story = _make_story('attach5@x.com', 'attach5')
+        tag = Tag.objects.create(name='svc-attach-e')
+        # Patch values_list to return [] (simulates stale read) and create to raise IntegrityError
+        mock_qs = MagicMock()
+        mock_qs.values_list.return_value = []
+        mock_story = MagicMock()
+        mock_story.story_tags = mock_qs
+        with patch('apps.tags.services.StoryTag') as MockStoryTag:
+            MockStoryTag.objects.create.side_effect = DjangoIntegrityError('Duplicate entry')
+            attach_tags_to_story(mock_story, [tag.pk])  # must not raise
+
 
 @pytest.mark.django_db
 class TestSyncStoryTags:
@@ -241,6 +261,25 @@ class TestSyncStoryTags:
         tag.refresh_from_db()
         assert tag.story_count == 1
         assert StoryTag.objects.filter(story=story, tag=tag).count() == 1
+
+    def test_sync_story_tags_handles_integrity_error_gracefully(self):
+        """
+        Simulates the race: to_add contains a tag_id but a concurrent request already
+        created the row — IntegrityError from the to_add loop must not escape.
+        """
+        from unittest.mock import MagicMock, patch
+        from django.db import IntegrityError as DjangoIntegrityError
+
+        story = _make_story('sync7@x.com', 'sync7')
+        tag = Tag.objects.create(name='svc-sync-g')
+        mock_qs = MagicMock()
+        mock_qs.values_list.return_value = []  # existing_ids appears empty
+        mock_story = MagicMock()
+        mock_story.story_tags = mock_qs
+        with patch('apps.tags.services.StoryTag') as MockStoryTag:
+            MockStoryTag.objects.filter.return_value.delete.return_value = None
+            MockStoryTag.objects.create.side_effect = DjangoIntegrityError('Duplicate entry')
+            sync_story_tags(mock_story, [tag.pk])  # must not raise
 
 
 @pytest.mark.django_db

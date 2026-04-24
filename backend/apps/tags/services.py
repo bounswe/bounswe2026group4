@@ -1,8 +1,9 @@
 import re
 
+from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 
-from .models import Tag
+from .models import StoryTag, Tag
 
 
 def normalize_tag_name(name: str) -> str:
@@ -53,12 +54,14 @@ def attach_tags_to_story(story, tag_ids: list) -> None:
     Create StoryTag rows for any tag_ids not already linked to the story.
     story_count is incremented via the post_save signal on StoryTag.
     """
-    from apps.tags.models import StoryTag
-
     existing_ids = set(story.story_tags.values_list('tag_id', flat=True))
     for tag_id in tag_ids:
         if tag_id not in existing_ids:
-            StoryTag.objects.create(story=story, tag_id=tag_id)
+            try:
+                with transaction.atomic():
+                    StoryTag.objects.create(story=story, tag_id=tag_id)
+            except IntegrityError:
+                pass  # already linked — idempotent, safe to skip
 
 
 def sync_story_tags(story, new_tag_ids: list) -> None:
@@ -67,8 +70,6 @@ def sync_story_tags(story, new_tag_ids: list) -> None:
     Removes tags no longer in the list and adds tags not yet linked.
     story_count adjustments happen via post_save/post_delete signals on StoryTag.
     """
-    from apps.tags.models import StoryTag
-
     existing_ids = set(story.story_tags.values_list('tag_id', flat=True))
     new_ids = set(new_tag_ids)
     to_remove = existing_ids - new_ids
@@ -76,4 +77,8 @@ def sync_story_tags(story, new_tag_ids: list) -> None:
     if to_remove:
         StoryTag.objects.filter(story=story, tag_id__in=to_remove).delete()
     for tag_id in to_add:
-        StoryTag.objects.create(story=story, tag_id=tag_id)
+        try:
+            with transaction.atomic():
+                StoryTag.objects.create(story=story, tag_id=tag_id)
+        except IntegrityError:
+            pass  # concurrent request already created this link — skip
