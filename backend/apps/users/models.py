@@ -146,7 +146,7 @@ class Follow(models.Model):
             models.UniqueConstraint(fields=['follower', 'followed'], name='unique_follow'),
         ]
         indexes = [
-            models.Index(fields=['followed'], name='follow_followed_idx'),
+            models.Index(fields=['followed', 'created_at'], name='follow_followed_date_idx'),
             models.Index(fields=['follower', 'created_at'], name='follow_follower_date_idx'),
         ]
 

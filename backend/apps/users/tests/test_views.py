@@ -8,7 +8,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.users.models import User
+from apps.users.models import Follow, User
 from apps.stories.models import Story
 
 
@@ -773,3 +773,147 @@ class TestFollowView:
     def test_delete_unknown_user_returns_404(self, auth_client):
         response = auth_client.delete(self.url.format(user_id=99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# ── GET /users/:id/followers/ ────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowerListView:
+    url = '/users/{user_id}/followers/'
+
+    def test_unauthenticated_returns_200(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_unknown_user_returns_404(self, client):
+        response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_inactive_user_returns_404(self, client, registered_user):
+        registered_user.is_active = False
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_response_is_paginated(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        for key in ('count', 'results'):
+            assert key in response.data
+
+    def test_lists_correct_followers(self, client, registered_user, second_user):
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['id'] == second_user.pk
+
+    def test_non_follower_not_in_list(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 0
+
+    def test_inactive_follower_excluded_from_list(self, client, registered_user, second_user):
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        second_user.is_active = False
+        second_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 0
+
+    def test_result_contains_expected_fields(self, client, registered_user, second_user):
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        entry = response.data['results'][0]
+        for field in ('id', 'username', 'profile_photo'):
+            assert field in entry
+
+
+# ── GET /users/:id/following/ ────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestFollowingListView:
+    url = '/users/{user_id}/following/'
+
+    def test_unauthenticated_returns_200(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_unknown_user_returns_404(self, client):
+        response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_inactive_user_returns_404(self, client, registered_user):
+        registered_user.is_active = False
+        registered_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_response_is_paginated(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        for key in ('count', 'results'):
+            assert key in response.data
+
+    def test_lists_correct_following(self, client, registered_user, second_user):
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['id'] == second_user.pk
+
+    def test_not_following_returns_empty(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 0
+
+    def test_inactive_following_excluded_from_list(self, client, registered_user, second_user):
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        second_user.is_active = False
+        second_user.save()
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 0
+
+    def test_result_contains_expected_fields(self, client, registered_user, second_user):
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        entry = response.data['results'][0]
+        for field in ('id', 'username', 'profile_photo'):
+            assert field in entry
+
+
+# ── /users/:id/ public profile: follow counts ────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestPublicProfileFollowCounts:
+    def test_profile_includes_count_fields(self, client, registered_user):
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert 'followers_count' in response.data
+        assert 'following_count' in response.data
+
+    def test_counts_are_zero_initially(self, client, registered_user):
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['followers_count'] == 0
+        assert response.data['following_count'] == 0
+
+    def test_followers_count_reflects_state(self, client, registered_user, second_user):
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['followers_count'] == 1
+        assert response.data['following_count'] == 0
+
+    def test_following_count_reflects_state(self, client, registered_user, second_user):
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['following_count'] == 1
+        assert response.data['followers_count'] == 0
+
+    def test_followers_count_excludes_inactive_follower(self, client, registered_user, second_user):
+        Follow.objects.create(follower=second_user, followed=registered_user)
+        second_user.is_active = False
+        second_user.save()
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['followers_count'] == 0
+
+    def test_following_count_excludes_inactive_followed(self, client, registered_user, second_user):
+        Follow.objects.create(follower=registered_user, followed=second_user)
+        second_user.is_active = False
+        second_user.save()
+        response = client.get(f'/users/{registered_user.pk}/')
+        assert response.data['following_count'] == 0

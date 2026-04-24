@@ -225,7 +225,18 @@ def get_public_profile(user_id: int) -> User:
                 published_story_count=Count(
                     'stories',
                     filter=Q(stories__status=Story.STATUS_PUBLISHED),
-                )
+                    distinct=True,
+                ),
+                followers_count=Count(
+                    'followers',
+                    filter=Q(followers__follower__is_active=True),
+                    distinct=True,
+                ),
+                following_count=Count(
+                    'following',
+                    filter=Q(following__followed__is_active=True),
+                    distinct=True,
+                ),
             )
             .get(pk=user_id, is_active=True)
         )
@@ -264,6 +275,44 @@ def follow_user(follower: User, followed_id: int):
         created = False
 
     return follow, created
+
+
+def get_followers(user_id: int):
+    """
+    Return a User queryset of all users who follow user_id, newest first.
+
+    select_related('profile') prevents N+1 in FollowedUserSerializer.
+    Raises Http404 if the target user does not exist or is inactive.
+    """
+    try:
+        User.objects.get(pk=user_id, is_active=True)
+    except User.DoesNotExist:
+        raise Http404
+    return (
+        User.objects
+        .filter(following__followed_id=user_id, is_active=True)
+        .select_related('profile')
+        .order_by('-following__created_at')
+    )
+
+
+def get_following(user_id: int):
+    """
+    Return a User queryset of all users that user_id follows, newest first.
+
+    select_related('profile') prevents N+1 in FollowedUserSerializer.
+    Raises Http404 if the target user does not exist or is inactive.
+    """
+    try:
+        User.objects.get(pk=user_id, is_active=True)
+    except User.DoesNotExist:
+        raise Http404
+    return (
+        User.objects
+        .filter(followers__follower_id=user_id, is_active=True)
+        .select_related('profile')
+        .order_by('-followers__created_at')
+    )
 
 
 def unfollow_user(follower: User, followed_id: int) -> None:
