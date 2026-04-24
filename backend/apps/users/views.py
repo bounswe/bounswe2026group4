@@ -5,6 +5,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.stories.serializers import StoryFeedSerializer
+from apps.stories.services import annotate_user_interactions
 from apps.users.serializers import (
     CurrentUserSerializer,
     DeleteAccountSerializer,
@@ -193,7 +194,7 @@ class UserBookmarksView(APIView):
     permission_classes = [IsRegisteredUser]
 
     def get(self, request, user_id):
-        qs = get_user_bookmarks(user_id, request.user)
+        qs = annotate_user_interactions(get_user_bookmarks(user_id, request.user), request.user)
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = StoryFeedSerializer(page, many=True, context={'request': request})
