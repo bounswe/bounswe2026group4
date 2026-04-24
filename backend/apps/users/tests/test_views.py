@@ -171,6 +171,19 @@ class TestLoginView:
         })
         assert 'password' not in response.data.get('user', {})
 
+    def test_login_rate_limit_returns_429_after_limit(self, client):
+        from django.core.cache import cache
+        from unittest.mock import patch
+        cache.clear()
+        # Patch get_rate directly: override_settings doesn't reliably flush DRF's
+        # api_settings cache in all test-suite orderings.
+        with patch('rest_framework.throttling.ScopedRateThrottle.get_rate', return_value='10/minute'):
+            for _ in range(10):
+                client.post('/auth/login/', {'email': 'x@example.com', 'password': 'wrong'})
+            response = client.post('/auth/login/', {'email': 'x@example.com', 'password': 'wrong'})
+        cache.clear()
+        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
 
 @pytest.mark.django_db
 class TestLogoutView:
