@@ -224,8 +224,16 @@ def get_public_profile(user_id: int) -> User:
                     filter=Q(stories__status=Story.STATUS_PUBLISHED),
                     distinct=True,
                 ),
-                followers_count=Count('followers', distinct=True),
-                following_count=Count('following', distinct=True),
+                followers_count=Count(
+                    'followers',
+                    filter=Q(followers__follower__is_active=True),
+                    distinct=True,
+                ),
+                following_count=Count(
+                    'following',
+                    filter=Q(following__followed__is_active=True),
+                    distinct=True,
+                ),
             )
             .get(pk=user_id, is_active=True)
         )
@@ -279,7 +287,7 @@ def get_followers(user_id: int):
         raise Http404
     return (
         User.objects
-        .filter(following__followed_id=user_id)
+        .filter(following__followed_id=user_id, is_active=True)
         .select_related('profile')
         .order_by('-following__created_at')
     )
@@ -298,7 +306,7 @@ def get_following(user_id: int):
         raise Http404
     return (
         User.objects
-        .filter(followers__follower_id=user_id)
+        .filter(followers__follower_id=user_id, is_active=True)
         .select_related('profile')
         .order_by('-followers__created_at')
     )
