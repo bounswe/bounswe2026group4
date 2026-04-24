@@ -600,3 +600,17 @@ class TestGetPublicProfileFollowCounts:
         f.delete()
         user = get_public_profile(self.subject.pk)
         assert user.followers_count == 0
+
+    def test_followers_count_excludes_inactive_follower(self):
+        Follow.objects.create(follower=self.other, followed=self.subject)
+        self.other.is_active = False
+        self.other.save()
+        user = get_public_profile(self.subject.pk)
+        assert user.followers_count == 0
+
+    def test_following_count_excludes_inactive_followed(self):
+        Follow.objects.create(follower=self.subject, followed=self.other)
+        self.other.is_active = False
+        self.other.save()
+        user = get_public_profile(self.subject.pk)
+        assert user.following_count == 0
