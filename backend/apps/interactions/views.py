@@ -7,11 +7,20 @@ from rest_framework.views import APIView
 from apps.interactions.models import Comment
 from apps.interactions.permissions import IsCommentAuthorOrAdmin
 from apps.interactions.serializers import (
+    BookmarkResponseSerializer,
     CommentCreateSerializer,
     CommentResponseSerializer,
     LikeResponseSerializer,
 )
-from apps.interactions.services import add_like, create_comment, delete_comment, get_story_comments, remove_like
+from apps.interactions.services import (
+    add_bookmark,
+    add_like,
+    create_comment,
+    delete_comment,
+    get_story_comments,
+    remove_bookmark,
+    remove_like,
+)
 from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
 
@@ -81,4 +90,32 @@ class StoryLikeView(APIView):
 
     def delete(self, request, story_id):
         remove_like(request.user, story_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class StoryBookmarkView(APIView):
+    """
+    POST   /stories/<story_id>/bookmark/ — bookmark a published story.
+    DELETE /stories/<story_id>/bookmark/ — remove an existing bookmark.
+    Both require authentication.
+
+    POST returns 201 on creation, 200 if already bookmarked (idempotent).
+    DELETE always returns 204 regardless of whether a bookmark existed.
+    """
+
+    permission_classes = [IsRegisteredUser]
+
+    def post(self, request, story_id):
+        bookmark, created = add_bookmark(request.user, story_id)
+        http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(
+            {
+                'message': 'Story bookmarked successfully.',
+                'bookmark': BookmarkResponseSerializer(bookmark).data,
+            },
+            status=http_status,
+        )
+
+    def delete(self, request, story_id):
+        remove_bookmark(request.user, story_id)
         return Response(status=status.HTTP_204_NO_CONTENT)

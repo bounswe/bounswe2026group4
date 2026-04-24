@@ -3,7 +3,7 @@ import pytest
 
 from rest_framework.test import APIClient
 
-from apps.interactions.models import Comment, Like
+from apps.interactions.models import Comment, Like, SavedStory
 from apps.stories.models import Story
 from apps.users.models import RoleChoices, User
 
@@ -319,3 +319,92 @@ class TestStoryCommentList:
         response = client.get(self.url.format(story_id=story.pk))
         assert response.data['count'] == 1
         assert response.data['results'][0]['text'] == 'For first story'
+
+
+# ── POST /stories/<story_id>/bookmark/ ───────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryBookmark:
+    url = '/stories/{story_id}/bookmark/'
+
+    def test_bookmark_success_returns_201(self, auth_client, story):
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 201
+        assert response.data['bookmark']['story_id'] == story.pk
+        assert SavedStory.objects.filter(story=story).count() == 1
+
+    def test_bookmark_increments_save_count(self, auth_client, story):
+        auth_client.post(self.url.format(story_id=story.pk))
+        story.refresh_from_db()
+        assert story.save_count == 1
+
+    def test_bookmark_response_contains_expected_fields(self, auth_client, story):
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 201
+        for field in ['id', 'story_id', 'saved_at']:
+            assert field in response.data['bookmark']
+
+    def test_duplicate_bookmark_returns_200(self, auth_client, story):
+        auth_client.post(self.url.format(story_id=story.pk))
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 200
+        assert SavedStory.objects.filter(story=story).count() == 1
+
+    def test_duplicate_bookmark_does_not_increment_save_count(self, auth_client, story):
+        auth_client.post(self.url.format(story_id=story.pk))
+        auth_client.post(self.url.format(story_id=story.pk))
+        story.refresh_from_db()
+        assert story.save_count == 1
+
+    def test_bookmark_unauthenticated_returns_401(self, client, story):
+        response = client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 401
+
+    def test_bookmark_story_not_found_returns_404(self, auth_client):
+        response = auth_client.post(self.url.format(story_id=99999))
+        assert response.status_code == 404
+
+    def test_bookmark_removed_story_returns_404(self, auth_client, story):
+        story.status = Story.STATUS_REMOVED
+        story.save()
+        response = auth_client.post(self.url.format(story_id=story.pk))
+        assert response.status_code == 404
+
+
+# ── DELETE /stories/<story_id>/bookmark/ ─────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryUnbookmark:
+    url = '/stories/{story_id}/bookmark/'
+
+    def test_unbookmark_success_returns_204(self, auth_client, user, story):
+        SavedStory.objects.create(user=user, story=story)
+        response = auth_client.delete(self.url.format(story_id=story.pk))
+        assert response.status_code == 204
+        assert not SavedStory.objects.filter(user=user, story=story).exists()
+
+    def test_unbookmark_decrements_save_count(self, auth_client, user, story):
+        SavedStory.objects.create(user=user, story=story)
+        story.save_count = 1
+        story.save()
+        auth_client.delete(self.url.format(story_id=story.pk))
+        story.refresh_from_db()
+        assert story.save_count == 0
+
+    def test_unbookmark_not_bookmarked_returns_204(self, auth_client, story):
+        response = auth_client.delete(self.url.format(story_id=story.pk))
+        assert response.status_code == 204
+
+    def test_unbookmark_unauthenticated_returns_401(self, client, story):
+        response = client.delete(self.url.format(story_id=story.pk))
+        assert response.status_code == 401
+
+    def test_unbookmark_story_not_found_returns_404(self, auth_client):
+        response = auth_client.delete(self.url.format(story_id=99999))
+        assert response.status_code == 404
+
+    def test_unbookmark_removed_story_returns_404(self, auth_client, story):
+        story.status = Story.STATUS_REMOVED
+        story.save()
+        response = auth_client.delete(self.url.format(story_id=story.pk))
+        assert response.status_code == 404
