@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,45 +17,58 @@ const MAX_BIO_LENGTH = 500;
 
 function EditProfileForm({ initialProfile, onSave, onCancel }) {
   const { toast } = useToast();
-  const p = initialProfile?.profile ?? {};
+  const prof = initialProfile?.profile ?? {};
 
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
 
   const [username, setUsername] = useState(() => initialProfile?.username ?? "");
-  const [firstName, setFirstName] = useState(() => p.first_name ?? "");
-  const [lastName, setLastName] = useState(() => p.last_name ?? "");
-  const [location, setLocation] = useState(() => p.location ?? "");
-  const [bio, setBio] = useState(() => p.bio ?? "");
-  const [birthDate, setBirthDate] = useState(() => p.birth_date ?? "");
+  const [firstName, setFirstName] = useState(() => prof.first_name ?? "");
+  const [lastName, setLastName] = useState(() => prof.last_name ?? "");
+  const [location, setLocation] = useState(() => prof.location ?? "");
+  const [bio, setBio] = useState(() => prof.bio ?? "");
+  const [birthDate, setBirthDate] = useState(() => prof.birth_date ?? "");
 
-  const [isNamePublic, setIsNamePublic] = useState(() => p.is_name_public ?? true);
-  const [isLocationPublic, setIsLocationPublic] = useState(() => p.is_location_public ?? true);
-  const [isBirthDatePublic, setIsBirthDatePublic] = useState(() => p.is_birth_date_public ?? true);
-  const [isPhotoPublic, setIsPhotoPublic] = useState(() => p.is_photo_public ?? true);
+  const [isNamePublic, setIsNamePublic] = useState(() => prof.is_name_public ?? true);
+  const [isLocationPublic, setIsLocationPublic] = useState(() => prof.is_location_public ?? true);
+  const [isBirthDatePublic, setIsBirthDatePublic] = useState(() => prof.is_birth_date_public ?? true);
+  const [isPhotoPublic, setIsPhotoPublic] = useState(() => prof.is_photo_public ?? true);
 
-  const currentPhotoUrl = p.profile_photo ?? null;
+  const currentPhotoUrl = prof.profile_photo ?? null;
   const [newPhotoFile, setNewPhotoFile] = useState(null);
   const [newPhotoPreview, setNewPhotoPreview] = useState(null);
   const [photoError, setPhotoError] = useState(null);
   const [shouldRemovePhoto, setShouldRemovePhoto] = useState(false);
+  const previewUrlRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
+
+  function setPreview(url) {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = url;
+    setNewPhotoPreview(url);
+  }
 
   function handlePhotoFileChange(file, error) {
     if (error) {
       setPhotoError(error);
       setNewPhotoFile(null);
-      setNewPhotoPreview(null);
+      setPreview(null);
       return;
     }
     setPhotoError(null);
     setNewPhotoFile(file);
     setShouldRemovePhoto(false);
-    setNewPhotoPreview(file ? URL.createObjectURL(file) : null);
+    setPreview(file ? URL.createObjectURL(file) : null);
   }
 
   function handleRemovePhoto() {
     setNewPhotoFile(null);
-    setNewPhotoPreview(null);
+    setPreview(null);
     setShouldRemovePhoto(true);
     setPhotoError(null);
   }
@@ -143,7 +156,7 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
           value={username}
           onChange={(e) => {
             setUsername(e.target.value);
-            setErrors((p) => ({ ...p, username: undefined }));
+            setErrors((prev) => ({ ...prev, username: undefined }));
           }}
           placeholder="username"
         />
@@ -212,7 +225,7 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
           value={birthDate}
           onChange={(e) => {
             setBirthDate(e.target.value);
-            setErrors((p) => ({ ...p, birthDate: undefined }));
+            setErrors((prev) => ({ ...prev, birthDate: undefined }));
           }}
           max={new Date().toISOString().split("T")[0]}
           min="1900-01-01"
@@ -238,7 +251,7 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
           value={bio}
           onChange={(e) => {
             setBio(e.target.value);
-            setErrors((p) => ({ ...p, bio: undefined }));
+            setErrors((prev) => ({ ...prev, bio: undefined }));
           }}
           placeholder="Tell us about yourself…"
           rows={4}

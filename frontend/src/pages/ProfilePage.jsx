@@ -135,7 +135,6 @@ function ProfilePage() {
           {editMode ? (
             ownProfileData ? (
               <EditProfileForm
-                key={String(ownProfileData?.profile?.birth_date ?? "") + (ownProfileData?.username ?? "")}
                 initialProfile={ownProfileData}
                 onSave={handleEditSave}
                 onCancel={() => setEditMode(false)}
