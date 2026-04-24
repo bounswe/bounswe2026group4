@@ -77,6 +77,17 @@ class TestGetStoryFeed:
         assert results[0] == s3
         assert results[1] == s2
         assert results[2] == s1
+        
+    def test_sorts_by_most_popular(self):
+        # Create three stories with different like_count values. We expect the queryset
+        # to be ordered by like_count DESC when sort_by='popular'.
+        s1 = make_story(title='Least Popular', like_count=5)
+        s2 = make_story(title='Medium Popular', like_count=10)
+        s3 = make_story(title='Most Popular', like_count=20)
+        results = list(get_story_feed(sort_by='popular'))
+        assert results[0] == s3
+        assert results[1] == s2
+        assert results[2] == s1
 
     def test_filters_by_year_from(self):
         make_story(title='Before', year=1940)

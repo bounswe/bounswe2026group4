@@ -1,6 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { ScrollView, StyleSheet, ViewStyle } from 'react-native';
+import { lightColors } from '../../../../../app/theme/colors';
 import { ToastProvider } from '../../../../../shared/toast/ToastProvider';
 import { ROUTES } from '../../../../../app/navigation/routes';
 import { navigationRef } from '../../../../../app/navigation/navigationRef';
@@ -44,12 +46,33 @@ jest.mock('../../../../../shared/hooks/useToast', () => ({
   }),
 }));
 
+type TestInstanceWithParent = {
+  props: { style?: unknown };
+  parent: TestInstanceWithParent | null;
+};
+
 function renderSubmissionScreen() {
   return render(
     <ToastProvider>
       <SubmissionScreen />
     </ToastProvider>,
   );
+}
+
+function getInputShellStyle(accessibilityLabel: string) {
+  let inputShell = screen.getByLabelText(accessibilityLabel).parent as TestInstanceWithParent | null;
+
+  while (inputShell) {
+    const style = StyleSheet.flatten(inputShell.props.style) as ViewStyle | undefined;
+
+    if (style?.borderWidth) {
+      return style;
+    }
+
+    inputShell = inputShell.parent;
+  }
+
+  throw new Error(`Missing shell for input: ${accessibilityLabel}`);
 }
 
 describe('SubmissionScreen', () => {
@@ -69,6 +92,72 @@ describe('SubmissionScreen', () => {
     expect(screen.getByText('Place name is required.')).toBeTruthy();
     expect(screen.getByText('Year is required.')).toBeTruthy();
     expect(submissionsService.createStory).not.toHaveBeenCalled();
+  });
+
+  it('marks blank required inputs with red outer borders', async () => {
+    renderSubmissionScreen();
+
+    fireEvent.press(screen.getByText('Submit story'));
+
+    expect(await screen.findByText('Title is required.')).toBeTruthy();
+    expect(getInputShellStyle('Story title').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('Place name').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('Year').borderColor).toBe(lightColors.danger);
+  });
+
+  it('scrolls to the topmost missing required field on failed submit', async () => {
+    const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+
+    try {
+      renderSubmissionScreen();
+
+      fireEvent(screen.getByTestId('submission-field-title'), 'layout', {
+        nativeEvent: { layout: { y: 80 } },
+      });
+      fireEvent(screen.getByTestId('submission-field-narrative'), 'layout', {
+        nativeEvent: { layout: { y: 240 } },
+      });
+      fireEvent(screen.getByTestId('submission-field-location'), 'layout', {
+        nativeEvent: { layout: { y: 430 } },
+      });
+      fireEvent.changeText(screen.getByLabelText('Story title'), 'The City Walls');
+
+      fireEvent.press(screen.getByText('Submit story'));
+
+      expect(await screen.findByText('Narrative text is required.')).toBeTruthy();
+      expect(scrollToSpy).toHaveBeenCalledWith({ y: 224, animated: true });
+    } finally {
+      scrollToSpy.mockRestore();
+    }
+  });
+
+  it('scrolls to the year field when only year is missing', async () => {
+    const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+
+    try {
+      renderSubmissionScreen();
+
+      fireEvent(screen.getByTestId('submission-field-time'), 'layout', {
+        nativeEvent: { layout: { y: 520 } },
+      });
+      fireEvent(screen.getByTestId('submission-field-year'), 'layout', {
+        nativeEvent: { layout: { y: 76 } },
+      });
+      fireEvent.changeText(screen.getByLabelText('Story title'), 'The City Walls');
+      fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story about the old city walls.');
+      fireEvent(screen.getByTestId('story-location-map'), 'press', {
+        nativeEvent: { coordinate: { latitude: 41.0082, longitude: 28.9784 } },
+      });
+      fireEvent.changeText(screen.getByLabelText('Place name'), 'Old City');
+
+      fireEvent.press(screen.getByText('Submit story'));
+
+      expect(await screen.findByText('Year is required.')).toBeTruthy();
+      expect(scrollToSpy).toHaveBeenCalledWith({ y: 580, animated: true });
+      expect(submissionsService.createStory).not.toHaveBeenCalled();
+    } finally {
+      scrollToSpy.mockRestore();
+    }
   });
 
   it('submits the story payload and returns the user to the feed on success', async () => {
