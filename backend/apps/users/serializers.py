@@ -174,6 +174,8 @@ class PublicUserProfileSerializer(serializers.Serializer):
     total_points = serializers.IntegerField()
     date_joined = serializers.DateTimeField()
     published_story_count = serializers.IntegerField()
+    followers_count = serializers.IntegerField()
+    following_count = serializers.IntegerField()
     profile_photo = serializers.SerializerMethodField()
     first_name = serializers.SerializerMethodField()
     last_name = serializers.SerializerMethodField()
@@ -247,3 +249,29 @@ class FollowUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Follow
         fields = ['follower_id', 'followed_id', 'created_at']
+
+
+class FollowedUserSerializer(serializers.Serializer):
+    """
+    One entry in a paginated followers/following list.
+
+    Mirrors the visibility rules from PublicUserProfileSerializer:
+    username is hidden when is_username_public=False; profile_photo
+    is hidden when is_photo_public=False or no photo set.
+    """
+
+    id = serializers.IntegerField()
+    username = serializers.SerializerMethodField()
+    profile_photo = serializers.SerializerMethodField()
+
+    def get_username(self, obj):
+        return obj.username if obj.is_username_public else None
+
+    def get_profile_photo(self, obj):
+        profile = getattr(obj, 'profile', None)
+        if profile and profile.is_photo_public and profile.profile_photo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(profile.profile_photo.url)
+            return profile.profile_photo.url
+        return None

@@ -1,11 +1,15 @@
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+
+from common.pagination import StoryPagination
 
 from apps.users.serializers import (
     CurrentUserSerializer,
     DeleteAccountSerializer,
+    FollowedUserSerializer,
     FollowUserSerializer,
     LoginSerializer,
     LogoutSerializer,
@@ -19,6 +23,8 @@ from apps.users.services import (
     delete_account,
     delete_profile_photo,
     follow_user,
+    get_followers,
+    get_following,
     get_own_profile,
     get_public_profile,
     login_user,
@@ -50,6 +56,8 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -150,3 +158,29 @@ class FollowView(APIView):
     def delete(self, request, user_id):
         unfollow_user(request.user, user_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FollowerListView(APIView):
+    """GET /users/<id>/followers/ — paginated list of users who follow the given user."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        qs = get_followers(user_id)
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = FollowedUserSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class FollowingListView(APIView):
+    """GET /users/<id>/following/ — paginated list of users the given user follows."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        qs = get_following(user_id)
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = FollowedUserSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)

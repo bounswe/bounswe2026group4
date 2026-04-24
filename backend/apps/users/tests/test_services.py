@@ -612,3 +612,55 @@ class TestUnfollowUser:
     def test_unknown_followed_id_raises_404(self):
         with pytest.raises(Http404):
             unfollow_user(self.follower, 99999)
+
+
+# ── get_public_profile: follow counts ────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestGetPublicProfileFollowCounts:
+    def setup_method(self):
+        self.subject = User.objects.create_user(
+            email='subj@example.com', username='subjuser', password='Password1'
+        )
+        self.other = User.objects.create_user(
+            email='fcnt1@example.com', username='fcntuser', password='Password1'
+        )
+
+    def test_followers_count_is_zero_initially(self):
+        user = get_public_profile(self.subject.pk)
+        assert user.followers_count == 0
+
+    def test_following_count_is_zero_initially(self):
+        user = get_public_profile(self.subject.pk)
+        assert user.following_count == 0
+
+    def test_followers_count_increments_after_follow(self):
+        Follow.objects.create(follower=self.other, followed=self.subject)
+        user = get_public_profile(self.subject.pk)
+        assert user.followers_count == 1
+
+    def test_following_count_increments_after_follow(self):
+        Follow.objects.create(follower=self.subject, followed=self.other)
+        user = get_public_profile(self.subject.pk)
+        assert user.following_count == 1
+
+    def test_followers_count_decrements_after_unfollow(self):
+        f = Follow.objects.create(follower=self.other, followed=self.subject)
+        f.delete()
+        user = get_public_profile(self.subject.pk)
+        assert user.followers_count == 0
+
+    def test_followers_count_excludes_inactive_follower(self):
+        Follow.objects.create(follower=self.other, followed=self.subject)
+        self.other.is_active = False
+        self.other.save()
+        user = get_public_profile(self.subject.pk)
+        assert user.followers_count == 0
+
+    def test_following_count_excludes_inactive_followed(self):
+        Follow.objects.create(follower=self.subject, followed=self.other)
+        self.other.is_active = False
+        self.other.save()
+        user = get_public_profile(self.subject.pk)
+        assert user.following_count == 0

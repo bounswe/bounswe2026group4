@@ -26,7 +26,7 @@ def delete_story(story: Story) -> None:
     story.delete()
 
 
-def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None):
+def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None, tag=None):
     """
     Return a queryset of published stories with optional sorting and filtering.
 
@@ -57,6 +57,9 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
     if location:
         qs = qs.filter(location_name__icontains=location)
 
+    if tag:
+        qs = qs.filter(story_tags__tag__name__iexact=tag).distinct()
+
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')
         
@@ -66,11 +69,11 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
     return qs
 
 
-def get_story_search(q: str, sort_by='recent', year_from=None, year_to=None, location=None):
+def get_story_search(q: str, sort_by='recent', year_from=None, year_to=None, location=None, tag=None):
     """Return published stories whose title or location_name contains q (case-insensitive).
 
     Accepts the same optional filter params as get_story_feed so search results
-    can be narrowed by year range and location in addition to the text query.
+    can be narrowed by year range, location, and tag in addition to the text query.
 
     Returns an empty queryset if q is blank or whitespace-only — callers should
     validate q before calling, but the service is safe to call directly.
@@ -98,6 +101,9 @@ def get_story_search(q: str, sort_by='recent', year_from=None, year_to=None, loc
 
     if location:
         qs = qs.filter(location_name__icontains=location)
+
+    if tag:
+        qs = qs.filter(story_tags__tag__name__iexact=tag).distinct()
 
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')

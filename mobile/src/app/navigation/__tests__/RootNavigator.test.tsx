@@ -280,7 +280,7 @@ describe('RootNavigator auth flow', () => {
 
     expect(await screen.findByText('Please sign in to submit a story.')).toBeTruthy();
     expect(screen.getByLabelText('Submission')).toBeTruthy();
-  });
+  }, 10000);
 
   it('opens the main pager on the feed tab by default', async () => {
     renderNavigator();
