@@ -12,7 +12,7 @@ export const getProfile = getPublicProfile;
 /** GET /users/me/ — authenticated user's own full profile (includes privacy flags) */
 export async function getOwnProfile() {
   const response = await api.get("/users/me/");
-  return response.data;
+  return response.data.data;
 }
 
 /**

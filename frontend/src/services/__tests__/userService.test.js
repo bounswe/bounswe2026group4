@@ -48,9 +48,9 @@ describe("userService", () => {
   });
 
   describe("getOwnProfile", () => {
-    it("calls GET /users/me/ and returns data", async () => {
+    it("calls GET /users/me/ and returns the unwrapped user object", async () => {
       const meData = { id: 1, email: "me@example.com", profile: { bio: "hello" } };
-      api.get.mockResolvedValue({ data: meData });
+      api.get.mockResolvedValue({ data: { success: true, data: meData } });
 
       const result = await getOwnProfile();
 

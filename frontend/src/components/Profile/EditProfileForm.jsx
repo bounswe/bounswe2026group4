@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/useToast";
 import {
-  getOwnProfile,
   updateProfile,
   uploadProfilePhoto,
   removeProfilePhoto,
@@ -16,48 +15,30 @@ import VisibilityToggle from "@/components/Profile/VisibilityToggle";
 
 const MAX_BIO_LENGTH = 500;
 
-function EditProfileForm({ onSave, onCancel }) {
+function EditProfileForm({ initialProfile, onSave, onCancel }) {
   const { toast } = useToast();
+  const p = initialProfile?.profile ?? {};
 
-  const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [location, setLocation] = useState("");
-  const [bio, setBio] = useState("");
-  const [birthDate, setBirthDate] = useState("");
+  const [username, setUsername] = useState(() => initialProfile?.username ?? "");
+  const [firstName, setFirstName] = useState(() => p.first_name ?? "");
+  const [lastName, setLastName] = useState(() => p.last_name ?? "");
+  const [location, setLocation] = useState(() => p.location ?? "");
+  const [bio, setBio] = useState(() => p.bio ?? "");
+  const [birthDate, setBirthDate] = useState(() => p.birth_date ?? "");
 
-  const [isNamePublic, setIsNamePublic] = useState(true);
-  const [isLocationPublic, setIsLocationPublic] = useState(true);
-  const [isBirthDatePublic, setIsBirthDatePublic] = useState(true);
-  const [isPhotoPublic, setIsPhotoPublic] = useState(true);
+  const [isNamePublic, setIsNamePublic] = useState(() => p.is_name_public ?? true);
+  const [isLocationPublic, setIsLocationPublic] = useState(() => p.is_location_public ?? true);
+  const [isBirthDatePublic, setIsBirthDatePublic] = useState(() => p.is_birth_date_public ?? true);
+  const [isPhotoPublic, setIsPhotoPublic] = useState(() => p.is_photo_public ?? true);
 
-  const [currentPhotoUrl, setCurrentPhotoUrl] = useState(null);
+  const currentPhotoUrl = p.profile_photo ?? null;
   const [newPhotoFile, setNewPhotoFile] = useState(null);
   const [newPhotoPreview, setNewPhotoPreview] = useState(null);
   const [photoError, setPhotoError] = useState(null);
   const [shouldRemovePhoto, setShouldRemovePhoto] = useState(false);
-
-  useEffect(() => {
-    getOwnProfile()
-      .then((result) => {
-        const p = result?.data?.profile ?? {};
-        setFirstName(p.first_name ?? "");
-        setLastName(p.last_name ?? "");
-        setLocation(p.location ?? "");
-        setBio(p.bio ?? "");
-        setBirthDate(p.birth_date ?? "");
-        setIsNamePublic(p.is_name_public ?? true);
-        setIsLocationPublic(p.is_location_public ?? true);
-        setIsBirthDatePublic(p.is_birth_date_public ?? true);
-        setIsPhotoPublic(p.is_photo_public ?? true);
-        setCurrentPhotoUrl(p.profile_photo ?? null);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingProfile(false));
-  }, []);
 
   function handlePhotoFileChange(file, error) {
     if (error) {
@@ -81,6 +62,7 @@ function EditProfileForm({ onSave, onCancel }) {
 
   function validate() {
     const errs = {};
+    if (!username.trim()) errs.username = "Username is required.";
     if (bio.length > MAX_BIO_LENGTH) {
       errs.bio = `Bio must be ${MAX_BIO_LENGTH} characters or fewer.`;
     }
@@ -109,7 +91,7 @@ function EditProfileForm({ onSave, onCancel }) {
       }
 
       await updateProfile(
-        {},
+        { username: username.trim() },
         {
           first_name: firstName,
           last_name: lastName,
@@ -134,14 +116,6 @@ function EditProfileForm({ onSave, onCancel }) {
     }
   }
 
-  if (loadingProfile) {
-    return (
-      <div className="flex items-center justify-center py-12" aria-label="Loading profile data" aria-busy="true">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-      </div>
-    );
-  }
-
   const displayPhotoUrl = newPhotoPreview ?? (shouldRemovePhoto ? null : currentPhotoUrl);
 
   return (
@@ -159,6 +133,23 @@ function EditProfileForm({ onSave, onCancel }) {
           onChange={setIsPhotoPublic}
           fieldLabel="Photo"
         />
+      </div>
+
+      {/* Username */}
+      <div className="space-y-1.5">
+        <Label htmlFor="edit-username">Username</Label>
+        <Input
+          id="edit-username"
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            setErrors((p) => ({ ...p, username: undefined }));
+          }}
+          placeholder="username"
+        />
+        {errors.username && (
+          <p className="text-sm text-destructive" role="alert">{errors.username}</p>
+        )}
       </div>
 
       {/* Name */}

@@ -3,7 +3,6 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/services/userService", () => ({
-  getOwnProfile: vi.fn(),
   updateProfile: vi.fn(),
   uploadProfilePhoto: vi.fn(),
   removeProfilePhoto: vi.fn(),
@@ -14,7 +13,6 @@ vi.mock("@/hooks/useToast", () => ({
 }));
 
 import {
-  getOwnProfile,
   updateProfile,
   uploadProfilePhoto,
   removeProfilePhoto,
@@ -26,21 +24,20 @@ const mockSuccessToast = vi.fn();
 const mockErrorToast = vi.fn();
 
 const baseProfileResponse = {
-  data: {
-    id: 1,
-    email: "test@example.com",
-    profile: {
-      first_name: "Alice",
-      last_name: "Smith",
-      location: "Istanbul",
-      bio: "Hello world",
-      birth_date: "1990-05-15",
-      is_name_public: true,
-      is_location_public: true,
-      is_birth_date_public: false,
-      is_photo_public: true,
-      profile_photo: null,
-    },
+  id: 1,
+  username: "alice_smith",
+  email: "test@example.com",
+  profile: {
+    first_name: "Alice",
+    last_name: "Smith",
+    location: "Istanbul",
+    bio: "Hello world",
+    birth_date: "1990-05-15",
+    is_name_public: true,
+    is_location_public: true,
+    is_birth_date_public: false,
+    is_photo_public: true,
+    profile_photo: null,
   },
 };
 
@@ -48,7 +45,12 @@ function renderForm(props = {}) {
   const onSave = vi.fn();
   const onCancel = vi.fn();
   const result = render(
-    <EditProfileForm onSave={onSave} onCancel={onCancel} {...props} />
+    <EditProfileForm
+      initialProfile={baseProfileResponse}
+      onSave={onSave}
+      onCancel={onCancel}
+      {...props}
+    />
   );
   return { ...result, onSave, onCancel };
 }
@@ -59,87 +61,56 @@ describe("EditProfileForm", () => {
     useToast.mockReturnValue({
       toast: { success: mockSuccessToast, error: mockErrorToast },
     });
-    getOwnProfile.mockResolvedValue(baseProfileResponse);
     updateProfile.mockResolvedValue({ success: true });
     uploadProfilePhoto.mockResolvedValue({ photo_url: "http://example.com/photo.jpg" });
     removeProfilePhoto.mockResolvedValue(undefined);
   });
 
-  describe("loading state", () => {
-    it("shows loading indicator while fetching own profile", () => {
-      getOwnProfile.mockReturnValue(new Promise(() => {}));
-      renderForm();
-      expect(screen.getByLabelText("Loading profile data")).toBeInTheDocument();
-    });
-
-    it("hides loading indicator after fetch resolves", async () => {
-      renderForm();
-      await waitFor(() =>
-        expect(screen.queryByLabelText("Loading profile data")).not.toBeInTheDocument()
-      );
-    });
-  });
-
   describe("field pre-population", () => {
-    it("pre-populates first name and last name from own profile", async () => {
+    it("pre-populates username", () => {
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toHaveValue("Alice")
-      );
+      expect(screen.getByLabelText("Username")).toHaveValue("alice_smith");
+    });
+
+    it("pre-populates first name and last name from own profile", () => {
+      renderForm();
+      expect(screen.getByLabelText("First name")).toHaveValue("Alice");
       expect(screen.getByLabelText("Last name")).toHaveValue("Smith");
     });
 
-    it("pre-populates location and bio", async () => {
+    it("pre-populates location and bio", () => {
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
       expect(screen.getByLabelText(/^Location$/i)).toHaveValue("Istanbul");
       expect(screen.getByLabelText(/^Bio$/i)).toHaveValue("Hello world");
     });
 
-    it("pre-populates birth date", async () => {
+    it("pre-populates birth date", () => {
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
       expect(screen.getByLabelText(/^Birth date$/i)).toHaveValue("1990-05-15");
     });
 
-    it("reflects privacy flags from profile — birth date switch is off (Private)", async () => {
+    it("reflects privacy flags from profile — birth date switch is off (Private)", () => {
       renderForm();
-      await waitFor(() => {
-        const toggle = screen.getByRole("switch", { name: /Birth date visibility/i });
-        expect(toggle).toHaveAttribute("aria-checked", "false");
-      });
+      const toggle = screen.getByRole("switch", { name: /Birth date visibility/i });
+      expect(toggle).toHaveAttribute("aria-checked", "false");
     });
 
-    it("handles missing profile gracefully with empty defaults", async () => {
-      getOwnProfile.mockResolvedValue({ data: {} });
-      renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toHaveValue("")
-      );
+    it("handles missing profile gracefully with empty defaults", () => {
+      renderForm({ initialProfile: {} });
+      expect(screen.getByLabelText("First name")).toHaveValue("");
     });
   });
 
   describe("visibility toggles", () => {
-    it("location toggle is on (Public) when is_location_public is true", async () => {
+    it("location toggle is on (Public) when is_location_public is true", () => {
       renderForm();
-      await waitFor(() => {
-        const toggle = screen.getByRole("switch", { name: /Location visibility/i });
-        expect(toggle).toHaveAttribute("aria-checked", "true");
-      });
+      const toggle = screen.getByRole("switch", { name: /Location visibility/i });
+      expect(toggle).toHaveAttribute("aria-checked", "true");
     });
 
     it("toggles location from Public to Private on click", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(
-          screen.getByRole("switch", { name: /Location visibility/i })
-        ).toHaveAttribute("aria-checked", "true")
-      );
       await user.click(screen.getByRole("switch", { name: /Location visibility/i }));
       expect(
         screen.getByRole("switch", { name: /Location visibility/i })
@@ -149,17 +120,12 @@ describe("EditProfileForm", () => {
     it("toggles name visibility and sends updated value on save", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(
-          screen.getByRole("switch", { name: /Name visibility/i })
-        ).toHaveAttribute("aria-checked", "true")
-      );
       await user.click(screen.getByRole("switch", { name: /Name visibility/i }));
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       await waitFor(() =>
         expect(updateProfile).toHaveBeenCalledWith(
-          {},
+          { username: "alice_smith" },
           expect.objectContaining({ is_name_public: false })
         )
       );
@@ -169,10 +135,6 @@ describe("EditProfileForm", () => {
   describe("photo upload", () => {
     it("shows error for unsupported file type", async () => {
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       const input = screen.getByTestId("photo-file-input");
       const gifFile = new File(["gif"], "anim.gif", { type: "image/gif" });
       Object.defineProperty(input, "files", {
@@ -188,10 +150,6 @@ describe("EditProfileForm", () => {
 
     it("shows error when file exceeds 2 MB", async () => {
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       const input = screen.getByTestId("photo-file-input");
       const bigFile = new File(
         ["x".repeat(3 * 1024 * 1024)],
@@ -217,9 +175,6 @@ describe("EditProfileForm", () => {
       });
 
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
 
       const input = screen.getByTestId("photo-file-input");
       const jpgFile = new File(["img"], "photo.jpg", { type: "image/jpeg" });
@@ -236,17 +191,16 @@ describe("EditProfileForm", () => {
     });
 
     it("clears preview when Remove photo is clicked", async () => {
-      getOwnProfile.mockResolvedValue({
-        data: {
+      const user = userEvent.setup();
+      renderForm({
+        initialProfile: {
+          ...baseProfileResponse,
           profile: {
-            ...baseProfileResponse.data.profile,
+            ...baseProfileResponse.profile,
             profile_photo: "http://example.com/existing.jpg",
           },
         },
       });
-
-      const user = userEvent.setup();
-      renderForm();
       await waitFor(() =>
         expect(screen.getByAltText("Profile preview")).toBeInTheDocument()
       );
@@ -257,11 +211,8 @@ describe("EditProfileForm", () => {
   });
 
   describe("bio", () => {
-    it("displays character counter", async () => {
+    it("displays character counter", () => {
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
       // "Hello world" is 11 chars
       expect(screen.getByText("11/500")).toBeInTheDocument();
     });
@@ -269,10 +220,6 @@ describe("EditProfileForm", () => {
     it("updates counter as user types", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       const bioField = screen.getByLabelText(/^Bio$/i);
       await user.clear(bioField);
       await user.type(bioField, "Hi");
@@ -282,10 +229,6 @@ describe("EditProfileForm", () => {
     it("shows validation error on submit when bio exceeds 500 chars", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       const bioField = screen.getByLabelText(/^Bio$/i);
       fireEvent.change(bioField, { target: { value: "a".repeat(501) } });
 
@@ -302,10 +245,6 @@ describe("EditProfileForm", () => {
     it("shows error when birth date is in the future", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       const birthDateInput = screen.getByLabelText(/^Birth date$/i);
       fireEvent.change(birthDateInput, { target: { value: "2099-01-01" } });
 
@@ -320,10 +259,6 @@ describe("EditProfileForm", () => {
     it("shows error when birth date is before 1900", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       const birthDateInput = screen.getByLabelText(/^Birth date$/i);
       fireEvent.change(birthDateInput, { target: { value: "1899-12-31" } });
 
@@ -339,12 +274,31 @@ describe("EditProfileForm", () => {
     it("calls onCancel when Cancel button is clicked", async () => {
       const user = userEvent.setup();
       const { onCancel } = renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       await user.click(screen.getByRole("button", { name: /Cancel/i }));
       expect(onCancel).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("username validation", () => {
+    it("shows error and blocks save when username is empty", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      await user.clear(screen.getByLabelText("Username"));
+      await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+      expect(await screen.findByText("Username is required.")).toBeInTheDocument();
+      expect(updateProfile).not.toHaveBeenCalled();
+    });
+
+    it("clears username error when user starts typing", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      await user.clear(screen.getByLabelText("Username"));
+      await user.click(screen.getByRole("button", { name: /Save changes/i }));
+      expect(await screen.findByText("Username is required.")).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText("Username"), "x");
+      expect(screen.queryByText("Username is required.")).not.toBeInTheDocument();
     });
   });
 
@@ -352,15 +306,11 @@ describe("EditProfileForm", () => {
     it("sends all profile fields to updateProfile", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       await waitFor(() =>
         expect(updateProfile).toHaveBeenCalledWith(
-          {},
+          { username: "alice_smith" },
           expect.objectContaining({
             first_name: "Alice",
             last_name: "Smith",
@@ -385,9 +335,6 @@ describe("EditProfileForm", () => {
 
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
 
       const input = screen.getByTestId("photo-file-input");
       const jpgFile = new File(["img"], "photo.jpg", { type: "image/jpeg" });
@@ -409,17 +356,16 @@ describe("EditProfileForm", () => {
     });
 
     it("calls removeProfilePhoto before updateProfile when photo removed", async () => {
-      getOwnProfile.mockResolvedValue({
-        data: {
+      const user = userEvent.setup();
+      renderForm({
+        initialProfile: {
+          ...baseProfileResponse,
           profile: {
-            ...baseProfileResponse.data.profile,
+            ...baseProfileResponse.profile,
             profile_photo: "http://example.com/photo.jpg",
           },
         },
       });
-
-      const user = userEvent.setup();
-      renderForm();
       await waitFor(() =>
         expect(screen.getByAltText("Profile preview")).toBeInTheDocument()
       );
@@ -437,10 +383,6 @@ describe("EditProfileForm", () => {
     it("does not call uploadProfilePhoto or removeProfilePhoto when photo unchanged", async () => {
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       await waitFor(() => expect(updateProfile).toHaveBeenCalled());
@@ -451,10 +393,6 @@ describe("EditProfileForm", () => {
     it("shows success toast and calls onSave after successful save", async () => {
       const user = userEvent.setup();
       const { onSave } = renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       await waitFor(() => {
@@ -468,10 +406,6 @@ describe("EditProfileForm", () => {
 
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       await waitFor(() =>
@@ -489,10 +423,6 @@ describe("EditProfileForm", () => {
 
       const user = userEvent.setup();
       renderForm();
-      await waitFor(() =>
-        expect(screen.getByLabelText("First name")).toBeInTheDocument()
-      );
-
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       expect(screen.getByRole("button", { name: /Cancel/i })).toBeDisabled();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { User, BookOpen, CalendarDays, MapPin, Star, Pencil, Lock } from "lucide-react";
+import { User, BookOpen, CalendarDays, MapPin, Star, Pencil, Lock, Loader2 } from "lucide-react";
 
 import { SkeletonPage } from "@/components/ui/loading-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -11,6 +11,15 @@ import StructuredData from "@/components/StructuredData/StructuredData";
 import FollowButton from "@/components/Follow/FollowButton";
 import FollowListSheet from "@/components/Follow/FollowListSheet";
 import EditProfileForm from "@/components/Profile/EditProfileForm";
+
+function formatBirthDate(dateStr) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 function PrivateBadge() {
   return (
@@ -66,10 +75,10 @@ function ProfilePage() {
   }, [fetchProfile]);
 
   const fetchOwnProfile = useCallback(async () => {
-    if (!isOwnProfile) return;
-    getOwnProfile()
-      .then((result) => setOwnProfileData(result?.data ?? null))
-      .catch(() => {});
+    if (!isOwnProfile) return null;
+    const result = await getOwnProfile().catch(() => null);
+    setOwnProfileData(result ?? null);
+    return result;
   }, [isOwnProfile]);
 
   useEffect(() => {
@@ -80,10 +89,9 @@ function ProfilePage() {
     setFollowerCount((c) => Math.max(0, c + (nowFollowing ? 1 : -1)));
   }
 
-  function handleEditSave() {
+  async function handleEditSave() {
     setEditMode(false);
-    fetchProfile();
-    fetchOwnProfile();
+    await Promise.all([fetchProfile(), fetchOwnProfile()]);
   }
 
   function openList(mode) {
@@ -125,10 +133,18 @@ function ProfilePage() {
         {/* Profile Header */}
         <div className="mb-8 rounded-xl border bg-card p-6">
           {editMode ? (
-            <EditProfileForm
-              onSave={handleEditSave}
-              onCancel={() => setEditMode(false)}
-            />
+            ownProfileData ? (
+              <EditProfileForm
+                key={String(ownProfileData?.profile?.birth_date ?? "") + (ownProfileData?.username ?? "")}
+                initialProfile={ownProfileData}
+                onSave={handleEditSave}
+                onCancel={() => setEditMode(false)}
+              />
+            ) : (
+              <div className="flex items-center justify-center py-12" aria-label="Loading profile data" aria-busy="true">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+              </div>
+            )
           ) : (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-start gap-4">
@@ -208,17 +224,22 @@ function ProfilePage() {
                     );
                   })()}
 
-                  {/* Birth year — own profile: show even if private */}
+                  {/* Birth date — own profile: show full date even if private */}
                   {(() => {
                     const op = ownProfileData?.profile;
-                    const birthYear = isOwnProfile && op
-                      ? (op.birth_date ? new Date(op.birth_date).getFullYear() : null)
-                      : profile.birth_year;
-                    if (!birthYear) return null;
+                    let birthLabel = null;
+                    if (isOwnProfile && op?.birth_date) {
+                      birthLabel = `Born ${formatBirthDate(op.birth_date)}`;
+                    } else if (profile.birth_date) {
+                      birthLabel = `Born ${formatBirthDate(profile.birth_date)}`;
+                    } else if (profile.birth_year) {
+                      birthLabel = `Born ${profile.birth_year}`;
+                    }
+                    if (!birthLabel) return null;
                     return (
                       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <CalendarDays className="h-4 w-4" aria-hidden="true" />
-                        <span>Born {birthYear}</span>
+                        <span>{birthLabel}</span>
                         {isOwnProfile && op && !op.is_birth_date_public && <PrivateBadge />}
                       </div>
                     );

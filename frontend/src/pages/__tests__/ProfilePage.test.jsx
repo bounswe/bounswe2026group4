@@ -78,7 +78,7 @@ describe("ProfilePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
-    getOwnProfile.mockResolvedValue({ data: null });
+    getOwnProfile.mockResolvedValue(null);
   });
 
   it("shows loading skeleton while fetching", () => {
@@ -321,11 +321,12 @@ describe("ProfilePage", () => {
       const user = userEvent.setup();
       useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
       getProfile.mockResolvedValue(mockProfileData);
+      getOwnProfile.mockResolvedValue({ profile: {} });
       renderPage();
 
       await user.click(await screen.findByRole("button", { name: /Edit Profile/i }));
 
-      expect(screen.getByTestId("edit-profile-form")).toBeInTheDocument();
+      expect(await screen.findByTestId("edit-profile-form")).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /Edit Profile/i })
       ).not.toBeInTheDocument();
@@ -335,7 +336,7 @@ describe("ProfilePage", () => {
       const user = userEvent.setup();
       useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
       getProfile.mockResolvedValue(mockProfileData);
-      getOwnProfile.mockResolvedValue({ data: { profile: {} } });
+      getOwnProfile.mockResolvedValue({ profile: {} });
       renderPage();
 
       await user.click(await screen.findByRole("button", { name: /Edit Profile/i }));
@@ -354,10 +355,11 @@ describe("ProfilePage", () => {
       const user = userEvent.setup();
       useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
       getProfile.mockResolvedValue(mockProfileData);
+      getOwnProfile.mockResolvedValue({ profile: {} });
       renderPage();
 
       await user.click(await screen.findByRole("button", { name: /Edit Profile/i }));
-      await user.click(screen.getByRole("button", { name: "mock-cancel" }));
+      await user.click(await screen.findByRole("button", { name: "mock-cancel" }));
 
       await waitFor(() =>
         expect(screen.queryByTestId("edit-profile-form")).not.toBeInTheDocument()
@@ -396,8 +398,17 @@ describe("ProfilePage", () => {
       );
     });
 
-    it("renders birth year when present", async () => {
-      getProfile.mockResolvedValue({ ...mockProfileData, birth_year: 1990 });
+    it("renders full birth date when birth_date is present", async () => {
+      getProfile.mockResolvedValue({ ...mockProfileData, birth_date: "1990-06-15" });
+      renderPage();
+
+      await waitFor(() =>
+        expect(screen.getByText("Born June 15, 1990")).toBeInTheDocument()
+      );
+    });
+
+    it("falls back to birth_year when only birth_year is present", async () => {
+      getProfile.mockResolvedValue({ ...mockProfileData, birth_date: null, birth_year: 1990 });
       renderPage();
 
       await waitFor(() =>
@@ -405,8 +416,8 @@ describe("ProfilePage", () => {
       );
     });
 
-    it("does not render birth year when absent", async () => {
-      getProfile.mockResolvedValue({ ...mockProfileData, birth_year: null });
+    it("does not render birth info when both absent", async () => {
+      getProfile.mockResolvedValue({ ...mockProfileData, birth_date: null, birth_year: null });
       renderPage();
 
       await waitFor(() =>
@@ -416,22 +427,41 @@ describe("ProfilePage", () => {
     });
   });
 
-  describe("own profile — private field visibility", () => {
-    const ownProfileFull = {
-      data: {
+  describe("own profile — birthday fallback when ownProfileData.birth_date is null", () => {
+    it("falls back to profile.birth_year when own profile has no birth_date set but public", async () => {
+      useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
+      // public endpoint has birth_year because is_birth_date_public = true
+      getProfile.mockResolvedValue({ ...mockProfileData, birth_year: 1990, birth_date: null });
+      // own profile fetch returns birth_date: null (user hasn't set it yet this session)
+      getOwnProfile.mockResolvedValue({
         id: 1,
         profile: {
-          first_name: "Alice",
-          last_name: "Doe",
-          location: "Istanbul",
-          bio: "Secret bio",
-          birth_date: "1990-06-15",
-          is_name_public: false,
-          is_location_public: false,
-          is_birth_date_public: false,
-          is_photo_public: true,
-          profile_photo: null,
+          birth_date: null,
+          is_birth_date_public: true,
         },
+      });
+      renderPage();
+
+      await waitFor(() =>
+        expect(screen.getByText("Born 1990")).toBeInTheDocument()
+      );
+    });
+  });
+
+  describe("own profile — private field visibility", () => {
+    const ownProfileFull = {
+      id: 1,
+      profile: {
+        first_name: "Alice",
+        last_name: "Doe",
+        location: "Istanbul",
+        bio: "Secret bio",
+        birth_date: "1990-06-15",
+        is_name_public: false,
+        is_location_public: false,
+        is_birth_date_public: false,
+        is_photo_public: true,
+        profile_photo: null,
       },
     };
 
@@ -464,10 +494,10 @@ describe("ProfilePage", () => {
       );
     });
 
-    it("shows private birth year on own profile", async () => {
+    it("shows private birth date on own profile", async () => {
       renderPage();
       await waitFor(() =>
-        expect(screen.getByText("Born 1990")).toBeInTheDocument()
+        expect(screen.getByText("Born June 15, 1990")).toBeInTheDocument()
       );
     });
 
