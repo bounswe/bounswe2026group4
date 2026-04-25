@@ -137,6 +137,21 @@ class TestStoryImageUpload:
         )
         assert response.status_code == 400
 
+    def test_spoofed_extension_returns_400(self, auth_client, story):
+        # GIF bytes disguised as a JPEG — the magic-byte check must reject it even though
+        # the filename (.jpg) and declared Content-Type (image/jpeg) both claim JPEG.
+        buf = make_image_file(name='sneaky.jpg', fmt='GIF', content_type='image/jpeg')
+        response = auth_client.post(
+            self.url.format(story_id=story.pk),
+            {'file': buf},
+            format='multipart',
+        )
+        assert response.status_code == 400
+        assert response.data['success'] is False
+        assert 'message' in response.data
+        assert 'errors' in response.data
+        assert 'file' in response.data['errors']
+
     def test_upload_oversized_file_returns_400(self, auth_client, story):
         # Build a file whose .size exceeds 2 MB (2 * 1024 * 1024 + 1 bytes)
         oversized = make_image_file(size_bytes=2 * 1024 * 1024 + 1)
@@ -283,6 +298,21 @@ class TestStoryMediaUpload:
             format='multipart',
         )
         assert response.status_code == 400
+
+    def test_spoofed_extension_returns_400(self, auth_client, story):
+        # JPEG bytes disguised as an MP3 — the magic-byte check must reject it even though
+        # the filename (.mp3) and declared Content-Type (audio/mpeg) both claim audio.
+        buf = make_image_file(name='fake.mp3', fmt='JPEG', content_type='audio/mpeg')
+        response = auth_client.post(
+            self.url.format(story_id=story.pk),
+            {'file': buf},
+            format='multipart',
+        )
+        assert response.status_code == 400
+        assert response.data['success'] is False
+        assert 'message' in response.data
+        assert 'errors' in response.data
+        assert 'file' in response.data['errors']
 
     def test_upload_stores_correct_metadata(self, auth_client, story):
         auth_client.post(
