@@ -672,3 +672,86 @@ class TestStoryDelete:
         response = client.delete(self._detail_url(story.pk))
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not response.data
+
+
+# ── Story tag assignment — views integration ──────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryTagAssignment:
+    def _detail_url(self, pk):
+        return f'/stories/{pk}/'
+
+    def test_create_story_with_tag_ids_returns_tags_in_response(self, client, user):
+        tag = Tag.objects.create(name='view-tag-create')
+        client.force_authenticate(user=user)
+        response = client.post(LIST_URL, make_story_payload(tag_ids=[tag.pk]), format='json')
+        assert response.status_code == status.HTTP_201_CREATED
+        tag_names = [t['name'] for t in response.data['tags']]
+        assert 'view-tag-create' in tag_names
+
+    def test_create_story_increments_tag_story_count(self, client, user):
+        tag = Tag.objects.create(name='view-tag-count')
+        client.force_authenticate(user=user)
+        client.post(LIST_URL, make_story_payload(tag_ids=[tag.pk]), format='json')
+        tag.refresh_from_db()
+        assert tag.story_count == 1
+
+    def test_create_story_with_too_many_tags_returns_400(self, client, user):
+        tags = [Tag.objects.create(name=f'view-max-{i}') for i in range(4)]
+        client.force_authenticate(user=user)
+        response = client.post(LIST_URL, make_story_payload(tag_ids=[t.pk for t in tags]), format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_story_with_nonexistent_tag_id_returns_400(self, client, user):
+        client.force_authenticate(user=user)
+        response = client.post(LIST_URL, make_story_payload(tag_ids=[999999]), format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_create_story_with_duplicate_tag_ids_returns_400(self, client, user):
+        tag = Tag.objects.create(name='view-dup-tag')
+        client.force_authenticate(user=user)
+        response = client.post(LIST_URL, make_story_payload(tag_ids=[tag.pk, tag.pk]), format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_patch_story_adds_tag(self, client, user, story):
+        tag = Tag.objects.create(name='view-patch-add')
+        client.force_authenticate(user=user)
+        response = client.patch(self._detail_url(story.pk), {'tag_ids': [tag.pk]}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert StoryTag.objects.filter(story=story, tag=tag).exists()
+
+    def test_patch_story_removes_old_tag_and_adds_new(self, client, user, story):
+        tag_old = Tag.objects.create(name='view-patch-old')
+        tag_new = Tag.objects.create(name='view-patch-new')
+        StoryTag.objects.create(story=story, tag=tag_old)
+        client.force_authenticate(user=user)
+        response = client.patch(self._detail_url(story.pk), {'tag_ids': [tag_new.pk]}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert not StoryTag.objects.filter(story=story, tag=tag_old).exists()
+        assert StoryTag.objects.filter(story=story, tag=tag_new).exists()
+
+    def test_patch_story_without_tag_ids_leaves_existing_tags(self, client, user, story):
+        tag = Tag.objects.create(name='view-patch-keep')
+        StoryTag.objects.create(story=story, tag=tag)
+        client.force_authenticate(user=user)
+        response = client.patch(self._detail_url(story.pk), {'title': 'Updated'}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert StoryTag.objects.filter(story=story, tag=tag).exists()
+
+    def test_patch_story_with_empty_tag_ids_removes_all_tags(self, client, user, story):
+        tag = Tag.objects.create(name='view-patch-clear')
+        StoryTag.objects.create(story=story, tag=tag)
+        client.force_authenticate(user=user)
+        response = client.patch(self._detail_url(story.pk), {'tag_ids': []}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert StoryTag.objects.filter(story=story).count() == 0
+
+    def test_story_list_response_includes_tags_field(self, client, story):
+        response = client.get(LIST_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert 'tags' in response.data['results'][0]
+
+    def test_story_detail_response_includes_tags_field(self, client, story):
+        response = client.get(self._detail_url(story.pk))
+        assert response.status_code == status.HTTP_200_OK
+        assert 'tags' in response.data

@@ -5,14 +5,27 @@ from apps.stories.models import Story
 
 def create_story(user, validated_data: dict) -> Story:
     """Create and persist a new story owned by the given user."""
-    return Story.objects.create(user=user, **validated_data)
+    from apps.tags.services import attach_tags_to_story
+
+    tag_ids = validated_data.pop('tag_ids', [])
+    story = Story.objects.create(user=user, **validated_data)
+    if tag_ids:
+        attach_tags_to_story(story, tag_ids)
+    return story
 
 
 def update_story(story: Story, validated_data: dict) -> Story:
     """Apply partial updates to an existing story and persist the changes."""
+    from apps.tags.services import sync_story_tags
+
+    # None means tag_ids was not provided in this PATCH — leave tags as-is.
+    # An empty list means explicitly clear all tags.
+    tag_ids = validated_data.pop('tag_ids', None)
     for attr, value in validated_data.items():
         setattr(story, attr, value)
     story.save()
+    if tag_ids is not None:
+        sync_story_tags(story, tag_ids)
     return story
 
 

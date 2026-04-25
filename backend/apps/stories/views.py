@@ -148,7 +148,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         # Guests and authenticated users can only browse published stories.
         # Draft and removed stories are not surfaced through this endpoint.
-        return Story.objects.filter(status=Story.STATUS_PUBLISHED).select_related('user')
+        return Story.objects.filter(status=Story.STATUS_PUBLISHED).select_related('user').prefetch_related('tags')
 
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -160,8 +160,7 @@ class StoryListCreateView(generics.ListCreateAPIView):
 
 
 class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
-    # prefetch_related('media_items') avoids N+1 when StoryDetailSerializer renders the nested list
-    queryset = Story.objects.select_related('user').prefetch_related('media_items')
+    queryset = Story.objects.select_related('user').prefetch_related('media_items', 'tags')
     serializer_class = StoryDetailSerializer
     http_method_names = ['get', 'patch', 'delete']
 

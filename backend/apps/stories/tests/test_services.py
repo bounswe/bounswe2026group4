@@ -399,3 +399,58 @@ class TestDeleteStory:
         result = delete_story(story)
         assert result is None
 
+
+# ── create_story / update_story with tags ────────────────────────────────────
+
+@pytest.mark.django_db
+class TestCreateStoryWithTags:
+    def test_create_story_with_tag_ids_attaches_tags(self, user):
+        tag = Tag.objects.create(name='svc-story-tag-a')
+        story = create_story(user=user, validated_data={**make_story_data(), 'tag_ids': [tag.pk]})
+        assert StoryTag.objects.filter(story=story, tag=tag).exists()
+
+    def test_create_story_with_tag_ids_increments_story_count(self, user):
+        tag = Tag.objects.create(name='svc-story-tag-b')
+        create_story(user=user, validated_data={**make_story_data(), 'tag_ids': [tag.pk]})
+        tag.refresh_from_db()
+        assert tag.story_count == 1
+
+    def test_create_story_without_tag_ids_creates_no_story_tags(self, user):
+        story = create_story(user=user, validated_data=make_story_data())
+        assert StoryTag.objects.filter(story=story).count() == 0
+
+    def test_create_story_with_empty_tag_ids_creates_no_story_tags(self, user):
+        story = create_story(user=user, validated_data={**make_story_data(), 'tag_ids': []})
+        assert StoryTag.objects.filter(story=story).count() == 0
+
+
+@pytest.mark.django_db
+class TestUpdateStoryWithTags:
+    def test_update_story_syncs_tags_when_provided(self, story):
+        tag_old = Tag.objects.create(name='svc-upd-old')
+        tag_new = Tag.objects.create(name='svc-upd-new')
+        StoryTag.objects.create(story=story, tag=tag_old)
+        update_story(story=story, validated_data={'tag_ids': [tag_new.pk]})
+        assert not StoryTag.objects.filter(story=story, tag=tag_old).exists()
+        assert StoryTag.objects.filter(story=story, tag=tag_new).exists()
+
+    def test_update_story_leaves_tags_when_tag_ids_not_provided(self, story):
+        tag = Tag.objects.create(name='svc-upd-keep')
+        StoryTag.objects.create(story=story, tag=tag)
+        update_story(story=story, validated_data={'title': 'New Title'})
+        assert StoryTag.objects.filter(story=story, tag=tag).exists()
+
+    def test_update_story_removes_all_tags_when_empty_list_provided(self, story):
+        tag = Tag.objects.create(name='svc-upd-clear')
+        StoryTag.objects.create(story=story, tag=tag)
+        update_story(story=story, validated_data={'tag_ids': []})
+        assert StoryTag.objects.filter(story=story).count() == 0
+
+    def test_update_story_decrements_story_count_for_removed_tags(self, story):
+        # story_count starts at 0; signal increments to 1 on StoryTag creation
+        tag = Tag.objects.create(name='svc-upd-dec')
+        StoryTag.objects.create(story=story, tag=tag)
+        update_story(story=story, validated_data={'tag_ids': []})
+        tag.refresh_from_db()
+        assert tag.story_count == 0
+

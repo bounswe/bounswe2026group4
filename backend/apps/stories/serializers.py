@@ -4,6 +4,8 @@ from rest_framework import serializers
 from apps.media.models import MediaItem
 from apps.stories.models import Story
 from apps.stories.services import create_story, update_story
+from apps.tags.models import Tag
+from apps.tags.serializers import TagSerializer
 
 
 class StorySerializer(serializers.ModelSerializer):
@@ -11,6 +13,17 @@ class StorySerializer(serializers.ModelSerializer):
     user_has_liked = serializers.SerializerMethodField()
     user_has_saved = serializers.SerializerMethodField()
     contributor_name = serializers.SerializerMethodField()
+
+    # Write-only: list of existing Tag PKs to attach to the story.
+    # Optional on create (defaults to no tags); optional on PATCH (absent = leave tags unchanged).
+    tag_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        write_only=True,
+        allow_empty=True,
+    )
+    # Read-only: tags currently linked to this story.
+    tags = TagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Story
@@ -36,6 +49,8 @@ class StorySerializer(serializers.ModelSerializer):
             'user_has_saved',
             'submitted_at',
             'updated_at',
+            'tag_ids',
+            'tags',
         ]
         read_only_fields = [
             'id',
@@ -47,6 +62,7 @@ class StorySerializer(serializers.ModelSerializer):
             'user_has_saved',
             'submitted_at',
             'updated_at',
+            'tags',
         ]
 
     def get_user_has_liked(self, obj):
@@ -81,6 +97,15 @@ class StorySerializer(serializers.ModelSerializer):
         if obj.contributor_visible and obj.user:
             return obj.user.username
         return None
+
+    def validate_tag_ids(self, value):
+        if len(value) > 3:
+            raise serializers.ValidationError('A story may have at most 3 tags.')
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError('Duplicate tag IDs are not allowed.')
+        if value and Tag.objects.filter(pk__in=value).count() != len(value):
+            raise serializers.ValidationError('One or more tag IDs do not exist.')
+        return value
 
     def validate_status(self, value):
         # Only moderation endpoints may set a story to removed — reject it here
