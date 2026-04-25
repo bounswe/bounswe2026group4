@@ -116,16 +116,19 @@ def add_bookmark(user, story_id):
 
 def remove_bookmark(user, story_id):
     """
-    Delete the SavedStory for a published story if it exists.
+    Delete the SavedStory for a story if it exists.
 
-    Raises Http404 if the story does not exist or is not published.
+    Raises Http404 only if the story does not exist at all.
     Idempotent — no exception if the user has not bookmarked the story.
+
+    Status-agnostic by design: a user must be able to remove their own bookmark
+    even after a story is removed or unpublished.
 
     Uses instance.delete() (not queryset .filter().delete()) so that the post_delete
     signal fires and Story.save_count is decremented atomically.
     """
     try:
-        story = Story.objects.get(pk=story_id, status=Story.STATUS_PUBLISHED)
+        story = Story.objects.get(pk=story_id)
     except Story.DoesNotExist:
         raise Http404
 

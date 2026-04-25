@@ -403,8 +403,8 @@ class TestStoryUnbookmark:
         response = auth_client.delete(self.url.format(story_id=99999))
         assert response.status_code == 404
 
-    def test_unbookmark_removed_story_returns_404(self, auth_client, story):
+    def test_unbookmark_removed_story_returns_204(self, auth_client, story):
         story.status = Story.STATUS_REMOVED
         story.save()
         response = auth_client.delete(self.url.format(story_id=story.pk))
-        assert response.status_code == 404
+        assert response.status_code == 204

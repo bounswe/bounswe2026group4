@@ -241,14 +241,16 @@ class TestRemoveBookmark:
         with pytest.raises(Http404):
             remove_bookmark(user, 99999)
 
-    def test_removed_story_raises_404(self, user, story):
+    def test_removed_story_can_be_unbookmarked(self, user, story):
+        SavedStory.objects.create(user=user, story=story)
         story.status = Story.STATUS_REMOVED
         story.save()
-        with pytest.raises(Http404):
-            remove_bookmark(user, story.pk)
+        remove_bookmark(user, story.pk)  # must not raise
+        assert not SavedStory.objects.filter(user=user, story=story).exists()
 
-    def test_draft_story_raises_404(self, user, story):
+    def test_draft_story_can_be_unbookmarked(self, user, story):
+        SavedStory.objects.create(user=user, story=story)
         story.status = Story.STATUS_DRAFT
         story.save()
-        with pytest.raises(Http404):
-            remove_bookmark(user, story.pk)
+        remove_bookmark(user, story.pk)  # must not raise
+        assert not SavedStory.objects.filter(user=user, story=story).exists()
