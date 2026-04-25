@@ -1,14 +1,37 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { User, BookOpen, CalendarDays, MapPin, Star } from "lucide-react";
+import { User, BookOpen, CalendarDays, MapPin, Star, Pencil, Lock, Loader2 } from "lucide-react";
 
 import { SkeletonPage } from "@/components/ui/loading-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
-import { getProfile } from "@/services/userService";
+import { Button } from "@/components/ui/button";
+import { getProfile, getOwnProfile } from "@/services/userService";
 import { useAuth } from "@/hooks/useAuth";
 import StructuredData from "@/components/StructuredData/StructuredData";
 import FollowButton from "@/components/Follow/FollowButton";
 import FollowListSheet from "@/components/Follow/FollowListSheet";
+import EditProfileForm from "@/components/Profile/EditProfileForm";
+
+function formatBirthDate(dateStr) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function PrivateBadge() {
+  return (
+    <span
+      className="flex items-center gap-0.5 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+      title="Only visible to you"
+    >
+      <Lock className="h-3 w-3" aria-hidden="true" />
+      Private
+    </span>
+  );
+}
 
 function ProfilePage() {
   const { userId: paramUserId } = useParams();
@@ -24,6 +47,8 @@ function ProfilePage() {
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [listSheet, setListSheet] = useState({ open: false, mode: "followers" });
+  const [editMode, setEditMode] = useState(false);
+  const [ownProfileData, setOwnProfileData] = useState(null);
 
   const fetchProfile = useCallback(async () => {
     if (!targetUserId) return;
@@ -49,8 +74,24 @@ function ProfilePage() {
     fetchProfile();
   }, [fetchProfile]);
 
+  const fetchOwnProfile = useCallback(async () => {
+    if (!isOwnProfile) return null;
+    const result = await getOwnProfile().catch(() => null);
+    setOwnProfileData(result ?? null);
+    return result;
+  }, [isOwnProfile]);
+
+  useEffect(() => {
+    fetchOwnProfile();
+  }, [fetchOwnProfile]);
+
   function handleFollowChange(nowFollowing) {
     setFollowerCount((c) => Math.max(0, c + (nowFollowing ? 1 : -1)));
+  }
+
+  async function handleEditSave() {
+    setEditMode(false);
+    await Promise.all([fetchProfile(), fetchOwnProfile()]);
   }
 
   function openList(mode) {
@@ -91,64 +132,158 @@ function ProfilePage() {
         <StructuredData user={profile} />
         {/* Profile Header */}
         <div className="mb-8 rounded-xl border bg-card p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <User className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+          {editMode ? (
+            ownProfileData ? (
+              <EditProfileForm
+                initialProfile={ownProfileData}
+                onSave={handleEditSave}
+                onCancel={() => setEditMode(false)}
+              />
+            ) : (
+              <div className="flex items-center justify-center py-12" aria-label="Loading profile data" aria-busy="true">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
               </div>
-              <div className="space-y-1">
-                <h1 className="text-2xl font-bold tracking-tight">
-                  {profile.username}
-                </h1>
-                {profile.date_joined && (
+            )
+          ) : (
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-4">
+                {/* Photo — own profile: show regardless of is_photo_public */}
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                  {(isOwnProfile ? ownProfileData?.profile?.profile_photo : profile.profile_photo) ? (
+                    <img
+                      src={isOwnProfile ? ownProfileData.profile.profile_photo : profile.profile_photo}
+                      alt={`${profile.username}'s profile`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+                  )}
+                  {isOwnProfile && ownProfileData?.profile?.profile_photo && !ownProfileData.profile.is_photo_public && (
+                    <span
+                      className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/80"
+                      aria-label="Photo is private"
+                      title="Only visible to you"
+                    >
+                      <Lock className="h-3 w-3 text-background" aria-hidden="true" />
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <h1 className="text-2xl font-bold tracking-tight">
+                    {profile.username}
+                  </h1>
+
+                  {/* Name — own profile: show even if private */}
+                  {(() => {
+                    const op = ownProfileData?.profile;
+                    const firstName = isOwnProfile && op ? op.first_name : profile.first_name;
+                    const lastName = isOwnProfile && op ? op.last_name : profile.last_name;
+                    const name = [firstName, lastName].filter(Boolean).join(" ");
+                    if (!name) return null;
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm text-muted-foreground">{name}</p>
+                        {isOwnProfile && op && !op.is_name_public && <PrivateBadge />}
+                      </div>
+                    );
+                  })()}
+
+                  {profile.date_joined && (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                      <span>
+                        Joined{" "}
+                        {new Date(profile.date_joined).toLocaleDateString("en-US", {
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                    <BookOpen className="h-4 w-4" aria-hidden="true" />
                     <span>
-                      Joined{" "}
-                      {new Date(profile.date_joined).toLocaleDateString("en-US", {
-                        month: "long",
-                        year: "numeric",
-                      })}
+                      {profile.published_story_count}{" "}
+                      {profile.published_story_count === 1 ? "story" : "stories"}
                     </span>
                   </div>
-                )}
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <BookOpen className="h-4 w-4" aria-hidden="true" />
-                  <span>
-                    {profile.published_story_count}{" "}
-                    {profile.published_story_count === 1 ? "story" : "stories"}
-                  </span>
+
+                  {/* Location — own profile: show even if private */}
+                  {(() => {
+                    const op = ownProfileData?.profile;
+                    const loc = isOwnProfile && op ? op.location : profile.location;
+                    if (!loc) return null;
+                    return (
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4" aria-hidden="true" />
+                        <span>{loc}</span>
+                        {isOwnProfile && op && !op.is_location_public && <PrivateBadge />}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Birth date — own profile: show full date even if private */}
+                  {(() => {
+                    const op = ownProfileData?.profile;
+                    let birthLabel = null;
+                    if (isOwnProfile && op?.birth_date) {
+                      birthLabel = `Born ${formatBirthDate(op.birth_date)}`;
+                    } else if (profile.birth_date) {
+                      birthLabel = `Born ${formatBirthDate(profile.birth_date)}`;
+                    } else if (profile.birth_year) {
+                      birthLabel = `Born ${profile.birth_year}`;
+                    }
+                    if (!birthLabel) return null;
+                    return (
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                        <span>{birthLabel}</span>
+                        {isOwnProfile && op && !op.is_birth_date_public && <PrivateBadge />}
+                      </div>
+                    );
+                  })()}
+
+                  {profile.total_points > 0 && (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Star className="h-4 w-4" aria-hidden="true" />
+                      <span>{profile.total_points} points</span>
+                    </div>
+                  )}
+
+                  {/* Bio — own profile: show even if set (bio has no privacy flag) */}
+                  {(() => {
+                    const op = ownProfileData?.profile;
+                    const bio = isOwnProfile && op ? op.bio : profile.bio;
+                    if (!bio) return null;
+                    return (
+                      <p className="mt-2 text-sm text-muted-foreground">{bio}</p>
+                    );
+                  })()}
                 </div>
-                {profile.location && (
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" aria-hidden="true" />
-                    <span>{profile.location}</span>
-                  </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                {isOwnProfile && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditMode(true)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Profile
+                  </Button>
                 )}
-                {profile.total_points > 0 && (
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Star className="h-4 w-4" aria-hidden="true" />
-                    <span>{profile.total_points} points</span>
-                  </div>
-                )}
-                {profile.bio && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {profile.bio}
-                  </p>
+                {!isOwnProfile && (
+                  <FollowButton
+                    key={profile.id}
+                    targetUserId={profile.id}
+                    initialFollowing={Boolean(profile.is_followed_by_me)}
+                    onChange={handleFollowChange}
+                  />
                 )}
               </div>
             </div>
-            {!isOwnProfile && (
-              <div className="sm:shrink-0">
-                <FollowButton
-                  key={profile.id}
-                  targetUserId={profile.id}
-                  initialFollowing={Boolean(profile.is_followed_by_me)}
-                  onChange={handleFollowChange}
-                />
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Follow counts */}
           <div className="mt-6 flex flex-wrap gap-2 border-t pt-4">
