@@ -1,8 +1,10 @@
+import datetime
 import io
 from decimal import Decimal
 
 import pytest
 from django.core.files.storage import default_storage
+from django.utils import timezone
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.http import Http404
 from PIL import Image
@@ -703,8 +705,6 @@ class TestGetUserBookmarks:
         assert qs.count() == 0
 
     def test_ordered_most_recently_saved_first(self, user, second_user):
-        import datetime
-        from django.utils import timezone
         story1 = _make_published_story(second_user, title='Older Story')
         story2 = _make_published_story(second_user, title='Newer Story')
         ss1 = SavedStory.objects.create(user=user, story=story1)

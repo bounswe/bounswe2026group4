@@ -1,29 +1,13 @@
-from django.db.models import Exists, OuterRef
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.interactions.models import Like, SavedStory
 from apps.stories.models import Story
 from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
-from apps.stories.services import delete_story, get_story_feed, get_story_search
+from apps.stories.services import annotate_user_interactions, delete_story, get_story_feed, get_story_search
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
-
-
-def annotate_user_interactions(qs, user):
-    """
-    Annotate a Story queryset with _user_has_liked and _user_has_saved boolean flags
-    for the given authenticated user.
-
-    Uses Exists subqueries so both checks are folded into the main SQL query,
-    avoiding N+1 when serializing paginated lists.
-    """
-    return qs.annotate(
-        _user_has_liked=Exists(Like.objects.filter(story=OuterRef('pk'), user=user)),
-        _user_has_saved=Exists(SavedStory.objects.filter(story=OuterRef('pk'), user=user)),
-    )
 
 
 class StoryFeedView(APIView):

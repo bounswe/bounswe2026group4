@@ -327,7 +327,6 @@ class TestUserPublicProfileView:
 
     def test_birth_year_hidden_when_flag_false(self, client, registered_user):
         from apps.users.models import UserProfile
-        import datetime
         UserProfile.objects.create(
             user=registered_user,
             birth_date=datetime.date(1990, 1, 1),
@@ -339,7 +338,6 @@ class TestUserPublicProfileView:
     def test_birth_year_returns_integer_year_only(self, client, registered_user):
         # Req. 1.2.3.1: public profile exposes birth *year* only, not full date
         from apps.users.models import UserProfile
-        import datetime
         UserProfile.objects.create(
             user=registered_user,
             birth_date=datetime.date(1990, 5, 20),

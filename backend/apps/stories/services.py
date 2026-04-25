@@ -1,6 +1,21 @@
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 
+from apps.interactions.models import Like, SavedStory
 from apps.stories.models import Story
+
+
+def annotate_user_interactions(qs, user):
+    """
+    Annotate a Story queryset with _user_has_liked and _user_has_saved boolean flags
+    for the given authenticated user.
+
+    Uses Exists subqueries so both checks are folded into the main SQL query,
+    avoiding N+1 when serializing paginated lists.
+    """
+    return qs.annotate(
+        _user_has_liked=Exists(Like.objects.filter(story=OuterRef('pk'), user=user)),
+        _user_has_saved=Exists(SavedStory.objects.filter(story=OuterRef('pk'), user=user)),
+    )
 
 
 def create_story(user, validated_data: dict) -> Story:
