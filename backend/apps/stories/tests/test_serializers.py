@@ -762,3 +762,10 @@ class TestFeedQuerySerializerGeoValidation:
             data={'q': 'bridge', 'latitude': 41.0, 'longitude': 29.0, 'radius_km': 2.0}
         )
         assert s.is_valid(), s.errors
+
+    def test_radius_km_at_max_is_valid(self):
+        self._valid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 500.0})
+
+    def test_radius_km_above_max_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 501.0})
+        assert 'radius_km' in errors

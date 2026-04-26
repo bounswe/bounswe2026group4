@@ -292,8 +292,9 @@ class FeedQuerySerializer(serializers.Serializer):
     tag = serializers.CharField(required=False, allow_blank=False)
     latitude = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
     longitude = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
-    # Minimum of 0.001 km — a zero radius would always return empty results
-    radius_km = serializers.FloatField(required=False, min_value=0.001)
+    # Minimum of 0.001 km — a zero radius would always return empty results.
+    # Maximum of 500 km — uncapped radius would force a full table scan into memory.
+    radius_km = serializers.FloatField(required=False, min_value=0.001, max_value=500.0)
 
     def validate(self, data):
         year_from = data.get('year_from')

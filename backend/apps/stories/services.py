@@ -183,7 +183,11 @@ def _apply_radius_filter(qs, latitude: float, longitude: float, radius_km: float
     """
     from common.utils.geo import bounding_box, haversine_km
 
+    # NOTE: bounding_box clamps to ±180° — stories across the antimeridian are excluded.
+    # This is acceptable for this project's geographic scope (Turkey / Istanbul area).
     bbox = bounding_box(latitude, longitude, radius_km)
+    # .only() is safe after .distinct() (added by tag filter) — Django appends it to the
+    # column selection, not to the DISTINCT key columns.
     candidates = qs.filter(
         location_lat__gte=bbox.lat_min,
         location_lat__lte=bbox.lat_max,

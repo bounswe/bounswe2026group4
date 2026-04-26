@@ -538,9 +538,18 @@ class TestGetStoryFeedGeoFilter:
         user = User.objects.create_user(email='geo@example.com', username='geouser', password='Password1')
         make_geo_story(NEAR_LAT, NEAR_LNG)
         qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
-        # annotate_user_interactions calls .annotate() — must not raise on the result
         annotated = annotate_user_interactions(qs, user)
-        assert annotated.count() >= 0
+        stories = list(annotated)
+        assert len(stories) > 0
+        assert hasattr(stories[0], '_user_has_liked')
+        assert hasattr(stories[0], '_user_has_saved')
+
+    def test_geo_filter_preserves_sort_by_popular_ordering(self):
+        popular = make_geo_story(NEAR_LAT, NEAR_LNG, title='Popular', like_count=10)
+        unpopular = make_geo_story(NEAR_LAT, NEAR_LNG, title='Unpopular', like_count=0)
+        qs = list(get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0, sort_by='popular'))
+        assert qs[0].pk == popular.pk
+        assert qs[1].pk == unpopular.pk
 
     def test_geo_filter_returns_empty_when_no_stories_within_radius(self):
         make_geo_story(FAR_LAT, FAR_LNG)
@@ -583,4 +592,7 @@ class TestGetStorySearchGeoFilter:
         make_geo_story(NEAR_LAT, NEAR_LNG, title='Ancient Tower')
         qs = get_story_search('Ancient', latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
         annotated = annotate_user_interactions(qs, user)
-        assert annotated.count() >= 0
+        stories = list(annotated)
+        assert len(stories) > 0
+        assert hasattr(stories[0], '_user_has_liked')
+        assert hasattr(stories[0], '_user_has_saved')

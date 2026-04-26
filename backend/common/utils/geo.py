@@ -25,7 +25,12 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 
 
 def bounding_box(center_lat: float, center_lng: float, radius_km: float) -> BoundingBox:
-    """Return a rectangular bounding box (over-approximation) around center point with given radius."""
+    """Return a rectangular bounding box (over-approximation) around center point with given radius.
+
+    NOTE: Antimeridian wrap (center near ±180° longitude) is not supported. When the
+    box would cross ±180°, it is clamped and stories on the far side of the antimeridian
+    are silently excluded. This is acceptable for this project's geographic scope (Turkey).
+    """
     lat_delta = math.degrees(radius_km / EARTH_RADIUS_KM)
     # cos(90°) == 0 would cause division by zero; clamp to avoid it near poles
     safe_lat = min(abs(center_lat), 89.9999)
