@@ -85,11 +85,13 @@ class MediaFileUploadSerializer(serializers.Serializer):
                 f'File size must not exceed {limit_mb} MB.'
             )
 
-        value._detected_mime = detected_mime
+        # Store on the serializer instance so validate() can read it without
+        # monkey-patching the file object (which may be wrapped or copied by DRF).
+        self._detected_mime = detected_mime
         return value
 
     def validate(self, attrs):
-        attrs['media_type'] = MIME_TO_MEDIA_TYPE[attrs['file']._detected_mime]
+        attrs['media_type'] = MIME_TO_MEDIA_TYPE[self._detected_mime]
         return attrs
 
 
