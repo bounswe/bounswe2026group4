@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.interactions.models import Comment, Like
+from apps.interactions.models import Comment, Like, SavedStory
 
 
 class CommentCreateSerializer(serializers.Serializer):
@@ -33,3 +33,11 @@ class LikeResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Like
         fields = ['id', 'story_id', 'created_at']
+
+
+class BookmarkResponseSerializer(serializers.ModelSerializer):
+    """Read-only representation of a SavedStory returned in API responses."""
+
+    class Meta:
+        model = SavedStory
+        fields = ['id', 'story_id', 'saved_at']
