@@ -5,6 +5,7 @@ import pytest
 from apps.gamification.models import Badge, UserBadge
 from apps.interactions.models import Comment, Like
 from apps.notifications.models import Notification, NotificationType
+from apps.reports.models import Report, ReportReason, ReportStatus
 from apps.stories.models import Story
 from apps.users.models import Follow, User
 
@@ -159,4 +160,93 @@ class TestNewStoryPublishedSignal:
         _make_story(self.author, status=Story.STATUS_DRAFT)
         assert Notification.objects.filter(
             recipient=self.follower1, notification_type=NotificationType.NEW_STORY_PUBLISHED,
+        ).count() == 0
+
+
+@pytest.mark.django_db
+class TestStoryRemovedSignal:
+    def setup_method(self):
+        self.author = _make_user('author@example.com', 'author')
+        self.story = _make_story(self.author)
+
+    def test_story_removed_creates_notification_for_author(self):
+        self.story.status = Story.STATUS_REMOVED
+        self.story.save()
+        notif = Notification.objects.filter(
+            recipient=self.author, notification_type=NotificationType.STORY_REMOVED,
+        )
+        assert notif.count() == 1
+        assert self.story.title in notif.first().message
+
+    def test_story_removed_sets_story_reference(self):
+        self.story.status = Story.STATUS_REMOVED
+        self.story.save()
+        notif = Notification.objects.get(
+            recipient=self.author, notification_type=NotificationType.STORY_REMOVED,
+        )
+        assert notif.story == self.story
+
+    def test_saving_already_removed_story_does_not_duplicate_notification(self):
+        self.story.status = Story.STATUS_REMOVED
+        self.story.save()
+        # Second save — status stays removed
+        self.story.moderation_reason = 'updated reason'
+        self.story.save()
+        assert Notification.objects.filter(
+            recipient=self.author, notification_type=NotificationType.STORY_REMOVED,
+        ).count() == 1
+
+    def test_status_change_not_to_removed_does_not_notify(self):
+        draft_story = _make_story(self.author, status=Story.STATUS_DRAFT)
+        draft_story.status = Story.STATUS_PUBLISHED
+        draft_story.save()
+        assert Notification.objects.filter(
+            recipient=self.author, notification_type=NotificationType.STORY_REMOVED,
+        ).count() == 0
+
+
+@pytest.mark.django_db
+class TestReportResolvedSignal:
+    def setup_method(self):
+        self.reporter = _make_user('reporter@example.com', 'reporter')
+        self.author = _make_user('author@example.com', 'author')
+        self.story = _make_story(self.author)
+        self.report = Report.objects.create(
+            reporter=self.reporter,
+            story=self.story,
+            reason=ReportReason.SPAM,
+        )
+
+    def test_report_resolved_creates_notification_for_reporter(self):
+        self.report.status = ReportStatus.RESOLVED
+        self.report.save()
+        notif = Notification.objects.filter(
+            recipient=self.reporter, notification_type=NotificationType.REPORT_RESOLVED,
+        )
+        assert notif.count() == 1
+        assert 'resolved' in notif.first().message
+
+    def test_report_dismissed_creates_notification_for_reporter(self):
+        self.report.status = ReportStatus.DISMISSED
+        self.report.save()
+        notif = Notification.objects.filter(
+            recipient=self.reporter, notification_type=NotificationType.REPORT_RESOLVED,
+        )
+        assert notif.count() == 1
+        assert 'dismissed' in notif.first().message
+
+    def test_saving_already_resolved_report_does_not_duplicate_notification(self):
+        self.report.status = ReportStatus.RESOLVED
+        self.report.save()
+        self.report.resolution_outcome = 'Story removed.'
+        self.report.save()
+        assert Notification.objects.filter(
+            recipient=self.reporter, notification_type=NotificationType.REPORT_RESOLVED,
+        ).count() == 1
+
+    def test_pending_report_update_does_not_notify(self):
+        self.report.description = 'updated description'
+        self.report.save()
+        assert Notification.objects.filter(
+            recipient=self.reporter, notification_type=NotificationType.REPORT_RESOLVED,
         ).count() == 0

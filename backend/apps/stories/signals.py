@@ -1,9 +1,36 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from apps.notifications.models import NotificationType
 from apps.stories.models import Story
 from apps.users.models import Follow
+
+
+@receiver(pre_save, sender=Story)
+def on_story_removed(sender, instance, **kwargs):
+    """Notify the story author when their story is removed by moderation.
+
+    Uses pre_save so we can read the old status from the DB before the change
+    commits. Guards against duplicate notifications when the status is already
+    'removed' (e.g. a second save on the same story).
+    """
+    if instance.pk is None or not instance.user:
+        return
+    if instance.status != Story.STATUS_REMOVED:
+        return
+    try:
+        old_status = Story.objects.values_list('status', flat=True).get(pk=instance.pk)
+    except Story.DoesNotExist:
+        return
+    if old_status == Story.STATUS_REMOVED:
+        return
+    from apps.notifications.services import create_notification
+    create_notification(
+        recipient=instance.user,
+        notification_type=NotificationType.STORY_REMOVED,
+        message=f'Your story "{instance.title}" has been removed by a moderator.',
+        story=instance,
+    )
 
 
 @receiver(post_save, sender=Story)

@@ -11,8 +11,8 @@ def on_comment_created(sender, instance, created, **kwargs):
     if not created:
         return
     story = instance.story
-    # story.user is None when the author deleted their account — skip
-    if not story.user or instance.author == story.user:
+    # Both story.user and instance.author can be None when an account was deleted — skip.
+    if not story.user or not instance.author or instance.author == story.user:
         return
     from apps.notifications.services import create_notification
     create_notification(
