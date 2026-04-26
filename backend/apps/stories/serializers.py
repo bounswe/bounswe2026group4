@@ -358,3 +358,26 @@ class SearchQuerySerializer(FeedQuerySerializer):
 
     # strip_whitespace=True (default) means a whitespace-only value becomes '' and fails min_length
     q = serializers.CharField(required=True, min_length=1)
+
+
+class TimelineQuerySerializer(serializers.Serializer):
+    """
+    Validates query parameters for the story timeline endpoint.
+
+    All fields are optional. No sort_by field — the timeline always orders by
+    historical year ascending. year_from and year_to are validated together to
+    ensure the range is logically consistent.
+    """
+
+    year_from = serializers.IntegerField(required=False)
+    year_to = serializers.IntegerField(required=False)
+    location = serializers.CharField(required=False, allow_blank=False)
+
+    def validate(self, data):
+        year_from = data.get('year_from')
+        year_to = data.get('year_to')
+        if year_from is not None and year_to is not None and year_from > year_to:
+            raise serializers.ValidationError(
+                {'year_to': 'year_to must be greater than or equal to year_from.'}
+            )
+        return data

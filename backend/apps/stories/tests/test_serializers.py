@@ -769,3 +769,41 @@ class TestFeedQuerySerializerGeoValidation:
     def test_radius_km_above_max_is_invalid(self):
         errors = self._invalid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 501.0})
         assert 'radius_km' in errors
+
+
+# ── TimelineQuerySerializer ────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestTimelineQuerySerializer:
+    def test_all_fields_optional(self):
+        from apps.stories.serializers import TimelineQuerySerializer
+        s = TimelineQuerySerializer(data={})
+        assert s.is_valid(), s.errors
+
+    def test_accepts_valid_year_range(self):
+        from apps.stories.serializers import TimelineQuerySerializer
+        s = TimelineQuerySerializer(data={'year_from': 1800, 'year_to': 1900})
+        assert s.is_valid(), s.errors
+
+    def test_rejects_year_to_less_than_year_from(self):
+        from apps.stories.serializers import TimelineQuerySerializer
+        s = TimelineQuerySerializer(data={'year_from': 1900, 'year_to': 1800})
+        assert not s.is_valid()
+        assert 'year_to' in s.errors
+
+    def test_rejects_blank_location(self):
+        from apps.stories.serializers import TimelineQuerySerializer
+        s = TimelineQuerySerializer(data={'location': ''})
+        assert not s.is_valid()
+        assert 'location' in s.errors
+
+    def test_accepts_location_string(self):
+        from apps.stories.serializers import TimelineQuerySerializer
+        s = TimelineQuerySerializer(data={'location': 'Istanbul'})
+        assert s.is_valid(), s.errors
+
+    def test_has_no_sort_by_field(self):
+        from apps.stories.serializers import TimelineQuerySerializer
+        s = TimelineQuerySerializer(data={'sort_by': 'recent'})
+        assert s.is_valid()
+        assert 'sort_by' not in s.validated_data
