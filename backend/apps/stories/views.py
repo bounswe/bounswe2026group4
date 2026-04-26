@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.stories.models import Story
-from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
-from apps.stories.services import annotate_user_interactions, delete_story, get_story_feed, get_story_search
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer, TimelineQuerySerializer
+from apps.stories.services import annotate_user_interactions, delete_story, get_story_feed, get_story_search, get_story_timeline
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
 
@@ -170,3 +170,39 @@ class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         delete_story(instance)
+
+
+class StoryTimelineView(APIView):
+    """
+    GET /stories/timeline/
+
+    Returns a paginated list of published stories sorted by historical year
+    ascending (oldest first). Guests and authenticated users both have read access.
+
+    Query params:
+      year_from  — include stories from this year onwards (historical year)
+      year_to    — include stories up to and including this year (historical year)
+      location   — case-insensitive substring match against location_name
+      page       — page number (default 1)
+      page_size  — results per page (default 10, max 100)
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query_serializer = TimelineQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        params = query_serializer.validated_data
+
+        qs = get_story_timeline(
+            year_from=params.get('year_from'),
+            year_to=params.get('year_to'),
+            location=params.get('location'),
+        )
+        if request.user.is_authenticated:
+            qs = annotate_user_interactions(qs, request.user)
+
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)

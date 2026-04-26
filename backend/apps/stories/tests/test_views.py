@@ -930,3 +930,122 @@ class TestStorySearchViewGeoFilter:
         response = client.get(f'{SEARCH_URL}?q=Ancient&{self._geo_params()}')
         assert response.status_code == status.HTTP_200_OK
         assert response.data['count'] == 0
+
+
+TIMELINE_URL = '/stories/timeline/'
+
+
+# ── GET /stories/timeline/ ───────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryTimelineView:
+    def test_returns_200_for_unauthenticated_user(self, client):
+        response = client.get(TIMELINE_URL)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_200_for_authenticated_user(self, client, user):
+        client.force_authenticate(user=user)
+        response = client.get(TIMELINE_URL)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_paginated_response_shape(self, client):
+        response = client.get(TIMELINE_URL)
+        assert 'count' in response.data
+        assert 'next' in response.data
+        assert 'previous' in response.data
+        assert 'results' in response.data
+
+    def test_returns_only_published_stories(self, client):
+        make_story(title='Published', year=1900)
+        make_story(title='Draft', status=Story.STATUS_DRAFT, year=1910)
+        make_story(title='Removed', status=Story.STATUS_REMOVED, year=1920)
+        response = client.get(TIMELINE_URL)
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Published'
+
+    def test_default_order_is_oldest_first(self, client):
+        make_story(title='Newest', year=2000)
+        make_story(title='Middle', year=1900)
+        make_story(title='Oldest', year=1800)
+        response = client.get(TIMELINE_URL)
+        titles = [r['title'] for r in response.data['results']]
+        assert titles == ['Oldest', 'Middle', 'Newest']
+
+    def test_year_from_filter(self, client):
+        make_story(title='Before', year=1800)
+        make_story(title='After', year=1900)
+        response = client.get(TIMELINE_URL, {'year_from': 1850})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'After'
+
+    def test_year_to_filter(self, client):
+        make_story(title='Before', year=1800)
+        make_story(title='After', year=1900)
+        response = client.get(TIMELINE_URL, {'year_to': 1850})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Before'
+
+    def test_location_filter(self, client):
+        make_story(title='Istanbul Story', location_name='Istanbul', year=1900)
+        make_story(title='Ankara Story', location_name='Ankara', year=1910)
+        response = client.get(TIMELINE_URL, {'location': 'Istanbul'})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Story'
+
+    def test_invalid_year_range_returns_400(self, client):
+        response = client.get(TIMELINE_URL, {'year_from': 1900, 'year_to': 1800})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_response_card_has_expected_fields(self, client):
+        make_story(title='Test Story', year=1900)
+        response = client.get(TIMELINE_URL)
+        card = response.data['results'][0]
+        for field in ('id', 'title', 'location_name', 'time_type', 'year',
+                      'contributor_name', 'preview_text', 'user_has_liked',
+                      'user_has_saved', 'submitted_at'):
+            assert field in card, f'Missing field: {field}'
+
+    def test_preview_text_is_first_20_words(self, client):
+        words = ['word'] * 30
+        narrative = ' '.join(words)
+        make_story(narrative=narrative, year=1900)
+        response = client.get(TIMELINE_URL)
+        preview = response.data['results'][0]['preview_text']
+        assert preview == ' '.join(words[:20])
+
+    def test_contributor_name_hidden_when_anonymous(self, client, user):
+        make_story(user=user, contributor_visible=False, year=1900)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['contributor_name'] is None
+
+    def test_contributor_name_shown_when_visible(self, client, user):
+        make_story(user=user, contributor_visible=True, year=1900)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['contributor_name'] == user.username
+
+    def test_user_has_liked_false_for_unauthenticated(self, client):
+        make_story(year=1900)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['user_has_liked'] is False
+
+    def test_user_has_liked_true_after_like(self, client, user):
+        s = make_story(user=user, year=1900)
+        Like.objects.create(user=user, story=s)
+        client.force_authenticate(user=user)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['user_has_liked'] is True
+
+    def test_user_has_saved_true_after_save(self, client, user):
+        s = make_story(user=user, year=1900)
+        SavedStory.objects.create(user=user, story=s)
+        client.force_authenticate(user=user)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['user_has_saved'] is True
+
+    def test_pagination_returns_10_by_default(self, client):
+        for i in range(15):
+            make_story(title=f'Story {i}', year=1900 + i)
+        response = client.get(TIMELINE_URL)
+        assert response.data['count'] == 15
+        assert len(response.data['results']) == 10
+        assert response.data['next'] is not None
