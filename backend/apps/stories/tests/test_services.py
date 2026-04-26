@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.services import create_story, delete_story, get_story_feed, get_story_search, update_story
+from apps.stories.services import annotate_user_interactions, create_story, delete_story, get_story_feed, get_story_search, update_story
 from apps.tags.models import StoryTag, Tag
 from apps.users.models import User
 
@@ -454,3 +454,133 @@ class TestUpdateStoryWithTags:
         tag.refresh_from_db()
         assert tag.story_count == 0
 
+
+# ── Geo radius filter helpers ─────────────────────────────────────────────────
+
+# Center point: Istanbul, Galata Tower area
+CENTER_LAT = 41.025580
+CENTER_LNG = 28.974180
+
+# Precomputed coordinate offsets (moving north along the same longitude):
+#   ~0.5 km north  → lat + 0.004493  (well within 1 km)
+#   ~3.0 km north  → lat + 0.026958  (inside 5 km, outside 1 km)
+#   ~50 km north   → lat + 0.449246  (outside any test radius)
+NEAR_LAT  = 41.030073   # ~0.5 km from center
+NEAR_LNG  = CENTER_LNG
+
+MID_LAT   = 41.052538   # ~3 km from center
+MID_LNG   = CENTER_LNG
+
+FAR_LAT   = 41.474826   # ~50 km from center
+FAR_LNG   = CENTER_LNG
+
+
+def make_geo_story(lat, lng, **kwargs):
+    defaults = dict(
+        title='Geo Story',
+        narrative='A geo narrative.',
+        location_lat=str(lat),
+        location_lng=str(lng),
+        location_name='Test Location',
+        time_type=Story.TIME_EXACT,
+        year=1950,
+        status=Story.STATUS_PUBLISHED,
+    )
+    defaults.update(kwargs)
+    return Story.objects.create(**defaults)
+
+
+# ── get_story_feed geo filtering ──────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetStoryFeedGeoFilter:
+    def test_returns_story_within_radius(self):
+        near = make_geo_story(NEAR_LAT, NEAR_LNG)
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        assert near in qs
+
+    def test_excludes_story_outside_radius(self):
+        far = make_geo_story(FAR_LAT, FAR_LNG)
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        assert far not in qs
+
+    def test_larger_radius_includes_more_stories(self):
+        make_geo_story(NEAR_LAT, NEAR_LNG, title='Near')
+        make_geo_story(MID_LAT, MID_LNG, title='Mid')
+        make_geo_story(FAR_LAT, FAR_LNG, title='Far')
+        qs_1km = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        qs_5km = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=5.0)
+        assert qs_5km.count() > qs_1km.count()
+
+    def test_omitting_geo_params_returns_all_stories(self):
+        make_geo_story(NEAR_LAT, NEAR_LNG)
+        make_geo_story(FAR_LAT, FAR_LNG)
+        qs = get_story_feed()
+        assert qs.count() == 2
+
+    def test_geo_filter_combined_with_year_filter(self):
+        near_old = make_geo_story(NEAR_LAT, NEAR_LNG, year=1900, title='NearOld')
+        near_new = make_geo_story(NEAR_LAT, NEAR_LNG, year=2000, title='NearNew')
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0, year_from=1950)
+        assert near_new in qs
+        assert near_old not in qs
+
+    def test_geo_filter_combined_with_tag_filter(self):
+        tag = Tag.objects.create(name='geo-svc-tag')
+        near_tagged = make_geo_story(NEAR_LAT, NEAR_LNG, title='NearTagged')
+        StoryTag.objects.create(story=near_tagged, tag=tag)
+        near_untagged = make_geo_story(NEAR_LAT, NEAR_LNG, title='NearUntagged')
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0, tag='geo-svc-tag')
+        assert near_tagged in qs
+        assert near_untagged not in qs
+
+    def test_geo_filter_result_is_queryset_compatible_with_annotate(self):
+        user = User.objects.create_user(email='geo@example.com', username='geouser', password='Password1')
+        make_geo_story(NEAR_LAT, NEAR_LNG)
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        # annotate_user_interactions calls .annotate() — must not raise on the result
+        annotated = annotate_user_interactions(qs, user)
+        assert annotated.count() >= 0
+
+    def test_geo_filter_returns_empty_when_no_stories_within_radius(self):
+        make_geo_story(FAR_LAT, FAR_LNG)
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        assert qs.count() == 0
+
+    def test_geo_filter_excludes_draft_stories_within_radius(self):
+        make_geo_story(NEAR_LAT, NEAR_LNG, status=Story.STATUS_DRAFT)
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        assert qs.count() == 0
+
+
+# ── get_story_search geo filtering ───────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetStorySearchGeoFilter:
+    def test_returns_matching_story_within_radius(self):
+        near = make_geo_story(NEAR_LAT, NEAR_LNG, title='Ancient Tower')
+        qs = get_story_search('Ancient', latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        assert near in qs
+
+    def test_excludes_matching_story_outside_radius(self):
+        far = make_geo_story(FAR_LAT, FAR_LNG, title='Ancient Tower')
+        qs = get_story_search('Ancient', latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        assert far not in qs
+
+    def test_geo_filter_does_not_include_non_matching_nearby_story(self):
+        make_geo_story(NEAR_LAT, NEAR_LNG, title='Unrelated Story')
+        qs = get_story_search('Ancient', latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        assert qs.count() == 0
+
+    def test_omitting_geo_params_returns_all_matching_stories(self):
+        make_geo_story(NEAR_LAT, NEAR_LNG, title='Ancient Near')
+        make_geo_story(FAR_LAT, FAR_LNG, title='Ancient Far')
+        qs = get_story_search('Ancient')
+        assert qs.count() == 2
+
+    def test_geo_filter_result_is_queryset_compatible_with_annotate(self):
+        user = User.objects.create_user(email='geosearch@example.com', username='geosearch', password='Password1')
+        make_geo_story(NEAR_LAT, NEAR_LNG, title='Ancient Tower')
+        qs = get_story_search('Ancient', latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
+        annotated = annotate_user_interactions(qs, user)
+        assert annotated.count() >= 0

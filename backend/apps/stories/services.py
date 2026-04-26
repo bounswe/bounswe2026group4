@@ -54,7 +54,16 @@ def delete_story(story: Story) -> None:
     story.delete()
 
 
-def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None, tag=None):
+def get_story_feed(
+    sort_by='recent',
+    year_from=None,
+    year_to=None,
+    location=None,
+    tag=None,
+    latitude=None,
+    longitude=None,
+    radius_km=None,
+):
     """
     Return a queryset of published stories with optional sorting and filtering.
 
@@ -65,6 +74,12 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
 
     Location filtering is a case-insensitive substring match on location_name so
     that partial queries like "galata" match "Galata Bridge".
+
+    When latitude, longitude, and radius_km are all provided, a two-step geo filter
+    is applied: a DB bounding-box pre-filter (using the story_coords_idx index) narrows
+    candidates, then an exact haversine check in Python discards bounding-box corners.
+    The result remains a queryset (via pk__in) so annotate_user_interactions and
+    paginator slicing continue to work without change.
 
     sort_by — 'recent' (default) orders by submission date; 'popular' orders by like_count
     """
@@ -88,20 +103,34 @@ def get_story_feed(sort_by='recent', year_from=None, year_to=None, location=None
     if tag:
         qs = qs.filter(story_tags__tag__name__iexact=tag).distinct()
 
+    if latitude is not None and longitude is not None and radius_km is not None:
+        qs = _apply_radius_filter(qs, latitude, longitude, radius_km)
+
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')
-        
+
     elif sort_by == 'popular':
         qs = qs.order_by('-like_count')
 
     return qs
 
 
-def get_story_search(q: str, sort_by='recent', year_from=None, year_to=None, location=None, tag=None):
+def get_story_search(
+    q: str,
+    sort_by='recent',
+    year_from=None,
+    year_to=None,
+    location=None,
+    tag=None,
+    latitude=None,
+    longitude=None,
+    radius_km=None,
+):
     """Return published stories whose title or location_name contains q (case-insensitive).
 
     Accepts the same optional filter params as get_story_feed so search results
-    can be narrowed by year range, location, and tag in addition to the text query.
+    can be narrowed by year range, location, tag, and radius in addition to the
+    text query.
 
     Returns an empty queryset if q is blank or whitespace-only — callers should
     validate q before calling, but the service is safe to call directly.
@@ -133,9 +162,38 @@ def get_story_search(q: str, sort_by='recent', year_from=None, year_to=None, loc
     if tag:
         qs = qs.filter(story_tags__tag__name__iexact=tag).distinct()
 
+    if latitude is not None and longitude is not None and radius_km is not None:
+        qs = _apply_radius_filter(qs, latitude, longitude, radius_km)
+
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')
 
     # TODO: add sort_by='popular' ordered by like_count once interactions app is implemented
 
     return qs
+
+
+def _apply_radius_filter(qs, latitude: float, longitude: float, radius_km: float):
+    """
+    Narrow a Story queryset to stories within radius_km of (latitude, longitude).
+
+    Uses a bounding-box DB pre-filter to leverage story_coords_idx, then a Python
+    haversine pass to discard bounding-box corners. Returns a queryset (via pk__in)
+    so the caller can continue chaining annotate, paginate, etc.
+    """
+    from common.utils.geo import bounding_box, haversine_km
+
+    bbox = bounding_box(latitude, longitude, radius_km)
+    candidates = qs.filter(
+        location_lat__gte=bbox.lat_min,
+        location_lat__lte=bbox.lat_max,
+        location_lng__gte=bbox.lng_min,
+        location_lng__lte=bbox.lng_max,
+    ).only('pk', 'location_lat', 'location_lng')
+
+    matching_ids = [
+        story.pk
+        for story in candidates
+        if haversine_km(latitude, longitude, float(story.location_lat), float(story.location_lng)) <= radius_km
+    ]
+    return qs.filter(pk__in=matching_ids)
