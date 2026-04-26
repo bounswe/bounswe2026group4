@@ -274,7 +274,9 @@ class FeedQuerySerializer(serializers.Serializer):
 
     All fields are optional — omitting them returns the full published feed
     with default sort. year_from and year_to are validated together to ensure
-    the range is logically consistent.
+    the range is logically consistent. latitude, longitude, and radius_km must
+    all be provided together to enable radius filtering; supplying a partial set
+    is rejected.
     """
 
     SORT_RECENT = 'recent'
@@ -288,6 +290,10 @@ class FeedQuerySerializer(serializers.Serializer):
     location = serializers.CharField(required=False, allow_blank=False)
     # Exact (case-insensitive) match against tag name — use the tag slug, e.g. "ottoman-era"
     tag = serializers.CharField(required=False, allow_blank=False)
+    latitude = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
+    longitude = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
+    # Minimum of 0.001 km — a zero radius would always return empty results
+    radius_km = serializers.FloatField(required=False, min_value=0.001)
 
     def validate(self, data):
         year_from = data.get('year_from')
@@ -296,6 +302,15 @@ class FeedQuerySerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {'year_to': 'year_to must be greater than or equal to year_from.'}
             )
+
+        geo_fields = {'latitude', 'longitude', 'radius_km'}
+        provided = {k for k in geo_fields if data.get(k) is not None}
+        if provided and provided != geo_fields:
+            missing = geo_fields - provided
+            raise serializers.ValidationError(
+                {f: 'Required when performing radius filtering.' for f in missing}
+            )
+
         return data
 
 
@@ -331,34 +346,14 @@ class StoryMapGeoJSONSerializer(serializers.BaseSerializer):
         }
 
 
-class SearchQuerySerializer(serializers.Serializer):
+class SearchQuerySerializer(FeedQuerySerializer):
     """
     Validates query parameters for the story search endpoint.
 
-    q is required. The filter params (sort_by, year_from, year_to, location) are
-    optional and mirror those accepted by FeedQuerySerializer so search results
-    can be narrowed with the same filters as the feed.
+    q is required. All filter params from FeedQuerySerializer (sort_by, year_from,
+    year_to, location, tag, latitude, longitude, radius_km) are inherited so search
+    results can be narrowed with the same filters as the feed.
     """
-
-    SORT_RECENT = 'recent'
-    SORT_POPULAR = 'popular'
-    SORT_CHOICES = [SORT_RECENT, SORT_POPULAR]
 
     # strip_whitespace=True (default) means a whitespace-only value becomes '' and fails min_length
     q = serializers.CharField(required=True, min_length=1)
-    sort_by = serializers.ChoiceField(choices=SORT_CHOICES, default=SORT_RECENT, required=False)
-    year_from = serializers.IntegerField(required=False)
-    year_to = serializers.IntegerField(required=False)
-    # Substring match against location_name — partial values like "galata" are valid
-    location = serializers.CharField(required=False, allow_blank=False)
-    # Exact (case-insensitive) match against tag name — use the tag slug, e.g. "ottoman-era"
-    tag = serializers.CharField(required=False, allow_blank=False)
-
-    def validate(self, data):
-        year_from = data.get('year_from')
-        year_to = data.get('year_to')
-        if year_from is not None and year_to is not None and year_from > year_to:
-            raise serializers.ValidationError(
-                {'year_to': 'year_to must be greater than or equal to year_from.'}
-            )
-        return data
