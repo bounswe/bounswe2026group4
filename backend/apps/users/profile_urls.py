@@ -6,6 +6,7 @@ from apps.users.views import (
     FollowingListView,
     FollowView,
     ProfilePhotoView,
+    UserBookmarksView,
     UserPublicProfileView,
 )
 
@@ -21,4 +22,5 @@ urlpatterns = [
     path('<int:user_id>/follow/', FollowView.as_view(), name='user-follow'),
     path('<int:user_id>/followers/', FollowerListView.as_view(), name='user-followers'),
     path('<int:user_id>/following/', FollowingListView.as_view(), name='user-following'),
+    path('<int:user_id>/bookmarks/', UserBookmarksView.as_view(), name='user-bookmarks'),
 ]

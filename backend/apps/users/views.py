@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from common.pagination import StoryPagination
-
+from apps.stories.serializers import StoryFeedSerializer
+from apps.stories.services import annotate_user_interactions
 from apps.users.serializers import (
     CurrentUserSerializer,
     DeleteAccountSerializer,
@@ -27,6 +27,7 @@ from apps.users.services import (
     get_following,
     get_own_profile,
     get_public_profile,
+    get_user_bookmarks,
     login_user,
     logout_user,
     register_user,
@@ -34,6 +35,7 @@ from apps.users.services import (
     update_own_profile,
     upload_profile_photo,
 )
+from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
 
 
@@ -183,4 +185,17 @@ class FollowingListView(APIView):
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = FollowedUserSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class UserBookmarksView(APIView):
+    """GET /users/<user_id>/bookmarks/ — owner's saved stories, paginated, newest bookmark first."""
+
+    permission_classes = [IsRegisteredUser]
+
+    def get(self, request, user_id):
+        qs = annotate_user_interactions(get_user_bookmarks(user_id, request.user), request.user)
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)

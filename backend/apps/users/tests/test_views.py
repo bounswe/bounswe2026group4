@@ -1,15 +1,18 @@
+import datetime
 import io
 import os
 from decimal import Decimal
 
 import pytest
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.utils import timezone
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.users.models import Follow, User
+from apps.interactions.models import SavedStory
 from apps.stories.models import Story
+from apps.users.models import Follow, User
 
 
 def _make_image_file(fmt='JPEG'):
@@ -324,7 +327,6 @@ class TestUserPublicProfileView:
 
     def test_birth_year_hidden_when_flag_false(self, client, registered_user):
         from apps.users.models import UserProfile
-        import datetime
         UserProfile.objects.create(
             user=registered_user,
             birth_date=datetime.date(1990, 1, 1),
@@ -336,7 +338,6 @@ class TestUserPublicProfileView:
     def test_birth_year_returns_integer_year_only(self, client, registered_user):
         # Req. 1.2.3.1: public profile exposes birth *year* only, not full date
         from apps.users.models import UserProfile
-        import datetime
         UserProfile.objects.create(
             user=registered_user,
             birth_date=datetime.date(1990, 5, 20),
@@ -930,3 +931,93 @@ class TestPublicProfileFollowCounts:
         second_user.save()
         response = client.get(f'/users/{registered_user.pk}/')
         assert response.data['following_count'] == 0
+
+
+# ── GET /users/<user_id>/bookmarks/ ──────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUserBookmarksView:
+    url = '/users/{user_id}/bookmarks/'
+
+    def _make_story(self, user, title='Story'):
+        return Story.objects.create(
+            user=user,
+            title=title,
+            narrative='Narrative text.',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_owner_retrieves_bookmarks_returns_200(self, auth_client, registered_user):
+        story = self._make_story(registered_user)
+        SavedStory.objects.create(user=registered_user, story=story)
+        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == 200
+        assert response.data['count'] == 1
+
+    def test_response_is_paginated(self, auth_client, registered_user):
+        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == 200
+        for key in ['count', 'next', 'previous', 'results']:
+            assert key in response.data
+
+    def test_empty_bookmarks_returns_empty_results(self, auth_client, registered_user):
+        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == 200
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_results_ordered_most_recently_saved_first(self, auth_client, registered_user, second_user):
+        story1 = self._make_story(second_user, title='Older')
+        story2 = self._make_story(second_user, title='Newer')
+        ss1 = SavedStory.objects.create(user=registered_user, story=story1)
+        SavedStory.objects.filter(pk=ss1.pk).update(
+            saved_at=timezone.now() - datetime.timedelta(seconds=5)
+        )
+        SavedStory.objects.create(user=registered_user, story=story2)
+        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        ids = [r['id'] for r in response.data['results']]
+        assert ids == [story2.pk, story1.pk]
+
+    def test_removed_stories_excluded(self, auth_client, registered_user):
+        story = self._make_story(registered_user)
+        SavedStory.objects.create(user=registered_user, story=story)
+        story.status = Story.STATUS_REMOVED
+        story.save()
+        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        assert response.data['count'] == 0
+
+    def test_response_contains_story_feed_fields(self, auth_client, registered_user):
+        story = self._make_story(registered_user)
+        SavedStory.objects.create(user=registered_user, story=story)
+        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        result = response.data['results'][0]
+        for field in ['id', 'title', 'location_name', 'preview_text', 'submitted_at']:
+            assert field in result
+        assert result['user_has_saved'] is True
+        assert result['user_has_liked'] is False
+
+    def test_unauthenticated_returns_401(self, client, registered_user):
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == 401
+
+    def test_other_user_returns_403(self, client, registered_user, second_user):
+        client.force_authenticate(user=second_user)
+        response = client.get(self.url.format(user_id=registered_user.pk))
+        assert response.status_code == 403
+
+    def test_user_not_found_returns_404(self, auth_client):
+        response = auth_client.get(self.url.format(user_id=99999))
+        assert response.status_code == 404
+
+    def test_inactive_user_returns_404(self, auth_client, second_user):
+        # Deactivate the TARGET user (not the requester) — Http404 is raised
+        # before PermissionDenied in get_user_bookmarks, so this returns 404.
+        second_user.is_active = False
+        second_user.save()
+        response = auth_client.get(self.url.format(user_id=second_user.pk))
+        assert response.status_code == 404
