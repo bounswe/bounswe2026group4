@@ -5,7 +5,7 @@ import pytest
 from apps.stories.models import Story
 from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
-from apps.stories.serializers import SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
 from apps.tags.models import StoryTag, Tag
 from apps.users.models import User
 
@@ -638,3 +638,134 @@ class TestStorySerializerTags:
         s = self._serializer({'tag_ids': []}, instance=story)
         assert s.is_valid(), s.errors
         assert s.validated_data['tag_ids'] == []
+
+
+# ── FeedQuerySerializer geo validation ────────────────────────────────────────
+
+class TestFeedQuerySerializerGeoValidation:
+    """Tests for latitude/longitude/radius_km cross-field validation."""
+
+    def _valid(self, data):
+        s = FeedQuerySerializer(data=data)
+        assert s.is_valid(), s.errors
+        return s.validated_data
+
+    def _invalid(self, data):
+        s = FeedQuerySerializer(data=data)
+        assert not s.is_valid()
+        return s.errors
+
+    # ── Positive cases ────────────────────────────────────────────────────────
+
+    def test_all_three_geo_params_is_valid(self):
+        self._valid({'latitude': 41.015, 'longitude': 28.979, 'radius_km': 1.0})
+
+    def test_no_geo_params_is_valid(self):
+        self._valid({})
+
+    def test_no_geo_params_with_other_filters_is_valid(self):
+        self._valid({'sort_by': 'popular', 'year_from': 1900, 'year_to': 2000})
+
+    def test_radius_km_accepts_common_values(self):
+        for radius in [0.5, 1.0, 2.0, 5.0, 10.0]:
+            self._valid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': radius})
+
+    def test_geo_params_combined_with_year_filter_is_valid(self):
+        self._valid({
+            'latitude': 41.0, 'longitude': 29.0, 'radius_km': 1.0,
+            'year_from': 1900, 'year_to': 2000,
+        })
+
+    def test_geo_params_combined_with_tag_filter_is_valid(self):
+        self._valid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 1.0, 'tag': 'ottoman'})
+
+    # ── Partial geo param sets rejected ──────────────────────────────────────
+
+    def test_latitude_only_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0})
+        assert 'longitude' in errors
+        assert 'radius_km' in errors
+
+    def test_longitude_only_is_invalid(self):
+        errors = self._invalid({'longitude': 29.0})
+        assert 'latitude' in errors
+        assert 'radius_km' in errors
+
+    def test_radius_km_only_is_invalid(self):
+        errors = self._invalid({'radius_km': 1.0})
+        assert 'latitude' in errors
+        assert 'longitude' in errors
+
+    def test_latitude_and_longitude_without_radius_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'longitude': 29.0})
+        assert 'radius_km' in errors
+
+    def test_latitude_and_radius_without_longitude_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'radius_km': 1.0})
+        assert 'longitude' in errors
+
+    def test_longitude_and_radius_without_latitude_is_invalid(self):
+        errors = self._invalid({'longitude': 29.0, 'radius_km': 1.0})
+        assert 'latitude' in errors
+
+    # ── Field-level range validation ──────────────────────────────────────────
+
+    def test_latitude_above_90_is_invalid(self):
+        errors = self._invalid({'latitude': 91.0, 'longitude': 29.0, 'radius_km': 1.0})
+        assert 'latitude' in errors
+
+    def test_latitude_below_minus_90_is_invalid(self):
+        errors = self._invalid({'latitude': -91.0, 'longitude': 29.0, 'radius_km': 1.0})
+        assert 'latitude' in errors
+
+    def test_latitude_at_boundary_values_is_valid(self):
+        self._valid({'latitude': 90.0, 'longitude': 0.0, 'radius_km': 1.0})
+        self._valid({'latitude': -90.0, 'longitude': 0.0, 'radius_km': 1.0})
+
+    def test_longitude_above_180_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'longitude': 181.0, 'radius_km': 1.0})
+        assert 'longitude' in errors
+
+    def test_longitude_below_minus_180_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'longitude': -181.0, 'radius_km': 1.0})
+        assert 'longitude' in errors
+
+    def test_longitude_at_boundary_values_is_valid(self):
+        self._valid({'latitude': 0.0, 'longitude': 180.0, 'radius_km': 1.0})
+        self._valid({'latitude': 0.0, 'longitude': -180.0, 'radius_km': 1.0})
+
+    def test_radius_km_of_zero_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 0.0})
+        assert 'radius_km' in errors
+
+    def test_radius_km_negative_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': -1.0})
+        assert 'radius_km' in errors
+
+    def test_geo_and_year_cross_field_validation_coexist(self):
+        # Both cross-field checks must run independently
+        errors = self._invalid({
+            'latitude': 41.0, 'longitude': 29.0, 'radius_km': 1.0,
+            'year_from': 2000, 'year_to': 1900,
+        })
+        assert 'year_to' in errors
+
+    # ── SearchQuerySerializer inherits geo validation ─────────────────────────
+
+    def test_search_serializer_inherits_geo_validation(self):
+        s = SearchQuerySerializer(data={'q': 'bridge', 'latitude': 41.0})
+        assert not s.is_valid()
+        assert 'longitude' in s.errors or 'radius_km' in s.errors
+
+    def test_search_serializer_accepts_all_three_geo_params(self):
+        s = SearchQuerySerializer(
+            data={'q': 'bridge', 'latitude': 41.0, 'longitude': 29.0, 'radius_km': 2.0}
+        )
+        assert s.is_valid(), s.errors
+
+    def test_radius_km_at_max_is_valid(self):
+        self._valid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 500.0})
+
+    def test_radius_km_above_max_is_invalid(self):
+        errors = self._invalid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 501.0})
+        assert 'radius_km' in errors

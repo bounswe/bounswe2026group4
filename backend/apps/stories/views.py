@@ -23,6 +23,9 @@ class StoryFeedView(APIView):
       year_to    — include stories up to and including this year
       location   — case-insensitive substring match against location_name
       tag        — exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      latitude   — WGS-84 latitude of user's position (-90 to 90)
+      longitude  — WGS-84 longitude of user's position (-180 to 180)
+      radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
       page       — page number (default 1)
       page_size  — results per page (default 10, max 100)
     """
@@ -41,6 +44,9 @@ class StoryFeedView(APIView):
             year_to=params.get('year_to'),
             location=params.get('location'),
             tag=params.get('tag'),
+            latitude=params.get('latitude'),
+            longitude=params.get('longitude'),
+            radius_km=params.get('radius_km'),
         )
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
@@ -66,6 +72,9 @@ class StoryMapView(APIView):
       year_to    — include stories up to and including this year
       location   — case-insensitive substring match against location_name
       tag        — exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      latitude   — WGS-84 latitude of user's position (-90 to 90)
+      longitude  — WGS-84 longitude of user's position (-180 to 180)
+      radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
     """
 
     permission_classes = [AllowAny]
@@ -80,6 +89,9 @@ class StoryMapView(APIView):
             year_to=params.get('year_to'),
             location=params.get('location'),
             tag=params.get('tag'),
+            latitude=params.get('latitude'),
+            longitude=params.get('longitude'),
+            radius_km=params.get('radius_km'),
         )
 
         serializer = StoryMapGeoJSONSerializer(qs, many=True)
@@ -115,6 +127,9 @@ class StorySearchView(APIView):
             year_to=params.get('year_to'),
             location=params.get('location'),
             tag=params.get('tag'),
+            latitude=params.get('latitude'),
+            longitude=params.get('longitude'),
+            radius_km=params.get('radius_km'),
         )
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)

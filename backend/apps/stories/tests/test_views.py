@@ -755,3 +755,178 @@ class TestStoryTagAssignment:
         response = client.get(self._detail_url(story.pk))
         assert response.status_code == status.HTTP_200_OK
         assert 'tags' in response.data
+
+
+# ── Geo radius filter view tests ──────────────────────────────────────────────
+
+# Center: Istanbul, Galata Tower area
+_GEO_CENTER_LAT = 41.025580
+_GEO_CENTER_LNG = 28.974180
+
+# ~0.5 km north (inside 1 km radius)
+_GEO_NEAR_LAT = 41.030073
+_GEO_NEAR_LNG = _GEO_CENTER_LNG
+
+# ~50 km north (outside any reasonable test radius)
+_GEO_FAR_LAT = 41.474826
+_GEO_FAR_LNG = _GEO_CENTER_LNG
+
+
+def make_geo_story(lat, lng, **kwargs):
+    defaults = dict(
+        title='Geo Story',
+        narrative='A geo narrative.',
+        location_lat=str(lat),
+        location_lng=str(lng),
+        location_name='Test Location',
+        time_type=Story.TIME_EXACT,
+        year=1950,
+        status=Story.STATUS_PUBLISHED,
+    )
+    defaults.update(kwargs)
+    return Story.objects.create(**defaults)
+
+
+@pytest.mark.django_db
+class TestStoryFeedViewGeoFilter:
+    def _geo_params(self, radius_km=1.0):
+        return f'latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}&radius_km={radius_km}'
+
+    def test_geo_filter_returns_only_nearby_stories(self, client):
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='Near Story')
+        make_geo_story(_GEO_FAR_LAT, _GEO_FAR_LNG, title='Far Story')
+        response = client.get(f'{FEED_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        titles = [s['title'] for s in response.data['results']]
+        assert 'Near Story' in titles
+        assert 'Far Story' not in titles
+
+    def test_geo_filter_unauthenticated_returns_200(self, client):
+        response = client.get(f'{FEED_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_geo_filter_empty_results_when_no_stories_nearby(self, client):
+        make_geo_story(_GEO_FAR_LAT, _GEO_FAR_LNG)
+        response = client.get(f'{FEED_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 0
+
+    def test_geo_filter_latitude_only_returns_400(self, client):
+        response = client.get(f'{FEED_URL}?latitude={_GEO_CENTER_LAT}')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_latitude_and_longitude_without_radius_returns_400(self, client):
+        response = client.get(f'{FEED_URL}?latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_invalid_latitude_returns_400(self, client):
+        response = client.get(f'{FEED_URL}?latitude=91&longitude={_GEO_CENTER_LNG}&radius_km=1')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_invalid_longitude_returns_400(self, client):
+        response = client.get(f'{FEED_URL}?latitude={_GEO_CENTER_LAT}&longitude=200&radius_km=1')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_zero_radius_returns_400(self, client):
+        response = client.get(f'{FEED_URL}?latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}&radius_km=0')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_negative_radius_returns_400(self, client):
+        response = client.get(f'{FEED_URL}?latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}&radius_km=-1')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_combined_with_year_filter(self, client):
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, year=1900, title='OldNear')
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, year=2000, title='NewNear')
+        response = client.get(f'{FEED_URL}?{self._geo_params()}&year_from=1950')
+        assert response.status_code == status.HTTP_200_OK
+        titles = [s['title'] for s in response.data['results']]
+        assert 'NewNear' in titles
+        assert 'OldNear' not in titles
+
+    def test_geo_filter_combined_with_tag_filter(self, client):
+        tag = Tag.objects.create(name='view-geo-tag')
+        near_tagged = make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='TaggedNear')
+        StoryTag.objects.create(story=near_tagged, tag=tag)
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='UntaggedNear')
+        response = client.get(f'{FEED_URL}?{self._geo_params()}&tag=view-geo-tag')
+        assert response.status_code == status.HTTP_200_OK
+        titles = [s['title'] for s in response.data['results']]
+        assert 'TaggedNear' in titles
+        assert 'UntaggedNear' not in titles
+
+
+@pytest.mark.django_db
+class TestStoryMapViewGeoFilter:
+    def _geo_params(self, radius_km=1.0):
+        return f'latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}&radius_km={radius_km}'
+
+    def _feature_ids(self, response):
+        return [f['id'] for f in response.data['features']]
+
+    def test_geo_filter_returns_only_nearby_features(self, client):
+        near = make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG)
+        far = make_geo_story(_GEO_FAR_LAT, _GEO_FAR_LNG)
+        response = client.get(f'{MAP_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        ids = self._feature_ids(response)
+        assert near.pk in ids
+        assert far.pk not in ids
+
+    def test_geo_filter_unauthenticated_returns_200(self, client):
+        response = client.get(f'{MAP_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_geo_filter_missing_one_param_returns_400(self, client):
+        response = client.get(f'{MAP_URL}?latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_invalid_latitude_returns_400(self, client):
+        response = client.get(f'{MAP_URL}?latitude=91&longitude={_GEO_CENTER_LNG}&radius_km=1')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_empty_results_when_no_stories_nearby(self, client):
+        make_geo_story(_GEO_FAR_LAT, _GEO_FAR_LNG)
+        response = client.get(f'{MAP_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['features'] == []
+
+    def test_geo_filter_returns_geojson_feature_collection(self, client):
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG)
+        response = client.get(f'{MAP_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['type'] == 'FeatureCollection'
+        assert response.data['features'][0]['type'] == 'Feature'
+
+
+@pytest.mark.django_db
+class TestStorySearchViewGeoFilter:
+    def _geo_params(self, radius_km=1.0):
+        return f'latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}&radius_km={radius_km}'
+
+    def test_geo_filter_returns_only_nearby_matching_stories(self, client):
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='Ancient Tower')
+        make_geo_story(_GEO_FAR_LAT, _GEO_FAR_LNG, title='Ancient Ruins')
+        response = client.get(f'{SEARCH_URL}?q=Ancient&{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        titles = [s['title'] for s in response.data['results']]
+        assert 'Ancient Tower' in titles
+        assert 'Ancient Ruins' not in titles
+
+    def test_geo_filter_unauthenticated_returns_200(self, client):
+        response = client.get(f'{SEARCH_URL}?q=story&{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_geo_filter_missing_one_param_returns_400(self, client):
+        response = client.get(f'{SEARCH_URL}?q=story&latitude={_GEO_CENTER_LAT}')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_invalid_latitude_returns_400(self, client):
+        response = client.get(f'{SEARCH_URL}?q=story&latitude=91&longitude={_GEO_CENTER_LNG}&radius_km=1')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_empty_results_when_no_matching_stories_nearby(self, client):
+        make_geo_story(_GEO_FAR_LAT, _GEO_FAR_LNG, title='Ancient Far')
+        response = client.get(f'{SEARCH_URL}?q=Ancient&{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 0
