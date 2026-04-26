@@ -19,7 +19,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     to the related content without extra requests (e.g. route to /stories/{story_id}/).
     """
 
-    actor = NotificationActorSerializer(read_only=True)
+    actor = NotificationActorSerializer(read_only=True, allow_null=True)
     story_id = serializers.IntegerField(source='story.id', read_only=True, allow_null=True)
     comment_id = serializers.IntegerField(source='comment.id', read_only=True, allow_null=True)
 

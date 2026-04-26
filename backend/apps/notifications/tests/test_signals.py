@@ -128,6 +128,15 @@ class TestNewFollowerSignal:
         notif = Notification.objects.get(recipient=self.followed, notification_type=NotificationType.NEW_FOLLOWER)
         assert notif.actor == self.follower
 
+    def test_private_username_follower_shows_someone_and_no_actor(self):
+        self.follower.is_username_public = False
+        self.follower.save()
+        Follow.objects.create(follower=self.follower, followed=self.followed)
+        notif = Notification.objects.get(recipient=self.followed, notification_type=NotificationType.NEW_FOLLOWER)
+        assert 'Someone' in notif.message
+        assert self.follower.username not in notif.message
+        assert notif.actor is None
+
 
 @pytest.mark.django_db
 class TestBadgeEarnedSignal:
@@ -183,6 +192,18 @@ class TestNewStoryPublishedSignal:
         assert Notification.objects.filter(
             recipient=self.follower1, notification_type=NotificationType.NEW_STORY_PUBLISHED,
         ).count() == 0
+
+    def test_private_username_author_shows_someone_and_no_actor(self):
+        self.author.is_username_public = False
+        self.author.save()
+        Follow.objects.create(follower=self.follower1, followed=self.author)
+        _make_story(self.author)
+        notif = Notification.objects.get(
+            recipient=self.follower1, notification_type=NotificationType.NEW_STORY_PUBLISHED,
+        )
+        assert 'Someone' in notif.message
+        assert self.author.username not in notif.message
+        assert notif.actor is None
 
 
 @pytest.mark.django_db

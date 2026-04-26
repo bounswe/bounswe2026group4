@@ -44,13 +44,18 @@ def on_story_published(sender, instance, created, **kwargs):
     """
     if not created or instance.status != Story.STATUS_PUBLISHED or not instance.user:
         return
-    follows = Follow.objects.filter(followed=instance.user).select_related('follower')
+    author = instance.user
+    if author.is_username_public:
+        label, actor = author.username, author
+    else:
+        label, actor = 'Someone', None
+    follows = Follow.objects.filter(followed=author).select_related('follower')
     from apps.notifications.services import create_notification
     for follow in follows:
         create_notification(
             recipient=follow.follower,
             notification_type=NotificationType.NEW_STORY_PUBLISHED,
-            message=f'{instance.user.username} published a new story: "{instance.title}".',
-            actor=instance.user,
+            message=f'{label} published a new story: "{instance.title}".',
+            actor=actor,
             story=instance,
         )

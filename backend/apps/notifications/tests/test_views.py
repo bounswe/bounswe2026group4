@@ -99,6 +99,14 @@ class TestNotificationListView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['notifications'] == []
 
+    def test_list_notification_with_null_actor_serializes_correctly(self):
+        # Notifications from private-username users have actor=None
+        _make_notification(self.user, actor=None)
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(LIST_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['notifications'][0]['actor'] is None
+
 
 @pytest.mark.django_db
 class TestNotificationClearAllView:
