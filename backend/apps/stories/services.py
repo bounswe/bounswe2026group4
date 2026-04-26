@@ -1,4 +1,5 @@
 from django.db.models import Exists, OuterRef, Q
+from django.db.models.functions import Coalesce
 
 from apps.interactions.models import Like, SavedStory
 from apps.stories.models import Story
@@ -113,6 +114,40 @@ def get_story_feed(
         qs = qs.order_by('-like_count')
 
     return qs
+
+
+def get_story_timeline(year_from=None, year_to=None, location=None):
+    """
+    Return published stories sorted by historical year ascending (oldest first).
+
+    Uses COALESCE(year, year_start) as the sort key so year_range stories
+    (where year is null) are anchored at year_start. Filtering mirrors
+    get_story_feed: year_from/year_to are range-aware, matching stories whose
+    historical period overlaps the requested window.
+    """
+    qs = Story.objects.filter(status=Story.STATUS_PUBLISHED)
+
+    if year_from is not None:
+        qs = qs.filter(
+            Q(year__gte=year_from) |
+            Q(year_end__gte=year_from)
+        )
+
+    if year_to is not None:
+        qs = qs.filter(
+            Q(year__lte=year_to) |
+            Q(year_start__lte=year_to)
+        )
+
+    if location:
+        qs = qs.filter(location_name__icontains=location)
+
+    # If both year and year_start are NULL (a data-integrity violation that clean()
+    # prevents at the serializer layer but not at the DB layer), Coalesce returns NULL
+    # and MySQL sorts those rows last in ascending order — an acceptable fallback.
+    return qs.annotate(
+        historical_year=Coalesce('year', 'year_start')
+    ).order_by('historical_year')
 
 
 def get_story_search(

@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from apps.stories.models import Story
-from apps.stories.services import annotate_user_interactions, create_story, delete_story, get_story_feed, get_story_search, update_story
+from apps.stories.services import annotate_user_interactions, create_story, delete_story, get_story_feed, get_story_search, get_story_timeline, update_story
 from apps.tags.models import StoryTag, Tag
 from apps.users.models import User
 
@@ -596,3 +596,104 @@ class TestGetStorySearchGeoFilter:
         assert len(stories) > 0
         assert hasattr(stories[0], '_user_has_liked')
         assert hasattr(stories[0], '_user_has_saved')
+
+
+# ── get_story_timeline ────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestGetStoryTimeline:
+    def test_returns_only_published_stories(self):
+        make_story(status=Story.STATUS_PUBLISHED, year=1900)
+        make_story(status=Story.STATUS_DRAFT, title='Draft Story', year=1910)
+        make_story(status=Story.STATUS_REMOVED, title='Removed Story', year=1920)
+        qs = get_story_timeline()
+        assert qs.count() == 1
+        assert qs.first().status == Story.STATUS_PUBLISHED
+
+    def test_excludes_removed_stories(self):
+        make_story(status=Story.STATUS_REMOVED, year=1900)
+        assert get_story_timeline().count() == 0
+
+    def test_default_order_is_ascending_by_historical_year(self):
+        s1 = make_story(title='Oldest', year=1800)
+        s2 = make_story(title='Middle', year=1900)
+        s3 = make_story(title='Newest', year=2000)
+        results = list(get_story_timeline())
+        assert results[0].id == s1.id
+        assert results[1].id == s2.id
+        assert results[2].id == s3.id
+
+    def test_year_range_stories_sort_by_year_start(self):
+        s_range = make_story(
+            title='Range Story',
+            time_type=Story.TIME_RANGE,
+            year=None,
+            year_start=1850,
+            year_end=1870,
+        )
+        s_exact = make_story(title='Exact Story', year=1900)
+        results = list(get_story_timeline())
+        assert results[0].id == s_range.id
+        assert results[1].id == s_exact.id
+
+    def test_year_from_filter_excludes_older_stories(self):
+        make_story(title='Before', year=1800)
+        s = make_story(title='After', year=1900)
+        qs = get_story_timeline(year_from=1850)
+        assert qs.count() == 1
+        assert qs.first().id == s.id
+
+    def test_year_to_filter_excludes_newer_stories(self):
+        s = make_story(title='Before', year=1800)
+        make_story(title='After', year=1900)
+        qs = get_story_timeline(year_to=1850)
+        assert qs.count() == 1
+        assert qs.first().id == s.id
+
+    def test_year_from_and_year_to_combined(self):
+        make_story(title='Too Old', year=1700)
+        s = make_story(title='In Range', year=1800)
+        make_story(title='Too New', year=1900)
+        qs = get_story_timeline(year_from=1750, year_to=1850)
+        assert qs.count() == 1
+        assert qs.first().id == s.id
+
+    def test_year_from_includes_year_range_story_ending_after(self):
+        s = make_story(
+            title='Overlapping Range',
+            time_type=Story.TIME_RANGE,
+            year=None,
+            year_start=1840,
+            year_end=1870,
+        )
+        qs = get_story_timeline(year_from=1860)
+        assert qs.count() == 1
+        assert qs.first().id == s.id
+
+    def test_year_to_includes_year_range_story_starting_before(self):
+        s = make_story(
+            title='Overlapping Range',
+            time_type=Story.TIME_RANGE,
+            year=None,
+            year_start=1840,
+            year_end=1870,
+        )
+        qs = get_story_timeline(year_to=1850)
+        assert qs.count() == 1
+        assert qs.first().id == s.id
+
+    def test_location_filter_is_case_insensitive_substring(self):
+        make_story(title='Match', location_name='Galata Bridge', year=1900)
+        make_story(title='No Match', location_name='Bosphorus', year=1910)
+        assert get_story_timeline(location='galata').count() == 1
+        assert get_story_timeline(location='GALATA').count() == 1
+        assert get_story_timeline(location='Bridge').count() == 1
+        assert get_story_timeline(location='NoWhere').count() == 0
+
+    def test_location_and_year_from_combined(self):
+        make_story(title='Match', location_name='Istanbul', year=1900)
+        make_story(title='Wrong Year', location_name='Istanbul', year=1800)
+        make_story(title='Wrong Location', location_name='Ankara', year=1900)
+        qs = get_story_timeline(year_from=1850, location='Istanbul')
+        assert qs.count() == 1
+        assert qs.first().title == 'Match'
