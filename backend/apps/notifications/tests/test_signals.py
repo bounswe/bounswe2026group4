@@ -58,6 +58,17 @@ class TestNewCommentSignal:
             recipient=self.author, notification_type=NotificationType.NEW_COMMENT,
         ).count() == 0
 
+    def test_private_username_commenter_shows_someone_and_no_actor(self):
+        self.commenter.is_username_public = False
+        self.commenter.save()
+        Comment.objects.create(story=self.story, author=self.commenter, text='Hi')
+        notif = Notification.objects.get(
+            recipient=self.author, notification_type=NotificationType.NEW_COMMENT,
+        )
+        assert 'Someone' in notif.message
+        assert self.commenter.username not in notif.message
+        assert notif.actor is None
+
 
 @pytest.mark.django_db
 class TestNewLikeSignal:
@@ -85,6 +96,17 @@ class TestNewLikeSignal:
         assert Notification.objects.filter(
             recipient=self.author, notification_type=NotificationType.NEW_LIKE,
         ).count() == 0
+
+    def test_private_username_liker_shows_someone_and_no_actor(self):
+        self.liker.is_username_public = False
+        self.liker.save()
+        Like.objects.create(user=self.liker, story=self.story)
+        notif = Notification.objects.get(
+            recipient=self.author, notification_type=NotificationType.NEW_LIKE,
+        )
+        assert 'Someone' in notif.message
+        assert self.liker.username not in notif.message
+        assert notif.actor is None
 
 
 @pytest.mark.django_db
