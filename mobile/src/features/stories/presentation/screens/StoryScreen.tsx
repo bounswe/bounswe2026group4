@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
+import { Trash2 } from 'lucide-react-native';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -45,38 +46,18 @@ function getDisplayNameWithYouLabel(name: string, isCurrentUser: boolean) {
   return isCurrentUser ? `${name} (You)` : name;
 }
 
-function StoryMetaRow({ label, value }: { label: string; value: string }) {
-  const { colors, spacing, typography } = useAppTheme();
+function getReadingTimeLabel(paragraphs: string[]) {
+  const wordCount = paragraphs.join(' ').trim().split(/\s+/).filter(Boolean).length;
+  const minutes = Math.max(1, Math.ceil(wordCount / 200));
 
-  return (
-    <View
-      style={{
-        width: '48%',
-        padding: spacing.md,
-        borderRadius: 14,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-      }}
-    >
-      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
-        {label}
-      </Text>
-      <Text
-        style={{
-          marginTop: spacing.xs,
-          color: colors.text,
-          fontSize: typography.body,
-          fontWeight: '600',
-        }}
-      >
-        {value}
-      </Text>
-    </View>
-  );
+  return `${minutes} min read`;
 }
 
-function StoryMetaActionRow({
+function shouldCollapseNarrative(paragraphs: string[]) {
+  return paragraphs.length > 2 || paragraphs.join(' ').length > 520;
+}
+
+function StoryMetaItem({
   label,
   value,
   onPress,
@@ -87,35 +68,122 @@ function StoryMetaActionRow({
 }) {
   const { colors, spacing, typography } = useAppTheme();
 
-  return (
-    <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={onPress ? `Open profile: ${value}` : undefined}
-      disabled={!onPress}
-      onPress={onPress}
-      style={{
-        width: '48%',
-        padding: spacing.md,
-        borderRadius: 14,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-      }}
-    >
-      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+  const content = (
+    <>
+      <Text
+        style={{
+          color: colors.muted,
+          fontSize: typography.caption,
+          fontWeight: '700',
+          textTransform: 'uppercase',
+        }}
+      >
         {label}
       </Text>
       <Text
+        numberOfLines={2}
         style={{
           marginTop: spacing.xs,
           color: onPress ? colors.primary : colors.text,
           fontSize: typography.body,
-          fontWeight: '600',
+          fontWeight: '700',
         }}
       >
         {value}
       </Text>
-    </Pressable>
+    </>
+  );
+
+  const shellStyle = {
+    flexGrow: 1,
+    flexBasis: 150,
+    minHeight: 64,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center' as const,
+  };
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open profile: ${value}`}
+        onPress={onPress}
+        style={shellStyle}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={shellStyle}>
+      {content}
+    </View>
+  );
+}
+
+function StoryNarrative({
+  story,
+  isExpanded,
+  onToggleExpanded,
+  onLayout,
+}: {
+  story: StoryEntity;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onLayout: (event: LayoutChangeEvent) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const canCollapse = shouldCollapseNarrative(story.narrative);
+  const visibleParagraphs = canCollapse && !isExpanded ? story.narrative.slice(0, 2) : story.narrative;
+
+  return (
+    <View onLayout={onLayout} style={{ marginTop: spacing.lg }}>
+      <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
+        Full story
+      </Text>
+      {visibleParagraphs.map((paragraph, index) => (
+        <Text
+          key={`${story.id}-paragraph-${index + 1}`}
+          numberOfLines={canCollapse && !isExpanded && index === visibleParagraphs.length - 1 ? 4 : undefined}
+          style={{
+            marginTop: spacing.sm,
+            color: colors.text,
+            fontSize: typography.body,
+            lineHeight: 24,
+          }}
+        >
+          {paragraph}
+        </Text>
+      ))}
+      {canCollapse ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isExpanded ? 'Show less story content' : 'Read more story content'}
+          onPress={onToggleExpanded}
+          style={({ pressed }) => ({
+            marginTop: spacing.md,
+            alignSelf: 'flex-start',
+            paddingVertical: spacing.sm,
+            paddingHorizontal: spacing.md,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ color: colors.primary, fontWeight: '800' }}>
+            {isExpanded ? 'Show less' : 'Read more'}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -372,6 +440,9 @@ export function StoryScreen({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [interactionError, setInteractionError] = useState<string>();
   const [contributorVisibilityOverride, setContributorVisibilityOverride] = useState<string | null>(null);
+  const [isNarrativeExpanded, setIsNarrativeExpanded] = useState(false);
+  const [narrativeTop, setNarrativeTop] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
   const deletedCommentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -387,6 +458,8 @@ export function StoryScreen({
     setConfirmDeleteId(undefined);
     setInteractionError(undefined);
     setContributorVisibilityOverride(null);
+    setIsNarrativeExpanded(false);
+    setNarrativeTop(0);
     deletedCommentIdsRef.current = new Set();
 
     loadStoryDetail(storyId, session?.role, getStory).then((nextState) => {
@@ -644,6 +717,7 @@ export function StoryScreen({
   const contributorName = contributorVisibilityOverride ?? getResolvedContributorName(story);
   const contributorDisplayName = getDisplayNameWithYouLabel(contributorName, isStoryOwner);
   const canOpenContributorProfile = Boolean(story.contributorUserId);
+  const readingTimeLabel = getReadingTimeLabel(story.narrative);
 
   const promptDeleteStory = () => {
     if (!canDeleteStory || isStoryDeleting) {
@@ -665,8 +739,21 @@ export function StoryScreen({
     ]);
   };
 
+  const handleToggleNarrative = () => {
+    setIsNarrativeExpanded((current) => {
+      if (current) {
+        requestAnimationFrame(() => {
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, narrativeTop - spacing.md), animated: true });
+        });
+      }
+
+      return !current;
+    });
+  };
+
   return (
     <ScrollView
+      ref={scrollViewRef}
       contentContainerStyle={{
         padding: spacing.lg,
         backgroundColor: colors.background,
@@ -676,14 +763,26 @@ export function StoryScreen({
         {story.title}
       </Text>
       {canDeleteStory ? (
-        <View style={{ marginTop: spacing.md, alignItems: 'flex-start' }}>
-          <Button
+        <View style={{ marginTop: spacing.sm, alignItems: 'flex-start' }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isStoryDeleting ? 'Deleting story' : 'Delete story'}
             onPress={promptDeleteStory}
             disabled={isStoryDeleting}
-            style={{ backgroundColor: colors.danger }}
+            style={({ pressed }) => ({
+              width: 42,
+              height: 42,
+              borderRadius: 999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.dangerSurface,
+              borderWidth: 1,
+              borderColor: colors.danger,
+              opacity: pressed || isStoryDeleting ? 0.65 : 1,
+            })}
           >
-            {isStoryDeleting ? 'Deleting story...' : 'Delete story'}
-          </Button>
+            <Trash2 size={19} color={colors.danger} strokeWidth={2.4} />
+          </Pressable>
         </View>
       ) : null}
       {storyDeleteError ? (
@@ -692,16 +791,13 @@ export function StoryScreen({
 
       <View
         style={{
-          marginTop: spacing.lg,
+          marginTop: spacing.md,
           flexDirection: 'row',
           flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          gap: spacing.md,
+          gap: spacing.sm,
         }}
       >
-        <StoryMetaRow label="Location" value={story.location.name} />
-        <StoryMetaRow label="Time period" value={story.timePeriod} />
-        <StoryMetaActionRow
+        <StoryMetaItem
           label="Contributor"
           value={contributorDisplayName}
           onPress={
@@ -712,7 +808,10 @@ export function StoryScreen({
               : undefined
           }
         />
-        <StoryMetaRow label="Submitted" value={formatDate(story.submittedAt)} />
+        <StoryMetaItem label="Submitted" value={formatDate(story.submittedAt)} />
+        <StoryMetaItem label="Reading time" value={readingTimeLabel} />
+        <StoryMetaItem label="Location" value={story.location.name} />
+        <StoryMetaItem label="Time period" value={story.timePeriod} />
       </View>
 
       {story.mediaUrl ? (
@@ -753,24 +852,12 @@ export function StoryScreen({
         )
       ) : null}
 
-      <View style={{ marginTop: spacing.xl }}>
-        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
-          Full story
-        </Text>
-        {story.narrative.map((paragraph, index) => (
-          <Text
-            key={`${story.id}-paragraph-${index + 1}`}
-            style={{
-              marginTop: spacing.md,
-              color: colors.text,
-              fontSize: typography.body,
-              lineHeight: 25,
-            }}
-          >
-            {paragraph}
-          </Text>
-        ))}
-      </View>
+      <StoryNarrative
+        story={story}
+        isExpanded={isNarrativeExpanded}
+        onToggleExpanded={handleToggleNarrative}
+        onLayout={(event) => setNarrativeTop(event.nativeEvent.layout.y)}
+      />
 
       <Pressable
         onPress={() => {
