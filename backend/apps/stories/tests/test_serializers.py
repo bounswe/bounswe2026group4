@@ -769,3 +769,44 @@ class TestFeedQuerySerializerGeoValidation:
     def test_radius_km_above_max_is_invalid(self):
         errors = self._invalid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 501.0})
         assert 'radius_km' in errors
+
+
+# ── StoryDetailSerializer — temporal coverage fields ─────────────────────────
+
+@pytest.mark.django_db
+class TestStoryDetailSerializerTemporalCoverage:
+    def test_both_fields_present_in_output(self):
+        story = make_story(time_type=Story.TIME_EXACT, year=1950)
+        data = StoryDetailSerializer(story).data
+        assert 'temporal_coverage' in data
+        assert 'temporal_coverage_iso' in data
+
+    def test_exact_year(self):
+        story = make_story(time_type=Story.TIME_EXACT, year=1950)
+        data = StoryDetailSerializer(story).data
+        assert data['temporal_coverage'] == '1950'
+        assert data['temporal_coverage_iso'] == '1950'
+
+    def test_approximate_year(self):
+        story = make_story(time_type=Story.TIME_APPROXIMATE, year=1950)
+        data = StoryDetailSerializer(story).data
+        assert data['temporal_coverage'] == '1950~'
+        assert data['temporal_coverage_iso'] == '1950'
+
+    def test_decade(self):
+        story = make_story(time_type=Story.TIME_DECADE, year=1980)
+        data = StoryDetailSerializer(story).data
+        assert data['temporal_coverage'] == '198X'
+        assert data['temporal_coverage_iso'] == '1980/1989'
+
+    def test_year_range(self):
+        story = make_story(time_type=Story.TIME_RANGE, year=None, year_start=1940, year_end=1960)
+        data = StoryDetailSerializer(story).data
+        assert data['temporal_coverage'] == '1940/1960'
+        assert data['temporal_coverage_iso'] == '1940/1960'
+
+    def test_fields_are_read_only(self):
+        story = make_story(time_type=Story.TIME_EXACT, year=1950)
+        serializer = StoryDetailSerializer(story, data={'temporal_coverage': 'injected'}, partial=True)
+        assert serializer.is_valid()
+        assert 'temporal_coverage' not in serializer.validated_data
