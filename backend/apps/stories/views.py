@@ -10,6 +10,18 @@ from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
 
 
+def apply_bbox_filters(qs, params):
+    if params.get('lat_min') is not None:
+        qs = qs.filter(location_lat__gte=params['lat_min'])
+    if params.get('lat_max') is not None:
+        qs = qs.filter(location_lat__lte=params['lat_max'])
+    if params.get('lng_min') is not None:
+        qs = qs.filter(location_lng__gte=params['lng_min'])
+    if params.get('lng_max') is not None:
+        qs = qs.filter(location_lng__lte=params['lng_max'])
+    return qs
+
+
 class StoryFeedView(APIView):
     """
     GET /stories/feed/
@@ -32,7 +44,10 @@ class StoryFeedView(APIView):
 
     # Public endpoint — guests must be able to browse stories without logging in
     permission_classes = [AllowAny]
+    
+    
 
+    #storyfeedview
     def get(self, request):
         query_serializer = FeedQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
@@ -43,11 +58,10 @@ class StoryFeedView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
-            tag=params.get('tag'),
-            latitude=params.get('latitude'),
-            longitude=params.get('longitude'),
-            radius_km=params.get('radius_km'),
         )
+        
+        qs = apply_bbox_filters(qs, params)
+        
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
 
@@ -88,11 +102,9 @@ class StoryMapView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
-            tag=params.get('tag'),
-            latitude=params.get('latitude'),
-            longitude=params.get('longitude'),
-            radius_km=params.get('radius_km'),
         )
+        
+        qs = apply_bbox_filters(qs, params)
 
         serializer = StoryMapGeoJSONSerializer(qs, many=True)
         return Response({
