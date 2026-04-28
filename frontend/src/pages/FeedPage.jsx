@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, TrendingUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SkeletonCard } from "@/components/ui/loading-skeleton";
@@ -13,7 +13,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 const PAGE_SIZE = 12;
 
 function FeedPage() {
-  const { q, yearFrom, yearTo, location, page, hasActiveFilters, setFilters } =
+  const { q, yearFrom, yearTo, location, page, sortBy, hasActiveFilters, setFilters } =
     useFilterState();
 
   const [stories, setStories] = useState([]);
@@ -29,7 +29,7 @@ function FeedPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getStories({ q, yearFrom, yearTo, location, page, pageSize: PAGE_SIZE });
+      const data = await getStories({ q, yearFrom, yearTo, location, page, pageSize: PAGE_SIZE, sortBy });
       setStories(data.results);
       setTotalCount(data.count);
       setHasNext(Boolean(data.next));
@@ -43,7 +43,7 @@ function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, yearFrom, yearTo, location, page]);
+  }, [q, yearFrom, yearTo, location, page, sortBy]);
 
   useEffect(() => {
     fetchStories();
@@ -78,12 +78,22 @@ function FeedPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" aria-label="Sort: Most Recent">
-              <Clock aria-hidden="true" />
-              <span className="hidden sm:inline">Most Recent</span>
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={sortBy === "recent" ? "Sort: Most Recent" : "Sort: Most Popular"}
+            onClick={() => setFilters({ sort_by: sortBy === "recent" ? "popular" : "recent" })}
+          >
+            {sortBy === "recent" ? (
+              <Clock className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <TrendingUp className="h-4 w-4" aria-hidden="true" />
+            )}
+            <span className="hidden sm:inline ml-1.5">
+              {sortBy === "recent" ? "Most Recent" : "Most Popular"}
+            </span>
+            <ArrowUpDown className="ml-1.5 h-3 w-3 text-muted-foreground" aria-hidden="true" />
+          </Button>
         </div>
 
         {/* Search & Filter */}
