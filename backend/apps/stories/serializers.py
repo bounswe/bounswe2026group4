@@ -199,10 +199,16 @@ class StoryDetailSerializer(StorySerializer):
         ]
 
     def get_temporal_coverage(self, obj):
-        return to_edtf(obj.time_type, obj.year, obj.year_start, obj.year_end)
+        try:
+            return to_edtf(obj.time_type, obj.year, obj.year_start, obj.year_end)
+        except ValueError:
+            return None
 
     def get_temporal_coverage_iso(self, obj):
-        return to_iso8601(obj.time_type, obj.year, obj.year_start, obj.year_end)
+        try:
+            return to_iso8601(obj.time_type, obj.year, obj.year_start, obj.year_end)
+        except ValueError:
+            return None
 
 
 class StoryFeedSerializer(serializers.ModelSerializer):
