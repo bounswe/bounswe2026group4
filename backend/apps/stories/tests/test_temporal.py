@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from apps.stories.temporal import to_edtf, to_iso8601
@@ -37,6 +39,20 @@ class TestToEdtf:
         with pytest.raises(ValueError, match="year must not be None"):
             to_edtf('exact_year', None, None, None)
 
+    def test_exact_date_without_time(self):
+        assert to_edtf('exact_date', None, None, None, date_value=datetime.date(1990, 5, 12)) == '1990-05-12'
+
+    def test_exact_date_with_time(self):
+        assert to_edtf(
+            'exact_date', None, None, None,
+            date_value=datetime.date(1990, 5, 12),
+            time_value=datetime.time(14, 30),
+        ) == '1990-05-12T14:30'
+
+    def test_exact_date_none_date_value_raises(self):
+        with pytest.raises(ValueError, match="date_value must not be None"):
+            to_edtf('exact_date', None, None, None)
+
 
 class TestToIso8601:
     def test_exact_year(self):
@@ -71,3 +87,17 @@ class TestToIso8601:
     def test_none_year_raises_value_error_for_exact_year(self):
         with pytest.raises(ValueError, match="year must not be None"):
             to_iso8601('exact_year', None, None, None)
+
+    def test_exact_date_without_time(self):
+        assert to_iso8601('exact_date', None, None, None, date_value=datetime.date(1990, 5, 12)) == '1990-05-12'
+
+    def test_exact_date_with_time(self):
+        assert to_iso8601(
+            'exact_date', None, None, None,
+            date_value=datetime.date(1990, 5, 12),
+            time_value=datetime.time(14, 30),
+        ) == '1990-05-12T14:30'
+
+    def test_exact_date_none_date_value_raises(self):
+        with pytest.raises(ValueError, match="date_value must not be None"):
+            to_iso8601('exact_date', None, None, None)

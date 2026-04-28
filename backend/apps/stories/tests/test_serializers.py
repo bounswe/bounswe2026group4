@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 
 import pytest
@@ -54,7 +55,7 @@ class TestStoryFeedSerializer:
         data = StoryFeedSerializer(story).data
         expected_fields = {
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
-            'time_type', 'year', 'year_start', 'year_end',
+            'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
             'user_has_liked', 'user_has_saved', 'submitted_at',
         }
@@ -124,7 +125,7 @@ class TestStorySerializerFields:
         expected = {
             'id', 'user', 'contributor_name', 'title', 'narrative',
             'location_lat', 'location_lng', 'location_name', 'region',
-            'time_type', 'year', 'year_start', 'year_end',
+            'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_visible', 'like_count', 'save_count',
             'user_has_liked', 'user_has_saved', 'submitted_at', 'updated_at',
             'tags',
@@ -195,6 +196,22 @@ class TestStorySerializerValidation:
 
     def test_validate_passes_for_valid_year_range(self):
         data = make_story_data(time_type=Story.TIME_RANGE, year=None, year_start=1940, year_end=1960)
+        serializer = StorySerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+
+    def test_validate_raises_when_exact_date_missing_date_value(self):
+        data = make_story_data(time_type=Story.TIME_DATE, year=None)
+        serializer = StorySerializer(data=data)
+        assert not serializer.is_valid()
+        assert 'date_value' in str(serializer.errors)
+
+    def test_validate_passes_for_exact_date_without_time(self):
+        data = make_story_data(time_type=Story.TIME_DATE, year=None, date_value='1990-05-12')
+        serializer = StorySerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+
+    def test_validate_passes_for_exact_date_with_time(self):
+        data = make_story_data(time_type=Story.TIME_DATE, year=None, date_value='1990-05-12', time_value='14:30')
         serializer = StorySerializer(data=data)
         assert serializer.is_valid(), serializer.errors
 
@@ -810,3 +827,20 @@ class TestStoryDetailSerializerTemporalCoverage:
         serializer = StoryDetailSerializer(story, data={'temporal_coverage': 'injected'}, partial=True)
         assert serializer.is_valid()
         assert 'temporal_coverage' not in serializer.validated_data
+
+    def test_exact_date_without_time(self):
+        story = make_story(time_type=Story.TIME_DATE, year=None, date_value=datetime.date(1990, 5, 12))
+        data = StoryDetailSerializer(story).data
+        assert data['temporal_coverage'] == '1990-05-12'
+        assert data['temporal_coverage_iso'] == '1990-05-12'
+
+    def test_exact_date_with_time(self):
+        story = make_story(
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1990, 5, 12),
+            time_value=datetime.time(14, 30),
+        )
+        data = StoryDetailSerializer(story).data
+        assert data['temporal_coverage'] == '1990-05-12T14:30'
+        assert data['temporal_coverage_iso'] == '1990-05-12T14:30'

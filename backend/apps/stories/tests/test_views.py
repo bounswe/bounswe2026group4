@@ -173,7 +173,7 @@ class TestStoryFeedView:
         card = response.data['results'][0]
         expected_fields = {
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
-            'time_type', 'year', 'year_start', 'year_end',
+            'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
             'user_has_liked', 'user_has_saved', 'submitted_at',
         }

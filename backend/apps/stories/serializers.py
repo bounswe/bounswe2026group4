@@ -42,6 +42,8 @@ class StorySerializer(serializers.ModelSerializer):
             'year',
             'year_start',
             'year_end',
+            'date_value',
+            'time_value',
             'status',
             'contributor_visible',
             'like_count',
@@ -130,6 +132,8 @@ class StorySerializer(serializers.ModelSerializer):
             'year': attrs.get('year', getattr(instance, 'year', None)),
             'year_start': attrs.get('year_start', getattr(instance, 'year_start', None)),
             'year_end': attrs.get('year_end', getattr(instance, 'year_end', None)),
+            'date_value': attrs.get('date_value', getattr(instance, 'date_value', None)),
+            'time_value': attrs.get('time_value', getattr(instance, 'time_value', None)),
             'status': attrs.get('status', getattr(instance, 'status', Story.STATUS_PUBLISHED)),
             'contributor_visible': attrs.get(
                 'contributor_visible',
@@ -200,13 +204,15 @@ class StoryDetailSerializer(StorySerializer):
 
     def get_temporal_coverage(self, obj):
         try:
-            return to_edtf(obj.time_type, obj.year, obj.year_start, obj.year_end)
+            return to_edtf(obj.time_type, obj.year, obj.year_start, obj.year_end,
+                           date_value=obj.date_value, time_value=obj.time_value)
         except ValueError:
             return None
 
     def get_temporal_coverage_iso(self, obj):
         try:
-            return to_iso8601(obj.time_type, obj.year, obj.year_start, obj.year_end)
+            return to_iso8601(obj.time_type, obj.year, obj.year_start, obj.year_end,
+                              date_value=obj.date_value, time_value=obj.time_value)
         except ValueError:
             return None
 
@@ -243,6 +249,8 @@ class StoryFeedSerializer(serializers.ModelSerializer):
             'year',
             'year_start',
             'year_end',
+            'date_value',
+            'time_value',
             'status',
             'contributor_name',
             'preview_text',
@@ -367,6 +375,8 @@ class StoryMapGeoJSONSerializer(serializers.BaseSerializer):
                 "year": instance.year,
                 "year_start": instance.year_start,
                 "year_end": instance.year_end,
+                "date_value": instance.date_value,
+                "time_value": instance.time_value,
             },
         }
 
