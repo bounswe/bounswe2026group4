@@ -934,6 +934,21 @@ class TestStorySearchViewGeoFilter:
 
 TIMELINE_URL = '/stories/timeline/'
 
+# Bounding box centred on Istanbul — used across bbox tests
+_BBOX_ISTANBUL = {'lat_min': 40.9, 'lat_max': 41.2, 'lng_min': 28.7, 'lng_max': 29.2}
+
+
+def make_timeline_media(story, media_type=MediaType.IMAGE, order=0):
+    """Create a MediaItem without writing a real file to disk."""
+    return MediaItem.objects.create(
+        story=story,
+        media_type=media_type,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
 
 # ── GET /stories/timeline/ ───────────────────────────────────────────────────
 
@@ -985,62 +1000,77 @@ class TestStoryTimelineView:
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Before'
 
-    def test_location_filter(self, client):
-        make_story(title='Istanbul Story', location_name='Istanbul', year=1900)
-        make_story(title='Ankara Story', location_name='Ankara', year=1910)
-        response = client.get(TIMELINE_URL, {'location': 'Istanbul'})
-        assert response.data['count'] == 1
-        assert response.data['results'][0]['title'] == 'Istanbul Story'
-
     def test_invalid_year_range_returns_400(self, client):
         response = client.get(TIMELINE_URL, {'year_from': 1900, 'year_to': 1800})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_response_card_has_expected_fields(self, client):
+    def test_bbox_filter_includes_story_inside_box(self, client):
+        make_story(title='Inside', location_lat='41.0', location_lng='28.9', year=1900)
+        response = client.get(TIMELINE_URL, _BBOX_ISTANBUL)
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Inside'
+
+    def test_bbox_filter_excludes_story_outside_box(self, client):
+        make_story(title='Outside', location_lat='39.9', location_lng='32.8', year=1900)
+        response = client.get(TIMELINE_URL, _BBOX_ISTANBUL)
+        assert response.data['count'] == 0
+
+    def test_partial_bbox_returns_400(self, client):
+        response = client.get(TIMELINE_URL, {'lat_min': 40.9, 'lat_max': 41.2})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_response_card_has_minimal_timeline_fields(self, client):
         make_story(title='Test Story', year=1900)
         response = client.get(TIMELINE_URL)
         card = response.data['results'][0]
-        for field in ('id', 'title', 'location_name', 'time_type', 'year',
-                      'contributor_name', 'preview_text', 'user_has_liked',
-                      'user_has_saved', 'submitted_at'):
+        for field in ('id', 'title', 'time_type', 'year', 'year_start', 'year_end',
+                      'location_lat', 'location_lng', 'photo_url'):
             assert field in card, f'Missing field: {field}'
 
-    def test_preview_text_is_first_20_words(self, client):
-        words = ['word'] * 30
-        narrative = ' '.join(words)
-        make_story(narrative=narrative, year=1900)
+    def test_response_card_omits_feed_specific_fields(self, client):
+        make_story(title='Test Story', year=1900)
         response = client.get(TIMELINE_URL)
-        preview = response.data['results'][0]['preview_text']
-        assert preview == ' '.join(words[:20])
+        card = response.data['results'][0]
+        for field in ('preview_text', 'contributor_name', 'user_has_liked',
+                      'user_has_saved', 'status', 'submitted_at'):
+            assert field not in card, f'Unexpected field: {field}'
 
-    def test_contributor_name_hidden_when_anonymous(self, client, user):
-        make_story(user=user, contributor_visible=False, year=1900)
+    def test_photo_url_is_null_when_no_image_attached(self, client):
+        make_story(title='No Image', year=1900)
         response = client.get(TIMELINE_URL)
-        assert response.data['results'][0]['contributor_name'] is None
+        assert response.data['results'][0]['photo_url'] is None
 
-    def test_contributor_name_shown_when_visible(self, client, user):
-        make_story(user=user, contributor_visible=True, year=1900)
+    def test_photo_url_is_url_string_when_image_attached(self, client):
+        story = make_story(title='Has Image', year=1900)
+        make_timeline_media(story)
         response = client.get(TIMELINE_URL)
-        assert response.data['results'][0]['contributor_name'] == user.username
+        photo_url = response.data['results'][0]['photo_url']
+        assert photo_url is not None
+        assert photo_url.startswith('http')
 
-    def test_user_has_liked_false_for_unauthenticated(self, client):
-        make_story(year=1900)
+    def test_non_image_media_does_not_set_photo_url(self, client):
+        story = make_story(title='Audio Only', year=1900)
+        MediaItem.objects.create(
+            story=story, media_type=MediaType.AUDIO, file_size=1024,
+            original_filename='audio.mp3', order=0, file='stories/2024/01/audio.mp3',
+        )
         response = client.get(TIMELINE_URL)
-        assert response.data['results'][0]['user_has_liked'] is False
+        assert response.data['results'][0]['photo_url'] is None
 
-    def test_user_has_liked_true_after_like(self, client, user):
-        s = make_story(user=user, year=1900)
-        Like.objects.create(user=user, story=s)
-        client.force_authenticate(user=user)
-        response = client.get(TIMELINE_URL)
-        assert response.data['results'][0]['user_has_liked'] is True
+    def test_has_image_true_returns_only_stories_with_image(self, client):
+        s_with = make_story(title='With Image', year=1900)
+        make_timeline_media(s_with)
+        make_story(title='No Image', year=1910)
+        response = client.get(TIMELINE_URL, {'has_image': 'true'})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'With Image'
 
-    def test_user_has_saved_true_after_save(self, client, user):
-        s = make_story(user=user, year=1900)
-        SavedStory.objects.create(user=user, story=s)
-        client.force_authenticate(user=user)
+    def test_has_image_omitted_returns_all_stories(self, client):
+        s_with = make_story(title='With Image', year=1900)
+        make_timeline_media(s_with)
+        make_story(title='No Image', year=1910)
         response = client.get(TIMELINE_URL)
-        assert response.data['results'][0]['user_has_saved'] is True
+        assert response.data['count'] == 2
 
     def test_pagination_returns_10_by_default(self, client):
         for i in range(15):

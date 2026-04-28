@@ -2,6 +2,7 @@ from decimal import Decimal
 
 import pytest
 
+from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 from apps.stories.services import annotate_user_interactions, create_story, delete_story, get_story_feed, get_story_search, get_story_timeline, update_story
 from apps.tags.models import StoryTag, Tag
@@ -600,6 +601,21 @@ class TestGetStorySearchGeoFilter:
 
 # ── get_story_timeline ────────────────────────────────────────────────────────
 
+# Bounding box centred on Istanbul — used across several bbox tests
+_BBOX_ISTANBUL = dict(lat_min=40.9, lat_max=41.2, lng_min=28.7, lng_max=29.2)
+
+
+def make_timeline_media_item(story, media_type=MediaType.IMAGE, order=0):
+    return MediaItem.objects.create(
+        story=story,
+        media_type=media_type,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
+
 @pytest.mark.django_db
 class TestGetStoryTimeline:
     def test_returns_only_published_stories(self):
@@ -623,27 +639,38 @@ class TestGetStoryTimeline:
         assert results[1].id == s2.id
         assert results[2].id == s3.id
 
-    def test_year_range_stories_sort_by_year_start(self):
+    def test_decade_story_sorts_by_midpoint_year_plus_five(self):
+        # 1980s midpoint = 1985; exact 1992 falls between 1985 and 1995
+        s_80s = make_story(title='1980s', time_type=Story.TIME_DECADE, year=1980)
+        s_exact = make_story(title='Exact 1992', year=1992)
+        s_90s = make_story(title='1990s', time_type=Story.TIME_DECADE, year=1990)
+        results = list(get_story_timeline())
+        assert results[0].id == s_80s.id    # midpoint 1985
+        assert results[1].id == s_exact.id  # 1992
+        assert results[2].id == s_90s.id    # midpoint 1995
+
+    def test_year_range_story_sorts_by_midpoint(self):
+        # 1840–1880 midpoint = 1860; exact 1870 should sort after it
         s_range = make_story(
-            title='Range Story',
+            title='Range 1840-1880',
             time_type=Story.TIME_RANGE,
             year=None,
-            year_start=1850,
-            year_end=1870,
+            year_start=1840,
+            year_end=1880,
         )
-        s_exact = make_story(title='Exact Story', year=1900)
+        s_exact = make_story(title='Exact 1870', year=1870)
         results = list(get_story_timeline())
         assert results[0].id == s_range.id
         assert results[1].id == s_exact.id
 
-    def test_year_from_filter_excludes_older_stories(self):
+    def test_year_from_filter_excludes_older_exact_stories(self):
         make_story(title='Before', year=1800)
         s = make_story(title='After', year=1900)
         qs = get_story_timeline(year_from=1850)
         assert qs.count() == 1
         assert qs.first().id == s.id
 
-    def test_year_to_filter_excludes_newer_stories(self):
+    def test_year_to_filter_excludes_newer_exact_stories(self):
         s = make_story(title='Before', year=1800)
         make_story(title='After', year=1900)
         qs = get_story_timeline(year_to=1850)
@@ -658,7 +685,19 @@ class TestGetStoryTimeline:
         assert qs.count() == 1
         assert qs.first().id == s.id
 
-    def test_year_from_includes_year_range_story_ending_after(self):
+    def test_decade_included_when_interval_overlaps_year_from(self):
+        # 1980s spans 1980–1989; year_from=1985 must include it (overlap)
+        s = make_story(title='1980s', time_type=Story.TIME_DECADE, year=1980)
+        qs = get_story_timeline(year_from=1985)
+        assert qs.count() == 1
+        assert qs.first().id == s.id
+
+    def test_decade_excluded_when_interval_ends_before_year_from(self):
+        # 1980s spans 1980–1989; year_from=1990 must exclude it (no overlap)
+        make_story(title='1980s', time_type=Story.TIME_DECADE, year=1980)
+        assert get_story_timeline(year_from=1990).count() == 0
+
+    def test_year_range_included_when_interval_overlaps_year_from(self):
         s = make_story(
             title='Overlapping Range',
             time_type=Story.TIME_RANGE,
@@ -670,7 +709,7 @@ class TestGetStoryTimeline:
         assert qs.count() == 1
         assert qs.first().id == s.id
 
-    def test_year_to_includes_year_range_story_starting_before(self):
+    def test_year_range_included_when_interval_overlaps_year_to(self):
         s = make_story(
             title='Overlapping Range',
             time_type=Story.TIME_RANGE,
@@ -682,18 +721,34 @@ class TestGetStoryTimeline:
         assert qs.count() == 1
         assert qs.first().id == s.id
 
-    def test_location_filter_is_case_insensitive_substring(self):
-        make_story(title='Match', location_name='Galata Bridge', year=1900)
-        make_story(title='No Match', location_name='Bosphorus', year=1910)
-        assert get_story_timeline(location='galata').count() == 1
-        assert get_story_timeline(location='GALATA').count() == 1
-        assert get_story_timeline(location='Bridge').count() == 1
-        assert get_story_timeline(location='NoWhere').count() == 0
-
-    def test_location_and_year_from_combined(self):
-        make_story(title='Match', location_name='Istanbul', year=1900)
-        make_story(title='Wrong Year', location_name='Istanbul', year=1800)
-        make_story(title='Wrong Location', location_name='Ankara', year=1900)
-        qs = get_story_timeline(year_from=1850, location='Istanbul')
+    def test_bbox_filter_includes_story_inside_box(self):
+        s = make_story(title='Inside', location_lat='41.0', location_lng='28.9', year=1900)
+        qs = get_story_timeline(**_BBOX_ISTANBUL)
         assert qs.count() == 1
-        assert qs.first().title == 'Match'
+        assert qs.first().id == s.id
+
+    def test_bbox_filter_excludes_story_outside_box(self):
+        make_story(title='Outside', location_lat='39.9', location_lng='32.8', year=1900)
+        assert get_story_timeline(**_BBOX_ISTANBUL).count() == 0
+
+    def test_bbox_and_year_from_combined(self):
+        make_story(title='Too Old', location_lat='41.0', location_lng='28.9', year=1800)
+        s = make_story(title='Match', location_lat='41.0', location_lng='28.9', year=1900)
+        make_story(title='Outside', location_lat='39.9', location_lng='32.8', year=1900)
+        qs = get_story_timeline(year_from=1850, **_BBOX_ISTANBUL)
+        assert qs.count() == 1
+        assert qs.first().id == s.id
+
+    def test_has_image_true_returns_only_stories_with_image_media(self):
+        s_with = make_story(title='With Image', year=1900)
+        make_timeline_media_item(s_with, media_type=MediaType.IMAGE)
+        make_story(title='No Image', year=1910)
+        qs = get_story_timeline(has_image=True)
+        assert qs.count() == 1
+        assert qs.first().id == s_with.id
+
+    def test_has_image_none_returns_all_stories(self):
+        s1 = make_story(title='With Image', year=1900)
+        make_timeline_media_item(s1, media_type=MediaType.IMAGE)
+        make_story(title='No Image', year=1910)
+        assert get_story_timeline(has_image=None).count() == 2
