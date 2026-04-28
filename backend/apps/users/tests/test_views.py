@@ -4,6 +4,7 @@ import os
 from decimal import Decimal
 
 import pytest
+from django.core import mail
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils import timezone
 from PIL import Image
@@ -1012,3 +1013,113 @@ class TestUserBookmarksView:
         second_user.save()
         response = auth_client.get(self.url.format(user_id=second_user.pk))
         assert response.status_code == 404
+
+
+# ── POST /auth/register/ — sends verification email ─────────────────────────
+
+@pytest.mark.django_db
+class TestRegisterViewSendsEmail:
+    def test_register_sends_verification_email(self, client):
+        client.post('/auth/register/', {
+            'email': 'new@example.com',
+            'username': 'newuser',
+            'password': 'Password1',
+            'password_confirmation': 'Password1',
+        })
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ['new@example.com']
+
+
+# ── POST /auth/password-reset/ ────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestPasswordResetRequestView:
+    url = '/auth/password-reset/'
+
+    def test_returns_200_for_existing_user(self, client, user):
+        response = client.post(self.url, {'email': user.email})
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_200_for_nonexistent_email(self, client):
+        # Anti-enumeration: must not reveal whether the email exists
+        response = client.post(self.url, {'email': 'nobody@example.com'})
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_sends_email_for_existing_user(self, client, user):
+        client.post(self.url, {'email': user.email})
+        assert len(mail.outbox) == 1
+
+    def test_no_email_for_nonexistent_address(self, client):
+        client.post(self.url, {'email': 'nobody@example.com'})
+        assert len(mail.outbox) == 0
+
+    def test_missing_email_returns_400(self, client):
+        response = client.post(self.url, {})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_invalid_email_format_returns_400(self, client):
+        response = client.post(self.url, {'email': 'not-an-email'})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# ── POST /auth/password-reset/confirm/ ───────────────────────────────────────
+
+@pytest.mark.django_db
+class TestPasswordResetConfirmView:
+    url = '/auth/password-reset/confirm/'
+
+    def _make_token(self, user):
+        from apps.users.models import PasswordResetToken
+        return PasswordResetToken.objects.create(user=user)
+
+    def test_valid_token_returns_200(self, client, user):
+        token = self._make_token(user)
+        response = client.post(self.url, {
+            'token': str(token.token),
+            'new_password': 'NewPassword1',
+            'new_password_confirmation': 'NewPassword1',
+        })
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_password_is_updated(self, client, user):
+        token = self._make_token(user)
+        client.post(self.url, {
+            'token': str(token.token),
+            'new_password': 'NewPassword1',
+            'new_password_confirmation': 'NewPassword1',
+        })
+        user.refresh_from_db()
+        assert user.check_password('NewPassword1')
+
+    def test_invalid_token_returns_400(self, client):
+        response = client.post(self.url, {
+            'token': '00000000-0000-0000-0000-000000000000',
+            'new_password': 'NewPassword1',
+            'new_password_confirmation': 'NewPassword1',
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_mismatched_passwords_returns_400(self, client, user):
+        token = self._make_token(user)
+        response = client.post(self.url, {
+            'token': str(token.token),
+            'new_password': 'NewPassword1',
+            'new_password_confirmation': 'DifferentPassword1',
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_missing_token_returns_400(self, client):
+        response = client.post(self.url, {
+            'new_password': 'NewPassword1',
+            'new_password_confirmation': 'NewPassword1',
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_weak_password_returns_400(self, client, user):
+        token = self._make_token(user)
+        response = client.post(self.url, {
+            'token': str(token.token),
+            'new_password': 'weak',
+            'new_password_confirmation': 'weak',
+        })
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
