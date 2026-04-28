@@ -4,6 +4,7 @@ from rest_framework import serializers
 from apps.media.models import MediaItem
 from apps.stories.models import Story
 from apps.stories.services import create_story, update_story
+from apps.stories.temporal import to_edtf, to_iso8601
 from apps.tags.models import Tag
 from apps.tags.serializers import TagSerializer
 
@@ -174,17 +175,34 @@ class StoryMediaItemSerializer(serializers.ModelSerializer):
 
 class StoryDetailSerializer(StorySerializer):
     """
-    Extends StorySerializer with nested media items for GET /stories/<pk>/.
+    Extends StorySerializer with nested media items and derived temporal
+    coverage fields (EDTF and ISO 8601) for GET /stories/<pk>/.
 
     Kept separate from StorySerializer so the list endpoint does not pay
     the cost of prefetching media on every paginated row.
     """
 
     media_items = StoryMediaItemSerializer(many=True, read_only=True)
+    temporal_coverage = serializers.SerializerMethodField()
+    temporal_coverage_iso = serializers.SerializerMethodField()
 
     class Meta(StorySerializer.Meta):
-        fields = StorySerializer.Meta.fields + ['media_items']
-        read_only_fields = StorySerializer.Meta.read_only_fields + ['media_items']
+        fields = StorySerializer.Meta.fields + [
+            'media_items',
+            'temporal_coverage',
+            'temporal_coverage_iso',
+        ]
+        read_only_fields = StorySerializer.Meta.read_only_fields + [
+            'media_items',
+            'temporal_coverage',
+            'temporal_coverage_iso',
+        ]
+
+    def get_temporal_coverage(self, obj):
+        return to_edtf(obj.time_type, obj.year, obj.year_start, obj.year_end)
+
+    def get_temporal_coverage_iso(self, obj):
+        return to_iso8601(obj.time_type, obj.year, obj.year_start, obj.year_end)
 
 
 class StoryFeedSerializer(serializers.ModelSerializer):
