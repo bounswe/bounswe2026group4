@@ -48,16 +48,7 @@ def client():
 
 
 @pytest.fixture
-def registered_user(db):
-    return User.objects.create_user(
-        email='user@example.com',
-        username='testuser',
-        password='Password1',
-    )
-
-
-@pytest.fixture
-def auth_client(client, registered_user):
+def auth_client(client, user):
     """Returns an APIClient with a valid access token and the refresh token."""
     response = client.post('/auth/login/', {
         'email': 'user@example.com',
@@ -90,7 +81,7 @@ class TestRegisterView:
         })
         assert User.objects.filter(email='new@example.com').exists()
 
-    def test_register_duplicate_email_returns_400(self, client, registered_user):
+    def test_register_duplicate_email_returns_400(self, client, user):
         response = client.post('/auth/register/', {
             'email': 'user@example.com',
             'username': 'anotheruser',
@@ -131,7 +122,7 @@ class TestRegisterView:
 
 @pytest.mark.django_db
 class TestLoginView:
-    def test_login_success_returns_tokens(self, client, registered_user):
+    def test_login_success_returns_tokens(self, client, user):
         response = client.post('/auth/login/', {
             'email': 'user@example.com',
             'password': 'Password1',
@@ -140,14 +131,14 @@ class TestLoginView:
         assert 'access' in response.data
         assert 'refresh' in response.data
 
-    def test_login_returns_user_info(self, client, registered_user):
+    def test_login_returns_user_info(self, client, user):
         response = client.post('/auth/login/', {
             'email': 'user@example.com',
             'password': 'Password1',
         })
         assert response.data['user']['email'] == 'user@example.com'
 
-    def test_login_wrong_password_returns_401(self, client, registered_user):
+    def test_login_wrong_password_returns_401(self, client, user):
         response = client.post('/auth/login/', {
             'email': 'user@example.com',
             'password': 'WrongPassword1',
@@ -161,13 +152,13 @@ class TestLoginView:
         })
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_login_wrong_email_and_wrong_password_same_message(self, client, registered_user):
+    def test_login_wrong_email_and_wrong_password_same_message(self, client, user):
         # Both failure cases must surface an identical message to prevent user enumeration
         r1 = client.post('/auth/login/', {'email': 'nobody@example.com', 'password': 'Password1'})
         r2 = client.post('/auth/login/', {'email': 'user@example.com', 'password': 'WrongPassword1'})
         assert r1.data['message'] == r2.data['message']
 
-    def test_response_does_not_contain_password(self, client, registered_user):
+    def test_response_does_not_contain_password(self, client, user):
         response = client.post('/auth/login/', {
             'email': 'user@example.com',
             'password': 'Password1',
@@ -210,7 +201,7 @@ class TestLogoutView:
 class TestTokenRefreshView:
     url = '/auth/token/refresh/'
 
-    def test_refresh_returns_new_access_token(self, client, registered_user):
+    def test_refresh_returns_new_access_token(self, client, user):
         login = client.post('/auth/login/', {
             'email': 'user@example.com',
             'password': 'Password1',
@@ -230,7 +221,7 @@ class TestTokenRefreshView:
         response = auth_client.post(self.url, {'refresh': refresh})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_refresh_rotates_refresh_token(self, client, registered_user):
+    def test_refresh_rotates_refresh_token(self, client, user):
         # ROTATE_REFRESH_TOKENS is True, so a new refresh token must be returned
         login = client.post('/auth/login/', {
             'email': 'user@example.com',
@@ -248,139 +239,139 @@ class TestTokenRefreshView:
 class TestUserPublicProfileView:
     url = '/users/{user_id}/'
 
-    def test_returns_200_for_existing_user(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_returns_200_for_existing_user(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_200_OK
 
     def test_returns_404_for_nonexistent_user(self, client):
         response = client.get(self.url.format(user_id=99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_accessible_without_authentication(self, client, registered_user):
+    def test_accessible_without_authentication(self, client, user):
         # Public endpoint — no token required
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_200_OK
 
-    def test_response_contains_expected_fields(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_response_contains_expected_fields(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         for field in ['id', 'username', 'total_points', 'date_joined', 'published_story_count']:
             assert field in response.data
 
-    def test_username_visible_when_public(self, client, registered_user):
-        registered_user.is_username_public = True
-        registered_user.save()
-        response = client.get(self.url.format(user_id=registered_user.pk))
-        assert response.data['username'] == registered_user.username
+    def test_username_visible_when_public(self, client, user):
+        user.is_username_public = True
+        user.save()
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.data['username'] == user.username
 
-    def test_username_hidden_when_private(self, client, registered_user):
-        registered_user.is_username_public = False
-        registered_user.save()
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_username_hidden_when_private(self, client, user):
+        user.is_username_public = False
+        user.save()
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['username'] is None
 
-    def test_published_story_count_reflects_published_stories(self, client, registered_user):
+    def test_published_story_count_reflects_published_stories(self, client, user):
         from decimal import Decimal
         from apps.stories.models import Story
 
         Story.objects.create(
-            user=registered_user, title='Pub', narrative='n',
+            user=user, title='Pub', narrative='n',
             status=Story.STATUS_PUBLISHED,
             location_lat=Decimal('41.0'), location_lng=Decimal('29.0'),
             location_name='Istanbul', time_type=Story.TIME_EXACT, year=2000,
         )
         Story.objects.create(
-            user=registered_user, title='Draft', narrative='n',
+            user=user, title='Draft', narrative='n',
             status=Story.STATUS_DRAFT,
             location_lat=Decimal('41.0'), location_lng=Decimal('29.0'),
             location_name='Istanbul', time_type=Story.TIME_EXACT, year=2001,
         )
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['published_story_count'] == 1
 
-    def test_profile_photo_hidden_when_flag_false(self, client, registered_user):
+    def test_profile_photo_hidden_when_flag_false(self, client, user):
         from apps.users.models import UserProfile
-        UserProfile.objects.create(user=registered_user, is_photo_public=False)
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        UserProfile.objects.create(user=user, is_photo_public=False)
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['profile_photo'] is None
 
-    def test_location_hidden_when_flag_false(self, client, registered_user):
+    def test_location_hidden_when_flag_false(self, client, user):
         from apps.users.models import UserProfile
         UserProfile.objects.create(
-            user=registered_user, location='Istanbul', is_location_public=False
+            user=user, location='Istanbul', is_location_public=False
         )
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['location'] is None
 
-    def test_location_visible_when_flag_true(self, client, registered_user):
+    def test_location_visible_when_flag_true(self, client, user):
         from apps.users.models import UserProfile
         UserProfile.objects.create(
-            user=registered_user, location='Istanbul', is_location_public=True
+            user=user, location='Istanbul', is_location_public=True
         )
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['location'] == 'Istanbul'
 
-    def test_bio_always_returned_when_profile_exists(self, client, registered_user):
+    def test_bio_always_returned_when_profile_exists(self, client, user):
         from apps.users.models import UserProfile
-        UserProfile.objects.create(user=registered_user, bio='A historian.')
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        UserProfile.objects.create(user=user, bio='A historian.')
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['bio'] == 'A historian.'
 
-    def test_birth_year_hidden_when_flag_false(self, client, registered_user):
+    def test_birth_year_hidden_when_flag_false(self, client, user):
         from apps.users.models import UserProfile
         UserProfile.objects.create(
-            user=registered_user,
+            user=user,
             birth_date=datetime.date(1990, 1, 1),
             is_birth_date_public=False,
         )
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['birth_year'] is None
 
-    def test_birth_year_returns_integer_year_only(self, client, registered_user):
+    def test_birth_year_returns_integer_year_only(self, client, user):
         # Req. 1.2.3.1: public profile exposes birth *year* only, not full date
         from apps.users.models import UserProfile
         UserProfile.objects.create(
-            user=registered_user,
+            user=user,
             birth_date=datetime.date(1990, 5, 20),
             is_birth_date_public=True,
         )
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['birth_year'] == 1990
         assert isinstance(response.data['birth_year'], int)
 
-    def test_inactive_user_returns_404(self, client, registered_user):
-        registered_user.is_active = False
-        registered_user.save()
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_inactive_user_returns_404(self, client, user):
+        user.is_active = False
+        user.save()
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_no_profile_returns_null_for_optional_fields(self, client, registered_user):
+    def test_no_profile_returns_null_for_optional_fields(self, client, user):
         # User with no UserProfile row
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['profile_photo'] is None
         assert response.data['location'] is None
         assert response.data['bio'] is None
         assert response.data['birth_year'] is None
 
-    def test_name_visible_when_is_name_public_true(self, client, registered_user):
+    def test_name_visible_when_is_name_public_true(self, client, user):
         from apps.users.models import UserProfile
         UserProfile.objects.create(
-            user=registered_user, first_name='Ada', last_name='Lovelace', is_name_public=True
+            user=user, first_name='Ada', last_name='Lovelace', is_name_public=True
         )
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['first_name'] == 'Ada'
         assert response.data['last_name'] == 'Lovelace'
 
-    def test_name_hidden_when_is_name_public_false(self, client, registered_user):
+    def test_name_hidden_when_is_name_public_false(self, client, user):
         from apps.users.models import UserProfile
         UserProfile.objects.create(
-            user=registered_user, first_name='Ada', last_name='Lovelace', is_name_public=False
+            user=user, first_name='Ada', last_name='Lovelace', is_name_public=False
         )
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['first_name'] is None
         assert response.data['last_name'] is None
 
-    def test_name_null_when_no_profile(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_name_null_when_no_profile(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['first_name'] is None
         assert response.data['last_name'] is None
 
@@ -413,30 +404,30 @@ class TestCurrentUserView:
                       'is_email_verified', 'date_joined', 'total_points', 'profile']:
             assert field in data
 
-    def test_get_returns_private_fields_to_owner(self, auth_client, registered_user):
+    def test_get_returns_private_fields_to_owner(self, auth_client, user):
         # Owner sees email and privacy flags — fields that are hidden on the public endpoint
         response = auth_client.get(self.url)
         data = response.data['data']
-        assert data['email'] == registered_user.email
+        assert data['email'] == user.email
         assert 'is_username_public' in data
 
-    def test_get_creates_profile_if_not_exists(self, auth_client, registered_user):
+    def test_get_creates_profile_if_not_exists(self, auth_client, user):
         from apps.users.models import UserProfile
-        assert not UserProfile.objects.filter(user=registered_user).exists()
+        assert not UserProfile.objects.filter(user=user).exists()
         auth_client.get(self.url)
-        assert UserProfile.objects.filter(user=registered_user).exists()
+        assert UserProfile.objects.filter(user=user).exists()
 
-    def test_get_profile_nested_when_profile_exists(self, auth_client, registered_user):
+    def test_get_profile_nested_when_profile_exists(self, auth_client, user):
         from apps.users.models import UserProfile
-        UserProfile.objects.create(user=registered_user, bio='Historian', location='Istanbul')
+        UserProfile.objects.create(user=user, bio='Historian', location='Istanbul')
         response = auth_client.get(self.url)
         profile = response.data['data']['profile']
         assert profile['bio'] == 'Historian'
         assert profile['location'] == 'Istanbul'
 
-    def test_get_profile_includes_all_privacy_flags(self, auth_client, registered_user):
+    def test_get_profile_includes_all_privacy_flags(self, auth_client, user):
         from apps.users.models import UserProfile
-        UserProfile.objects.create(user=registered_user, is_location_public=False)
+        UserProfile.objects.create(user=user, is_location_public=False)
         response = auth_client.get(self.url)
         profile = response.data['data']['profile']
         # Owner always receives their own privacy flags regardless of value
@@ -452,10 +443,10 @@ class TestCurrentUserView:
         response = auth_client.patch(self.url, {'username': 'brandnew'}, format='json')
         assert response.status_code == status.HTTP_200_OK
 
-    def test_patch_username_updates_in_db(self, auth_client, registered_user):
+    def test_patch_username_updates_in_db(self, auth_client, user):
         auth_client.patch(self.url, {'username': 'brandnew'}, format='json')
-        registered_user.refresh_from_db()
-        assert registered_user.username == 'brandnew'
+        user.refresh_from_db()
+        assert user.username == 'brandnew'
 
     def test_patch_response_contains_updated_username(self, auth_client):
         response = auth_client.patch(self.url, {'username': 'brandnew'}, format='json')
@@ -469,33 +460,33 @@ class TestCurrentUserView:
         )
         assert response.status_code == status.HTTP_200_OK
 
-    def test_patch_profile_fields_updates_in_db(self, auth_client, registered_user):
+    def test_patch_profile_fields_updates_in_db(self, auth_client, user):
         from apps.users.models import UserProfile
         auth_client.patch(
             self.url,
             {'profile': {'bio': 'A historian', 'location': 'Ankara'}},
             format='json',
         )
-        profile = UserProfile.objects.get(user=registered_user)
+        profile = UserProfile.objects.get(user=user)
         assert profile.bio == 'A historian'
         assert profile.location == 'Ankara'
 
-    def test_patch_creates_profile_when_not_exists(self, auth_client, registered_user):
+    def test_patch_creates_profile_when_not_exists(self, auth_client, user):
         from apps.users.models import UserProfile
-        assert not UserProfile.objects.filter(user=registered_user).exists()
+        assert not UserProfile.objects.filter(user=user).exists()
         auth_client.patch(self.url, {'profile': {'bio': 'New'}}, format='json')
-        assert UserProfile.objects.filter(user=registered_user).exists()
+        assert UserProfile.objects.filter(user=user).exists()
 
-    def test_patch_protected_fields_are_ignored(self, auth_client, registered_user):
+    def test_patch_protected_fields_are_ignored(self, auth_client, user):
         response = auth_client.patch(
             self.url,
             {'email': 'hacked@example.com', 'role': 'admin'},
             format='json',
         )
         assert response.status_code == status.HTTP_200_OK
-        registered_user.refresh_from_db()
-        assert registered_user.email == 'user@example.com'
-        assert registered_user.role == 'registered_user'
+        user.refresh_from_db()
+        assert user.email == 'user@example.com'
+        assert user.role == 'registered_user'
 
     def test_patch_duplicate_username_returns_400(self, auth_client):
         User.objects.create_user(
@@ -513,7 +504,7 @@ class TestCurrentUserView:
         assert response.data['success'] is True
         assert 'data' in response.data
 
-    def test_patch_profile_photo_is_ignored(self, auth_client, registered_user):
+    def test_patch_profile_photo_is_ignored(self, auth_client, user):
         # profile_photo must be uploaded via POST /users/me/photo/ only;
         # PATCH silently ignores it rather than storing an unvalidated file
         response = auth_client.patch(
@@ -523,10 +514,10 @@ class TestCurrentUserView:
         )
         assert response.status_code == status.HTTP_200_OK
         from apps.users.models import UserProfile
-        profile = UserProfile.objects.filter(user=registered_user).first()
+        profile = UserProfile.objects.filter(user=user).first()
         assert profile is None or not profile.profile_photo
 
-    def test_patch_name_fields_updates_in_db(self, auth_client, registered_user):
+    def test_patch_name_fields_updates_in_db(self, auth_client, user):
         from apps.users.models import UserProfile
         response = auth_client.patch(
             self.url,
@@ -534,11 +525,11 @@ class TestCurrentUserView:
             format='json',
         )
         assert response.status_code == status.HTTP_200_OK
-        profile = UserProfile.objects.get(user=registered_user)
+        profile = UserProfile.objects.get(user=user)
         assert profile.first_name == 'Ada'
         assert profile.last_name == 'Lovelace'
 
-    def test_patch_is_name_public_updates_in_db(self, auth_client, registered_user):
+    def test_patch_is_name_public_updates_in_db(self, auth_client, user):
         from apps.users.models import UserProfile
         response = auth_client.patch(
             self.url,
@@ -546,13 +537,13 @@ class TestCurrentUserView:
             format='json',
         )
         assert response.status_code == status.HTTP_200_OK
-        profile = UserProfile.objects.get(user=registered_user)
+        profile = UserProfile.objects.get(user=user)
         assert profile.is_name_public is False
 
-    def test_get_profile_includes_name_fields_for_owner(self, auth_client, registered_user):
+    def test_get_profile_includes_name_fields_for_owner(self, auth_client, user):
         from apps.users.models import UserProfile
         UserProfile.objects.create(
-            user=registered_user, first_name='Ada', last_name='Lovelace', is_name_public=False
+            user=user, first_name='Ada', last_name='Lovelace', is_name_public=False
         )
         response = auth_client.get(self.url)
         profile = response.data['data']['profile']
@@ -588,10 +579,10 @@ class TestProfilePhotoView:
         response = auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
         assert response.data['photo_url'].startswith('http')
 
-    def test_upload_saves_photo_to_profile(self, auth_client, registered_user):
+    def test_upload_saves_photo_to_profile(self, auth_client, user):
         auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
         from apps.users.models import UserProfile
-        assert UserProfile.objects.get(user=registered_user).profile_photo
+        assert UserProfile.objects.get(user=user).profile_photo
 
     def test_upload_unsupported_mime_type_returns_400(self, auth_client):
         response = auth_client.post(self.url, {'photo': _make_gif_file()}, format='multipart')
@@ -624,11 +615,11 @@ class TestProfilePhotoView:
         response = auth_client.delete(self.url)
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
-    def test_delete_clears_photo_field(self, auth_client, registered_user):
+    def test_delete_clears_photo_field(self, auth_client, user):
         auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
         auth_client.delete(self.url)
         from apps.users.models import UserProfile
-        assert not UserProfile.objects.get(user=registered_user).profile_photo
+        assert not UserProfile.objects.get(user=user).profile_photo
 
     def test_delete_when_no_photo_returns_204(self, auth_client):
         response = auth_client.delete(self.url)
@@ -640,17 +631,17 @@ class TestProfilePhotoView:
 
     # ── is_photo_public toggle ────────────────────────────────────────────────
 
-    def test_photo_hidden_on_public_profile_after_toggling_flag_off(self, auth_client, registered_user, client):
+    def test_photo_hidden_on_public_profile_after_toggling_flag_off(self, auth_client, user, client):
         auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
         auth_client.patch('/users/me/', {'profile': {'is_photo_public': False}}, format='json')
-        response = client.get(f'/users/{registered_user.pk}/')
+        response = client.get(f'/users/{user.pk}/')
         assert response.data['profile_photo'] is None
 
-    def test_photo_visible_on_public_profile_after_toggling_flag_back_on(self, auth_client, registered_user, client):
+    def test_photo_visible_on_public_profile_after_toggling_flag_back_on(self, auth_client, user, client):
         auth_client.post(self.url, {'photo': _make_image_file('JPEG')}, format='multipart')
         auth_client.patch('/users/me/', {'profile': {'is_photo_public': False}}, format='json')
         auth_client.patch('/users/me/', {'profile': {'is_photo_public': True}}, format='json')
-        response = client.get(f'/users/{registered_user.pk}/')
+        response = client.get(f'/users/{user.pk}/')
         assert response.data['profile_photo'] is not None
         assert response.data['profile_photo'].startswith('http')
 
@@ -682,12 +673,12 @@ class TestDeleteAccountView:
         response = auth_client.delete(self.url, {'password': 'Password1'}, format='json')
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
-    def test_hard_delete_removes_user_from_db(self, auth_client, registered_user):
+    def test_hard_delete_removes_user_from_db(self, auth_client, user):
         auth_client.delete(self.url, {'password': 'Password1'}, format='json')
-        assert not User.objects.filter(pk=registered_user.pk).exists()
+        assert not User.objects.filter(pk=user.pk).exists()
 
-    def test_hard_delete_removes_stories(self, auth_client, registered_user):
-        story = self._make_story(registered_user)
+    def test_hard_delete_removes_stories(self, auth_client, user):
+        story = self._make_story(user)
         auth_client.delete(self.url, {'password': 'Password1'}, format='json')
         assert not Story.objects.filter(pk=story.pk).exists()
 
@@ -697,14 +688,14 @@ class TestDeleteAccountView:
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
-    def test_soft_delete_deactivates_user(self, auth_client, registered_user):
+    def test_soft_delete_deactivates_user(self, auth_client, user):
         auth_client.delete(
             self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
         )
-        assert User.objects.get(pk=registered_user.pk).is_active is False
+        assert User.objects.get(pk=user.pk).is_active is False
 
-    def test_soft_delete_anonymizes_stories(self, auth_client, registered_user):
-        story = self._make_story(registered_user)
+    def test_soft_delete_anonymizes_stories(self, auth_client, user):
+        story = self._make_story(user)
         auth_client.delete(
             self.url, {'password': 'Password1', 'hard_delete': False}, format='json'
         )
@@ -759,8 +750,8 @@ class TestFollowView:
         response = auth_client.post(self.url.format(user_id=second_user.pk))
         assert response.status_code == status.HTTP_200_OK
 
-    def test_self_follow_returns_400(self, auth_client, registered_user):
-        response = auth_client.post(self.url.format(user_id=registered_user.pk))
+    def test_self_follow_returns_400(self, auth_client, user):
+        response = auth_client.post(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_unauthenticated_post_returns_401(self, client, second_user):
@@ -796,45 +787,45 @@ class TestFollowView:
 class TestFollowerListView:
     url = '/users/{user_id}/followers/'
 
-    def test_unauthenticated_returns_200(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_unauthenticated_returns_200(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_200_OK
 
     def test_unknown_user_returns_404(self, client):
         response = client.get(self.url.format(user_id=99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_inactive_user_returns_404(self, client, registered_user):
-        registered_user.is_active = False
-        registered_user.save()
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_inactive_user_returns_404(self, client, user):
+        user.is_active = False
+        user.save()
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_response_is_paginated(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_response_is_paginated(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         for key in ('count', 'results'):
             assert key in response.data
 
-    def test_lists_correct_followers(self, client, registered_user, second_user):
-        Follow.objects.create(follower=second_user, followed=registered_user)
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_lists_correct_followers(self, client, user, second_user):
+        Follow.objects.create(follower=second_user, followed=user)
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 1
         assert response.data['results'][0]['id'] == second_user.pk
 
-    def test_non_follower_not_in_list(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_non_follower_not_in_list(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 0
 
-    def test_inactive_follower_excluded_from_list(self, client, registered_user, second_user):
-        Follow.objects.create(follower=second_user, followed=registered_user)
+    def test_inactive_follower_excluded_from_list(self, client, user, second_user):
+        Follow.objects.create(follower=second_user, followed=user)
         second_user.is_active = False
         second_user.save()
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 0
 
-    def test_result_contains_expected_fields(self, client, registered_user, second_user):
-        Follow.objects.create(follower=second_user, followed=registered_user)
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_result_contains_expected_fields(self, client, user, second_user):
+        Follow.objects.create(follower=second_user, followed=user)
+        response = client.get(self.url.format(user_id=user.pk))
         entry = response.data['results'][0]
         for field in ('id', 'username', 'profile_photo'):
             assert field in entry
@@ -847,45 +838,45 @@ class TestFollowerListView:
 class TestFollowingListView:
     url = '/users/{user_id}/following/'
 
-    def test_unauthenticated_returns_200(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_unauthenticated_returns_200(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_200_OK
 
     def test_unknown_user_returns_404(self, client):
         response = client.get(self.url.format(user_id=99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_inactive_user_returns_404(self, client, registered_user):
-        registered_user.is_active = False
-        registered_user.save()
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_inactive_user_returns_404(self, client, user):
+        user.is_active = False
+        user.save()
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_response_is_paginated(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_response_is_paginated(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         for key in ('count', 'results'):
             assert key in response.data
 
-    def test_lists_correct_following(self, client, registered_user, second_user):
-        Follow.objects.create(follower=registered_user, followed=second_user)
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_lists_correct_following(self, client, user, second_user):
+        Follow.objects.create(follower=user, followed=second_user)
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 1
         assert response.data['results'][0]['id'] == second_user.pk
 
-    def test_not_following_returns_empty(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_not_following_returns_empty(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 0
 
-    def test_inactive_following_excluded_from_list(self, client, registered_user, second_user):
-        Follow.objects.create(follower=registered_user, followed=second_user)
+    def test_inactive_following_excluded_from_list(self, client, user, second_user):
+        Follow.objects.create(follower=user, followed=second_user)
         second_user.is_active = False
         second_user.save()
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 0
 
-    def test_result_contains_expected_fields(self, client, registered_user, second_user):
-        Follow.objects.create(follower=registered_user, followed=second_user)
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_result_contains_expected_fields(self, client, user, second_user):
+        Follow.objects.create(follower=user, followed=second_user)
+        response = client.get(self.url.format(user_id=user.pk))
         entry = response.data['results'][0]
         for field in ('id', 'username', 'profile_photo'):
             assert field in entry
@@ -896,40 +887,40 @@ class TestFollowingListView:
 
 @pytest.mark.django_db
 class TestPublicProfileFollowCounts:
-    def test_profile_includes_count_fields(self, client, registered_user):
-        response = client.get(f'/users/{registered_user.pk}/')
+    def test_profile_includes_count_fields(self, client, user):
+        response = client.get(f'/users/{user.pk}/')
         assert 'followers_count' in response.data
         assert 'following_count' in response.data
 
-    def test_counts_are_zero_initially(self, client, registered_user):
-        response = client.get(f'/users/{registered_user.pk}/')
+    def test_counts_are_zero_initially(self, client, user):
+        response = client.get(f'/users/{user.pk}/')
         assert response.data['followers_count'] == 0
         assert response.data['following_count'] == 0
 
-    def test_followers_count_reflects_state(self, client, registered_user, second_user):
-        Follow.objects.create(follower=second_user, followed=registered_user)
-        response = client.get(f'/users/{registered_user.pk}/')
+    def test_followers_count_reflects_state(self, client, user, second_user):
+        Follow.objects.create(follower=second_user, followed=user)
+        response = client.get(f'/users/{user.pk}/')
         assert response.data['followers_count'] == 1
         assert response.data['following_count'] == 0
 
-    def test_following_count_reflects_state(self, client, registered_user, second_user):
-        Follow.objects.create(follower=registered_user, followed=second_user)
-        response = client.get(f'/users/{registered_user.pk}/')
+    def test_following_count_reflects_state(self, client, user, second_user):
+        Follow.objects.create(follower=user, followed=second_user)
+        response = client.get(f'/users/{user.pk}/')
         assert response.data['following_count'] == 1
         assert response.data['followers_count'] == 0
 
-    def test_followers_count_excludes_inactive_follower(self, client, registered_user, second_user):
-        Follow.objects.create(follower=second_user, followed=registered_user)
+    def test_followers_count_excludes_inactive_follower(self, client, user, second_user):
+        Follow.objects.create(follower=second_user, followed=user)
         second_user.is_active = False
         second_user.save()
-        response = client.get(f'/users/{registered_user.pk}/')
+        response = client.get(f'/users/{user.pk}/')
         assert response.data['followers_count'] == 0
 
-    def test_following_count_excludes_inactive_followed(self, client, registered_user, second_user):
-        Follow.objects.create(follower=registered_user, followed=second_user)
+    def test_following_count_excludes_inactive_followed(self, client, user, second_user):
+        Follow.objects.create(follower=user, followed=second_user)
         second_user.is_active = False
         second_user.save()
-        response = client.get(f'/users/{registered_user.pk}/')
+        response = client.get(f'/users/{user.pk}/')
         assert response.data['following_count'] == 0
 
 
@@ -952,62 +943,62 @@ class TestUserBookmarksView:
             year=2000,
         )
 
-    def test_owner_retrieves_bookmarks_returns_200(self, auth_client, registered_user):
-        story = self._make_story(registered_user)
-        SavedStory.objects.create(user=registered_user, story=story)
-        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+    def test_owner_retrieves_bookmarks_returns_200(self, auth_client, user):
+        story = self._make_story(user)
+        SavedStory.objects.create(user=user, story=story)
+        response = auth_client.get(self.url.format(user_id=user.pk))
         assert response.status_code == 200
         assert response.data['count'] == 1
 
-    def test_response_is_paginated(self, auth_client, registered_user):
-        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+    def test_response_is_paginated(self, auth_client, user):
+        response = auth_client.get(self.url.format(user_id=user.pk))
         assert response.status_code == 200
         for key in ['count', 'next', 'previous', 'results']:
             assert key in response.data
 
-    def test_empty_bookmarks_returns_empty_results(self, auth_client, registered_user):
-        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+    def test_empty_bookmarks_returns_empty_results(self, auth_client, user):
+        response = auth_client.get(self.url.format(user_id=user.pk))
         assert response.status_code == 200
         assert response.data['count'] == 0
         assert response.data['results'] == []
 
-    def test_results_ordered_most_recently_saved_first(self, auth_client, registered_user, second_user):
+    def test_results_ordered_most_recently_saved_first(self, auth_client, user, second_user):
         story1 = self._make_story(second_user, title='Older')
         story2 = self._make_story(second_user, title='Newer')
-        ss1 = SavedStory.objects.create(user=registered_user, story=story1)
+        ss1 = SavedStory.objects.create(user=user, story=story1)
         SavedStory.objects.filter(pk=ss1.pk).update(
             saved_at=timezone.now() - datetime.timedelta(seconds=5)
         )
-        SavedStory.objects.create(user=registered_user, story=story2)
-        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        SavedStory.objects.create(user=user, story=story2)
+        response = auth_client.get(self.url.format(user_id=user.pk))
         ids = [r['id'] for r in response.data['results']]
         assert ids == [story2.pk, story1.pk]
 
-    def test_removed_stories_excluded(self, auth_client, registered_user):
-        story = self._make_story(registered_user)
-        SavedStory.objects.create(user=registered_user, story=story)
+    def test_removed_stories_excluded(self, auth_client, user):
+        story = self._make_story(user)
+        SavedStory.objects.create(user=user, story=story)
         story.status = Story.STATUS_REMOVED
         story.save()
-        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+        response = auth_client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 0
 
-    def test_response_contains_story_feed_fields(self, auth_client, registered_user):
-        story = self._make_story(registered_user)
-        SavedStory.objects.create(user=registered_user, story=story)
-        response = auth_client.get(self.url.format(user_id=registered_user.pk))
+    def test_response_contains_story_feed_fields(self, auth_client, user):
+        story = self._make_story(user)
+        SavedStory.objects.create(user=user, story=story)
+        response = auth_client.get(self.url.format(user_id=user.pk))
         result = response.data['results'][0]
         for field in ['id', 'title', 'location_name', 'preview_text', 'submitted_at']:
             assert field in result
         assert result['user_has_saved'] is True
         assert result['user_has_liked'] is False
 
-    def test_unauthenticated_returns_401(self, client, registered_user):
-        response = client.get(self.url.format(user_id=registered_user.pk))
+    def test_unauthenticated_returns_401(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == 401
 
-    def test_other_user_returns_403(self, client, registered_user, second_user):
+    def test_other_user_returns_403(self, client, user, second_user):
         client.force_authenticate(user=second_user)
-        response = client.get(self.url.format(user_id=registered_user.pk))
+        response = client.get(self.url.format(user_id=user.pk))
         assert response.status_code == 403
 
     def test_user_not_found_returns_404(self, auth_client):

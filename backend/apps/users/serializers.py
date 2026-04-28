@@ -80,7 +80,7 @@ class CurrentUserProfileSerializer(serializers.Serializer):
     first_name = serializers.CharField(allow_blank=True)
     last_name = serializers.CharField(allow_blank=True)
     location = serializers.CharField(allow_blank=True)
-    birth_date = serializers.DateField()
+    birth_date = serializers.DateField(allow_null=True)
     bio = serializers.CharField(allow_blank=True)
     is_name_public = serializers.BooleanField()
     is_location_public = serializers.BooleanField()

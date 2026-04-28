@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -73,7 +73,7 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     # Must be authenticated so anonymous requests cannot abuse the blacklist endpoint
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
 
     def post(self, request):
         serializer = LogoutSerializer(data=request.data)

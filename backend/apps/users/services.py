@@ -23,15 +23,17 @@ def register_user(validated_data: dict) -> User:
     Creates a new user and generates an email verification code.
     The code is currently not sent — email infra is not yet implemented.
     """
-    user = User.objects.create_user(
-        email=validated_data['email'],
-        username=validated_data['username'],
-        password=validated_data['password'],
-    )
-
-    # Generate and store a verification code for future use 
-    code = EmailVerificationCode.generate_code()
-    EmailVerificationCode.objects.create(user=user, code=code)
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=validated_data['email'],
+                username=validated_data['username'],
+                password=validated_data['password'],
+            )
+            code = EmailVerificationCode.generate_code()
+            EmailVerificationCode.objects.create(user=user, code=code)
+    except IntegrityError:
+        raise ValidationError({'email': 'A user with this email or username already exists.'})
 
     # TODO: replace with actual email sending once email infra is ready
     logger.info('[STUB] Email verification code %s', code)
