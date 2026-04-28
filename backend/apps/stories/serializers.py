@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from apps.media.models import MediaItem
+from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 from apps.stories.services import create_story, update_story
 from apps.tags.models import Tag
@@ -364,14 +364,24 @@ class TimelineQuerySerializer(serializers.Serializer):
     """
     Validates query parameters for the story timeline endpoint.
 
-    All fields are optional. No sort_by field — the timeline always orders by
-    historical year ascending. year_from and year_to are validated together to
-    ensure the range is logically consistent.
+    All fields are optional. year_from/year_to use interval-overlap semantics so
+    decade and year_range stories are correctly included when their period intersects
+    the requested window (see get_story_timeline service for details).
+
+    lat_min/lat_max/lng_min/lng_max define a bounding box. All four must be
+    supplied together or not at all.
+
+    has_image=true restricts results to stories that have at least one image
+    media item attached; omitting it returns all stories regardless of media.
     """
 
     year_from = serializers.IntegerField(required=False)
     year_to = serializers.IntegerField(required=False)
-    location = serializers.CharField(required=False, allow_blank=False)
+    lat_min = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
+    lat_max = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
+    lng_min = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
+    lng_max = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
+    has_image = serializers.BooleanField(required=False, allow_null=True, default=None)
 
     def validate(self, data):
         year_from = data.get('year_from')
@@ -380,4 +390,51 @@ class TimelineQuerySerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {'year_to': 'year_to must be greater than or equal to year_from.'}
             )
+
+        bbox_fields = {'lat_min', 'lat_max', 'lng_min', 'lng_max'}
+        provided = {k for k in bbox_fields if data.get(k) is not None}
+        if provided and provided != bbox_fields:
+            missing = bbox_fields - provided
+            raise serializers.ValidationError(
+                {f: 'Required when performing bounding-box filtering.' for f in missing}
+            )
+
         return data
+
+
+class StoryTimelineSerializer(serializers.ModelSerializer):
+    """
+    Minimal read-only serializer for timeline cards.
+
+    Returns only the fields needed to render a story on the timeline: identity,
+    title, all time fields, coordinates, and a representative photo URL.
+    Feed-specific fields (preview_text, contributor_name, like/save state,
+    status, submitted_at) are intentionally excluded.
+    """
+
+    photo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Story
+        fields = [
+            'id',
+            'title',
+            'time_type',
+            'year',
+            'year_start',
+            'year_end',
+            'location_lat',
+            'location_lng',
+            'photo_url',
+        ]
+        read_only_fields = fields
+
+    def get_photo_url(self, obj):
+        """Return the URL of the first image MediaItem, or None if no image is attached."""
+        request = self.context.get('request')
+        for item in obj.media_items.all():
+            if item.media_type == MediaType.IMAGE:
+                if request:
+                    return request.build_absolute_uri(item.file.url)
+                return item.file.url
+        return None

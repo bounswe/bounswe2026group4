@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.stories.models import Story
-from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer, TimelineQuerySerializer
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer, StoryTimelineSerializer, TimelineQuerySerializer
 from apps.stories.services import annotate_user_interactions, delete_story, get_story_feed, get_story_search, get_story_timeline
 from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
@@ -176,13 +176,20 @@ class StoryTimelineView(APIView):
     """
     GET /stories/timeline/
 
-    Returns a paginated list of published stories sorted by historical year
+    Returns a paginated list of published stories sorted by historical midpoint
     ascending (oldest first). Guests and authenticated users both have read access.
 
+    Each result is a minimal timeline card: id, title, time fields, coordinates,
+    and a representative photo_url. Feed-specific fields are omitted.
+
     Query params:
-      year_from  — include stories from this year onwards (historical year)
-      year_to    — include stories up to and including this year (historical year)
-      location   — case-insensitive substring match against location_name
+      year_from  — include stories whose time interval starts at or after this year
+      year_to    — include stories whose time interval ends at or before this year
+      lat_min    — bounding-box south edge (requires all four bbox params)
+      lat_max    — bounding-box north edge
+      lng_min    — bounding-box west edge
+      lng_max    — bounding-box east edge
+      has_image  — true: only stories with an image attached
       page       — page number (default 1)
       page_size  — results per page (default 10, max 100)
     """
@@ -197,12 +204,14 @@ class StoryTimelineView(APIView):
         qs = get_story_timeline(
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
-            location=params.get('location'),
-        )
-        if request.user.is_authenticated:
-            qs = annotate_user_interactions(qs, request.user)
+            lat_min=params.get('lat_min'),
+            lat_max=params.get('lat_max'),
+            lng_min=params.get('lng_min'),
+            lng_max=params.get('lng_max'),
+            has_image=params.get('has_image'),
+        ).prefetch_related('media_items')
 
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
+        serializer = StoryTimelineSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
