@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from apps.stories.models import Story
@@ -153,7 +155,6 @@ class TestStoryModel:
             story.clean()
 
     def test_create_story_with_exact_date_only(self):
-        import datetime
         story = make_story(
             time_type=Story.TIME_DATE,
             year=None,
@@ -164,7 +165,6 @@ class TestStoryModel:
         assert story.time_value is None
 
     def test_create_story_with_exact_date_and_time(self):
-        import datetime
         story = make_story(
             time_type=Story.TIME_DATE,
             year=None,
