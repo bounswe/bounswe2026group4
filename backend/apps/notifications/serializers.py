@@ -20,8 +20,9 @@ class NotificationSerializer(serializers.ModelSerializer):
     """
 
     actor = NotificationActorSerializer(read_only=True, allow_null=True)
-    story_id = serializers.IntegerField(source='story.id', read_only=True, allow_null=True)
-    comment_id = serializers.IntegerField(source='comment.id', read_only=True, allow_null=True)
+    # Read the raw FK integer column directly — avoids AttributeError when the FK is null.
+    story_id = serializers.IntegerField(read_only=True, allow_null=True)
+    comment_id = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = Notification
