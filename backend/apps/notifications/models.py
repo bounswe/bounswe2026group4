@@ -10,6 +10,7 @@ class NotificationType(models.TextChoices):
     STORY_REMOVED = 'story_removed', 'Story Removed'
     REPORT_RESOLVED = 'report_resolved', 'Report Resolved'
     BADGE_EARNED = 'badge_earned', 'Badge Earned'
+    NEW_STORY_PUBLISHED = 'new_story_published', 'New Story Published'
 
 
 class Notification(models.Model):
