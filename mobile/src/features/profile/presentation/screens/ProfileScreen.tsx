@@ -98,6 +98,25 @@ function formatBirthDateLabel(value: string) {
   });
 }
 
+function formatProfileBirthDate(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsedDate = parseBirthDate(value);
+
+  if (!parsedDate) {
+    return undefined;
+  }
+
+  return parsedDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 function formatDateInput(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -664,6 +683,7 @@ export function ProfileScreen({
     .filter((value): value is string => Boolean(value))
     .join(' ');
   const joinedDate = formatJoinedDate(profile?.dateJoined);
+  const birthDateDisplay = isSelfMode ? formatProfileBirthDate(profile?.birthDate) : undefined;
   const isDirty = useMemo(() => {
     if (!profile) {
       return false;
@@ -765,6 +785,7 @@ export function ProfileScreen({
             {isSelfMode ? <StatChip label="Points" value={String(profile.totalPoints)} /> : null}
             <StatChip label="Stories" value={String(profile.publishedStoryCount ?? 0)} />
             {profile.location ? <StatChip label="Location" value={profile.location} /> : null}
+            {birthDateDisplay ? <StatChip label="Birth date" value={birthDateDisplay} /> : null}
             {profile.birthYear ? <StatChip label="Birth year" value={String(profile.birthYear)} /> : null}
           </View>
 

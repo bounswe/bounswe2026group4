@@ -43,6 +43,7 @@ describe('userService', () => {
             username: 'Traveler',
             total_points: 5,
             published_story_count: 3,
+            birth_year: 1995,
             location: 'Istanbul',
             bio: 'Collecting neighborhood memories.',
           } as never,
@@ -59,6 +60,7 @@ describe('userService', () => {
       email: 'traveler@example.com',
       location: 'Istanbul',
       publishedStoryCount: 3,
+      birthYear: 1995,
     });
   });
 
