@@ -2,6 +2,7 @@ import logging
 
 import magic
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import Http404
@@ -10,7 +11,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 
-from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
+from apps.users.email_service import send_password_reset_email, send_verification_email
+from apps.users.models import EmailVerificationCode, Follow, PasswordResetToken, User, UserProfile
 
 _MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
 _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
@@ -35,9 +37,7 @@ def register_user(validated_data: dict) -> User:
     except IntegrityError:
         raise ValidationError({'email': 'A user with this email or username already exists.'})
 
-    # TODO: replace with actual email sending once email infra is ready
-    logger.info('[STUB] Email verification code %s', code)
-
+    send_verification_email(user.email, code)
     return user
 
 
@@ -361,3 +361,45 @@ def get_user_bookmarks(user_id: int, requesting_user):
         .select_related('user')
         .order_by('-saved_by__saved_at')
     )
+
+
+def request_password_reset(email: str) -> None:
+    """
+    Generates a password reset token and emails the reset link to the given address.
+
+    Intentionally silent for unknown/inactive emails to prevent user enumeration —
+    the caller always receives the same response regardless of whether the email exists.
+    """
+    try:
+        user = User.objects.get(email=email, is_active=True)
+    except User.DoesNotExist:
+        return
+
+    token = PasswordResetToken.objects.create(user=user)
+    reset_link = f"{settings.FRONTEND_URL}/reset-password/{token.token}"
+    send_password_reset_email(user.email, reset_link)
+
+
+def reset_password(token_str: str, new_password: str) -> None:
+    """
+    Validates the reset token and updates the user's password.
+
+    Uses a single generic error for invalid, expired, and already-used tokens
+    to avoid leaking information about token state.
+    """
+    _invalid = ValidationError({'token': 'Invalid or expired reset token.'})
+
+    try:
+        token = PasswordResetToken.objects.select_related('user').get(
+            token=token_str, is_used=False
+        )
+    except (PasswordResetToken.DoesNotExist, ValueError):
+        raise _invalid
+
+    if token.is_expired():
+        raise _invalid
+
+    token.user.set_password(new_password)
+    token.user.save(update_fields=['password'])
+    token.is_used = True
+    token.save(update_fields=['is_used'])

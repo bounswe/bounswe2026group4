@@ -13,6 +13,8 @@ from apps.users.serializers import (
     FollowUserSerializer,
     LoginSerializer,
     LogoutSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     ProfilePhotoSerializer,
     PublicUserProfileSerializer,
     RegisterSerializer,
@@ -31,6 +33,8 @@ from apps.users.services import (
     login_user,
     logout_user,
     register_user,
+    request_password_reset,
+    reset_password,
     unfollow_user,
     update_own_profile,
     upload_profile_photo,
@@ -199,3 +203,33 @@ class UserBookmarksView(APIView):
         page = paginator.paginate_queryset(qs, request)
         serializer = StoryFeedSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
+
+
+class PasswordResetRequestView(APIView):
+    """POST /auth/password-reset/ — request a password reset email."""
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_password_reset(serializer.validated_data['email'])
+        return Response(
+            {'message': 'If that email is registered, a reset link has been sent.'},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /auth/password-reset/confirm/ — set a new password using a reset token."""
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reset_password(
+            str(serializer.validated_data['token']),
+            serializer.validated_data['new_password'],
+        )
+        return Response({'message': 'Password reset successful.'}, status=status.HTTP_200_OK)
