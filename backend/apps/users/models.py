@@ -122,6 +122,12 @@ def _password_reset_token_expiry():
 
 
 class PasswordResetToken(models.Model):
+    """
+    Single-use token for password reset. Valid for 1 hour after creation.
+    Tokens are invalidated (is_used=True) after successful use or when a new
+    reset is requested, so only one valid token exists per user at a time.
+    """
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
     token = models.UUIDField(default=uuid.uuid4, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -131,7 +137,8 @@ class PasswordResetToken(models.Model):
     class Meta:
         db_table = 'password_reset_tokens'
 
-    def is_expired(self):
+    def is_expired(self) -> bool:
+        """Return True if the token's 1-hour window has passed."""
         return timezone.now() > self.expires_at
 
     def __str__(self):
