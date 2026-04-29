@@ -42,6 +42,10 @@ function getResolvedContributorName(story: StoryEntity) {
   return story.contributorName;
 }
 
+function getStoryTimePeriodLabel(story: StoryEntity) {
+  return story.temporalCoverageIso8601 || story.timePeriod;
+}
+
 function getDisplayNameWithYouLabel(name: string, isCurrentUser: boolean) {
   return isCurrentUser ? `${name} (You)` : name;
 }
@@ -160,7 +164,7 @@ function StoryMetaRow({
   timePeriod,
   onContributorPress,
 }: {
-  contributorName: string;
+  contributorName?: string;
   contributorPhotoUrl?: string | null;
   submittedAt: string;
   readingTimeLabel: string;
@@ -174,7 +178,9 @@ function StoryMetaRow({
 
   return (
     <View style={{ marginTop: spacing.sm }}>
-      <StoryContributorMeta value={contributorName} photoUrl={contributorPhotoUrl} onPress={onContributorPress} />
+      {contributorName ? (
+        <StoryContributorMeta value={contributorName} photoUrl={contributorPhotoUrl} onPress={onContributorPress} />
+      ) : null}
       <View style={{ marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
         <StoryMetaLineItem value={locationName} icon={<MapPin size={iconSize} color={iconColor} strokeWidth={2.1} />} />
         <StoryMetaLineItem
@@ -575,6 +581,14 @@ export function StoryScreen({
     let isMounted = true;
 
     const story = state.story;
+    if (story?.isContributorAnonymous) {
+      setContributorVisibilityOverride(null);
+      setContributorPhotoUrl(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     if (!story?.contributorUserId) {
       setContributorVisibilityOverride(story?.contributorName === 'Deleted user' ? 'Deleted user' : null);
       setContributorPhotoUrl(null);
@@ -791,9 +805,12 @@ export function StoryScreen({
   const isStoryOwner = session?.user?.id !== undefined && String(session.user.id) === story.contributorUserId;
   const canDeleteStory = session?.role === roles.admin || isStoryOwner;
   const contributorName = contributorVisibilityOverride ?? getResolvedContributorName(story);
-  const contributorDisplayName = getDisplayNameWithYouLabel(contributorName, isStoryOwner);
-  const canOpenContributorProfile = Boolean(story.contributorUserId);
+  const shouldShowContributor = !story.isContributorAnonymous && contributorName.trim().length > 0;
+  const contributorDisplayName = shouldShowContributor ? getDisplayNameWithYouLabel(contributorName, isStoryOwner) : undefined;
+  const canOpenContributorProfile = shouldShowContributor && Boolean(story.contributorUserId);
   const readingTimeLabel = getReadingTimeLabel(story.narrative);
+  const timePeriodLabel = getStoryTimePeriodLabel(story);
+  const tags = story.tags ?? [];
 
   const promptDeleteStory = () => {
     if (!canDeleteStory || isStoryDeleting) {
@@ -871,7 +888,7 @@ export function StoryScreen({
         submittedAt={formatDate(story.submittedAt)}
         readingTimeLabel={readingTimeLabel}
         locationName={story.location.name}
-        timePeriod={story.timePeriod}
+        timePeriod={timePeriodLabel}
         onContributorPress={
           canOpenContributorProfile
             ? () => {
@@ -880,6 +897,26 @@ export function StoryScreen({
             : undefined
         }
       />
+
+      {tags.length > 0 ? (
+        <View style={{ marginTop: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {tags.map((tag) => (
+            <View
+              key={tag}
+              style={{
+                paddingVertical: spacing.xs,
+                paddingHorizontal: spacing.sm,
+                borderRadius: 999,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '700' }}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {story.mediaUrl ? (
         hasImageError ? (
@@ -913,7 +950,7 @@ export function StoryScreen({
               backgroundColor: colors.surface,
             }}
             resizeMode="cover"
-            accessibilityLabel={`${story.title} media`}
+            accessibilityLabel={story.mediaAltText || `${story.title} media`}
             onError={() => setHasImageError(true)}
           />
         )
