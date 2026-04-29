@@ -89,7 +89,6 @@ function StoryContributorMeta({
         />
       ) : null}
       <Text
-        numberOfLines={1}
         style={{
           color: onPress ? colors.primary : colors.muted,
           fontSize: typography.body,
@@ -123,7 +122,7 @@ function StoryMetaText({ value }: { value: string }) {
   const { colors, typography } = useAppTheme();
 
   return (
-    <Text numberOfLines={1} style={{ color: colors.muted, fontSize: typography.body, fontWeight: '600' }}>
+    <Text style={{ color: colors.muted, fontSize: typography.body, fontWeight: '600' }}>
       {value}
     </Text>
   );
