@@ -125,6 +125,35 @@ describe('ProfileScreen', () => {
     expect(screen.getByText('Ada Lovelace')).toBeTruthy();
   });
 
+  it('shows the saved birth date on the signed-in user profile', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('May 20, 1995')).toBeTruthy();
+  });
+
+  it('falls back to the public birth year on the signed-in user profile when the full date is unavailable', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => ({
+          ...selfProfile,
+          birthDate: null,
+          birthYear: 1995,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('1995')).toBeTruthy();
+    expect(screen.queryByText('May 20, 1995')).toBeNull();
+  });
+
   it('shows a photo preview after selecting a valid image and can remove it before saving', async () => {
     jest.spyOn(ImagePicker, 'launchImageLibraryAsync').mockResolvedValue({
       canceled: false,
@@ -343,6 +372,7 @@ describe('ProfileScreen', () => {
     expect(await screen.findByText('Aylin')).toBeTruthy();
     expect(screen.getByText('Izmir')).toBeTruthy();
     expect(screen.getByText('1988')).toBeTruthy();
+    expect(screen.queryByText('May 20, 1995')).toBeNull();
     expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
     expect(screen.queryByText('Edit Profile')).toBeNull();
 

@@ -72,13 +72,20 @@ function mapCurrentProfile(profile: Record<string, unknown>): ProfileEntity {
   };
 }
 
-function mergePublishedStoryCount(profile: ProfileEntity, publishedStoryCount?: number) {
+function mergePublicProfileSummary(
+  profile: ProfileEntity,
+  publicProfile: Record<string, unknown>,
+) {
+  const birthYear = asNullableNumber(publicProfile.birth_year);
+  const publishedStoryCount = asNumber(publicProfile.published_story_count);
+
   return {
     ...profile,
     publishedStoryCount:
-      typeof publishedStoryCount === 'number' && Number.isFinite(publishedStoryCount)
-        ? publishedStoryCount
-        : profile.publishedStoryCount,
+      publicProfile.published_story_count === undefined
+        ? profile.publishedStoryCount
+        : publishedStoryCount,
+    birthYear: profile.birthDate ? profile.birthYear : birthYear ?? profile.birthYear,
   };
 }
 
@@ -105,10 +112,7 @@ export class ProfileRepositoryImpl implements ProfileRepository {
 
     try {
       const publicProfile = await profileRemoteSource.getPublicProfile(mappedProfile.id);
-      return mergePublishedStoryCount(
-        mappedProfile,
-        asNumber(publicProfile.published_story_count),
-      );
+      return mergePublicProfileSummary(mappedProfile, publicProfile);
     } catch {
       return mappedProfile;
     }
@@ -125,10 +129,7 @@ export class ProfileRepositoryImpl implements ProfileRepository {
 
     try {
       const publicProfile = await profileRemoteSource.getPublicProfile(mappedProfile.id);
-      return mergePublishedStoryCount(
-        mappedProfile,
-        asNumber(publicProfile.published_story_count),
-      );
+      return mergePublicProfileSummary(mappedProfile, publicProfile);
     } catch {
       return mappedProfile;
     }
