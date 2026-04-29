@@ -1,15 +1,43 @@
-from apps.notifications.models import Notification, NotificationPreference
+from apps.notifications.models import Notification, NotificationPreference, NotificationType
 
 
 def is_notification_enabled(user, notification_type):
-    """Return True if the user has not disabled this notification type.
-
-    Absence of a preference row means the default (enabled) applies.
-    """
+    """Return True if the user has not disabled this notification type and has not muted all notifications."""
+    if user.notifications_muted:
+        return False
     pref = NotificationPreference.objects.filter(
         user=user, notification_type=notification_type
     ).first()
     return pref.is_enabled if pref else True
+
+
+def get_all_preferences(user):
+    """Return a dict mapping every NotificationType value to its enabled state for the user.
+
+    Types with no preference row default to True (enabled).
+    """
+    saved = {
+        pref.notification_type: pref.is_enabled
+        for pref in NotificationPreference.objects.filter(user=user)
+    }
+    return {nt: saved.get(nt, True) for nt in NotificationType.values}
+
+
+def update_preferences(user, type_updates, notifications_muted=None):
+    """Upsert per-type preferences and optionally update the global mute flag.
+
+    type_updates: dict mapping NotificationType value strings to booleans.
+    notifications_muted: if not None, sets User.notifications_muted to this value.
+    """
+    for notification_type, is_enabled in type_updates.items():
+        NotificationPreference.objects.update_or_create(
+            user=user,
+            notification_type=notification_type,
+            defaults={'is_enabled': is_enabled},
+        )
+    if notifications_muted is not None:
+        user.notifications_muted = notifications_muted
+        user.save(update_fields=['notifications_muted'])
 
 
 def create_notification(recipient, notification_type, message, *, actor=None, story=None, comment=None):
