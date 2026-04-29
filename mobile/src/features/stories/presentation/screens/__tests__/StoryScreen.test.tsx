@@ -152,6 +152,24 @@ describe('StoryScreen', () => {
     expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
   });
 
+  it('shows the contributor profile photo when public profile metadata includes one', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => baseStory}
+        getPublicProfile={async () => ({
+          id: '22',
+          username: 'Aylin Demir',
+          totalPoints: 0,
+          profilePhoto: 'https://example.com/profile.jpg',
+        })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(await screen.findByLabelText(`${baseStory.contributorName} profile photo`)).toBeTruthy();
+  });
+
   it('keeps the profile action for anonymous contributors', async () => {
     const onOpenContributorProfile = jest.fn();
 

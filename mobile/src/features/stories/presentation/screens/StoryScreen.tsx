@@ -57,55 +57,49 @@ function shouldCollapseNarrative(paragraphs: string[]) {
   return paragraphs.length > 2 || paragraphs.join(' ').length > 520;
 }
 
-function StoryMetaItem({
-  label,
+function StoryMetaSeparator() {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <Text style={{ marginHorizontal: spacing.xs, color: colors.muted, fontSize: typography.body }}>
+      {'·'}
+    </Text>
+  );
+}
+
+function StoryContributorMeta({
   value,
+  photoUrl,
   onPress,
 }: {
-  label: string;
   value: string;
+  photoUrl?: string | null;
   onPress?: () => void;
 }) {
   const { colors, spacing, typography } = useAppTheme();
 
   const content = (
-    <>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+      {photoUrl ? (
+        <Image
+          source={{ uri: photoUrl }}
+          style={{ width: 22, height: 22, borderRadius: 999, backgroundColor: colors.surface }}
+          accessibilityIgnoresInvertColors
+          accessibilityLabel={`${value} profile photo`}
+        />
+      ) : null}
       <Text
+        numberOfLines={1}
         style={{
-          color: colors.muted,
-          fontSize: typography.caption,
-          fontWeight: '700',
-          textTransform: 'uppercase',
-        }}
-      >
-        {label}
-      </Text>
-      <Text
-        numberOfLines={2}
-        style={{
-          marginTop: spacing.xs,
-          color: onPress ? colors.primary : colors.text,
+          color: onPress ? colors.primary : colors.muted,
           fontSize: typography.body,
           fontWeight: '700',
         }}
       >
         {value}
       </Text>
-    </>
+    </View>
   );
-
-  const shellStyle = {
-    flexGrow: 1,
-    flexBasis: 150,
-    minHeight: 64,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center' as const,
-  };
 
   if (onPress) {
     return (
@@ -113,17 +107,67 @@ function StoryMetaItem({
         accessibilityRole="button"
         accessibilityLabel={`Open profile: ${value}`}
         onPress={onPress}
-        style={shellStyle}
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.75 : 1,
+        })}
       >
         {content}
       </Pressable>
     );
   }
 
+  return content;
+}
+
+function StoryMetaText({ value }: { value: string }) {
+  const { colors, typography } = useAppTheme();
+
   return (
-    <View style={shellStyle}>
-      {content}
-    </View>
+    <Text numberOfLines={1} style={{ color: colors.muted, fontSize: typography.body, fontWeight: '600' }}>
+      {value}
+    </Text>
+  );
+}
+
+function StoryMetaRow({
+  contributorName,
+  contributorPhotoUrl,
+  submittedAt,
+  readingTimeLabel,
+  locationName,
+  timePeriod,
+  onContributorPress,
+}: {
+  contributorName: string;
+  contributorPhotoUrl?: string | null;
+  submittedAt: string;
+  readingTimeLabel: string;
+  locationName: string;
+  timePeriod: string;
+  onContributorPress?: () => void;
+}) {
+  const { spacing } = useAppTheme();
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginTop: spacing.sm }}
+      contentContainerStyle={{
+        alignItems: 'center',
+        paddingRight: spacing.lg,
+      }}
+    >
+      <StoryContributorMeta value={contributorName} photoUrl={contributorPhotoUrl} onPress={onContributorPress} />
+      <StoryMetaSeparator />
+      <StoryMetaText value={submittedAt} />
+      <StoryMetaSeparator />
+      <StoryMetaText value={readingTimeLabel} />
+      <StoryMetaSeparator />
+      <StoryMetaText value={locationName} />
+      <StoryMetaSeparator />
+      <StoryMetaText value={timePeriod} />
+    </ScrollView>
   );
 }
 
@@ -440,6 +484,7 @@ export function StoryScreen({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [interactionError, setInteractionError] = useState<string>();
   const [contributorVisibilityOverride, setContributorVisibilityOverride] = useState<string | null>(null);
+  const [contributorPhotoUrl, setContributorPhotoUrl] = useState<string | null>(null);
   const [isNarrativeExpanded, setIsNarrativeExpanded] = useState(false);
   const [narrativeTop, setNarrativeTop] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -458,6 +503,7 @@ export function StoryScreen({
     setConfirmDeleteId(undefined);
     setInteractionError(undefined);
     setContributorVisibilityOverride(null);
+    setContributorPhotoUrl(null);
     setIsNarrativeExpanded(false);
     setNarrativeTop(0);
     deletedCommentIdsRef.current = new Set();
@@ -505,6 +551,7 @@ export function StoryScreen({
     const story = state.story;
     if (!story?.contributorUserId) {
       setContributorVisibilityOverride(story?.contributorName === 'Deleted user' ? 'Deleted user' : null);
+      setContributorPhotoUrl(null);
       return () => {
         isMounted = false;
       };
@@ -516,12 +563,14 @@ export function StoryScreen({
 
     if (isOwnStory) {
       setContributorVisibilityOverride(null);
+      setContributorPhotoUrl(null);
       return () => {
         isMounted = false;
       };
     }
 
     setContributorVisibilityOverride(story.contributorName === 'Deleted user' ? 'Deleted user' : null);
+    setContributorPhotoUrl(null);
 
     getPublicProfile(story.contributorUserId)
       .then((profile) => {
@@ -530,6 +579,7 @@ export function StoryScreen({
         }
 
         setContributorVisibilityOverride(!profile.username ? 'Anonymous' : null);
+        setContributorPhotoUrl(profile.username ? profile.profilePhoto ?? null : null);
       })
       .catch(() => undefined);
 
@@ -789,30 +839,21 @@ export function StoryScreen({
         <Text style={{ marginTop: spacing.sm, color: colors.danger }}>{storyDeleteError}</Text>
       ) : null}
 
-      <View
-        style={{
-          marginTop: spacing.md,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: spacing.sm,
-        }}
-      >
-        <StoryMetaItem
-          label="Contributor"
-          value={contributorDisplayName}
-          onPress={
-            canOpenContributorProfile
-              ? () => {
-                  onOpenContributorProfile?.(story.contributorUserId!);
-                }
-              : undefined
-          }
-        />
-        <StoryMetaItem label="Submitted" value={formatDate(story.submittedAt)} />
-        <StoryMetaItem label="Reading time" value={readingTimeLabel} />
-        <StoryMetaItem label="Location" value={story.location.name} />
-        <StoryMetaItem label="Time period" value={story.timePeriod} />
-      </View>
+      <StoryMetaRow
+        contributorName={contributorDisplayName}
+        contributorPhotoUrl={contributorPhotoUrl}
+        submittedAt={formatDate(story.submittedAt)}
+        readingTimeLabel={readingTimeLabel}
+        locationName={story.location.name}
+        timePeriod={story.timePeriod}
+        onContributorPress={
+          canOpenContributorProfile
+            ? () => {
+                onOpenContributorProfile?.(story.contributorUserId!);
+              }
+            : undefined
+        }
+      />
 
       {story.mediaUrl ? (
         hasImageError ? (
