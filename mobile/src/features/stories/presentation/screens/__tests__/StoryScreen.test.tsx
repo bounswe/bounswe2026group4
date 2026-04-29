@@ -124,7 +124,8 @@ describe('StoryScreen', () => {
     expect(screen.getAllByText(baseStory.location.name)).toHaveLength(2);
     expect(screen.getByText(baseStory.timePeriod)).toBeTruthy();
     expect(screen.getByText(baseStory.contributorName)).toBeTruthy();
-    expect(screen.getByText('18 Mar 2026')).toBeTruthy();
+    expect(screen.getByText('Date added: 18 Mar 2026')).toBeTruthy();
+    expect(screen.getByText('1 min read')).toBeTruthy();
     expect(screen.getByText(baseStory.narrative[0])).toBeTruthy();
     expect(screen.getByText(baseStory.narrative[1])).toBeTruthy();
     expect(screen.getByLabelText(`${baseStory.title} media`)).toBeTruthy();
@@ -149,6 +150,24 @@ describe('StoryScreen', () => {
     fireEvent.press(screen.getByLabelText(`Open profile: ${baseStory.contributorName}`));
 
     expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
+  });
+
+  it('shows the contributor profile photo when public profile metadata includes one', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => baseStory}
+        getPublicProfile={async () => ({
+          id: '22',
+          username: 'Aylin Demir',
+          totalPoints: 0,
+          profilePhoto: 'https://example.com/profile.jpg',
+        })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(await screen.findByLabelText(`${baseStory.contributorName} profile photo`)).toBeTruthy();
   });
 
   it('keeps the profile action for anonymous contributors', async () => {
@@ -510,6 +529,7 @@ describe('StoryScreen', () => {
 
     await screen.findByText(baseStory.title);
     expect(screen.queryByText('Delete story')).toBeNull();
+    expect(screen.queryByLabelText('Delete story')).toBeNull();
 
     rerender(
       <StoryScreen
@@ -519,7 +539,7 @@ describe('StoryScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('Delete story')).toBeTruthy();
+    expect(await screen.findByLabelText('Delete story')).toBeTruthy();
 
     rerender(
       <StoryScreen
@@ -529,7 +549,7 @@ describe('StoryScreen', () => {
       />,
     );
 
-    expect(await screen.findByText('Delete story')).toBeTruthy();
+    expect(await screen.findByLabelText('Delete story')).toBeTruthy();
   });
 
   it('confirms and deletes the story for authorized users', async () => {
@@ -547,7 +567,7 @@ describe('StoryScreen', () => {
       />,
     );
 
-    fireEvent.press(await screen.findByText('Delete story'));
+    fireEvent.press(await screen.findByLabelText('Delete story'));
 
     expect(alertSpy).toHaveBeenCalledWith(
       'Delete story?',
@@ -587,7 +607,7 @@ describe('StoryScreen', () => {
       />,
     );
 
-    fireEvent.press(await screen.findByText('Delete story'));
+    fireEvent.press(await screen.findByLabelText('Delete story'));
 
     const buttons = alertSpy.mock.calls[0]?.[2];
     const deleteButton = buttons?.find((button) => button.text === 'Delete');
@@ -599,6 +619,34 @@ describe('StoryScreen', () => {
     expect(await screen.findByText('Deletion failed on server')).toBeTruthy();
 
     alertSpy.mockRestore();
+  });
+
+  it('collapses long narratives and expands them on request', async () => {
+    const longStory = {
+      ...baseStory,
+      narrative: [
+        'The first paragraph sets the scene beside the water.',
+        'The second paragraph gives enough detail to preview the story without overwhelming the screen.',
+        'The third paragraph should stay hidden until the reader asks for the full story.',
+      ],
+    };
+
+    render(<StoryScreen storyId="story-001" getStory={async () => longStory} />);
+
+    expect(await screen.findByText(longStory.title)).toBeTruthy();
+    expect(screen.getByText(longStory.narrative[0])).toBeTruthy();
+    expect(screen.getByText(longStory.narrative[1])).toBeTruthy();
+    expect(screen.queryByText(longStory.narrative[2])).toBeNull();
+
+    fireEvent.press(screen.getByText('Read more'));
+
+    expect(screen.getByText(longStory.narrative[2])).toBeTruthy();
+    expect(screen.getByText('Show less')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Show less'));
+
+    expect(screen.queryByText(longStory.narrative[2])).toBeNull();
+    expect(screen.getByText('Read more')).toBeTruthy();
   });
 
   it('prompts unauthenticated users when they try to comment', async () => {
