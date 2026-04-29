@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
-import { Trash2 } from 'lucide-react-native';
+import { Calendar, Clock, MapPin, Trash2 } from 'lucide-react-native';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -90,12 +90,15 @@ function StoryContributorMeta({
       ) : null}
       <Text
         style={{
-          color: onPress ? colors.primary : colors.muted,
+          color: colors.muted,
           fontSize: typography.body,
-          fontWeight: '700',
+          fontWeight: '600',
         }}
       >
-        {value}
+        by{' '}
+        <Text style={{ color: onPress ? colors.primary : colors.muted, fontWeight: '700' }}>
+          {value}
+        </Text>
       </Text>
     </View>
   );
@@ -128,12 +131,21 @@ function StoryMetaText({ value }: { value: string }) {
   );
 }
 
-function StoryMetaLineItem({ value, withSeparator = false }: { value: string; withSeparator?: boolean }) {
+function StoryMetaLineItem({
+  value,
+  icon,
+  withSeparator = false,
+}: {
+  value: string;
+  icon?: React.ReactNode;
+  withSeparator?: boolean;
+}) {
   const { spacing } = useAppTheme();
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: spacing.md, marginTop: spacing.xs }}>
       {withSeparator ? <StoryMetaSeparator /> : null}
+      {icon ? <View style={{ marginRight: spacing.xs }}>{icon}</View> : null}
       <StoryMetaText value={value} />
     </View>
   );
@@ -156,16 +168,30 @@ function StoryMetaRow({
   timePeriod: string;
   onContributorPress?: () => void;
 }) {
-  const { spacing } = useAppTheme();
+  const { colors, spacing } = useAppTheme();
+  const iconColor = colors.muted;
+  const iconSize = 17;
 
   return (
     <View style={{ marginTop: spacing.sm }}>
       <StoryContributorMeta value={contributorName} photoUrl={contributorPhotoUrl} onPress={onContributorPress} />
       <View style={{ marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
-        <StoryMetaLineItem value={locationName} />
-        <StoryMetaLineItem value={timePeriod} withSeparator />
-        <StoryMetaLineItem value={`Date added: ${submittedAt}`} withSeparator />
-        <StoryMetaLineItem value={readingTimeLabel} withSeparator />
+        <StoryMetaLineItem value={locationName} icon={<MapPin size={iconSize} color={iconColor} strokeWidth={2.1} />} />
+        <StoryMetaLineItem
+          value={timePeriod}
+          icon={<Calendar size={iconSize} color={iconColor} strokeWidth={2.1} />}
+          withSeparator
+        />
+        <StoryMetaLineItem
+          value={`Date added: ${submittedAt}`}
+          icon={<Calendar size={iconSize} color={iconColor} strokeWidth={2.1} />}
+          withSeparator
+        />
+        <StoryMetaLineItem
+          value={readingTimeLabel}
+          icon={<Clock size={iconSize} color={iconColor} strokeWidth={2.1} />}
+          withSeparator
+        />
       </View>
     </View>
   );
