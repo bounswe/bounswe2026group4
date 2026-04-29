@@ -124,7 +124,7 @@ describe('StoryScreen', () => {
     expect(screen.getAllByText(baseStory.location.name)).toHaveLength(2);
     expect(screen.getByText(baseStory.timePeriod)).toBeTruthy();
     expect(screen.getByText(baseStory.contributorName)).toBeTruthy();
-    expect(screen.getByText('18 Mar 2026')).toBeTruthy();
+    expect(screen.getByText('Date added: 18 Mar 2026')).toBeTruthy();
     expect(screen.getByText('1 min read')).toBeTruthy();
     expect(screen.getByText(baseStory.narrative[0])).toBeTruthy();
     expect(screen.getByText(baseStory.narrative[1])).toBeTruthy();

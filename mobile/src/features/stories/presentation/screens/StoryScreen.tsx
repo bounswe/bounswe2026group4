@@ -61,7 +61,7 @@ function StoryMetaSeparator() {
   const { colors, spacing, typography } = useAppTheme();
 
   return (
-    <Text style={{ marginHorizontal: spacing.xs, color: colors.muted, fontSize: typography.body }}>
+    <Text style={{ color: colors.muted, fontSize: typography.body, marginRight: spacing.sm }}>
       {'·'}
     </Text>
   );
@@ -128,6 +128,17 @@ function StoryMetaText({ value }: { value: string }) {
   );
 }
 
+function StoryMetaLineItem({ value, withSeparator = false }: { value: string; withSeparator?: boolean }) {
+  const { spacing } = useAppTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: spacing.md, marginTop: spacing.xs }}>
+      {withSeparator ? <StoryMetaSeparator /> : null}
+      <StoryMetaText value={value} />
+    </View>
+  );
+}
+
 function StoryMetaRow({
   contributorName,
   contributorPhotoUrl,
@@ -148,25 +159,15 @@ function StoryMetaRow({
   const { spacing } = useAppTheme();
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={{ marginTop: spacing.sm }}
-      contentContainerStyle={{
-        alignItems: 'center',
-        paddingRight: spacing.lg,
-      }}
-    >
+    <View style={{ marginTop: spacing.sm }}>
       <StoryContributorMeta value={contributorName} photoUrl={contributorPhotoUrl} onPress={onContributorPress} />
-      <StoryMetaSeparator />
-      <StoryMetaText value={submittedAt} />
-      <StoryMetaSeparator />
-      <StoryMetaText value={readingTimeLabel} />
-      <StoryMetaSeparator />
-      <StoryMetaText value={locationName} />
-      <StoryMetaSeparator />
-      <StoryMetaText value={timePeriod} />
-    </ScrollView>
+      <View style={{ marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+        <StoryMetaLineItem value={locationName} />
+        <StoryMetaLineItem value={timePeriod} withSeparator />
+        <StoryMetaLineItem value={`Date added: ${submittedAt}`} withSeparator />
+        <StoryMetaLineItem value={readingTimeLabel} withSeparator />
+      </View>
+    </View>
   );
 }
 
