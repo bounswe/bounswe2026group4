@@ -13,11 +13,17 @@ class Command(BaseCommand):
         recipient = options['recipient']
 
         self.stdout.write(f'Sending test verification email to {recipient} ...')
-        send_verification_email(recipient, '123456')
+        try:
+            send_verification_email(recipient, '123456')
+        except Exception as exc:
+            raise CommandError(f'Verification email failed: {exc}') from exc
         self.stdout.write(self.style.SUCCESS('  Verification email dispatched.'))
 
         self.stdout.write(f'Sending test password-reset email to {recipient} ...')
-        send_password_reset_email(recipient, 'https://example.com/reset-password/test-token')
+        try:
+            send_password_reset_email(recipient, 'https://example.com/reset-password/test-token')
+        except Exception as exc:
+            raise CommandError(f'Password-reset email failed: {exc}') from exc
         self.stdout.write(self.style.SUCCESS('  Password-reset email dispatched.'))
 
         self.stdout.write(self.style.SUCCESS(
