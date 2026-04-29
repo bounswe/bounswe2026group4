@@ -53,7 +53,7 @@ describe('story mappers', () => {
     });
   });
 
-  it('keeps anonymous fallback when a contributor exists but their public name is hidden', () => {
+  it('marks anonymous fallback when a contributor exists but their public name is hidden', () => {
     const result = mapStory({
       id: 52,
       user: 7,
@@ -70,7 +70,7 @@ describe('story mappers', () => {
     });
 
     expect(result.contributorName).toBe('Anonymous');
-    expect(result.isContributorAnonymous).toBe(false);
+    expect(result.isContributorAnonymous).toBe(true);
     expect(result.mediaUrl).toBeUndefined();
     expect(result.tags).toEqual([]);
   });

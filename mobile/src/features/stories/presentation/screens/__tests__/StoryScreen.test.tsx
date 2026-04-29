@@ -173,7 +173,7 @@ describe('StoryScreen', () => {
     expect(await screen.findByLabelText(`${baseStory.contributorName} profile photo`)).toBeTruthy();
   });
 
-  it('keeps the profile action for anonymous contributors', async () => {
+  it('omits contributor UI for anonymous contributor fallbacks', async () => {
     const onOpenContributorProfile = jest.fn();
 
     render(
@@ -189,8 +189,9 @@ describe('StoryScreen', () => {
     );
 
     expect(await screen.findByText(baseStory.title)).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Open profile: Anonymous'));
-    expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
+    expect(screen.queryByText('Anonymous')).toBeNull();
+    expect(screen.queryByLabelText('Open profile: Anonymous')).toBeNull();
+    expect(onOpenContributorProfile).not.toHaveBeenCalled();
   });
 
   it('shows deleted user when the story belongs to a deleted account', async () => {
@@ -311,7 +312,7 @@ describe('StoryScreen', () => {
     expect(screen.getByLabelText(`Open profile: ${baseStory.contributorName} (You)`)).toBeTruthy();
   });
 
-  it('uses the contributor public profile to hide private usernames', async () => {
+  it('omits contributor UI when the public profile hides usernames', async () => {
     render(
       <StoryScreen
         storyId="story-001"
@@ -322,10 +323,10 @@ describe('StoryScreen', () => {
 
     expect(await screen.findByText(baseStory.title)).toBeTruthy();
     await waitFor(() => {
-      expect(screen.getByText('Anonymous')).toBeTruthy();
+      expect(screen.queryByText(baseStory.contributorName)).toBeNull();
     });
-    expect(screen.queryByText(baseStory.contributorName)).toBeNull();
-    expect(screen.getByLabelText('Open profile: Anonymous')).toBeTruthy();
+    expect(screen.queryByText('Anonymous')).toBeNull();
+    expect(screen.queryByLabelText('Open profile: Anonymous')).toBeNull();
   });
 
   it('shows an image fallback message when the media fails to load', async () => {

@@ -315,8 +315,14 @@ function getTemporalCoverageIso8601(value: StoryRecord | Record<string, unknown>
 
 function isAnonymousStory(value: StoryRecord) {
   const visibility = asString(value.contributor_visibility) || asString(value.contributorVisibility);
+  const contributorName = asString(value.contributorName) || asString(value.contributor_name);
 
-  return visibility === 'anonymous' || value.is_anonymous === true || value.isAnonymous === true;
+  return (
+    visibility === 'anonymous' ||
+    value.is_anonymous === true ||
+    value.isAnonymous === true ||
+    contributorName.trim().toLowerCase() === 'anonymous'
+  );
 }
 
 function getContributorName(value: StoryRecord) {
@@ -358,6 +364,8 @@ export function mapStory(value: unknown): StoryEntity {
   const submittedAt = asString(story.submittedAt) || asString(story.submitted_at);
   const status = story.status === 'removed' ? 'removed' : 'published';
   const comments = Array.isArray(story.comments) && story.comments.every(isCommentPreview) ? story.comments : [];
+  const contributorName = getContributorName(story);
+  const isContributorAnonymous = isAnonymousStory(story) || contributorName.trim().toLowerCase() === 'anonymous';
 
   if (!id || typeof story.title !== 'string' || !narrative.length || !location.name || !submittedAt) {
     throw new Error('Invalid story payload.');
@@ -372,8 +380,8 @@ export function mapStory(value: unknown): StoryEntity {
     location,
     timePeriod: formatTimePeriodFromRecord(story),
     temporalCoverageIso8601: getTemporalCoverageIso8601(story),
-    contributorName: getContributorName(story),
-    isContributorAnonymous: isAnonymousStory(story),
+    contributorName,
+    isContributorAnonymous,
     submittedAt,
     mediaUrl: getPrimaryMediaUrl(story),
     mediaAltText: getPrimaryMediaAltText(story),
