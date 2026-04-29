@@ -755,6 +755,15 @@ class TestRegisterUserSendsEmail:
         code = EmailVerificationCode.objects.get(user=user).code
         assert code in mail.outbox[0].body
 
+    def test_email_failure_does_not_prevent_account_creation(self, monkeypatch):
+        monkeypatch.setattr(
+            'apps.users.services.send_verification_email',
+            lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
+        )
+        user = register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
+        assert User.objects.filter(email='new@example.com').exists()
+        assert user.pk is not None
+
 
 # ── request_password_reset ────────────────────────────────────────────────────
 
@@ -790,6 +799,23 @@ class TestRequestPasswordReset:
         user.save()
         request_password_reset(user.email)
         assert len(mail.outbox) == 0
+
+    def test_invalidates_old_tokens_before_creating_new(self, user):
+        from apps.users.models import PasswordResetToken
+        old_token = PasswordResetToken.objects.create(user=user)
+        request_password_reset(user.email)
+        old_token.refresh_from_db()
+        assert old_token.is_used is True
+        assert PasswordResetToken.objects.filter(user=user, is_used=False).count() == 1
+
+    def test_email_failure_does_not_prevent_token_creation(self, user, monkeypatch):
+        from apps.users.models import PasswordResetToken
+        monkeypatch.setattr(
+            'apps.users.services.send_password_reset_email',
+            lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
+        )
+        request_password_reset(user.email)
+        assert PasswordResetToken.objects.filter(user=user).exists()
 
 
 # ── reset_password ────────────────────────────────────────────────────────────

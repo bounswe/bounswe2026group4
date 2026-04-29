@@ -19,13 +19,13 @@ class TestSendVerificationEmail:
         send_verification_email('user@example.com', '123456')
         assert 'verify' in mail.outbox[0].subject.lower()
 
-    def test_failure_does_not_propagate(self, monkeypatch):
+    def test_failure_propagates(self, monkeypatch):
         monkeypatch.setattr(
             'apps.users.email_service.send_mail',
             lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
         )
-        # must not raise
-        send_verification_email('user@example.com', '123456')
+        with pytest.raises(Exception, match='SMTP down'):
+            send_verification_email('user@example.com', '123456')
 
 
 @pytest.mark.django_db
@@ -43,9 +43,10 @@ class TestSendPasswordResetEmail:
         send_password_reset_email('user@example.com', 'http://app.example.com/reset/abc')
         assert 'password' in mail.outbox[0].subject.lower()
 
-    def test_failure_does_not_propagate(self, monkeypatch):
+    def test_failure_propagates(self, monkeypatch):
         monkeypatch.setattr(
             'apps.users.email_service.send_mail',
             lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
         )
-        send_password_reset_email('user@example.com', 'http://app.example.com/reset/abc')
+        with pytest.raises(Exception, match='SMTP down'):
+            send_password_reset_email('user@example.com', 'http://app.example.com/reset/abc')
