@@ -8,4 +8,5 @@ export const navigationRef: {
   redirectToAuth?: AuthRedirectHandler;
   redirectToPublic?: () => void;
   navigate?: (route: AppRoute) => void;
+  navigateToUserProfile?: (userId: string) => void;
 } = {};

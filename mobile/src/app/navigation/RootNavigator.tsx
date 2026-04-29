@@ -374,13 +374,22 @@ export function RootNavigator() {
     navigationRef.navigate = (route) => {
       navigateToSnapshot({ route });
     };
+    navigationRef.navigateToUserProfile = (targetUserId) => {
+      if (user && String(user.id) === targetUserId) {
+        navigateToSnapshot({ route: ROUTES.PROFILE });
+        return;
+      }
+
+      navigateToSnapshot({ route: ROUTES.USER_PROFILE, userId: targetUserId });
+    };
 
     return () => {
       navigationRef.redirectToAuth = undefined;
       navigationRef.redirectToPublic = undefined;
       navigationRef.navigate = undefined;
+      navigationRef.navigateToUserProfile = undefined;
     };
-  }, [currentSnapshot, navigateToSnapshot]);
+  }, [currentSnapshot, navigateToSnapshot, user]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -532,7 +541,11 @@ export function RootNavigator() {
         framed={false}
         fillContent
       >
-        <ProfileScreen mode="public" userId={activeUserId} />
+        <ProfileScreen
+          mode="public"
+          userId={activeUserId}
+          onOpenUserProfile={(targetUserId) => navigationRef.navigateToUserProfile?.(targetUserId)}
+        />
       </ScreenShell>
     );
   } else if (currentRoute === ROUTES.SUBMISSION) {
