@@ -48,6 +48,20 @@ function getNestedProfile(profile: Record<string, unknown>) {
     : {};
 }
 
+function hasPublishedStoryCount(profile: Record<string, unknown>) {
+  const stats =
+    profile.stats && typeof profile.stats === 'object'
+      ? (profile.stats as Record<string, unknown>)
+      : {};
+
+  return (
+    profile.published_story_count !== undefined ||
+    profile.publishedStoryCount !== undefined ||
+    stats.published_story_count !== undefined ||
+    stats.publishedStoryCount !== undefined
+  );
+}
+
 export function mapCurrentProfile(profile: Record<string, unknown>): ProfileEntity {
   const nestedProfile = getNestedProfile(profile);
 
@@ -143,12 +157,9 @@ export function mergePublicProfileSummary(
 
   return {
     ...profile,
-    publishedStoryCount:
-      publicProfile.published_story_count === undefined &&
-      publicProfile.publishedStoryCount === undefined &&
-      !(publicProfile.stats && typeof publicProfile.stats === 'object')
-        ? profile.publishedStoryCount
-        : mappedPublicProfile.publishedStoryCount,
+    publishedStoryCount: hasPublishedStoryCount(publicProfile)
+      ? mappedPublicProfile.publishedStoryCount
+      : profile.publishedStoryCount,
     birthYear: profile.birthDate ? profile.birthYear : mappedPublicProfile.birthYear ?? profile.birthYear,
   };
 }

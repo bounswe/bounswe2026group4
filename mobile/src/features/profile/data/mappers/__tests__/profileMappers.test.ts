@@ -97,4 +97,24 @@ describe('profile mappers', () => {
       birthYear: 1994,
     });
   });
+
+  it('keeps existing published story count when public summary omits it', () => {
+    expect(
+      mergePublicProfileSummary(
+        {
+          id: '7',
+          username: 'Traveler',
+          totalPoints: 5,
+          publishedStoryCount: 4,
+        },
+        {
+          stats: {},
+          birthYear: 1994,
+        },
+      ),
+    ).toMatchObject({
+      publishedStoryCount: 4,
+      birthYear: 1994,
+    });
+  });
 });
