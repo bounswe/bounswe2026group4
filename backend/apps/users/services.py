@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 def register_user(validated_data: dict) -> User:
     """
-    Creates a new user and generates an email verification code.
-    The code is currently not sent — email infra is not yet implemented.
+    Creates a new user, generates an email verification code, and sends the verification email.
+    Email failures are caught and logged — they do not prevent account creation.
     """
     try:
         with transaction.atomic():
@@ -37,7 +37,10 @@ def register_user(validated_data: dict) -> User:
     except IntegrityError:
         raise ValidationError({'email': 'A user with this email or username already exists.'})
 
-    send_verification_email(user.email, code)
+    try:
+        send_verification_email(user.email, code)
+    except Exception:
+        logger.exception('Failed to send verification email to %s', user.email)
     return user
 
 
@@ -369,15 +372,21 @@ def request_password_reset(email: str) -> None:
 
     Intentionally silent for unknown/inactive emails to prevent user enumeration —
     the caller always receives the same response regardless of whether the email exists.
+    Any existing unused tokens for the user are invalidated before creating the new one
+    so only one valid reset link exists at a time.
     """
     try:
         user = User.objects.get(email=email, is_active=True)
     except User.DoesNotExist:
         return
 
+    PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
     token = PasswordResetToken.objects.create(user=user)
     reset_link = f"{settings.FRONTEND_URL}/reset-password/{token.token}"
-    send_password_reset_email(user.email, reset_link)
+    try:
+        send_password_reset_email(user.email, reset_link)
+    except Exception:
+        logger.exception('Failed to send password reset email to %s', user.email)
 
 
 def reset_password(token_str: str, new_password: str) -> None:
@@ -386,6 +395,7 @@ def reset_password(token_str: str, new_password: str) -> None:
 
     Uses a single generic error for invalid, expired, and already-used tokens
     to avoid leaking information about token state.
+    The password write and token invalidation are atomic so they cannot diverge.
     """
     _invalid = ValidationError({'token': 'Invalid or expired reset token.'})
 
@@ -399,7 +409,8 @@ def reset_password(token_str: str, new_password: str) -> None:
     if token.is_expired():
         raise _invalid
 
-    token.user.set_password(new_password)
-    token.user.save(update_fields=['password'])
-    token.is_used = True
-    token.save(update_fields=['is_used'])
+    with transaction.atomic():
+        token.user.set_password(new_password)
+        token.user.save(update_fields=['password'])
+        token.is_used = True
+        token.save(update_fields=['is_used'])
