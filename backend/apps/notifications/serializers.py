@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.notifications.models import Notification
+from apps.notifications.models import Notification, NotificationType
 from apps.users.models import User
 
 
@@ -43,3 +43,24 @@ class MarkReadSerializer(serializers.Serializer):
     """Validates the payload for the mark-read toggle endpoint."""
 
     is_read = serializers.BooleanField()
+
+
+_VALID_TYPES = set(NotificationType.values)
+
+
+class NotificationPreferencePatchSerializer(serializers.Serializer):
+    """Validates PATCH /notifications/preferences/ — accepts global mute and/or per-type toggles."""
+
+    notifications_muted = serializers.BooleanField(required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for nt in NotificationType.values:
+            self.fields[nt] = serializers.BooleanField(required=False)
+
+    def get_type_updates(self):
+        """Return only the per-type fields from validated data, excluding notifications_muted."""
+        return {
+            k: v for k, v in self.validated_data.items()
+            if k in _VALID_TYPES
+        }

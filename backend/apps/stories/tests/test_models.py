@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from apps.stories.models import Story
@@ -150,4 +152,39 @@ class TestStoryModel:
             year=None,
         )
         with pytest.raises(ValidationError, match='year'):
+            story.clean()
+
+    def test_create_story_with_exact_date_only(self):
+        story = make_story(
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1990, 5, 12),
+        )
+        assert story.time_type == Story.TIME_DATE
+        assert story.date_value == datetime.date(1990, 5, 12)
+        assert story.time_value is None
+
+    def test_create_story_with_exact_date_and_time(self):
+        story = make_story(
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1990, 5, 12),
+            time_value=datetime.time(14, 30),
+        )
+        assert story.time_type == Story.TIME_DATE
+        assert story.date_value == datetime.date(1990, 5, 12)
+        assert story.time_value == datetime.time(14, 30)
+
+    def test_clean_raises_when_exact_date_missing_date_value(self):
+        from django.core.exceptions import ValidationError
+        story = Story(
+            title='Test',
+            narrative='Narrative',
+            location_lat='41.0',
+            location_lng='28.9',
+            location_name='Somewhere',
+            time_type=Story.TIME_DATE,
+            date_value=None,
+        )
+        with pytest.raises(ValidationError, match='date_value'):
             story.clean()

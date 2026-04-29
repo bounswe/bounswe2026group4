@@ -7,9 +7,11 @@ from apps.notifications.services import (
     create_notification,
     delete_all_notifications,
     delete_notification,
+    get_all_preferences,
     get_notifications,
     is_notification_enabled,
     mark_notification_read,
+    update_preferences,
 )
 from apps.stories.models import Story
 from apps.users.models import User
@@ -51,6 +53,21 @@ class TestIsNotificationEnabled:
             is_enabled=True,
         )
         assert is_notification_enabled(self.user, NotificationType.NEW_LIKE) is True
+
+    def test_returns_false_when_notifications_muted_regardless_of_per_type_pref(self):
+        NotificationPreference.objects.create(
+            user=self.user,
+            notification_type=NotificationType.NEW_LIKE,
+            is_enabled=True,
+        )
+        self.user.notifications_muted = True
+        self.user.save()
+        assert is_notification_enabled(self.user, NotificationType.NEW_LIKE) is False
+
+    def test_returns_false_when_notifications_muted_with_no_preference_row(self):
+        self.user.notifications_muted = True
+        self.user.save()
+        assert is_notification_enabled(self.user, NotificationType.NEW_LIKE) is False
 
 
 @pytest.mark.django_db
@@ -213,3 +230,86 @@ class TestDeleteAllNotifications:
         )
         delete_all_notifications(self.user)
         assert Notification.objects.filter(recipient=self.other).count() == 1
+
+
+@pytest.mark.django_db
+class TestGetAllPreferences:
+    def setup_method(self):
+        self.user = _make_user('user@example.com', 'user')
+
+    def test_all_types_default_to_true_when_no_rows_exist(self):
+        prefs = get_all_preferences(self.user)
+        assert set(prefs.keys()) == set(NotificationType.values)
+        assert all(prefs.values())
+
+    def test_reflects_saved_disabled_preference(self):
+        NotificationPreference.objects.create(
+            user=self.user,
+            notification_type=NotificationType.NEW_LIKE,
+            is_enabled=False,
+        )
+        prefs = get_all_preferences(self.user)
+        assert prefs[NotificationType.NEW_LIKE] is False
+
+    def test_reflects_saved_enabled_preference(self):
+        NotificationPreference.objects.create(
+            user=self.user,
+            notification_type=NotificationType.NEW_LIKE,
+            is_enabled=True,
+        )
+        prefs = get_all_preferences(self.user)
+        assert prefs[NotificationType.NEW_LIKE] is True
+
+    def test_unset_types_remain_true_when_some_rows_exist(self):
+        NotificationPreference.objects.create(
+            user=self.user,
+            notification_type=NotificationType.NEW_LIKE,
+            is_enabled=False,
+        )
+        prefs = get_all_preferences(self.user)
+        assert prefs[NotificationType.NEW_COMMENT] is True
+
+
+@pytest.mark.django_db
+class TestUpdatePreferences:
+    def setup_method(self):
+        self.user = _make_user('user@example.com', 'user')
+
+    def test_creates_preference_row_for_new_type(self):
+        update_preferences(self.user, {NotificationType.NEW_LIKE: False})
+        pref = NotificationPreference.objects.get(user=self.user, notification_type=NotificationType.NEW_LIKE)
+        assert pref.is_enabled is False
+
+    def test_updates_existing_preference_row(self):
+        NotificationPreference.objects.create(
+            user=self.user, notification_type=NotificationType.NEW_LIKE, is_enabled=True,
+        )
+        update_preferences(self.user, {NotificationType.NEW_LIKE: False})
+        pref = NotificationPreference.objects.get(user=self.user, notification_type=NotificationType.NEW_LIKE)
+        assert pref.is_enabled is False
+
+    def test_updates_multiple_types_at_once(self):
+        update_preferences(self.user, {
+            NotificationType.NEW_LIKE: False,
+            NotificationType.NEW_COMMENT: False,
+        })
+        assert NotificationPreference.objects.filter(user=self.user, is_enabled=False).count() == 2
+
+    def test_sets_notifications_muted_on_user(self):
+        update_preferences(self.user, {}, notifications_muted=True)
+        self.user.refresh_from_db()
+        assert self.user.notifications_muted is True
+
+    def test_unsets_notifications_muted_on_user(self):
+        self.user.notifications_muted = True
+        self.user.save()
+        update_preferences(self.user, {}, notifications_muted=False)
+        self.user.refresh_from_db()
+        assert self.user.notifications_muted is False
+
+    def test_does_not_touch_notifications_muted_when_not_provided(self):
+        self.user.notifications_muted = True
+        self.user.save()
+        update_preferences(self.user, {NotificationType.NEW_LIKE: False})
+        self.user.refresh_from_db()
+        assert self.user.notifications_muted is True
