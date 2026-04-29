@@ -209,6 +209,8 @@ class PasswordResetRequestView(APIView):
     """POST /auth/password-reset/ — request a password reset email."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'password_reset'
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -224,6 +226,8 @@ class PasswordResetConfirmView(APIView):
     """POST /auth/password-reset/confirm/ — set a new password using a reset token."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'password_reset'
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
