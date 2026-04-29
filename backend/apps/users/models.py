@@ -51,6 +51,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Tracks 6-digit email verification separately from is_active to distinguish "unverified" vs "banned"
     is_email_verified = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+    # Global mute: when True, no notifications are created for this user regardless of per-type preferences
+    notifications_muted = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = 'email'  # login by email, not username
