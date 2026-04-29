@@ -10,7 +10,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0005_follow_index_update'),
+        ('users', '0006_user_notifications_muted'),
     ]
 
     operations = [
