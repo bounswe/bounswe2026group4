@@ -6,6 +6,11 @@ import { storageKeys } from '../../../core/storage/keys';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
 import { AppProviders } from '../../providers/AppProviders';
+import { geocodeLocationQuery } from '../../../features/search/application/services';
+
+jest.mock('../../../features/search/application/services', () => ({
+  geocodeLocationQuery: jest.fn(),
+}));
 
 function renderNavigator() {
   return render(
@@ -262,6 +267,7 @@ function installAuthTransport() {
 
 describe('RootNavigator auth flow', () => {
   beforeEach(async () => {
+    (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
     await storage.clear();
     interceptors.clear();
     resetApiTransport();
@@ -541,6 +547,7 @@ describe('RootNavigator auth flow', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1990');
     fireEvent.changeText(screen.getByLabelText('End year'), '2000');
+    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
