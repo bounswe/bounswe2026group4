@@ -124,6 +124,50 @@ export const profileRemoteSource = {
       },
     });
   },
+
+  async followUser(userId: string) {
+    await apiClient.post(`/users/${userId}/follow/`);
+  },
+
+  async unfollowUser(userId: string) {
+    await apiClient.delete<void>(`/users/${userId}/follow/`);
+  },
+
+  async getFollowers(userId: string, page = 1) {
+    return (await apiClient.get<Record<string, unknown>>(
+      `/users/${userId}/followers/${buildQueryString({ page, page_size: 20 })}`,
+    )) ?? {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    };
+  },
+
+  async getFollowing(userId: string, page = 1) {
+    return (await apiClient.get<Record<string, unknown>>(
+      `/users/${userId}/following/${buildQueryString({ page, page_size: 20 })}`,
+    )) ?? {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    };
+  },
 };
 
 export const profileLocalSource = {};
+
+function buildQueryString(params: Record<string, string | number | undefined>) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  });
+
+  const query = searchParams.toString();
+
+  return query ? `?${query}` : '';
+}

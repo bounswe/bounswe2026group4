@@ -1,4 +1,10 @@
-import { ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import {
+  FollowListResult,
+  FollowUserEntity,
+  ProfileEntity,
+  ProfilePhotoUploadInput,
+  UpdateProfileInput,
+} from '../../domain/entities';
 import { ProfileRepository } from '../../domain/repositories';
 import { profileRemoteSource } from '../sources';
 
@@ -44,6 +50,24 @@ function asNullableNumber(value: unknown) {
   return null;
 }
 
+function asOptionalBoolean(value: unknown) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') {
+      return true;
+    }
+
+    if (value.toLowerCase() === 'false') {
+      return false;
+    }
+  }
+
+  return undefined;
+}
+
 function mapCurrentProfile(profile: Record<string, unknown>): ProfileEntity {
   const nestedProfile =
     profile.profile && typeof profile.profile === 'object'
@@ -62,6 +86,9 @@ function mapCurrentProfile(profile: Record<string, unknown>): ProfileEntity {
     location: asNullableString(nestedProfile.location),
     birthDate: asNullableString(nestedProfile.birth_date),
     profilePhoto: asNullableString(nestedProfile.profile_photo),
+    followersCount: asNumber(profile.followers_count),
+    followingCount: asNumber(profile.following_count),
+    isFollowedByMe: asOptionalBoolean(profile.is_followed_by_me),
     isUsernamePublic: Boolean(profile.is_username_public),
     isEmailVerified: Boolean(profile.is_email_verified),
     isNamePublic: nestedProfile.is_name_public === undefined ? undefined : Boolean(nestedProfile.is_name_public),
@@ -86,6 +113,9 @@ function mergePublicProfileSummary(
         ? profile.publishedStoryCount
         : publishedStoryCount,
     birthYear: profile.birthDate ? profile.birthYear : birthYear ?? profile.birthYear,
+    followersCount: asNumber(publicProfile.followers_count),
+    followingCount: asNumber(publicProfile.following_count),
+    isFollowedByMe: asOptionalBoolean(publicProfile.is_followed_by_me) ?? profile.isFollowedByMe,
   };
 }
 
@@ -102,6 +132,30 @@ function mapPublicProfile(profile: Record<string, unknown>): ProfileEntity {
     location: asNullableString(profile.location),
     birthYear: asNullableNumber(profile.birth_year),
     profilePhoto: asNullableString(profile.profile_photo),
+    followersCount: asNumber(profile.followers_count),
+    followingCount: asNumber(profile.following_count),
+    isFollowedByMe: asOptionalBoolean(profile.is_followed_by_me),
+  };
+}
+
+function mapFollowUser(user: Record<string, unknown>): FollowUserEntity {
+  return {
+    id: asString(user.id),
+    username: asNullableString(user.username),
+    profilePhoto: asNullableString(user.profile_photo),
+  };
+}
+
+function mapFollowList(payload: Record<string, unknown>): FollowListResult {
+  const results = Array.isArray(payload.results) ? payload.results : [];
+
+  return {
+    users: results
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map(mapFollowUser),
+    next: asNullableString(payload.next),
+    previous: asNullableString(payload.previous),
+    count: asNumber(payload.count),
   };
 }
 
@@ -147,5 +201,23 @@ export class ProfileRepositoryImpl implements ProfileRepository {
 
   async deleteAccount(password: string, deleteStories = true): Promise<void> {
     await profileRemoteSource.deleteAccount(password, deleteStories);
+  }
+
+  async followUser(userId: string): Promise<void> {
+    await profileRemoteSource.followUser(userId);
+  }
+
+  async unfollowUser(userId: string): Promise<void> {
+    await profileRemoteSource.unfollowUser(userId);
+  }
+
+  async getFollowers(userId: string, page = 1): Promise<FollowListResult> {
+    const payload = await profileRemoteSource.getFollowers(userId, page);
+    return mapFollowList(payload);
+  }
+
+  async getFollowing(userId: string, page = 1): Promise<FollowListResult> {
+    const payload = await profileRemoteSource.getFollowing(userId, page);
+    return mapFollowList(payload);
   }
 }
