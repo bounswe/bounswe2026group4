@@ -193,11 +193,8 @@ export function FeedScreen({
             accessibilityLabel="Feed sort"
             style={{
               flexDirection: 'row',
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: colors.border,
-              overflow: 'hidden',
-              backgroundColor: colors.infoSurface,
+              alignItems: 'center',
+              gap: spacing.sm,
             }}
           >
             {SORT_OPTIONS.map((option) => {
@@ -211,9 +208,12 @@ export function FeedScreen({
                   accessibilityState={{ selected: isSelected }}
                   onPress={() => handleSortChange(option.value)}
                   style={{
-                    paddingHorizontal: spacing.sm + 4,
-                    paddingVertical: spacing.xs + 2,
-                    backgroundColor: isSelected ? colors.primary : colors.infoSurface,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    backgroundColor: isSelected ? colors.primary : colors.surface,
                   }}
                 >
                   <Text

@@ -66,7 +66,7 @@ describe('FeedScreen', () => {
     expect(screen.queryByText('Story feed')).toBeNull();
   });
 
-  it('hides top feed controls when search controls are disabled', async () => {
+  it('keeps sort controls visible when search controls are disabled', async () => {
     renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} showSearchControls={false} />);
 
     expect(await screen.findByText('Story 1')).toBeTruthy();

@@ -57,9 +57,16 @@ class TestStoryFeedSerializer:
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
+            'like_count', 'save_count',
             'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(data.keys())
+
+    def test_returns_interaction_counts(self):
+        story = make_story(like_count=9, save_count=4)
+        data = StoryFeedSerializer(story).data
+        assert data['like_count'] == 9
+        assert data['save_count'] == 4
 
     def test_returns_preview_text_truncated_to_20_words(self):
         # Narrative has more than 20 words — preview must stop at exactly 20
