@@ -311,7 +311,7 @@ class TestGetStorySearch:
         s1 = make_story(title='Oldest')
         s2 = make_story(title='Middle')
         s3 = make_story(title='Newest')
-        results = list(get_story_search(q="",sort_by='recent')) # have no fucking idea what "q" is. but git-hub doesn'T shut up about it, so here we are.
+        results = list(get_story_search("dummy",sort_by='recent'))
         assert results[0] == s3
         assert results[1] == s2
         assert results[2] == s1
@@ -322,7 +322,7 @@ class TestGetStorySearch:
         s1 = make_story(title='Least Popular', like_count=5)
         s2 = make_story(title='Medium Popular', like_count=10)
         s3 = make_story(title='Most Popular', like_count=20)
-        results = list(get_story_search(q="",sort_by='popular'))
+        results = list(get_story_search("dummy",sort_by='popular'))
         assert results[0] == s3
         assert results[1] == s2
         assert results[2] == s1
