@@ -1,6 +1,11 @@
-import { ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import {
+  FollowListResult,
+  ProfileEntity,
+  ProfilePhotoUploadInput,
+  UpdateProfileInput,
+} from '../../domain/entities';
 import { ProfileRepository } from '../../domain/repositories';
-import { mapCurrentProfile, mapPublicProfile, mergePublicProfileSummary } from '../mappers';
+import { mapCurrentProfile, mapFollowList, mapPublicProfile, mergePublicProfileSummary } from '../mappers';
 import { profileRemoteSource } from '../sources';
 
 export class ProfileRepositoryImpl implements ProfileRepository {
@@ -45,5 +50,23 @@ export class ProfileRepositoryImpl implements ProfileRepository {
 
   async deleteAccount(password: string, deleteStories = true): Promise<void> {
     await profileRemoteSource.deleteAccount(password, deleteStories);
+  }
+
+  async followUser(userId: string): Promise<void> {
+    await profileRemoteSource.followUser(userId);
+  }
+
+  async unfollowUser(userId: string): Promise<void> {
+    await profileRemoteSource.unfollowUser(userId);
+  }
+
+  async getFollowers(userId: string, page = 1): Promise<FollowListResult> {
+    const payload = await profileRemoteSource.getFollowers(userId, page);
+    return mapFollowList(payload);
+  }
+
+  async getFollowing(userId: string, page = 1): Promise<FollowListResult> {
+    const payload = await profileRemoteSource.getFollowing(userId, page);
+    return mapFollowList(payload);
   }
 }

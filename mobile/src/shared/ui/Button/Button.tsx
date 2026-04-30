@@ -8,6 +8,7 @@ interface ButtonProps extends PropsWithChildren {
   fullWidth?: boolean;
   style?: ViewStyle;
   variant?: 'primary' | 'outline' | 'ghost';
+  accessibilityLabel?: string;
 }
 
 export function Button({
@@ -17,6 +18,7 @@ export function Button({
   fullWidth = false,
   style,
   variant = 'primary',
+  accessibilityLabel,
 }: ButtonProps) {
   const { colors, spacing } = useAppTheme();
   const isPrimary = variant === 'primary';
@@ -24,6 +26,8 @@ export function Button({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
       style={({ pressed }) => ({

@@ -1,4 +1,4 @@
-import { ProfileEntity } from '../../domain/entities';
+import { FollowListResult, FollowUserEntity, ProfileEntity } from '../../domain/entities';
 
 function asString(value: unknown) {
   if (typeof value === 'string') {
@@ -166,4 +166,25 @@ export function mergePublicProfileSummary(
 
 export function mapProfile(value: unknown) {
   return value && typeof value === 'object' ? mapPublicProfile(value as Record<string, unknown>) : value;
+}
+
+export function mapFollowUser(user: Record<string, unknown>): FollowUserEntity {
+  return {
+    id: asString(user.id),
+    username: asNullableString(user.username),
+    profilePhoto: asNullableString(user.profile_photo),
+  };
+}
+
+export function mapFollowList(payload: Record<string, unknown>): FollowListResult {
+  const results = Array.isArray(payload.results) ? payload.results : [];
+
+  return {
+    users: results
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map(mapFollowUser),
+    next: asNullableString(payload.next),
+    previous: asNullableString(payload.previous),
+    count: asNumber(payload.count),
+  };
 }

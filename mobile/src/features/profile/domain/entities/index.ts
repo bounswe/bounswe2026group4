@@ -12,6 +12,9 @@ export interface ProfileEntity {
   birthDate?: string | null;
   birthYear?: number | null;
   profilePhoto?: string | null;
+  followersCount?: number;
+  followingCount?: number;
+  isFollowedByMe?: boolean;
   isUsernamePublic?: boolean;
   isEmailVerified?: boolean;
   isNamePublic?: boolean;
@@ -38,4 +41,17 @@ export interface UpdateProfileInput {
   isLocationPublic?: boolean;
   isBirthDatePublic?: boolean;
   isPhotoPublic?: boolean;
+}
+
+export interface FollowUserEntity {
+  id: string;
+  username: string | null;
+  profilePhoto?: string | null;
+}
+
+export interface FollowListResult {
+  users: FollowUserEntity[];
+  next: string | null;
+  previous: string | null;
+  count: number;
 }

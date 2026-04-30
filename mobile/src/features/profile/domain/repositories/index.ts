@@ -1,4 +1,4 @@
-import { ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../entities';
+import { FollowListResult, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../entities';
 
 export interface ProfileRepository {
   getCurrentProfile(): Promise<ProfileEntity>;
@@ -7,4 +7,8 @@ export interface ProfileRepository {
   uploadProfilePhoto(input: ProfilePhotoUploadInput): Promise<ProfileEntity>;
   removeProfilePhoto(): Promise<ProfileEntity>;
   deleteAccount(password: string, deleteStories?: boolean): Promise<void>;
+  followUser(userId: string): Promise<void>;
+  unfollowUser(userId: string): Promise<void>;
+  getFollowers(userId: string, page?: number): Promise<FollowListResult>;
+  getFollowing(userId: string, page?: number): Promise<FollowListResult>;
 }
