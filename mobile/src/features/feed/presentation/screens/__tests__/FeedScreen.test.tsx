@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Location from 'expo-location';
 import { FeedScreen } from '../FeedScreen';
 import { FeedPageEntity } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
@@ -39,6 +40,15 @@ function makeFeedPage(overrides: Partial<FeedPageEntity> = {}): FeedPageEntity {
 describe('FeedScreen', () => {
   beforeEach(async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
+    jest.mocked(Location.requestForegroundPermissionsAsync).mockResolvedValue({ granted: true } as never);
+    jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
+    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValue(null);
+    jest.mocked(Location.getCurrentPositionAsync).mockResolvedValue({
+      coords: {
+        latitude: 41.0082,
+        longitude: 28.9784,
+      },
+    } as never);
     await storage.clear();
   });
 
@@ -288,7 +298,7 @@ describe('FeedScreen', () => {
     expect(screen.getByLabelText('Remove To: 1950')).toBeTruthy();
   });
 
-  it('applies the default year filters when submitted unchanged', async () => {
+  it('does not apply placeholder year filters when submitted unchanged', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
 
     renderScreen(<FeedScreen getFeed={getFeed} />);
@@ -304,11 +314,102 @@ describe('FeedScreen', () => {
         filters: {
           q: undefined,
           location: undefined,
-          yearFrom: 1980,
-          yearTo: 2026,
+          yearFrom: undefined,
+          yearTo: undefined,
         },
       });
     });
+  });
+
+  it('applies proximity filters with current coordinates', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Distance 10 km'));
+
+    expect(await screen.findByText('Filtering within 10 km of 41.0082, 28.9784.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'recent',
+        filters: {
+          q: undefined,
+          location: undefined,
+          locationBounds: undefined,
+          latitude: 41.0082,
+          longitude: 28.9784,
+          radiusKm: 10,
+          yearFrom: undefined,
+          yearTo: undefined,
+        },
+      });
+    });
+
+    expect(screen.getByLabelText('Remove Distance: 10 km')).toBeTruthy();
+  });
+
+  it('shows loading feedback while current location is fetched', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    jest.mocked(Location.getCurrentPositionAsync).mockReturnValue(new Promise(() => undefined) as never);
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Distance 1 km'));
+
+    expect(await screen.findByText('Fetching your current location...')).toBeTruthy();
+    expect(screen.getByLabelText('Fetching current location')).toBeTruthy();
+    expect(screen.getByLabelText('Apply filters').props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('shows an error when location permission is denied', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    jest.mocked(Location.requestForegroundPermissionsAsync).mockResolvedValueOnce({ granted: false } as never);
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Distance 100 km'));
+
+    expect(await screen.findByText('Location disabled. Enable location permission to use proximity filtering.')).toBeTruthy();
+    expect(screen.getByLabelText('Apply filters').props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('clears proximity filter state when the filter form is reset', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Distance 10 km'));
+    expect(await screen.findByText('Filtering within 10 km of 41.0082, 28.9784.')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Reset filter form'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'recent',
+        filters: {
+          q: undefined,
+          location: undefined,
+          locationBounds: undefined,
+          yearFrom: undefined,
+          yearTo: undefined,
+        },
+      });
+    });
+
+    expect(screen.queryByLabelText('Remove Distance: 10 km')).toBeNull();
   });
 
   it('closes the filter panel when tapping outside of it', async () => {
@@ -349,8 +450,8 @@ describe('FeedScreen', () => {
           q: 'harbor',
           location: undefined,
           locationBounds: undefined,
-          yearFrom: 1980,
-          yearTo: 2026,
+          yearFrom: undefined,
+          yearTo: undefined,
         },
       });
     });

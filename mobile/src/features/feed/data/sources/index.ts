@@ -34,18 +34,25 @@ export const feedRemoteSource = {
       results: [],
     };
 
+    const proximity = getProximityFilter(filters);
     const bounds = filters.locationBounds;
     const responseResults = response.results ?? [];
 
-    if (!bounds) {
+    if (!bounds && !proximity) {
       return {
         ...response,
         results: await hydrateMissingInteractionMetadata(responseResults),
       };
     }
 
-    const results = responseResults.filter((story) => isStoryWithinBounds(story, bounds));
-    const hydratedResults = await hydrateMissingInteractionMetadata(results);
+    const filtered = responseResults.filter((story) => {
+      if (proximity && !isStoryWithinRadius(story, proximity)) {
+        return false;
+      }
+
+      return bounds ? isStoryWithinBounds(story, bounds) : true;
+    });
+    const hydratedResults = await hydrateMissingInteractionMetadata(filtered);
 
     return {
       ...response,
@@ -82,6 +89,14 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.lng_max = filters.locationBounds.lngMax;
   } else if (filters.location?.trim()) {
     params.location = filters.location.trim();
+  }
+
+  const proximity = getProximityFilter(filters);
+
+  if (proximity) {
+    params.latitude = proximity.latitude;
+    params.longitude = proximity.longitude;
+    params.radius_km = proximity.radiusKm;
   }
 
   return params;
@@ -186,4 +201,60 @@ function asNumber(value: unknown) {
   }
 
   return undefined;
+}
+
+function hasProximityFilter(filters: StoryFilters) {
+  return (
+    filters.latitude !== undefined &&
+    filters.longitude !== undefined &&
+    filters.radiusKm !== undefined
+  );
+}
+
+function getProximityFilter(filters: StoryFilters) {
+  if (!hasProximityFilter(filters)) {
+    return undefined;
+  }
+
+  return {
+    latitude: filters.latitude as number,
+    longitude: filters.longitude as number,
+    radiusKm: filters.radiusKm as number,
+  };
+}
+
+function isStoryWithinRadius(
+  story: unknown,
+  proximity: { latitude: number; longitude: number; radiusKm: number },
+) {
+  if (!story || typeof story !== 'object') {
+    return false;
+  }
+
+  const record = story as Record<string, unknown>;
+  const latitude = asNumber(record.location_lat);
+  const longitude = asNumber(record.location_lng);
+
+  if (latitude === undefined || longitude === undefined) {
+    return false;
+  }
+
+  return haversineKm(proximity.latitude, proximity.longitude, latitude, longitude) <= proximity.radiusKm;
+}
+
+function haversineKm(startLat: number, startLng: number, endLat: number, endLng: number) {
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(endLat - startLat);
+  const deltaLng = toRadians(endLng - startLng);
+  const startLatRad = toRadians(startLat);
+  const endLatRad = toRadians(endLat);
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(startLatRad) * Math.cos(endLatRad) * Math.sin(deltaLng / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
 }

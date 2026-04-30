@@ -136,6 +136,28 @@ describe('storiesRemoteSource', () => {
     );
   });
 
+  it('passes proximity params to the map endpoint', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [],
+    });
+
+    await storiesRemoteSource.getMapFeatureCollectionFromApi({
+      latitude: 41.0082,
+      longitude: 28.9784,
+      radiusKm: 10,
+    });
+
+    expect(getSpy).toHaveBeenCalledWith(
+      '/stories/map/?latitude=41.0082&longitude=28.9784&radius_km=10',
+      {
+        headers: {
+          Accept: 'application/geo+json, application/json',
+        },
+      },
+    );
+  });
+
   it('filters map features by geocoded bounds when the backend ignores bbox params', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       type: 'FeatureCollection',
@@ -181,5 +203,48 @@ describe('storiesRemoteSource', () => {
 
     expect(result.features).toHaveLength(1);
     expect(result.features[0]).toMatchObject({ id: 2 });
+  });
+
+  it('filters map features by radius when the backend ignores proximity params', async () => {
+    jest.spyOn(apiClient, 'get').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          id: 1,
+          geometry: {
+            type: 'Point',
+            coordinates: [28.9784, 41.0082],
+          },
+          properties: {
+            title: 'Nearby Story',
+            location_name: 'Istanbul',
+            preview_text: 'Nearby.',
+          },
+        },
+        {
+          type: 'Feature',
+          id: 2,
+          geometry: {
+            type: 'Point',
+            coordinates: [32.8597, 39.9334],
+          },
+          properties: {
+            title: 'Far Story',
+            location_name: 'Ankara',
+            preview_text: 'Far away.',
+          },
+        },
+      ],
+    });
+
+    const result = await storiesRemoteSource.getMapFeatureCollectionFromApi({
+      latitude: 41.0082,
+      longitude: 28.9784,
+      radiusKm: 1,
+    });
+
+    expect(result.features).toHaveLength(1);
+    expect(result.features[0]).toMatchObject({ id: 1 });
   });
 });

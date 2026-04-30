@@ -11,6 +11,9 @@ export interface StoryFilters {
     lngMin: number;
     lngMax: number;
   };
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
 }
 
 export interface StoryRepository {

@@ -29,12 +29,12 @@ describe('FilterPanel', () => {
     expect(onTimeToChange).toHaveBeenCalledWith('1950');
   });
 
-  it('shows the expected default year values when initialized', () => {
+  it('shows the default years as placeholders until selected', () => {
     render(
       <FilterPanel
         location=""
-        timeFrom={DEFAULT_FROM_YEAR}
-        timeTo={DEFAULT_TO_YEAR}
+        timeFrom=""
+        timeTo=""
         onLocationChange={jest.fn()}
         onTimeFromChange={jest.fn()}
         onTimeToChange={jest.fn()}
@@ -42,8 +42,10 @@ describe('FilterPanel', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Start year').props.value).toBe(DEFAULT_FROM_YEAR);
-    expect(screen.getByLabelText('End year').props.value).toBe(DEFAULT_TO_YEAR);
+    expect(screen.getByLabelText('Start year').props.value).toBe('');
+    expect(screen.getByLabelText('Start year').props.placeholder).toBe(DEFAULT_FROM_YEAR);
+    expect(screen.getByLabelText('End year').props.value).toBe('');
+    expect(screen.getByLabelText('End year').props.placeholder).toBe(DEFAULT_TO_YEAR);
   });
 
   it('accepts only positive four-digit-or-shorter numeric years', () => {
@@ -126,6 +128,29 @@ describe('FilterPanel', () => {
         location=""
         timeFrom="1980"
         timeTo="2026"
+        onLocationChange={jest.fn()}
+        onTimeFromChange={onTimeFromChange}
+        onTimeToChange={onTimeToChange}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Increase start year'));
+    fireEvent.press(screen.getByLabelText('Decrease end year'));
+
+    expect(onTimeFromChange).toHaveBeenCalledWith('1981');
+    expect(onTimeToChange).toHaveBeenCalledWith('2025');
+  });
+
+  it('activates placeholder years when step buttons are pressed from an empty value', () => {
+    const onTimeFromChange = jest.fn();
+    const onTimeToChange = jest.fn();
+
+    render(
+      <FilterPanel
+        location=""
+        timeFrom=""
+        timeTo=""
         onLocationChange={jest.fn()}
         onTimeFromChange={onTimeFromChange}
         onTimeToChange={onTimeToChange}

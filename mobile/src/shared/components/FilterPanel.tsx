@@ -7,6 +7,14 @@ export const DEFAULT_FROM_YEAR = '1980';
 export const DEFAULT_TO_YEAR = '2026';
 export const MIN_YEAR = 1000;
 export const MAX_YEAR = 2030;
+export type ProximityRadiusOption = 1 | 10 | 100;
+
+const PROXIMITY_OPTIONS: Array<{ label: string; value?: ProximityRadiusOption }> = [
+  { label: 'Anywhere' },
+  { label: '1 km', value: 1 },
+  { label: '10 km', value: 10 },
+  { label: '100 km', value: 100 },
+];
 
 function normalizeYearInput(value: string) {
   if (value === '') {
@@ -47,6 +55,11 @@ interface FilterPanelProps {
   onTimeToChange: (value: string) => void;
   onClearAll: () => void;
   onApply?: () => void;
+  proximityRadiusKm?: ProximityRadiusOption;
+  onProximityRadiusChange?: (value?: ProximityRadiusOption) => void;
+  isProximityResolving?: boolean;
+  proximityStatusText?: string;
+  isProximityError?: boolean;
   isLocationResolving?: boolean;
   locationStatusText?: string;
   isApplyDisabled?: boolean;
@@ -61,6 +74,11 @@ export function FilterPanel({
   onTimeToChange,
   onClearAll,
   onApply,
+  proximityRadiusKm,
+  onProximityRadiusChange,
+  isProximityResolving = false,
+  proximityStatusText,
+  isProximityError = false,
   isLocationResolving = false,
   locationStatusText,
   isApplyDisabled = false,
@@ -146,6 +164,59 @@ export function FilterPanel({
         {locationStatusText ? (
           <Text style={{ color: colors.muted, fontSize: typography.caption + 1 }}>
             {locationStatusText}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: colors.text, fontWeight: '600' }}>Proximity</Text>
+          {isProximityResolving ? (
+            <ActivityIndicator
+              accessibilityLabel="Fetching current location"
+              color={colors.primary}
+              size="small"
+            />
+          ) : null}
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {PROXIMITY_OPTIONS.map((option) => {
+            const isSelected = proximityRadiusKm === option.value || (!proximityRadiusKm && !option.value);
+
+            return (
+              <Pressable
+                key={option.label}
+                accessibilityRole="button"
+                accessibilityLabel={`Distance ${option.label}`}
+                accessibilityState={{ selected: isSelected, disabled: isProximityResolving }}
+                disabled={isProximityResolving}
+                onPress={() => onProximityRadiusChange?.(option.value)}
+                style={({ pressed }) => ({
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                  backgroundColor: isSelected ? colors.infoSurface : colors.surface,
+                  opacity: isProximityResolving ? 0.55 : pressed ? 0.75 : 1,
+                })}
+              >
+                <Text style={{ color: isSelected ? colors.primary : colors.text, fontWeight: '700' }}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {proximityStatusText ? (
+          <Text
+            accessibilityRole={isProximityError ? 'alert' : undefined}
+            style={{
+              color: isProximityError ? colors.danger : colors.muted,
+              fontSize: typography.caption + 1,
+            }}
+          >
+            {proximityStatusText}
           </Text>
         ) : null}
       </View>

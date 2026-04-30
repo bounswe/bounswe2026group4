@@ -134,10 +134,13 @@ describe('MapScreen', () => {
 
     expect(screen.getByLabelText('Loading map pins')).toBeTruthy();
     expect(await screen.findByTestId('story-map')).toBeTruthy();
-    expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0082:28.9784:0.32:0.48');
     await waitFor(() => {
       expect(screen.getAllByTestId('story-marker')).toHaveLength(2);
     });
+    await waitFor(() => {
+      expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0192:28.96735:0.06:0.06');
+    });
+    expect(screen.getByText('Select a story marker to preview.')).toBeTruthy();
   });
 
   it('shows the selected marker preview and navigates to story detail', async () => {
@@ -145,6 +148,8 @@ describe('MapScreen', () => {
 
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} onOpenStory={onOpenStory} />);
 
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
     expect(await screen.findByText('The Day the Harbor Fell Silent')).toBeTruthy();
     fireEvent.press(screen.getByText('Read full story'));
 
@@ -154,7 +159,7 @@ describe('MapScreen', () => {
   it('shows nearby stories when a clustered marker is pressed', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getAllByTestId('story-marker')[1]);
 
     await waitFor(() => {
@@ -174,7 +179,7 @@ describe('MapScreen', () => {
       />,
     );
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent(screen.getByTestId('map-card-container'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 240, width: 100, height: 100 } },
     });
@@ -191,7 +196,7 @@ describe('MapScreen', () => {
 
     renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
 
     await waitFor(() => {
@@ -213,7 +218,7 @@ describe('MapScreen', () => {
       />,
     );
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
 
     expect(await screen.findByText('1 story found in this area')).toBeTruthy();
@@ -223,7 +228,7 @@ describe('MapScreen', () => {
   it('fits the map to all matched stories after a search', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'market');
 
     await waitFor(() => {
@@ -244,12 +249,12 @@ describe('MapScreen', () => {
     expect(await screen.findByText('Place could not be found')).toBeTruthy();
   });
 
-  it('applies the default year filters when submitted unchanged', async () => {
+  it('does not apply placeholder year filters when submitted unchanged', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
 
     renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
@@ -257,8 +262,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: undefined,
-        yearFrom: 1980,
-        yearTo: 2026,
+        yearFrom: undefined,
+        yearTo: undefined,
       });
     });
   });
@@ -272,7 +277,7 @@ describe('MapScreen', () => {
       />,
     );
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
     expect(await screen.findByText('1 story found in this area')).toBeTruthy();
 
@@ -286,7 +291,7 @@ describe('MapScreen', () => {
   it('updates the badge when the visible map area changes', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getByTestId('map-region-empty'));
 
     expect(await screen.findByText('No stories found in this area')).toBeTruthy();
@@ -301,7 +306,7 @@ describe('MapScreen', () => {
 
     renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
     expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
@@ -311,8 +316,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
-        yearFrom: 1980,
-        yearTo: 2026,
+        yearFrom: undefined,
+        yearTo: undefined,
       });
     });
 
@@ -322,8 +327,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: undefined,
-        yearFrom: 1980,
-        yearTo: 2026,
+        yearFrom: undefined,
+        yearTo: undefined,
       });
     });
   });
@@ -333,7 +338,7 @@ describe('MapScreen', () => {
 
     renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
-    await screen.findByText('The Day the Harbor Fell Silent');
+    await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
     expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
@@ -343,8 +348,8 @@ describe('MapScreen', () => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
-        yearFrom: 1980,
-        yearTo: 2026,
+        yearFrom: undefined,
+        yearTo: undefined,
       });
     });
 

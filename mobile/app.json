@@ -6,7 +6,16 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icons/storymap-icon.png",
+    "ios": {
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "StoryMap uses your location to filter nearby stories."
+      }
+    },
     "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icons/storymap-icon.png",
         "backgroundColor": "#111111"
