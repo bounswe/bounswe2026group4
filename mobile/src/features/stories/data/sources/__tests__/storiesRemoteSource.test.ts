@@ -158,6 +158,26 @@ describe('storiesRemoteSource', () => {
     );
   });
 
+  it('passes the first selected tag to the map endpoint using the backend tag parameter', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [],
+    });
+
+    await storiesRemoteSource.getMapFeatureCollectionFromApi({
+      tags: ['folklore', 'ottoman-era'],
+    });
+
+    expect(getSpy).toHaveBeenCalledWith(
+      '/stories/map/?tag=folklore',
+      {
+        headers: {
+          Accept: 'application/geo+json, application/json',
+        },
+      },
+    );
+  });
+
   it('filters map features by geocoded bounds when the backend ignores bbox params', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       type: 'FeatureCollection',

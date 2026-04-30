@@ -9,7 +9,7 @@ import {
 } from '../../../../shared/components/FilterPanel';
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
-import { geocodeLocationQuery, LocationBounds } from '../../application/services';
+import { geocodeLocationQuery, LocationBounds, searchTags } from '../../application/services';
 import { SearchFilterScope, useSearchFilters } from '../context/SearchFiltersContext';
 
 function buildChips(
@@ -37,6 +37,10 @@ function buildChips(
     chips.push({ key: 'timeTo', label: `To: ${filters.timeTo.trim()}` });
   }
 
+  filters.tags.forEach((tag) => {
+    chips.push({ key: `tag:${tag}`, label: `Tag: ${tag}` });
+  });
+
   return chips;
 }
 
@@ -61,9 +65,15 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const [isProximityError, setIsProximityError] = useState(false);
   const [draftTimeFrom, setDraftTimeFrom] = useState('');
   const [draftTimeTo, setDraftTimeTo] = useState('');
+  const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [draftTagQuery, setDraftTagQuery] = useState('');
+  const [tagOptions, setTagOptions] = useState<string[]>([]);
+  const [isTagsLoading, setIsTagsLoading] = useState(false);
   const debouncedDraftLocation = useDebounce(draftLocation, 500);
+  const debouncedDraftTagQuery = useDebounce(draftTagQuery, 300);
   const locationRequestIdRef = useRef(0);
   const proximityRequestIdRef = useRef(0);
+  const tagRequestIdRef = useRef(0);
 
   const chips = useMemo(() => buildChips(filters), [filters]);
 
@@ -81,7 +91,17 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     setIsProximityResolving(false);
     setDraftTimeFrom(filters.timeFrom);
     setDraftTimeTo(filters.timeTo);
+    setDraftTags(filters.tags);
+    setDraftTagQuery('');
     setShowFilters(true);
+  };
+
+  const toggleDraftTag = (tag: string) => {
+    setDraftTags((currentTags) =>
+      currentTags.includes(tag)
+        ? currentTags.filter((currentTag) => currentTag !== tag)
+        : [...currentTags, tag],
+    );
   };
 
   const handleDraftLocationChange = (location: string) => {
@@ -177,6 +197,36 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       });
   }, [debouncedDraftLocation, showFilters]);
 
+  useEffect(() => {
+    if (!showFilters) {
+      return;
+    }
+
+    const requestId = tagRequestIdRef.current + 1;
+    tagRequestIdRef.current = requestId;
+    setIsTagsLoading(true);
+
+    searchTags(debouncedDraftTagQuery)
+      .then((tags) => {
+        if (tagRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        const nextOptions = tags.map((tag) => tag.name);
+        setTagOptions(Array.from(new Set([...draftTags, ...nextOptions])));
+      })
+      .catch(() => {
+        if (tagRequestIdRef.current === requestId) {
+          setTagOptions(draftTags);
+        }
+      })
+      .finally(() => {
+        if (tagRequestIdRef.current === requestId) {
+          setIsTagsLoading(false);
+        }
+      });
+  }, [debouncedDraftTagQuery, draftTags, showFilters]);
+
   return (
     <View style={{ gap: spacing.md }}>
       {hideHeading ? null : (
@@ -230,9 +280,16 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
               location={draftLocation}
               timeFrom={draftTimeFrom}
               timeTo={draftTimeTo}
+              selectedTags={draftTags}
+              tagQuery={draftTagQuery}
+              tagOptions={tagOptions}
+              isTagsLoading={isTagsLoading}
               onLocationChange={handleDraftLocationChange}
               onTimeFromChange={setDraftTimeFrom}
               onTimeToChange={setDraftTimeTo}
+              onTagQueryChange={setDraftTagQuery}
+              onToggleTag={toggleDraftTag}
+              onRemoveTag={(tag) => setDraftTags((currentTags) => currentTags.filter((currentTag) => currentTag !== tag))}
               proximityRadiusKm={draftProximityRadiusKm}
               onProximityRadiusChange={handleProximityRadiusChange}
               isProximityResolving={isProximityResolving}
@@ -251,6 +308,8 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
                 setIsProximityError(false);
                 setDraftTimeFrom('');
                 setDraftTimeTo('');
+                setDraftTags([]);
+                setDraftTagQuery('');
                 clearFilters();
               }}
               onApply={() => {
@@ -261,6 +320,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
                   proximityCoordinates: draftProximityRadiusKm ? draftProximityCoordinates : undefined,
                   timeFrom: draftTimeFrom,
                   timeTo: draftTimeTo,
+                  tags: draftTags,
                 }, { refresh: true });
                 applyFilters();
                 setShowFilters(false);
@@ -272,7 +332,17 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
 
       <FilterChips
         chips={chips}
-        onRemove={(key) => removeFilter(key as keyof typeof filters)}
+        onRemove={(key) => {
+          if (key.startsWith('tag:')) {
+            updateFilters(
+              { tags: filters.tags.filter((tag) => tag !== key.slice(4)) },
+              { refresh: true },
+            );
+            return;
+          }
+
+          removeFilter(key as keyof typeof filters);
+        }}
         onClearAll={clearFilters}
       />
     </View>

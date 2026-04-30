@@ -36,12 +36,17 @@ export const feedRemoteSource = {
 
     const proximity = getProximityFilter(filters);
     const bounds = filters.locationBounds;
+    const selectedTags = filters.tags ?? [];
 
-    if (!bounds && !proximity) {
+    if (!bounds && !proximity && !selectedTags.length) {
       return response;
     }
 
     const results = (response.results ?? []).filter((story) => {
+      if (selectedTags.length && !storyHasTags(story, selectedTags)) {
+        return false;
+      }
+
       if (proximity && !isStoryWithinRadius(story, proximity)) {
         return false;
       }
@@ -84,6 +89,10 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.lng_max = filters.locationBounds.lngMax;
   } else if (filters.location?.trim()) {
     params.location = filters.location.trim();
+  }
+
+  if (filters.tags?.length) {
+    params.tag = filters.tags[0];
   }
 
   const proximity = getProximityFilter(filters);
@@ -144,6 +153,42 @@ function asNumber(value: unknown) {
   }
 
   return undefined;
+}
+
+function storyHasTags(story: unknown, selectedTags: string[]) {
+  if (!story || typeof story !== 'object') {
+    return false;
+  }
+
+  const record = story as Record<string, unknown>;
+  const rawTags = Array.isArray(record.tags)
+    ? record.tags
+    : Array.isArray(record.tag_names)
+      ? record.tag_names
+      : [];
+  const tagNames = rawTags
+    .map((tag) => {
+      if (typeof tag === 'string') {
+        return tag;
+      }
+
+      if (tag && typeof tag === 'object') {
+        const tagRecord = tag as Record<string, unknown>;
+        return typeof tagRecord.name === 'string'
+          ? tagRecord.name
+          : typeof tagRecord.label === 'string'
+            ? tagRecord.label
+            : typeof tagRecord.slug === 'string'
+              ? tagRecord.slug
+              : '';
+      }
+
+      return '';
+    })
+    .filter(Boolean)
+    .map((tag) => tag.toLowerCase());
+
+  return selectedTags.every((tag) => tagNames.includes(tag.toLowerCase()));
 }
 
 function hasProximityFilter(filters: StoryFilters) {

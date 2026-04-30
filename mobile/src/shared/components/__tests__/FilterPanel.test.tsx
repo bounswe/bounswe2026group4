@@ -237,4 +237,36 @@ describe('FilterPanel', () => {
 
     expect(onClearAll).toHaveBeenCalledTimes(1);
   });
+
+  it('supports tag search, selection, and chip removal', () => {
+    const onTagQueryChange = jest.fn();
+    const onToggleTag = jest.fn();
+    const onRemoveTag = jest.fn();
+
+    render(
+      <FilterPanel
+        location=""
+        timeFrom=""
+        timeTo=""
+        selectedTags={['folklore']}
+        tagQuery=""
+        tagOptions={['folklore', 'ottoman-era']}
+        onLocationChange={jest.fn()}
+        onTimeFromChange={jest.fn()}
+        onTimeToChange={jest.fn()}
+        onTagQueryChange={onTagQueryChange}
+        onToggleTag={onToggleTag}
+        onRemoveTag={onRemoveTag}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    fireEvent.changeText(screen.getByLabelText('Tag filter search'), 'ottoman');
+    fireEvent.press(screen.getByLabelText('Select tag ottoman-era'));
+    fireEvent.press(screen.getAllByLabelText('Remove tag folklore')[0]);
+
+    expect(onTagQueryChange).toHaveBeenCalledWith('ottoman');
+    expect(onToggleTag).toHaveBeenCalledWith('ottoman-era');
+    expect(onRemoveTag).toHaveBeenCalledWith('folklore');
+  });
 });

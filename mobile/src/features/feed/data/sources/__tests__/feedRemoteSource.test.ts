@@ -90,6 +90,25 @@ describe('feedRemoteSource', () => {
     );
   });
 
+  it('sends the first selected tag using the backend tag parameter', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    });
+
+    await feedRemoteSource.getFeed({
+      page: 1,
+      sort: 'recent',
+      filters: { tags: ['folklore', 'ottoman-era'] },
+    });
+
+    expect(getSpy).toHaveBeenCalledWith(
+      '/stories/feed/?page=1&page_size=10&sort_by=recent&tag=folklore',
+    );
+  });
+
   it('filters feed results by geocoded bounds when the backend ignores bbox params', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       count: 2,

@@ -123,11 +123,19 @@ export const storiesLocalSource = {
     return storiesFixture.filter((story) => {
       if (filters.q?.trim()) {
         const query = filters.q.trim().toLowerCase();
-        const searchableText = [story.title, story.location.name, story.timePeriod, ...story.narrative]
+        const searchableText = [story.title, story.location.name, story.timePeriod, ...story.narrative, ...(story.tags ?? [])]
           .join(' ')
           .toLowerCase();
 
         if (!searchableText.includes(query)) {
+          return false;
+        }
+      }
+
+      if (filters.tags?.length) {
+        const storyTags = (story.tags ?? []).map((tag) => tag.toLowerCase());
+
+        if (!filters.tags.every((tag) => storyTags.includes(tag.toLowerCase()))) {
           return false;
         }
       }
@@ -216,11 +224,27 @@ function filterRemoteStories(results: unknown[], filters: StoryFilters) {
     const placeName = asString(story.location_name).toLowerCase();
     const title = asString(story.title).toLowerCase();
     const preview = asString(story.preview_text).toLowerCase();
+    const narrative = asString(story.narrative).toLowerCase();
+    const tags = getTagNames(story);
 
     if (filters.q?.trim()) {
       const query = filters.q.trim().toLowerCase();
 
-      if (!title.includes(query) && !placeName.includes(query) && !preview.includes(query)) {
+      if (
+        !title.includes(query) &&
+        !placeName.includes(query) &&
+        !preview.includes(query) &&
+        !narrative.includes(query) &&
+        !tags.some((tag) => tag.toLowerCase().includes(query))
+      ) {
+        return false;
+      }
+    }
+
+    if (filters.tags?.length) {
+      const normalizedTags = tags.map((tag) => tag.toLowerCase());
+
+      if (!filters.tags.every((tag) => normalizedTags.includes(tag.toLowerCase()))) {
         return false;
       }
     }
@@ -309,6 +333,7 @@ function storyToFeature(value: unknown) {
       year_start: story.year_start,
       year_end: story.year_end,
       preview_text: asString(story.preview_text),
+      tags: Array.isArray(story.tags) ? story.tags : Array.isArray(story.tag_names) ? story.tag_names : undefined,
     },
   };
 }
@@ -466,6 +491,10 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.location = filters.location.trim();
   }
 
+  if (filters.tags?.length) {
+    params.tag = filters.tags[0];
+  }
+
   const proximity = getProximityFilter(filters);
 
   if (proximity) {
@@ -511,6 +540,29 @@ function extractYearsFromString(value: string) {
 
 function asString(value: unknown) {
   return typeof value === 'string' ? value : '';
+}
+
+function getTagNames(story: StoryRecord) {
+  const rawTags = Array.isArray(story.tags)
+    ? story.tags
+    : Array.isArray(story.tag_names)
+      ? story.tag_names
+      : [];
+
+  return rawTags
+    .map((tag) => {
+      if (typeof tag === 'string') {
+        return tag;
+      }
+
+      if (tag && typeof tag === 'object') {
+        const record = tag as Record<string, unknown>;
+        return asString(record.name) || asString(record.label) || asString(record.slug);
+      }
+
+      return '';
+    })
+    .filter(Boolean);
 }
 
 function asNumber(value: unknown) {

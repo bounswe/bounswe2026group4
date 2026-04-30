@@ -50,9 +50,16 @@ interface FilterPanelProps {
   location: string;
   timeFrom: string;
   timeTo: string;
+  selectedTags?: string[];
+  tagQuery?: string;
+  tagOptions?: string[];
+  isTagsLoading?: boolean;
   onLocationChange: (value: string) => void;
   onTimeFromChange: (value: string) => void;
   onTimeToChange: (value: string) => void;
+  onTagQueryChange?: (value: string) => void;
+  onToggleTag?: (value: string) => void;
+  onRemoveTag?: (value: string) => void;
   onClearAll: () => void;
   onApply?: () => void;
   proximityRadiusKm?: ProximityRadiusOption;
@@ -69,9 +76,16 @@ export function FilterPanel({
   location,
   timeFrom,
   timeTo,
+  selectedTags = [],
+  tagQuery = '',
+  tagOptions = [],
+  isTagsLoading = false,
   onLocationChange,
   onTimeFromChange,
   onTimeToChange,
+  onTagQueryChange,
+  onToggleTag,
+  onRemoveTag,
   onClearAll,
   onApply,
   proximityRadiusKm,
@@ -166,6 +180,77 @@ export function FilterPanel({
             {locationStatusText}
           </Text>
         ) : null}
+      </View>
+
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: colors.text, fontWeight: '600' }}>Tags</Text>
+          {isTagsLoading ? (
+            <ActivityIndicator
+              accessibilityLabel="Loading tags"
+              color={colors.primary}
+              size="small"
+            />
+          ) : null}
+        </View>
+        <Input
+          value={tagQuery}
+          onChangeText={onTagQueryChange ?? (() => {})}
+          placeholder="Search tags"
+          accessibilityLabel="Tag filter search"
+          autoCorrect={false}
+        />
+        {selectedTags.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {selectedTags.map((tag) => (
+              <Pressable
+                key={tag}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove tag ${tag}`}
+                onPress={() => onRemoveTag?.(tag)}
+                style={({ pressed }) => ({
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  backgroundColor: colors.infoSurface,
+                  opacity: pressed ? 0.75 : 1,
+                })}
+              >
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>{tag} x</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {tagOptions.map((tag) => {
+            const isSelected = selectedTags.includes(tag);
+
+            return (
+              <Pressable
+                key={tag}
+                accessibilityRole="button"
+                accessibilityLabel={`${isSelected ? 'Remove' : 'Select'} tag ${tag}`}
+                accessibilityState={{ selected: isSelected }}
+                onPress={() => onToggleTag?.(tag)}
+                style={({ pressed }) => ({
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                  backgroundColor: isSelected ? colors.infoSurface : colors.surface,
+                  opacity: pressed ? 0.75 : 1,
+                })}
+              >
+                <Text style={{ color: isSelected ? colors.primary : colors.text, fontWeight: '700' }}>
+                  {tag}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <View style={{ gap: spacing.sm }}>

@@ -9,6 +9,7 @@ describe('toSearchParams', () => {
         locationBounds: undefined,
         timeFrom: '',
         timeTo: '',
+        tags: [],
       }),
     ).toEqual({
       q: undefined,
@@ -34,10 +35,12 @@ describe('toSearchParams', () => {
         locationBounds,
         timeFrom: '',
         timeTo: '',
+        tags: ['folklore', 'ottoman-era'],
       }),
     ).toEqual({
       q: undefined,
       location: 'Istanbul',
+      tags: ['folklore', 'ottoman-era'],
       locationBounds,
       yearFrom: undefined,
       yearTo: undefined,
