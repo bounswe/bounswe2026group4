@@ -303,7 +303,30 @@ class TestGetStorySearch:
         qs = get_story_search('Tower', year_from=1800, year_to=1950, location='Galata')
         assert qs.count() == 1
         assert qs.first().title == 'Tower in Galata'
-
+        
+        
+    def test_get_story_search_sorts_by_most_recent(self):
+        # Create three stories — Django ordering by submitted_at DESC means newest first.
+        # We verify the queryset order matches submission order in reverse.
+        s1 = make_story(title='Oldest')
+        s2 = make_story(title='Middle')
+        s3 = make_story(title='Newest')
+        results = list(get_story_search(sort_by='recent'))
+        assert results[0] == s3
+        assert results[1] == s2
+        assert results[2] == s1
+        
+    def test_get_story_search_sorts_by_most_popular(self):
+        # Create three stories with different like_count values. We expect the queryset
+        # to be ordered by like_count DESC when sort_by='popular'.
+        s1 = make_story(title='Least Popular', like_count=5)
+        s2 = make_story(title='Medium Popular', like_count=10)
+        s3 = make_story(title='Most Popular', like_count=20)
+        results = list(get_story_search(sort_by='popular'))
+        assert results[0] == s3
+        assert results[1] == s2
+        assert results[2] == s1
+    # pin here
 
 # ── get_story_feed — tag filter ───────────────────────────────────────────────
 

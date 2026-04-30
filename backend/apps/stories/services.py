@@ -134,6 +134,7 @@ def get_story_search(
 
     Returns an empty queryset if q is blank or whitespace-only — callers should
     validate q before calling, but the service is safe to call directly.
+    sort_by — 'recent' (default) orders by submission date; 'popular' orders by like_count
     """
     if not q or not q.strip():
         return Story.objects.none()
@@ -168,7 +169,8 @@ def get_story_search(
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')
 
-    # TODO: add sort_by='popular' ordered by like_count once interactions app is implemented
+    elif sort_by == 'popular':
+        qs = qs.order_by('-like_count')
 
     return qs
 
