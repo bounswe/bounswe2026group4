@@ -441,12 +441,14 @@ class StoryTimelineSerializer(serializers.ModelSerializer):
     Minimal read-only serializer for timeline cards.
 
     Returns only the fields needed to render a story on the timeline: identity,
-    title, all time fields, coordinates, and a representative photo URL.
-    Feed-specific fields (preview_text, contributor_name, like/save state,
-    status, submitted_at) are intentionally excluded.
+    title, all time fields (including EDTF temporal_coverage), coordinates, and
+    a representative photo URL. Feed-specific fields (preview_text,
+    contributor_name, like/save state, status, submitted_at) are intentionally
+    excluded.
     """
 
     photo_url = serializers.SerializerMethodField()
+    temporal_coverage = serializers.SerializerMethodField()
 
     class Meta:
         model = Story
@@ -457,11 +459,22 @@ class StoryTimelineSerializer(serializers.ModelSerializer):
             'year',
             'year_start',
             'year_end',
+            'date_value',
+            'time_value',
+            'temporal_coverage',
             'location_lat',
             'location_lng',
             'photo_url',
         ]
         read_only_fields = fields
+
+    def get_temporal_coverage(self, obj):
+        """Return the EDTF string for this story's time information, or None on error."""
+        try:
+            return to_edtf(obj.time_type, obj.year, obj.year_start, obj.year_end,
+                           date_value=obj.date_value, time_value=obj.time_value)
+        except ValueError:
+            return None
 
     def get_photo_url(self, obj):
         """Return the URL of the first image MediaItem, or None if no image is attached."""

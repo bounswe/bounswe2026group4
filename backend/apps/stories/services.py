@@ -1,5 +1,5 @@
 from django.db.models import Case, Exists, ExpressionWrapper, IntegerField, OuterRef, Q, When
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, ExtractYear
 
 from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
@@ -153,15 +153,19 @@ def get_story_timeline(
             # exact / approximate: point must be at or after year_from
             Q(time_type__in=[Story.TIME_EXACT, Story.TIME_APPROXIMATE], year__gte=year_from) |
             # year_range: interval ends at year_end; include if year_end >= year_from
-            Q(time_type=Story.TIME_RANGE, year_end__gte=year_from)
+            Q(time_type=Story.TIME_RANGE, year_end__gte=year_from) |
+            # exact_date: compare by calendar year extracted from date_value
+            Q(time_type=Story.TIME_DATE, date_value__year__gte=year_from)
         )
 
     if year_to is not None:
         # All non-range time types start at year; year_range starts at year_start.
         # Decade starts at year too (same as exact/approx), so no special case needed here.
+        # exact_date has no year field — its date_value year is compared directly.
         qs = qs.filter(
             Q(year__lte=year_to) |
-            Q(year_start__lte=year_to)
+            Q(year_start__lte=year_to) |
+            Q(time_type=Story.TIME_DATE, date_value__year__lte=year_to)
         )
 
     if lat_min is not None:
@@ -195,10 +199,14 @@ def get_story_timeline(
             time_type=Story.TIME_DECADE,
             then=ExpressionWrapper(F('year') + 5, output_field=IntegerField()),
         ),
+        When(
+            time_type=Story.TIME_DATE,
+            then=ExtractYear('date_value'),
+        ),
         default=F('year'),
         output_field=IntegerField(),
     )
-    return qs.annotate(historical_year=sort_key).order_by('historical_year')
+    return qs.annotate(historical_year=sort_key).order_by('historical_year', 'date_value')
 
 
 def get_story_search(
