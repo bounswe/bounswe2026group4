@@ -9,7 +9,11 @@ import {
 interface StoryMediaItemRecord {
   id?: unknown;
   url?: unknown;
+  alt_text?: unknown;
+  altText?: unknown;
+  caption?: unknown;
   media_type?: unknown;
+  mediaType?: unknown;
   order?: unknown;
 }
 
@@ -28,12 +32,23 @@ interface StoryRecord {
   year?: unknown;
   year_start?: unknown;
   year_end?: unknown;
+  temporalCoverageIso8601?: unknown;
+  temporal_coverage_iso8601?: unknown;
   contributorName?: unknown;
   contributor_name?: unknown;
+  contributor_visibility?: unknown;
+  contributorVisibility?: unknown;
+  is_anonymous?: unknown;
+  isAnonymous?: unknown;
   submittedAt?: unknown;
   submitted_at?: unknown;
   mediaUrl?: unknown;
+  media_url?: unknown;
+  mediaAltText?: unknown;
+  media_alt_text?: unknown;
   media_items?: unknown;
+  tags?: unknown;
+  tag_names?: unknown;
   likeCount?: unknown;
   like_count?: unknown;
   likedByViewer?: unknown;
@@ -128,6 +143,12 @@ function asNumericValue(value: unknown) {
 }
 
 function formatTimePeriod(story: Record<string, unknown>) {
+  const temporalCoverage = asString(story.temporalCoverageIso8601) || asString(story.temporal_coverage_iso8601);
+
+  if (temporalCoverage) {
+    return temporalCoverage;
+  }
+
   const explicitTimePeriod = asString(story.timePeriod) || asString(story.time_period) || asString(story.period);
 
   if (explicitTimePeriod) {
@@ -168,6 +189,12 @@ function getNarrativePreview(value: unknown) {
 }
 
 function formatTimePeriodFromRecord(story: StoryRecord | Record<string, unknown>) {
+  const temporalCoverage = getTemporalCoverageIso8601(story);
+
+  if (temporalCoverage) {
+    return temporalCoverage;
+  }
+
   const timeType = story.time_type;
   const year = asNumber(story.year);
   const yearStart = asNumber(story.year_start);
@@ -224,18 +251,85 @@ function getPrimaryMediaUrl(value: StoryRecord) {
     return value.mediaUrl;
   }
 
+  if (typeof value.media_url === 'string') {
+    return value.media_url;
+  }
+
   if (!Array.isArray(value.media_items)) {
     return undefined;
   }
 
   const firstImage = (value.media_items as StoryMediaItemRecord[])
-    .filter((item) => item?.media_type === 'image')
+    .filter((item) => (item?.media_type ?? item?.mediaType) === 'image')
     .sort((left, right) => (asNumber(left.order) ?? 0) - (asNumber(right.order) ?? 0))[0];
 
   return typeof firstImage?.url === 'string' ? firstImage.url : undefined;
 }
 
+function getPrimaryMediaAltText(value: StoryRecord) {
+  const explicitAltText = asString(value.mediaAltText) || asString(value.media_alt_text);
+
+  if (explicitAltText) {
+    return explicitAltText;
+  }
+
+  if (!Array.isArray(value.media_items)) {
+    return undefined;
+  }
+
+  const firstImage = (value.media_items as StoryMediaItemRecord[])
+    .filter((item) => (item?.media_type ?? item?.mediaType) === 'image')
+    .sort((left, right) => (asNumber(left.order) ?? 0) - (asNumber(right.order) ?? 0))[0];
+
+  return asString(firstImage?.alt_text) || asString(firstImage?.altText) || asString(firstImage?.caption) || undefined;
+}
+
+function getTags(value: StoryRecord | Record<string, unknown>) {
+  let rawTags: unknown[] = [];
+
+  if (Array.isArray(value.tags)) {
+    rawTags = value.tags;
+  } else if (Array.isArray((value as StoryRecord).tag_names)) {
+    rawTags = (value as StoryRecord).tag_names as unknown[];
+  }
+
+  return rawTags
+    .map((tag) => {
+      if (typeof tag === 'string') {
+        return tag.trim();
+      }
+
+      if (tag && typeof tag === 'object') {
+        const tagRecord = tag as Record<string, unknown>;
+        return asString(tagRecord.name) || asString(tagRecord.label) || asString(tagRecord.slug);
+      }
+
+      return '';
+    })
+    .filter((tag, index, tags): tag is string => tag.length > 0 && tags.indexOf(tag) === index);
+}
+
+function getTemporalCoverageIso8601(value: StoryRecord | Record<string, unknown>) {
+  return asString(value.temporalCoverageIso8601) || asString(value.temporal_coverage_iso8601) || undefined;
+}
+
+function isAnonymousStory(value: StoryRecord) {
+  const visibility = asString(value.contributor_visibility) || asString(value.contributorVisibility);
+  const contributorName = asString(value.contributorName) || asString(value.contributor_name);
+
+  return (
+    visibility === 'anonymous' ||
+    value.is_anonymous === true ||
+    value.isAnonymous === true ||
+    contributorName.trim().toLowerCase() === 'anonymous'
+  );
+}
+
 function getContributorName(value: StoryRecord) {
+  if (isAnonymousStory(value)) {
+    return 'Anonymous';
+  }
+
   const resolvedName = asString(value.contributorName) || asString(value.contributor_name);
 
   if (resolvedName) {
@@ -270,6 +364,8 @@ export function mapStory(value: unknown): StoryEntity {
   const submittedAt = asString(story.submittedAt) || asString(story.submitted_at);
   const status = story.status === 'removed' ? 'removed' : 'published';
   const comments = Array.isArray(story.comments) && story.comments.every(isCommentPreview) ? story.comments : [];
+  const contributorName = getContributorName(story);
+  const isContributorAnonymous = isAnonymousStory(story);
 
   if (!id || typeof story.title !== 'string' || !narrative.length || !location.name || !submittedAt) {
     throw new Error('Invalid story payload.');
@@ -283,9 +379,13 @@ export function mapStory(value: unknown): StoryEntity {
     status,
     location,
     timePeriod: formatTimePeriodFromRecord(story),
-    contributorName: getContributorName(story),
+    temporalCoverageIso8601: getTemporalCoverageIso8601(story),
+    contributorName,
+    isContributorAnonymous,
     submittedAt,
     mediaUrl: getPrimaryMediaUrl(story),
+    mediaAltText: getPrimaryMediaAltText(story),
+    tags: getTags(story),
     likeCount: asNumber(story.likeCount) ?? asNumber(story.like_count) ?? 0,
     likedByViewer: asBoolean(story.likedByViewer, asBoolean(story.user_has_liked, false)),
     comments,
@@ -306,7 +406,8 @@ export function mapStorySummary(value: unknown): StorySummaryEntity {
     asString(story.location_name) ||
     asString(story.locationName) ||
     asString(locationRecord?.name);
-  const timePeriod = formatTimePeriod(story);
+  const temporalCoverageIso8601 = getTemporalCoverageIso8601(story);
+  const timePeriod = temporalCoverageIso8601 || formatTimePeriod(story);
   const previewText =
     asString(story.previewText) ||
     asString(story.preview_text) ||
@@ -333,6 +434,8 @@ export function mapStorySummary(value: unknown): StorySummaryEntity {
     previewText,
     placeName,
     timePeriod: timePeriod || formatTimePeriodFromRecord(story),
+    temporalCoverageIso8601,
+    tags: getTags(story),
     latitude,
     longitude,
   };
@@ -351,6 +454,8 @@ export function mapStoryMapPin(value: unknown): StoryMapPin {
     previewText: summary.previewText,
     placeName: summary.placeName,
     timePeriod: summary.timePeriod,
+    temporalCoverageIso8601: summary.temporalCoverageIso8601,
+    tags: summary.tags,
     latitude: summary.latitude,
     longitude: summary.longitude,
   };
@@ -385,7 +490,9 @@ export function mapGeoJSONStoryMapPin(value: unknown): StoryMapPin {
     title,
     previewText: asString(properties?.preview_text),
     placeName: asString(properties?.location_name),
-    timePeriod: formatTimePeriodFromProperties(properties ?? {}),
+    timePeriod: getTemporalCoverageIso8601(properties ?? {}) || formatTimePeriodFromProperties(properties ?? {}),
+    temporalCoverageIso8601: getTemporalCoverageIso8601(properties ?? {}),
+    tags: getTags(properties ?? {}),
     latitude,
     longitude,
   };

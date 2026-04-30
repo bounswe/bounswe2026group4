@@ -43,6 +43,7 @@ const baseStory: StoryEntity = {
   contributorName: 'Aylin Demir',
   submittedAt: '2026-03-18',
   mediaUrl: 'https://example.com/story.jpg',
+  tags: ['Harbor', 'Labor'],
   likeCount: 27,
   likedByViewer: false,
   comments: [
@@ -126,6 +127,8 @@ describe('StoryScreen', () => {
     expect(screen.getByText(baseStory.contributorName)).toBeTruthy();
     expect(screen.getByText('Date added: 18 Mar 2026')).toBeTruthy();
     expect(screen.getByText('1 min read')).toBeTruthy();
+    expect(screen.getByText('Harbor')).toBeTruthy();
+    expect(screen.getByText('Labor')).toBeTruthy();
     expect(screen.getByText(baseStory.narrative[0])).toBeTruthy();
     expect(screen.getByText(baseStory.narrative[1])).toBeTruthy();
     expect(screen.getByLabelText(`${baseStory.title} media`)).toBeTruthy();
@@ -170,7 +173,7 @@ describe('StoryScreen', () => {
     expect(await screen.findByLabelText(`${baseStory.contributorName} profile photo`)).toBeTruthy();
   });
 
-  it('keeps the profile action for anonymous contributors', async () => {
+  it('keeps the profile action for anonymous contributor fallbacks', async () => {
     const onOpenContributorProfile = jest.fn();
 
     render(
@@ -205,6 +208,58 @@ describe('StoryScreen', () => {
     expect(await screen.findByText(baseStory.title)).toBeTruthy();
     expect(screen.getByText('Deleted user')).toBeTruthy();
     expect(screen.queryByLabelText('Open profile: Deleted user')).toBeNull();
+  });
+
+  it('uses backend temporal coverage metadata when present', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          timePeriod: 'Late 1970s',
+          temporalCoverageIso8601: '1970/1979',
+        })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.getByText('1970/1979')).toBeTruthy();
+    expect(screen.queryByText('Late 1970s')).toBeNull();
+  });
+
+  it('shows anonymous contributor label for anonymous stories without profile action', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          contributorUserId: '22',
+          contributorName: 'Anonymous',
+          isContributorAnonymous: true,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.queryByLabelText(/Open profile:/)).toBeNull();
+    expect(screen.getByText('Anonymous')).toBeTruthy();
+  });
+
+  it('renders safely without optional media and tags', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          mediaUrl: undefined,
+          tags: [],
+        })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.queryByLabelText(`${baseStory.title} media`)).toBeNull();
+    expect(screen.queryByText('Harbor')).toBeNull();
   });
 
   it('shows deleted account for anonymized comments from deleted users', async () => {

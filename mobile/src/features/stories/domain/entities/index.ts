@@ -21,9 +21,13 @@ export interface StoryEntity {
   status: StoryStatus;
   location: StoryLocation;
   timePeriod: string;
+  temporalCoverageIso8601?: string;
   contributorName: string;
+  isContributorAnonymous?: boolean;
   submittedAt: string;
   mediaUrl?: string;
+  mediaAltText?: string;
+  tags?: string[];
   likeCount: number;
   likedByViewer: boolean;
   comments: StoryCommentPreview[];
@@ -35,6 +39,8 @@ export interface StorySummaryEntity {
   previewText: string;
   placeName: string;
   timePeriod: string;
+  temporalCoverageIso8601?: string;
+  tags?: string[];
   latitude?: number;
   longitude?: number;
 }
@@ -45,6 +51,8 @@ export interface StoryMapPin {
   previewText: string;
   placeName: string;
   timePeriod: string;
+  temporalCoverageIso8601?: string;
+  tags?: string[];
   latitude: number;
   longitude: number;
 }
