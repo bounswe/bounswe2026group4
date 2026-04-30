@@ -22,15 +22,18 @@ class Story(models.Model):
     # approximate_year: year is an estimate, not a certain date   → populate `year`
     # decade:           story is tied to a decade                 → populate `year` as the decade base (e.g. 1980 for "1980s")
     # year_range:       story spans multiple years                → populate `year_start` and `year_end`
+    # exact_date:       story happened on a known calendar date   → populate `date_value`; optionally `time_value` for minute precision
     TIME_EXACT = 'exact_year'
     TIME_APPROXIMATE = 'approximate_year'
     TIME_DECADE = 'decade'
     TIME_RANGE = 'year_range'
+    TIME_DATE = 'exact_date'
     TIME_TYPE_CHOICES = [
         (TIME_EXACT, 'Exact Year'),
         (TIME_APPROXIMATE, 'Approximate Year'),
         (TIME_DECADE, 'Decade'),
         (TIME_RANGE, 'Year Range'),
+        (TIME_DATE, 'Exact Date'),
     ]
 
     # SET_NULL so that deleting a user account anonymizes their stories instead of removing them.
@@ -58,10 +61,13 @@ class Story(models.Model):
 
     time_type = models.CharField(max_length=20, choices=TIME_TYPE_CHOICES)
     # Populated for exact_year, approximate_year, and decade (e.g. 1980 means "1980s").
-    # Left null for year_range stories, which use year_start and year_end instead.
+    # Left null for year_range and exact_date stories.
     year = models.SmallIntegerField(null=True, blank=True)
     year_start = models.SmallIntegerField(null=True, blank=True)
     year_end = models.SmallIntegerField(null=True, blank=True)
+    # Populated for exact_date stories. time_value is optional (minute precision).
+    date_value = models.DateField(null=True, blank=True)
+    time_value = models.TimeField(null=True, blank=True)
 
     # DRAFT is available for future draft-saving UX.
     # REMOVED is set by moderation with an accompanying moderation_reason.
@@ -121,6 +127,9 @@ class Story(models.Model):
         elif self.time_type in (self.TIME_EXACT, self.TIME_APPROXIMATE, self.TIME_DECADE):
             if self.year is None:
                 raise ValidationError({'year': f'year is required for {self.time_type}.'})
+        elif self.time_type == self.TIME_DATE:
+            if self.date_value is None:
+                raise ValidationError({'date_value': 'date_value is required for exact_date.'})
 
     def __str__(self):
         return self.title

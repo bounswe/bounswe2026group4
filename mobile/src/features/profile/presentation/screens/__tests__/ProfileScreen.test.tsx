@@ -5,9 +5,25 @@ import { ProfileScreen } from '../ProfileScreen';
 import { navigationRef } from '../../../../../app/navigation/navigationRef';
 
 const mockToastSuccess = jest.fn();
+const mockToastError = jest.fn();
+const mockToastInfo = jest.fn();
 const mockUpdateUser = jest.fn(async () => undefined);
 const mockLogout = jest.fn(async () => undefined);
 const mockAuthClear = jest.fn(async () => undefined);
+let mockAuthUser: {
+  id: number;
+  email: string;
+  username: string;
+  role: 'user';
+  isUsernamePublic: boolean;
+} | null = {
+  id: 7,
+  email: 'traveler@example.com',
+  username: 'Traveler',
+  role: 'user',
+  isUsernamePublic: true,
+};
+let mockIsAuthenticated = true;
 
 jest.mock('../../../../auth/application/services', () => ({
   authService: {
@@ -19,8 +35,8 @@ jest.mock('../../../../../shared/hooks/useToast', () => ({
   useToast: () => ({
     toast: {
       success: mockToastSuccess,
-      error: jest.fn(),
-      info: jest.fn(),
+      error: mockToastError,
+      info: mockToastInfo,
       show: jest.fn(),
     },
   }),
@@ -28,13 +44,8 @@ jest.mock('../../../../../shared/hooks/useToast', () => ({
 
 jest.mock('../../../../auth', () => ({
   useAuth: () => ({
-    user: {
-      id: 7,
-      email: 'traveler@example.com',
-      username: 'Traveler',
-      role: 'user',
-      isUsernamePublic: true,
-    },
+    user: mockAuthUser,
+    isAuthenticated: mockIsAuthenticated,
     updateUser: mockUpdateUser,
     logout: mockLogout,
   }),
@@ -73,12 +84,24 @@ const publicProfile = {
   location: 'Izmir',
   birthYear: 1988,
   profilePhoto: 'https://cdn.example.com/public.jpg',
+  followersCount: 12,
+  followingCount: 5,
+  isFollowedByMe: false,
 };
 
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthUser = {
+      id: 7,
+      email: 'traveler@example.com',
+      username: 'Traveler',
+      role: 'user',
+      isUsernamePublic: true,
+    };
+    mockIsAuthenticated = true;
     navigationRef.redirectToPublic = jest.fn();
+    navigationRef.redirectToAuth = jest.fn();
   });
 
   it('renders a loading state while profile data is being fetched', () => {
@@ -123,6 +146,35 @@ describe('ProfileScreen', () => {
 
     expect(await screen.findByText('Traveler')).toBeTruthy();
     expect(screen.getByText('Ada Lovelace')).toBeTruthy();
+  });
+
+  it('shows the saved birth date on the signed-in user profile', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('May 20, 1995')).toBeTruthy();
+  });
+
+  it('falls back to the public birth year on the signed-in user profile when the full date is unavailable', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => ({
+          ...selfProfile,
+          birthDate: null,
+          birthYear: 1995,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('1995')).toBeTruthy();
+    expect(screen.queryByText('May 20, 1995')).toBeNull();
   });
 
   it('shows a photo preview after selecting a valid image and can remove it before saving', async () => {
@@ -343,8 +395,11 @@ describe('ProfileScreen', () => {
     expect(await screen.findByText('Aylin')).toBeTruthy();
     expect(screen.getByText('Izmir')).toBeTruthy();
     expect(screen.getByText('1988')).toBeTruthy();
+    expect(screen.queryByText('May 20, 1995')).toBeNull();
     expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
     expect(screen.queryByText('Edit Profile')).toBeNull();
+    expect(screen.getByText('12')).toBeTruthy();
+    expect(screen.getByText('5')).toBeTruthy();
 
     rerender(
       <ProfileScreen
@@ -362,6 +417,277 @@ describe('ProfileScreen', () => {
     expect(await screen.findByText('Anonymous user')).toBeTruthy();
     expect(screen.queryByText('Izmir')).toBeNull();
     expect(screen.queryByText('1988')).toBeNull();
+  });
+
+  it('does not render a follow button on the user own profile', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => ({
+          ...selfProfile,
+          followersCount: 3,
+          followingCount: 2,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.queryByText('Follow')).toBeNull();
+    expect(screen.queryByLabelText('Follow user')).toBeNull();
+    expect(screen.queryByLabelText('Unfollow user')).toBeNull();
+    expect(screen.getByLabelText('3 Followers')).toBeTruthy();
+    expect(screen.getByLabelText('2 Following')).toBeTruthy();
+  });
+
+  it('renders authenticated not-following state and optimistically follows', async () => {
+    const followUser = jest.fn(async () => undefined);
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="13"
+        getPublicProfile={async () => ({
+          ...publicProfile,
+          id: '13',
+          followersCount: 10,
+          isFollowedByMe: false,
+        })}
+        followUser={followUser}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(screen.getByText('Follow')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Follow user'));
+
+    expect(screen.getByLabelText('Unfollow user')).toBeTruthy();
+    expect(screen.getByLabelText('11 Followers')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(followUser).toHaveBeenCalledWith('13');
+    });
+  });
+
+  it('keeps the following state after leaving and returning when the profile response omits it', async () => {
+    const followUser = jest.fn(async () => undefined);
+    const getFollowers = jest.fn(async () => ({
+      count: 0,
+      next: null,
+      previous: null,
+      users: [],
+    }));
+    const firstRender = render(
+      <ProfileScreen
+        mode="public"
+        userId="30"
+        getPublicProfile={async () => ({
+          ...publicProfile,
+          id: '30',
+          followersCount: 2,
+          isFollowedByMe: false,
+        })}
+        getFollowers={getFollowers}
+        followUser={followUser}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Follow user'));
+
+    await waitFor(() => {
+      expect(followUser).toHaveBeenCalledWith('30');
+    });
+
+    firstRender.unmount();
+
+    const { isFollowedByMe: _isFollowedByMe, ...profileWithoutFollowState } = publicProfile;
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="30"
+        getPublicProfile={async () => ({
+          ...profileWithoutFollowState,
+          id: '30',
+          followersCount: 3,
+        })}
+        getFollowers={getFollowers}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(screen.getByLabelText('Unfollow user')).toBeTruthy();
+  });
+
+  it('infers following state from followers when the profile response omits it', async () => {
+    const getFollowers = jest.fn(async () => ({
+      count: 10,
+      next: null,
+      previous: null,
+      users: [
+        { id: '22', username: 'Deniz', profilePhoto: null },
+        { id: '7', username: null, profilePhoto: null },
+      ],
+    }));
+    const { isFollowedByMe: _isFollowedByMe, ...profileWithoutFollowState } = publicProfile;
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="31"
+        getPublicProfile={async () => ({
+          ...profileWithoutFollowState,
+          id: '31',
+          followersCount: 10,
+        })}
+        getFollowers={getFollowers}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(screen.getByLabelText('Unfollow user')).toBeTruthy();
+    expect(getFollowers).toHaveBeenCalledWith('31', 1);
+  });
+
+  it('renders authenticated following state and rolls back when unfollow fails', async () => {
+    const unfollowUser = jest.fn(async () => {
+      throw new Error('Network error');
+    });
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => ({
+          ...publicProfile,
+          followersCount: 10,
+          isFollowedByMe: true,
+        })}
+        unfollowUser={unfollowUser}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(screen.getByLabelText('Unfollow user')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Unfollow user'));
+
+    await waitFor(() => {
+      expect(unfollowUser).toHaveBeenCalledWith('12');
+      expect(mockToastError).toHaveBeenCalledWith('Failed to unfollow user. Please try again.');
+    });
+    expect(screen.getByLabelText('Unfollow user')).toBeTruthy();
+    expect(screen.getByLabelText('10 Followers')).toBeTruthy();
+  });
+
+  it('renders unauthenticated follow state as a login prompt', async () => {
+    mockAuthUser = null;
+    mockIsAuthenticated = false;
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    fireEvent.press(screen.getByText('Log in to follow'));
+
+    expect(mockToastInfo).toHaveBeenCalledWith('Please sign in to follow users.');
+    expect(navigationRef.redirectToAuth).toHaveBeenCalledWith('unauthorized');
+  });
+
+  it('opens followers list and navigates from a list entry', async () => {
+    const onOpenUserProfile = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        getFollowers={async () => ({
+          count: 1,
+          next: null,
+          previous: null,
+          users: [{ id: '20', username: 'Deniz', profilePhoto: null }],
+        })}
+        onOpenUserProfile={onOpenUserProfile}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('12 Followers'));
+
+    expect(await screen.findByText('Deniz')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open Deniz profile'));
+
+    expect(onOpenUserProfile).toHaveBeenCalledWith('20');
+  });
+
+  it('does not navigate when a follower row is dragged like a scroll gesture', async () => {
+    const onOpenUserProfile = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        getFollowers={async () => ({
+          count: 2,
+          next: null,
+          previous: null,
+          users: [
+            { id: '20', username: 'Deniz', profilePhoto: null },
+            { id: '21', username: 'Ece', profilePhoto: null },
+          ],
+        })}
+        onOpenUserProfile={onOpenUserProfile}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('12 Followers'));
+
+    const row = await screen.findByLabelText('Open Deniz profile');
+    fireEvent(row, 'pressIn', { nativeEvent: { pageX: 0, pageY: 0 } });
+    fireEvent(row, 'touchMove', { nativeEvent: { pageX: 0, pageY: 32 } });
+    fireEvent.press(row);
+
+    expect(onOpenUserProfile).not.toHaveBeenCalled();
+    expect(screen.getByText('Deniz')).toBeTruthy();
+  });
+
+  it('shows the signed-in follower with the local username and You label when public username is hidden', async () => {
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => ({
+          ...publicProfile,
+          isFollowedByMe: true,
+        })}
+        getFollowers={async () => ({
+          count: 2,
+          next: null,
+          previous: null,
+          users: [
+            { id: '20', username: 'Deniz', profilePhoto: null },
+            { id: '7', username: null, profilePhoto: null },
+          ],
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('12 Followers'));
+
+    expect(await screen.findByText('Traveler (You)')).toBeTruthy();
+    expect(screen.getByText('Deniz')).toBeTruthy();
+    expect(screen.queryByText('Anonymous user')).toBeNull();
+    expect(screen.getByLabelText('Open Traveler (You) profile')).toBeTruthy();
   });
 
   it('shows the bio privacy pending note in the edit form', async () => {

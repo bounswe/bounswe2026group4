@@ -43,6 +43,7 @@ describe('userService', () => {
             username: 'Traveler',
             total_points: 5,
             published_story_count: 3,
+            birth_year: 1995,
             location: 'Istanbul',
             bio: 'Collecting neighborhood memories.',
           } as never,
@@ -59,6 +60,7 @@ describe('userService', () => {
       email: 'traveler@example.com',
       location: 'Istanbul',
       publishedStoryCount: 3,
+      birthYear: 1995,
     });
   });
 
@@ -72,6 +74,9 @@ describe('userService', () => {
             username: 'Aylin',
             total_points: 9,
             published_story_count: 4,
+            followers_count: 12,
+            following_count: 5,
+            is_followed_by_me: true,
             location: 'Izmir',
             bio: 'Historian',
             birth_year: 1988,
@@ -88,6 +93,107 @@ describe('userService', () => {
       username: 'Aylin',
       publishedStoryCount: 4,
       birthYear: 1988,
+      followersCount: 12,
+      followingCount: 5,
+      isFollowedByMe: true,
+    });
+  });
+
+  it('preserves an unknown follow state when the public profile omits it', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'GET' && config.url === '/users/12/') {
+        return {
+          status: 200,
+          data: {
+            id: 12,
+            username: 'Aylin',
+            total_points: 9,
+            published_story_count: 4,
+            followers_count: 12,
+            following_count: 5,
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    const profile = await userService.getPublicProfile('12');
+
+    expect(profile.followersCount).toBe(12);
+    expect(profile.followingCount).toBe(5);
+    expect(profile.isFollowedByMe).toBeUndefined();
+  });
+
+  it('follows and unfollows users with the expected endpoints', async () => {
+    const requests: string[] = [];
+
+    setApiTransport(async (method: any, config: any) => {
+      requests.push(`${method} ${config.url}`);
+
+      return {
+        status: method === 'DELETE' ? 204 : 201,
+        data: method === 'DELETE' ? null : { success: true, data: {} },
+        config,
+      } as never;
+    });
+
+    await userService.followUser('12');
+    await userService.unfollowUser('12');
+
+    expect(requests).toEqual([
+      'POST /users/12/follow/',
+      'DELETE /users/12/follow/',
+    ]);
+  });
+
+  it('loads followers and following lists with pagination', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'GET' && config.url === '/users/12/followers/?page=2&page_size=20') {
+        return {
+          status: 200,
+          data: {
+            count: 2,
+            next: null,
+            previous: 'previous-page',
+            results: [
+              { id: 7, username: 'Traveler', profile_photo: 'https://cdn.example.com/user.jpg' },
+              { id: 8, username: null, profile_photo: null },
+            ],
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/12/following/?page=1&page_size=20') {
+        return {
+          status: 200,
+          data: {
+            count: 1,
+            next: 'next-page',
+            previous: null,
+            results: [{ id: 9, username: 'Aylin', profile_photo: null }],
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.getFollowers('12', 2)).resolves.toMatchObject({
+      count: 2,
+      previous: 'previous-page',
+      users: [
+        { id: '7', username: 'Traveler', profilePhoto: 'https://cdn.example.com/user.jpg' },
+        { id: '8', username: null, profilePhoto: null },
+      ],
+    });
+    await expect(userService.getFollowing('12')).resolves.toMatchObject({
+      count: 1,
+      next: 'next-page',
+      users: [{ id: '9', username: 'Aylin' }],
     });
   });
 

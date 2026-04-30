@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
+import { Calendar, Clock, MapPin, Trash2 } from 'lucide-react-native';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -41,81 +42,224 @@ function getResolvedContributorName(story: StoryEntity) {
   return story.contributorName;
 }
 
+function getStoryTimePeriodLabel(story: StoryEntity) {
+  return story.temporalCoverageIso8601 || story.timePeriod;
+}
+
 function getDisplayNameWithYouLabel(name: string, isCurrentUser: boolean) {
   return isCurrentUser ? `${name} (You)` : name;
 }
 
-function StoryMetaRow({ label, value }: { label: string; value: string }) {
+function getReadingTimeLabel(paragraphs: string[]) {
+  const wordCount = paragraphs.join(' ').trim().split(/\s+/).filter(Boolean).length;
+  const minutes = Math.max(1, Math.ceil(wordCount / 200));
+
+  return `${minutes} min read`;
+}
+
+function shouldCollapseNarrative(paragraphs: string[]) {
+  return paragraphs.length > 2 || paragraphs.join(' ').length > 520;
+}
+
+function StoryMetaSeparator() {
   const { colors, spacing, typography } = useAppTheme();
 
   return (
-    <View
-      style={{
-        width: '48%',
-        padding: spacing.md,
-        borderRadius: 14,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-      }}
-    >
-      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
-        {label}
-      </Text>
-      <Text
-        style={{
-          marginTop: spacing.xs,
-          color: colors.text,
-          fontSize: typography.body,
-          fontWeight: '600',
-        }}
-      >
-        {value}
-      </Text>
-    </View>
+    <Text style={{ color: colors.muted, fontSize: typography.body, marginRight: spacing.sm }}>
+      {'·'}
+    </Text>
   );
 }
 
-function StoryMetaActionRow({
-  label,
+function StoryContributorMeta({
   value,
+  photoUrl,
   onPress,
 }: {
-  label: string;
   value: string;
+  photoUrl?: string | null;
   onPress?: () => void;
 }) {
   const { colors, spacing, typography } = useAppTheme();
 
-  return (
-    <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={onPress ? `Open profile: ${value}` : undefined}
-      disabled={!onPress}
-      onPress={onPress}
-      style={{
-        width: '48%',
-        padding: spacing.md,
-        borderRadius: 14,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-      }}
-    >
-      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
-        {label}
-      </Text>
+  const content = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+      {photoUrl ? (
+        <Image
+          source={{ uri: photoUrl }}
+          style={{ width: 22, height: 22, borderRadius: 999, backgroundColor: colors.surface }}
+          accessibilityIgnoresInvertColors
+          accessibilityLabel={`${value} profile photo`}
+        />
+      ) : null}
       <Text
         style={{
-          marginTop: spacing.xs,
-          color: onPress ? colors.primary : colors.text,
+          color: colors.muted,
           fontSize: typography.body,
           fontWeight: '600',
         }}
       >
-        {value}
+        by{' '}
+        <Text style={{ color: onPress ? colors.primary : colors.muted, fontWeight: '700' }}>
+          {value}
+        </Text>
       </Text>
-    </Pressable>
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open profile: ${value}`}
+        onPress={onPress}
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.75 : 1,
+        })}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
+}
+
+function StoryMetaText({ value }: { value: string }) {
+  const { colors, typography } = useAppTheme();
+
+  return (
+    <Text style={{ color: colors.muted, fontSize: typography.body, fontWeight: '600' }}>
+      {value}
+    </Text>
+  );
+}
+
+function StoryMetaLineItem({
+  value,
+  icon,
+  withSeparator = false,
+}: {
+  value: string;
+  icon?: React.ReactNode;
+  withSeparator?: boolean;
+}) {
+  const { spacing } = useAppTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: spacing.md, marginTop: spacing.xs }}>
+      {withSeparator ? <StoryMetaSeparator /> : null}
+      {icon ? <View style={{ marginRight: spacing.xs }}>{icon}</View> : null}
+      <StoryMetaText value={value} />
+    </View>
+  );
+}
+
+function StoryMetaRow({
+  contributorName,
+  contributorPhotoUrl,
+  submittedAt,
+  readingTimeLabel,
+  locationName,
+  timePeriod,
+  onContributorPress,
+}: {
+  contributorName?: string;
+  contributorPhotoUrl?: string | null;
+  submittedAt: string;
+  readingTimeLabel: string;
+  locationName: string;
+  timePeriod: string;
+  onContributorPress?: () => void;
+}) {
+  const { colors, spacing } = useAppTheme();
+  const iconColor = colors.muted;
+  const iconSize = 17;
+
+  return (
+    <View style={{ marginTop: spacing.sm }}>
+      {contributorName ? (
+        <StoryContributorMeta value={contributorName} photoUrl={contributorPhotoUrl} onPress={onContributorPress} />
+      ) : null}
+      <View style={{ marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+        <StoryMetaLineItem value={locationName} icon={<MapPin size={iconSize} color={iconColor} strokeWidth={2.1} />} />
+        <StoryMetaLineItem
+          value={timePeriod}
+          icon={<Calendar size={iconSize} color={iconColor} strokeWidth={2.1} />}
+          withSeparator
+        />
+        <StoryMetaLineItem
+          value={`Date added: ${submittedAt}`}
+          icon={<Calendar size={iconSize} color={iconColor} strokeWidth={2.1} />}
+          withSeparator
+        />
+        <StoryMetaLineItem
+          value={readingTimeLabel}
+          icon={<Clock size={iconSize} color={iconColor} strokeWidth={2.1} />}
+          withSeparator
+        />
+      </View>
+    </View>
+  );
+}
+
+function StoryNarrative({
+  story,
+  isExpanded,
+  onToggleExpanded,
+  onLayout,
+}: {
+  story: StoryEntity;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onLayout: (event: LayoutChangeEvent) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const canCollapse = shouldCollapseNarrative(story.narrative);
+  const visibleParagraphs = canCollapse && !isExpanded ? story.narrative.slice(0, 2) : story.narrative;
+
+  return (
+    <View onLayout={onLayout} style={{ marginTop: spacing.lg }}>
+      <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
+        Full story
+      </Text>
+      {visibleParagraphs.map((paragraph, index) => (
+        <Text
+          key={`${story.id}-paragraph-${index + 1}`}
+          numberOfLines={canCollapse && !isExpanded && index === visibleParagraphs.length - 1 ? 4 : undefined}
+          style={{
+            marginTop: spacing.sm,
+            color: colors.text,
+            fontSize: typography.body,
+            lineHeight: 24,
+          }}
+        >
+          {paragraph}
+        </Text>
+      ))}
+      {canCollapse ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isExpanded ? 'Show less story content' : 'Read more story content'}
+          onPress={onToggleExpanded}
+          style={({ pressed }) => ({
+            marginTop: spacing.md,
+            alignSelf: 'flex-start',
+            paddingVertical: spacing.sm,
+            paddingHorizontal: spacing.md,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text style={{ color: colors.primary, fontWeight: '800' }}>
+            {isExpanded ? 'Show less' : 'Read more'}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -372,6 +516,10 @@ export function StoryScreen({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [interactionError, setInteractionError] = useState<string>();
   const [contributorVisibilityOverride, setContributorVisibilityOverride] = useState<string | null>(null);
+  const [contributorPhotoUrl, setContributorPhotoUrl] = useState<string | null>(null);
+  const [isNarrativeExpanded, setIsNarrativeExpanded] = useState(false);
+  const [narrativeTop, setNarrativeTop] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
   const deletedCommentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -387,6 +535,9 @@ export function StoryScreen({
     setConfirmDeleteId(undefined);
     setInteractionError(undefined);
     setContributorVisibilityOverride(null);
+    setContributorPhotoUrl(null);
+    setIsNarrativeExpanded(false);
+    setNarrativeTop(0);
     deletedCommentIdsRef.current = new Set();
 
     loadStoryDetail(storyId, session?.role, getStory).then((nextState) => {
@@ -430,8 +581,17 @@ export function StoryScreen({
     let isMounted = true;
 
     const story = state.story;
+    if (story?.isContributorAnonymous) {
+      setContributorVisibilityOverride(null);
+      setContributorPhotoUrl(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     if (!story?.contributorUserId) {
       setContributorVisibilityOverride(story?.contributorName === 'Deleted user' ? 'Deleted user' : null);
+      setContributorPhotoUrl(null);
       return () => {
         isMounted = false;
       };
@@ -443,12 +603,14 @@ export function StoryScreen({
 
     if (isOwnStory) {
       setContributorVisibilityOverride(null);
+      setContributorPhotoUrl(null);
       return () => {
         isMounted = false;
       };
     }
 
     setContributorVisibilityOverride(story.contributorName === 'Deleted user' ? 'Deleted user' : null);
+    setContributorPhotoUrl(null);
 
     getPublicProfile(story.contributorUserId)
       .then((profile) => {
@@ -457,6 +619,7 @@ export function StoryScreen({
         }
 
         setContributorVisibilityOverride(!profile.username ? 'Anonymous' : null);
+        setContributorPhotoUrl(profile.username ? profile.profilePhoto ?? null : null);
       })
       .catch(() => undefined);
 
@@ -642,8 +805,13 @@ export function StoryScreen({
   const isStoryOwner = session?.user?.id !== undefined && String(session.user.id) === story.contributorUserId;
   const canDeleteStory = session?.role === roles.admin || isStoryOwner;
   const contributorName = contributorVisibilityOverride ?? getResolvedContributorName(story);
-  const contributorDisplayName = getDisplayNameWithYouLabel(contributorName, isStoryOwner);
-  const canOpenContributorProfile = Boolean(story.contributorUserId);
+  const shouldShowContributor = contributorName.trim().length > 0;
+  const contributorDisplayName = shouldShowContributor ? getDisplayNameWithYouLabel(contributorName, isStoryOwner) : undefined;
+  const canOpenContributorProfile =
+    shouldShowContributor && !story.isContributorAnonymous && Boolean(story.contributorUserId);
+  const readingTimeLabel = getReadingTimeLabel(story.narrative);
+  const timePeriodLabel = getStoryTimePeriodLabel(story);
+  const tags = story.tags ?? [];
 
   const promptDeleteStory = () => {
     if (!canDeleteStory || isStoryDeleting) {
@@ -665,8 +833,21 @@ export function StoryScreen({
     ]);
   };
 
+  const handleToggleNarrative = () => {
+    setIsNarrativeExpanded((current) => {
+      if (current) {
+        requestAnimationFrame(() => {
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, narrativeTop - spacing.md), animated: true });
+        });
+      }
+
+      return !current;
+    });
+  };
+
   return (
     <ScrollView
+      ref={scrollViewRef}
       contentContainerStyle={{
         padding: spacing.lg,
         backgroundColor: colors.background,
@@ -676,44 +857,67 @@ export function StoryScreen({
         {story.title}
       </Text>
       {canDeleteStory ? (
-        <View style={{ marginTop: spacing.md, alignItems: 'flex-start' }}>
-          <Button
+        <View style={{ marginTop: spacing.sm, alignItems: 'flex-start' }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isStoryDeleting ? 'Deleting story' : 'Delete story'}
             onPress={promptDeleteStory}
             disabled={isStoryDeleting}
-            style={{ backgroundColor: colors.danger }}
+            style={({ pressed }) => ({
+              width: 42,
+              height: 42,
+              borderRadius: 999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.dangerSurface,
+              borderWidth: 1,
+              borderColor: colors.danger,
+              opacity: pressed || isStoryDeleting ? 0.65 : 1,
+            })}
           >
-            {isStoryDeleting ? 'Deleting story...' : 'Delete story'}
-          </Button>
+            <Trash2 size={19} color={colors.danger} strokeWidth={2.4} />
+          </Pressable>
         </View>
       ) : null}
       {storyDeleteError ? (
         <Text style={{ marginTop: spacing.sm, color: colors.danger }}>{storyDeleteError}</Text>
       ) : null}
 
-      <View
-        style={{
-          marginTop: spacing.lg,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          gap: spacing.md,
-        }}
-      >
-        <StoryMetaRow label="Location" value={story.location.name} />
-        <StoryMetaRow label="Time period" value={story.timePeriod} />
-        <StoryMetaActionRow
-          label="Contributor"
-          value={contributorDisplayName}
-          onPress={
-            canOpenContributorProfile
-              ? () => {
-                  onOpenContributorProfile?.(story.contributorUserId!);
-                }
-              : undefined
-          }
-        />
-        <StoryMetaRow label="Submitted" value={formatDate(story.submittedAt)} />
-      </View>
+      <StoryMetaRow
+        contributorName={contributorDisplayName}
+        contributorPhotoUrl={contributorPhotoUrl}
+        submittedAt={formatDate(story.submittedAt)}
+        readingTimeLabel={readingTimeLabel}
+        locationName={story.location.name}
+        timePeriod={timePeriodLabel}
+        onContributorPress={
+          canOpenContributorProfile
+            ? () => {
+                onOpenContributorProfile?.(story.contributorUserId!);
+              }
+            : undefined
+        }
+      />
+
+      {tags.length > 0 ? (
+        <View style={{ marginTop: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {tags.map((tag) => (
+            <View
+              key={tag}
+              style={{
+                paddingVertical: spacing.xs,
+                paddingHorizontal: spacing.sm,
+                borderRadius: 999,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '700' }}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {story.mediaUrl ? (
         hasImageError ? (
@@ -747,30 +951,18 @@ export function StoryScreen({
               backgroundColor: colors.surface,
             }}
             resizeMode="cover"
-            accessibilityLabel={`${story.title} media`}
+            accessibilityLabel={story.mediaAltText || `${story.title} media`}
             onError={() => setHasImageError(true)}
           />
         )
       ) : null}
 
-      <View style={{ marginTop: spacing.xl }}>
-        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
-          Full story
-        </Text>
-        {story.narrative.map((paragraph, index) => (
-          <Text
-            key={`${story.id}-paragraph-${index + 1}`}
-            style={{
-              marginTop: spacing.md,
-              color: colors.text,
-              fontSize: typography.body,
-              lineHeight: 25,
-            }}
-          >
-            {paragraph}
-          </Text>
-        ))}
-      </View>
+      <StoryNarrative
+        story={story}
+        isExpanded={isNarrativeExpanded}
+        onToggleExpanded={handleToggleNarrative}
+        onLayout={(event) => setNarrativeTop(event.nativeEvent.layout.y)}
+      />
 
       <Pressable
         onPress={() => {
