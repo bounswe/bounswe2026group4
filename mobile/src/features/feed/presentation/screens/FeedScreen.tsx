@@ -22,13 +22,20 @@ interface FeedScreenProps {
   getFeed?: typeof storyService.getFeed;
   showSearchControls?: boolean;
   searchScope?: SearchFilterScope;
+  storyInteractionUpdates?: Record<string, FeedStoryInteractionUpdate>;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
+const EMPTY_STORY_INTERACTION_UPDATES: Record<string, FeedStoryInteractionUpdate> = {};
 const SORT_OPTIONS: Array<{ value: FeedSortOption; label: string }> = [
   { value: 'recent', label: 'Most Recent' },
   { value: 'popular', label: 'Most Popular' },
 ];
+
+export interface FeedStoryInteractionUpdate {
+  likeCount?: number;
+  savedByViewer?: boolean;
+}
 
 export function FeedScreen({
   initialFilters = EMPTY_FILTERS,
@@ -36,6 +43,7 @@ export function FeedScreen({
   getFeed = storyService.getFeed,
   showSearchControls = true,
   searchScope = 'feed',
+  storyInteractionUpdates = EMPTY_STORY_INTERACTION_UPDATES,
 }: FeedScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { filters, refreshToken, isHydrated, setFilters } = useSearchFilters(searchScope);
@@ -43,11 +51,17 @@ export function FeedScreen({
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [state, setState] = useState(() => createInitialFeedUiState(initialFilters));
   const stateRef = useRef(state);
+  const storyInteractionUpdatesRef = useRef(storyInteractionUpdates);
   const hasRequestedNextPage = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    storyInteractionUpdatesRef.current = storyInteractionUpdates;
+    setState((current) => applyStoryInteractionUpdates(current, storyInteractionUpdates));
+  }, [storyInteractionUpdates]);
 
   const seedFilters = useMemo(() => toSearchState(initialFilters), [initialFilters]);
 
@@ -111,7 +125,12 @@ export function FeedScreen({
           filters: nextFilters,
         });
 
-        setState((current) => mergeFeedPage(current, response, mode));
+        setState((current) =>
+          applyStoryInteractionUpdates(
+            mergeFeedPage(current, response, mode),
+            storyInteractionUpdatesRef.current,
+          ),
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unable to load the story feed.';
 
@@ -163,13 +182,9 @@ export function FeedScreen({
   };
 
   const renderControls = () => {
-    if (!showSearchControls) {
-      return null;
-    }
-
     return (
       <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+        <View style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.muted, fontSize: typography.caption }}>
             {state.totalCount > 0 ? `${state.totalCount} stories` : hasActiveFilters ? 'No matching stories yet' : 'Newest stories'}
           </Text>
@@ -216,7 +231,7 @@ export function FeedScreen({
           </View>
         </View>
 
-        <StorySearchControls helperText="Search by title or place." scope={searchScope} />
+        {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
       </View>
     );
   };
@@ -294,6 +309,39 @@ export function FeedScreen({
       />
     </View>
   );
+}
+
+function applyStoryInteractionUpdates(
+  state: ReturnType<typeof createInitialFeedUiState>,
+  updates: Record<string, FeedStoryInteractionUpdate>,
+) {
+  if (!Object.keys(updates).length || !state.items.length) {
+    return state;
+  }
+
+  let hasChanges = false;
+  const items = state.items.map((item) => {
+    const update = updates[item.id];
+
+    if (!update) {
+      return item;
+    }
+
+    const nextItem = {
+      ...item,
+      likeCount: update.likeCount ?? item.likeCount,
+      savedByViewer: update.savedByViewer ?? item.savedByViewer,
+    };
+
+    hasChanges =
+      hasChanges ||
+      nextItem.likeCount !== item.likeCount ||
+      nextItem.savedByViewer !== item.savedByViewer;
+
+    return nextItem;
+  });
+
+  return hasChanges ? { ...state, items } : state;
 }
 
 function toSearchState(filters: StoryFilters): SearchFiltersState {

@@ -24,6 +24,12 @@ interface StoryScreenProps {
   onRequestLogin?: () => void;
   onGoBack?: () => void;
   onStoryDeleted?: () => void;
+  onStoryInteractionUpdated?: (update: {
+    storyId: string;
+    likeCount: number;
+    likedByViewer: boolean;
+    savedByViewer: boolean;
+  }) => void;
   onOpenContributorProfile?: (userId: string) => void;
   getStory?: typeof storyService.getStory;
   deleteStory?: typeof storyService.deleteStory;
@@ -496,6 +502,7 @@ export function StoryScreen({
   onRequestLogin,
   onGoBack,
   onStoryDeleted,
+  onStoryInteractionUpdated,
   onOpenContributorProfile,
   getStory = storyService.getStory,
   deleteStory = storyService.deleteStory,
@@ -689,6 +696,12 @@ export function StoryScreen({
           }
         : current.story,
     }));
+    onStoryInteractionUpdated?.({
+      storyId: previousStory.id,
+      likedByViewer,
+      likeCount,
+      savedByViewer: previousStory.savedByViewer,
+    });
 
     try {
       if (likedByViewer) {
@@ -701,6 +714,12 @@ export function StoryScreen({
         ...current,
         story: previousStory,
       }));
+      onStoryInteractionUpdated?.({
+        storyId: previousStory.id,
+        likedByViewer: previousStory.likedByViewer,
+        likeCount: previousStory.likeCount,
+        savedByViewer: previousStory.savedByViewer,
+      });
       setInteractionError(extractInteractionError(error, 'Failed to update like. Please try again.'));
     } finally {
       setState((current) => ({
@@ -739,6 +758,12 @@ export function StoryScreen({
           }
         : current.story,
     }));
+    onStoryInteractionUpdated?.({
+      storyId: previousStory.id,
+      likedByViewer: previousStory.likedByViewer,
+      likeCount: previousStory.likeCount,
+      savedByViewer,
+    });
 
     try {
       if (savedByViewer) {
@@ -751,6 +776,12 @@ export function StoryScreen({
         ...current,
         story: previousStory,
       }));
+      onStoryInteractionUpdated?.({
+        storyId: previousStory.id,
+        likedByViewer: previousStory.likedByViewer,
+        likeCount: previousStory.likeCount,
+        savedByViewer: previousStory.savedByViewer,
+      });
       setInteractionError(extractInteractionError(error, 'Failed to update bookmark. Please try again.'));
     } finally {
       setState((current) => ({

@@ -6,7 +6,7 @@ import { ROUTES } from './routes';
 import { useAuth, AuthScreen } from '../../features/auth';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { ProtectedScreen } from './ProtectedScreen';
-import { FeedScreen } from '../../features/feed';
+import { FeedScreen, FeedStoryInteractionUpdate } from '../../features/feed';
 import { ProfileCompletionScreen, ProfileScreen } from '../../features/profile';
 import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
@@ -267,6 +267,7 @@ export function RootNavigator() {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
   const pagerRef = useRef<ScrollView>(null);
@@ -485,6 +486,20 @@ export function RootNavigator() {
     navigateToSnapshot({ route: ROUTES.STORY_DETAIL, storyId });
   };
 
+  const handleStoryInteractionUpdated = useCallback(
+    (update: { storyId: string; likeCount: number; savedByViewer: boolean }) => {
+      setStoryInteractionUpdates((current) => ({
+        ...current,
+        [update.storyId]: {
+          ...current[update.storyId],
+          likeCount: update.likeCount,
+          savedByViewer: update.savedByViewer,
+        },
+      }));
+    },
+    [],
+  );
+
   const handleOpenUserProfile = (userId: string) => {
     if (user && String(user.id) === userId) {
       navigateToSnapshot({ route: ROUTES.PROFILE });
@@ -574,6 +589,7 @@ export function RootNavigator() {
           toast.success('Story deleted.');
           navigateToSnapshot({ route: ROUTES.FEED }, { resetStack: true, preserveCurrent: false });
         }}
+        onStoryInteractionUpdated={handleStoryInteractionUpdated}
         onOpenContributorProfile={handleOpenUserProfile}
       />
     );
@@ -629,7 +645,12 @@ export function RootNavigator() {
               fillContent
               hideHeader
             >
-              <FeedScreen onOpenStory={handleOpenStoryDetail} showSearchControls={false} searchScope="main" />
+              <FeedScreen
+                onOpenStory={handleOpenStoryDetail}
+                showSearchControls={false}
+                searchScope="main"
+                storyInteractionUpdates={storyInteractionUpdates}
+              />
             </ScreenShell>
           </View>
         </ScrollView>

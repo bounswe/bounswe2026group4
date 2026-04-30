@@ -343,11 +343,14 @@ describe('StoryScreen', () => {
   });
 
   it('toggles likes for authenticated users', async () => {
+    const onStoryInteractionUpdated = jest.fn();
+
     render(
       <StoryScreen
         storyId="story-001"
         session={userSession}
         getStory={async () => baseStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
       />,
     );
 
@@ -358,6 +361,12 @@ describe('StoryScreen', () => {
       expect(screen.getByText('♥ 28')).toBeTruthy();
     });
     expect(interactionService.likeStory).toHaveBeenCalledWith('story-001');
+    expect(onStoryInteractionUpdated).toHaveBeenCalledWith({
+      storyId: 'story-001',
+      likedByViewer: true,
+      likeCount: 28,
+      savedByViewer: false,
+    });
   });
 
   it('prompts unauthenticated users to log in before liking', async () => {
@@ -402,11 +411,14 @@ describe('StoryScreen', () => {
   });
 
   it('bookmarks stories for authenticated users with an optimistic update', async () => {
+    const onStoryInteractionUpdated = jest.fn();
+
     render(
       <StoryScreen
         storyId="story-001"
         session={userSession}
         getStory={async () => baseStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
       />,
     );
 
@@ -418,6 +430,12 @@ describe('StoryScreen', () => {
       expect(screen.getByText('Saved')).toBeTruthy();
     });
     expect(interactionService.bookmarkStory).toHaveBeenCalledWith('story-001');
+    expect(onStoryInteractionUpdated).toHaveBeenCalledWith({
+      storyId: 'story-001',
+      likedByViewer: false,
+      likeCount: 27,
+      savedByViewer: true,
+    });
   });
 
   it('removes bookmarks for authenticated users with an optimistic update', async () => {

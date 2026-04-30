@@ -70,7 +70,8 @@ describe('FeedScreen', () => {
     renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} showSearchControls={false} />);
 
     expect(await screen.findByText('Story 1')).toBeTruthy();
-    expect(screen.queryByLabelText('Sort by Most Recent')).toBeNull();
+    expect(screen.getByLabelText('Sort by Most Recent')).toBeTruthy();
+    expect(screen.getByLabelText('Sort by Most Popular')).toBeTruthy();
     expect(screen.queryByLabelText('Search stories')).toBeNull();
   });
 
@@ -160,6 +161,37 @@ describe('FeedScreen', () => {
     expect(await screen.findByText('Popular Story')).toBeTruthy();
     expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
     expect(screen.getByLabelText('Sort by Most Recent').props.accessibilityState.selected).toBe(false);
+  });
+
+  it('applies story interaction updates to visible feed cards', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(
+      makeFeedPage({
+        items: [makeStory('1', { likeCount: 0, savedByViewer: false })],
+        totalCount: 1,
+      }),
+    );
+    const { rerender } = render(
+      <SearchFiltersProvider>
+        <FeedScreen getFeed={getFeed} storyInteractionUpdates={{}} />
+      </SearchFiltersProvider>,
+    );
+
+    expect(await screen.findByText('♥ 0')).toBeTruthy();
+    expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
+
+    rerender(
+      <SearchFiltersProvider>
+        <FeedScreen
+          getFeed={getFeed}
+          storyInteractionUpdates={{ '1': { likeCount: 1, savedByViewer: true } }}
+        />
+      </SearchFiltersProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('♥ 1')).toBeTruthy();
+      expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
+    });
   });
 
   it('updates search query filters after debounce', async () => {
