@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ScrollView, StyleSheet, ViewStyle } from 'react-native';
 import { lightColors } from '../../../../../app/theme/colors';
@@ -7,6 +7,7 @@ import { ToastProvider } from '../../../../../shared/toast/ToastProvider';
 import { ROUTES } from '../../../../../app/navigation/routes';
 import { navigationRef } from '../../../../../app/navigation/navigationRef';
 import { submissionsService } from '../../../application/services';
+import { searchLocationSuggestions } from '../../../../search/application/services';
 import { SubmissionScreen } from '../SubmissionScreen';
 
 jest.mock('../../../../../shared/components/WebMapView', () => {
@@ -14,9 +15,19 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
   const { Pressable } = require('react-native');
 
   return {
-    WebMapView: ({ onMapPress }: { onMapPress?: (coords: { latitude: number; longitude: number }) => void }) => (
+    WebMapView: ({
+      markers,
+      onMapPress,
+      region,
+    }: {
+      markers?: Array<{ latitude: number; longitude: number }>;
+      onMapPress?: (coords: { latitude: number; longitude: number }) => void;
+      region?: { latitude: number; longitude: number };
+    }) => (
       <Pressable
         testID="story-location-map"
+        markers={markers}
+        region={region}
         onPress={(event: { nativeEvent?: { coordinate?: { latitude: number; longitude: number } } }) => {
           const coordinate = event.nativeEvent?.coordinate;
 
@@ -28,6 +39,10 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
     ),
   };
 });
+
+jest.mock('../../../../search/application/services', () => ({
+  searchLocationSuggestions: jest.fn(),
+}));
 
 jest.mock('../../../application/services', () => ({
   submissionsService: {
@@ -77,8 +92,10 @@ function getInputShellStyle(accessibilityLabel: string) {
 
 describe('SubmissionScreen', () => {
   beforeEach(() => {
+    jest.useRealTimers();
     jest.clearAllMocks();
     navigationRef.navigate = jest.fn();
+    (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
   });
 
   it('shows inline validation errors when required fields are missing', async () => {
@@ -190,6 +207,166 @@ describe('SubmissionScreen', () => {
     });
 
     expect(navigationRef.navigate).toHaveBeenCalledWith(ROUTES.FEED);
+  });
+
+  it('debounces story location search API calls by 300ms', async () => {
+    jest.useFakeTimers();
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Search story location'), 'Ha');
+
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(searchLocationSuggestions).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByLabelText('Search story location'), 'Hag');
+
+    act(() => {
+      jest.advanceTimersByTime(299);
+    });
+
+    expect(searchLocationSuggestions).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+
+    expect(searchLocationSuggestions).toHaveBeenCalledTimes(1);
+    expect(searchLocationSuggestions).toHaveBeenCalledWith('Hag');
+  });
+
+  it('updates submission coordinates and map marker when a location suggestion is selected', async () => {
+    jest.useFakeTimers();
+    (searchLocationSuggestions as jest.Mock).mockResolvedValue([
+      {
+        id: 'ayasofya',
+        title: 'Hagia Sophia',
+        subtitle: 'Sultanahmet, Istanbul, Turkiye',
+        latitude: 41.0086,
+        longitude: 28.9802,
+      },
+    ]);
+    (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
+
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Search story location'), 'Hag');
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    fireEvent.press(await screen.findByLabelText('Select Hagia Sophia'));
+
+    expect(screen.getByTestId('story-location-map').props.region).toEqual(
+      expect.objectContaining({ latitude: 41.0086, longitude: 28.9802 }),
+    );
+    expect(screen.getByTestId('story-location-map').props.markers).toEqual([
+      expect.objectContaining({ latitude: 41.0086, longitude: 28.9802, selected: true }),
+    ]);
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'The Dome');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story about the monument.');
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Hagia Sophia');
+    fireEvent.changeText(screen.getByLabelText('Year'), '537');
+    fireEvent.press(screen.getByText('Submit story'));
+
+    await waitFor(() => {
+      expect(submissionsService.createStory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: { latitude: 41.0086, longitude: 28.9802 },
+        }),
+      );
+    });
+  });
+
+  it('shows suggestions again when a selected location query is focused', async () => {
+    jest.useFakeTimers();
+    (searchLocationSuggestions as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'istanbul-city',
+          title: 'Istanbul',
+          subtitle: 'Turkiye',
+          latitude: 41.0082,
+          longitude: 28.9784,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'istanbul-airport',
+          title: 'Istanbul Airport',
+          subtitle: 'Arnavutkoy, Istanbul, Turkiye',
+          latitude: 41.2619,
+          longitude: 28.7419,
+        },
+      ]);
+
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Search story location'), 'Istanbul');
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    fireEvent.press(await screen.findByLabelText('Select Istanbul'));
+    expect(screen.queryByLabelText('Select Istanbul Airport')).toBeNull();
+
+    fireEvent(screen.getByLabelText('Search story location'), 'focus');
+
+    await waitFor(() => {
+      expect(searchLocationSuggestions).toHaveBeenCalledTimes(2);
+    });
+    expect(await screen.findByLabelText('Select Istanbul Airport')).toBeTruthy();
+  });
+
+  it('shows a graceful no results state for location autocomplete', async () => {
+    jest.useFakeTimers();
+    (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Search story location'), 'zzzz');
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(await screen.findByText('No results found.')).toBeTruthy();
+  });
+
+  it('handles location search errors while leaving manual map picking usable', async () => {
+    jest.useFakeTimers();
+    (searchLocationSuggestions as jest.Mock).mockRejectedValue(new Error('Network down'));
+    (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Search story location'), 'Hag');
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(await screen.findByText('Location search failed. You can still tap the map to place the pin.')).toBeTruthy();
+
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 40.9901, longitude: 29.0292 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Manual Pin');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story placed after search failed.');
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Kadikoy');
+    fireEvent.changeText(screen.getByLabelText('Year'), '1900');
+    fireEvent.press(screen.getByText('Submit story'));
+
+    await waitFor(() => {
+      expect(submissionsService.createStory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: { latitude: 40.9901, longitude: 29.0292 },
+        }),
+      );
+    });
   });
 
   it('shows an inline image validation error for oversized uploads', async () => {

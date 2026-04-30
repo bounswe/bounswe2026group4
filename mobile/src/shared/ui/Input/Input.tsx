@@ -29,6 +29,7 @@ interface InputProps {
   blurOnSubmit?: TextInputProps['blurOnSubmit'];
   submitBehavior?: TextInputProps['submitBehavior'];
   onSubmitEditing?: TextInputProps['onSubmitEditing'];
+  onFocus?: TextInputProps['onFocus'];
   onBlur?: TextInputProps['onBlur'];
   trailingActionLabel?: string;
   trailingActionAccessibilityLabel?: string;
@@ -43,6 +44,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({
   value,
   onChangeText,
   onSubmitEditing,
+  onFocus,
   onBlur,
   placeholder,
   secureTextEntry,
@@ -89,6 +91,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({
         placeholderTextColor={colors.muted}
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
+        onFocus={onFocus}
         onBlur={onBlur}
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
