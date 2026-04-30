@@ -127,6 +127,12 @@ export function mapPublicProfile(profile: Record<string, unknown>): ProfileEntit
         stats.published_story_count ??
         stats.publishedStoryCount,
     ),
+    followersCount: asNumber(profile.followers_count ?? profile.followersCount),
+    followingCount: asNumber(profile.following_count ?? profile.followingCount),
+    isFollowedByMe:
+      profile.is_followed_by_me === undefined && profile.isFollowedByMe === undefined
+        ? undefined
+        : Boolean(profile.is_followed_by_me ?? profile.isFollowedByMe),
     firstName: asNullableString(profile.first_name ?? profile.firstName ?? nestedProfile.first_name ?? nestedProfile.firstName),
     lastName: asNullableString(profile.last_name ?? profile.lastName ?? nestedProfile.last_name ?? nestedProfile.lastName),
     bio: asNullableString(profile.bio ?? nestedProfile.bio),
