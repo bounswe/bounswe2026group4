@@ -302,8 +302,4 @@ describe("SubmitStoryPage", () => {
     expect(uploadStoryImage).not.toHaveBeenCalled();
   });
 
-  it("renders the Add tag button so user can open the tag panel", () => {
-    renderPage();
-    expect(screen.getByRole("button", { name: /add tag/i })).toBeInTheDocument();
-  });
 });

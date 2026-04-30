@@ -8,6 +8,10 @@ vi.mock("@/services/tagService", () => ({
   createOrGetTag: vi.fn(),
 }));
 
+vi.mock("@/hooks/useToast", () => ({
+  useToast: () => ({ toast: { error: vi.fn(), success: vi.fn() } }),
+}));
+
 import { searchTags, createOrGetTag } from "@/services/tagService";
 import TagInput from "../TagInput";
 import { toSlug, getTagColorClass } from "@/utils/tagUtils";

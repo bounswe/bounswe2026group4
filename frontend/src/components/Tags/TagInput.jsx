@@ -4,10 +4,12 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { searchTags, createOrGetTag } from "@/services/tagService";
 import { toSlug, getTagColorClass } from "@/utils/tagUtils";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/useToast";
 
 const MAX_TAGS = 3;
 
 function TagInput({ value = [], onChange, disabled }) {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [rawSuggestions, setRawSuggestions] = useState([]);
@@ -67,7 +69,7 @@ function TagInput({ value = [], onChange, disabled }) {
       setInputValue("");
       if (next.length >= MAX_TAGS) setIsOpen(false);
     } catch {
-      // silently ignore — leave input intact
+      toast.error("Failed to create tag. Please try again.");
     } finally {
       setIsCreating(false);
     }
