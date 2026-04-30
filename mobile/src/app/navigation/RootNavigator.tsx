@@ -7,6 +7,7 @@ import { useAuth, AuthScreen } from '../../features/auth';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { ProtectedScreen } from './ProtectedScreen';
 import { FeedScreen, FeedStoryInteractionUpdate } from '../../features/feed';
+import { FeedSortOption } from '../../features/feed/domain/entities';
 import { ProfileCompletionScreen, ProfileScreen } from '../../features/profile';
 import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
@@ -267,6 +268,7 @@ export function RootNavigator() {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
   const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
@@ -647,6 +649,8 @@ export function RootNavigator() {
             >
               <FeedScreen
                 onOpenStory={handleOpenStoryDetail}
+                initialSort={feedSort}
+                onSortChange={setFeedSort}
                 showSearchControls={false}
                 searchScope="main"
                 storyInteractionUpdates={storyInteractionUpdates}

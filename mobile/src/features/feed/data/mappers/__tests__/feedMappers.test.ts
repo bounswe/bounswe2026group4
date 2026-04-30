@@ -48,4 +48,22 @@ describe('feed mappers', () => {
     expect(page.hasNextPage).toBe(false);
     expect(page.items[0].likeCount).toBe(3);
   });
+
+  it('maps legacy like count aliases from feed payloads', () => {
+    expect(
+      mapFeedItem({
+        id: 'story-2',
+        title: 'Legacy Story',
+        likes_count: '4',
+      }).likeCount,
+    ).toBe(4);
+
+    expect(
+      mapFeedItem({
+        id: 'story-3',
+        title: 'Total Likes Story',
+        total_likes: 8,
+      }).likeCount,
+    ).toBe(8);
+  });
 });

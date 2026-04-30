@@ -613,6 +613,31 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
+  it('keeps the selected feed sort after returning from story detail', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Sort by Most Popular');
+    fireEvent.press(screen.getByLabelText('Sort by Most Popular'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+    });
+
+    fireEvent.press(await screen.findByLabelText('Read story: Harbor Memory'));
+    expect(await screen.findByLabelText('Go back')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Go back'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Read story: Harbor Memory')).toBeTruthy();
+      expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('Sort by Most Recent').props.accessibilityState.selected).toBe(false);
+    });
+  });
+
   it('opens a public profile from the contributor name on story detail', async () => {
     render(
       <AppProviders>

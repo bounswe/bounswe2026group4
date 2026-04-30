@@ -16,6 +16,8 @@ interface FeedApiRecord {
   has_media?: unknown;
   like_count?: unknown;
   likeCount?: unknown;
+  likes_count?: unknown;
+  total_likes?: unknown;
   user_has_saved?: unknown;
   savedByViewer?: unknown;
 }
@@ -25,7 +27,16 @@ function asString(value: unknown, fallback = '') {
 }
 
 function asNumber(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
 }
 
 function asBoolean(value: unknown, fallback = false) {
@@ -104,7 +115,12 @@ export function mapFeedItem(value: unknown): FeedEntity {
     previewText: getPreviewText(record),
     submittedAt: asString(record.submitted_at),
     hasMedia: hasMedia(record),
-    likeCount: asNumber(record.likeCount) ?? asNumber(record.like_count) ?? 0,
+    likeCount:
+      asNumber(record.likeCount) ??
+      asNumber(record.like_count) ??
+      asNumber(record.likes_count) ??
+      asNumber(record.total_likes) ??
+      0,
     savedByViewer: asBoolean(record.savedByViewer, asBoolean(record.user_has_saved, false)),
   };
 }

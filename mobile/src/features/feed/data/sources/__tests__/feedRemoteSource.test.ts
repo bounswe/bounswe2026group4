@@ -57,6 +57,73 @@ describe('feedRemoteSource', () => {
     expect(getSpy).toHaveBeenCalledWith('/stories/feed/?page=2&page_size=10&sort_by=recent&location=Istanbul');
   });
 
+  it('hydrates missing feed interaction metadata from story detail', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockImplementation(async (url) => {
+      if (url === '/stories/feed/?page=1&page_size=10&sort_by=recent') {
+        return {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: 'story-1',
+              title: 'Legacy Feed Story',
+              user_has_saved: false,
+            },
+          ],
+        };
+      }
+
+      if (url === '/stories/story-1/') {
+        return {
+          id: 'story-1',
+          like_count: 4,
+          save_count: 2,
+          user_has_liked: true,
+          user_has_saved: true,
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const response = await feedRemoteSource.getFeed({
+      page: 1,
+      sort: 'recent',
+      filters: {},
+    });
+
+    expect(getSpy).toHaveBeenCalledWith('/stories/feed/?page=1&page_size=10&sort_by=recent');
+    expect(getSpy).toHaveBeenCalledWith('/stories/story-1/');
+    expect(response.results?.[0]).toMatchObject({
+      id: 'story-1',
+      like_count: 4,
+      save_count: 2,
+      user_has_liked: true,
+      user_has_saved: true,
+    });
+  });
+
+  it('does not hydrate interaction metadata when the feed already includes counts', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 'story-1',
+          title: 'Current Feed Story',
+          like_count: 4,
+        },
+      ],
+    });
+
+    const response = await feedRemoteSource.getFeed({});
+
+    expect(getSpy).toHaveBeenCalledTimes(1);
+    expect(response.results?.[0]).toMatchObject({ like_count: 4 });
+  });
+
   it('sends bounding box params instead of text location when location was geocoded', async () => {
     const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
       count: 0,

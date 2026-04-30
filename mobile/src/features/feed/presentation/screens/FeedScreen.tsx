@@ -18,6 +18,8 @@ import { createInitialFeedUiState } from '../state/feedUiState';
 
 interface FeedScreenProps {
   initialFilters?: StoryFilters;
+  initialSort?: FeedSortOption;
+  onSortChange?: (sort: FeedSortOption) => void;
   onOpenStory?: (storyId: string) => void;
   getFeed?: typeof storyService.getFeed;
   showSearchControls?: boolean;
@@ -39,6 +41,8 @@ export interface FeedStoryInteractionUpdate {
 
 export function FeedScreen({
   initialFilters = EMPTY_FILTERS,
+  initialSort = 'recent',
+  onSortChange,
   onOpenStory,
   getFeed = storyService.getFeed,
   showSearchControls = true,
@@ -49,7 +53,7 @@ export function FeedScreen({
   const { filters, refreshToken, isHydrated, setFilters } = useSearchFilters(searchScope);
   const debouncedQuery = useDebounce(filters.query, 350);
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
-  const [state, setState] = useState(() => createInitialFeedUiState(initialFilters));
+  const [state, setState] = useState(() => createInitialFeedUiState(initialFilters, initialSort));
   const stateRef = useRef(state);
   const storyInteractionUpdatesRef = useRef(storyInteractionUpdates);
   const hasRequestedNextPage = useRef(false);
@@ -178,6 +182,7 @@ export function FeedScreen({
       return;
     }
 
+    onSortChange?.(sort);
     loadPage(1, 'initial', { filters: activeFilters, sort });
   };
 

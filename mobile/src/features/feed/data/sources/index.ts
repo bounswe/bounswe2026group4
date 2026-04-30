@@ -35,18 +35,23 @@ export const feedRemoteSource = {
     };
 
     const bounds = filters.locationBounds;
+    const responseResults = response.results ?? [];
 
     if (!bounds) {
-      return response;
+      return {
+        ...response,
+        results: await hydrateMissingInteractionMetadata(responseResults),
+      };
     }
 
-    const results = (response.results ?? []).filter((story) => isStoryWithinBounds(story, bounds));
+    const results = responseResults.filter((story) => isStoryWithinBounds(story, bounds));
+    const hydratedResults = await hydrateMissingInteractionMetadata(results);
 
     return {
       ...response,
-      count: results.length,
+      count: hydratedResults.length,
       next: null,
-      results,
+      results: hydratedResults,
     };
   },
 };
@@ -115,6 +120,58 @@ function isStoryWithinBounds(
     latitude <= bounds.latMax &&
     longitude >= bounds.lngMin &&
     longitude <= bounds.lngMax
+  );
+}
+
+async function hydrateMissingInteractionMetadata(results: unknown[]) {
+  return Promise.all(
+    results.map(async (story) => {
+      if (!shouldHydrateInteractionMetadata(story)) {
+        return story;
+      }
+
+      const record = story as Record<string, unknown>;
+      const id = typeof record.id === 'string' || typeof record.id === 'number' ? String(record.id) : undefined;
+
+      if (!id) {
+        return story;
+      }
+
+      try {
+        const detail = await apiClient.get<Record<string, unknown>>(`/stories/${id}/`);
+
+        if (!detail || typeof detail !== 'object') {
+          return story;
+        }
+
+        return {
+          ...record,
+          like_count: detail.like_count ?? detail.likeCount ?? record.like_count,
+          save_count: detail.save_count ?? detail.saveCount ?? record.save_count,
+          user_has_liked: detail.user_has_liked ?? detail.likedByViewer ?? record.user_has_liked,
+          user_has_saved: detail.user_has_saved ?? detail.savedByViewer ?? record.user_has_saved,
+        };
+      } catch {
+        return story;
+      }
+    }),
+  );
+}
+
+function shouldHydrateInteractionMetadata(story: unknown) {
+  if (!story || typeof story !== 'object') {
+    return false;
+  }
+
+  const record = story as Record<string, unknown>;
+  const hasStoryCardShape = typeof record.title === 'string';
+
+  return (
+    hasStoryCardShape &&
+    record.like_count === undefined &&
+    record.likeCount === undefined &&
+    record.likes_count === undefined &&
+    record.total_likes === undefined
   );
 }
 

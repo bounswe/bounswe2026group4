@@ -132,7 +132,23 @@ describe('FeedScreen', () => {
     });
   });
 
+  it('uses the provided initial sort for the first feed request', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} initialSort="popular" />);
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenCalledWith({
+        page: 1,
+        sort: 'popular',
+        filters: {},
+      });
+    });
+    expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+  });
+
   it('switches to Most Popular and persists the selected sort in state', async () => {
+    const onSortChange = jest.fn();
     const getFeed = jest
       .fn<Promise<FeedPageEntity>, [any]>()
       .mockResolvedValueOnce(makeFeedPage())
@@ -145,7 +161,7 @@ describe('FeedScreen', () => {
         }),
       );
 
-    renderScreen(<FeedScreen getFeed={getFeed} />);
+    renderScreen(<FeedScreen getFeed={getFeed} onSortChange={onSortChange} />);
 
     expect(await screen.findByText('Story 1')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Sort by Most Popular'));
@@ -159,6 +175,7 @@ describe('FeedScreen', () => {
     });
 
     expect(await screen.findByText('Popular Story')).toBeTruthy();
+    expect(onSortChange).toHaveBeenCalledWith('popular');
     expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
     expect(screen.getByLabelText('Sort by Most Recent').props.accessibilityState.selected).toBe(false);
   });
