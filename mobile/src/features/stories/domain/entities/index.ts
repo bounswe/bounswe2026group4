@@ -30,6 +30,7 @@ export interface StoryEntity {
   tags?: string[];
   likeCount: number;
   likedByViewer: boolean;
+  savedByViewer: boolean;
   comments: StoryCommentPreview[];
 }
 

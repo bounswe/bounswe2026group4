@@ -11,6 +11,8 @@ const story: FeedEntity = {
   previewText: 'Once upon a time there was a bridge that spanned the river in the heart of the old city.',
   submittedAt: '2026-03-18T10:00:00Z',
   hasMedia: true,
+  likeCount: 14,
+  savedByViewer: false,
 };
 
 describe('FeedCard', () => {
@@ -21,8 +23,10 @@ describe('FeedCard', () => {
     expect(screen.getByText('Old City')).toBeTruthy();
     expect(screen.getByText('1453')).toBeTruthy();
     expect(screen.getByText('18 Mar 2026')).toBeTruthy();
+    expect(screen.getByText('♥ 14')).toBeTruthy();
     expect(screen.getByText(story.previewText)).toBeTruthy();
     expect(screen.getByLabelText('Has media')).toBeTruthy();
+    expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
   });
 
   it('navigates when the card is pressed', () => {
@@ -38,5 +42,12 @@ describe('FeedCard', () => {
     render(<FeedCard story={{ ...story, hasMedia: false }} />);
 
     expect(screen.queryByLabelText('Has media')).toBeNull();
+  });
+
+  it('renders the filled bookmark indicator for saved stories', () => {
+    render(<FeedCard story={{ ...story, savedByViewer: true }} />);
+
+    expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
+    expect(screen.queryByLabelText('Not bookmarked story')).toBeNull();
   });
 });

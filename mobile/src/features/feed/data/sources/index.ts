@@ -18,7 +18,7 @@ export const feedRemoteSource = {
     const params = buildQueryString({
       page,
       page_size: DEFAULT_PAGE_SIZE,
-      ...(hasSearch ? {} : { sort_by: sort }),
+      sort_by: sort,
       ...normalizeStoryFilters(filters),
     });
 

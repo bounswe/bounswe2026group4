@@ -53,6 +53,8 @@ interface StoryRecord {
   like_count?: unknown;
   likedByViewer?: unknown;
   user_has_liked?: unknown;
+  savedByViewer?: unknown;
+  user_has_saved?: unknown;
   comments?: unknown;
 }
 
@@ -388,6 +390,7 @@ export function mapStory(value: unknown): StoryEntity {
     tags: getTags(story),
     likeCount: asNumber(story.likeCount) ?? asNumber(story.like_count) ?? 0,
     likedByViewer: asBoolean(story.likedByViewer, asBoolean(story.user_has_liked, false)),
+    savedByViewer: asBoolean(story.savedByViewer, asBoolean(story.user_has_saved, false)),
     comments,
   };
 }

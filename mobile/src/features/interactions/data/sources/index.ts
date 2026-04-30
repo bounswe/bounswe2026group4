@@ -54,6 +54,14 @@ export const interactionsRemoteSource = {
   async unlikeStory(storyId: string) {
     await apiClient.delete(`/stories/${storyId}/like/`);
   },
+
+  async bookmarkStory(storyId: string) {
+    await apiClient.post(`/stories/${storyId}/bookmark/`);
+  },
+
+  async unbookmarkStory(storyId: string) {
+    await apiClient.delete(`/stories/${storyId}/bookmark/`);
+  },
 };
 
 export const interactionsLocalSource = {};

@@ -18,6 +18,7 @@ describe('story mappers', () => {
       tags: ['Walls', 'Conquest'],
       like_count: 7,
       user_has_liked: true,
+      user_has_saved: true,
       media_items: [
         {
           id: 1,
@@ -49,6 +50,7 @@ describe('story mappers', () => {
       tags: ['Walls', 'Conquest'],
       likeCount: 7,
       likedByViewer: true,
+      savedByViewer: true,
       comments: [],
     });
   });

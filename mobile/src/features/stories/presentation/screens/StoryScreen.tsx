@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
-import { Calendar, Clock, MapPin, Trash2 } from 'lucide-react-native';
+import { Bookmark, Calendar, Clock, MapPin, Trash2 } from 'lucide-react-native';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -710,6 +710,56 @@ export function StoryScreen({
     }
   };
 
+  const handleBookmarkPress = async () => {
+    if (!state.story || state.isBookmarkPending) {
+      return;
+    }
+
+    if (!state.isAuthenticated) {
+      setState((current) => ({
+        ...current,
+        loginPromptVisible: true,
+      }));
+      onRequestLogin?.();
+      return;
+    }
+
+    const previousStory = state.story;
+    const savedByViewer = !previousStory.savedByViewer;
+
+    setInteractionError(undefined);
+    setState((current) => ({
+      ...current,
+      isBookmarkPending: true,
+      loginPromptVisible: false,
+      story: current.story
+        ? {
+            ...current.story,
+            savedByViewer,
+          }
+        : current.story,
+    }));
+
+    try {
+      if (savedByViewer) {
+        await interactionService.bookmarkStory(previousStory.id);
+      } else {
+        await interactionService.unbookmarkStory(previousStory.id);
+      }
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        story: previousStory,
+      }));
+      setInteractionError(extractInteractionError(error, 'Failed to update bookmark. Please try again.'));
+    } finally {
+      setState((current) => ({
+        ...current,
+        isBookmarkPending: false,
+      }));
+    }
+  };
+
   const handleCommentLoginRequest = () => {
     setState((current) => ({
       ...current,
@@ -964,39 +1014,78 @@ export function StoryScreen({
         onLayout={(event) => setNarrativeTop(event.nativeEvent.layout.y)}
       />
 
-      <Pressable
-        onPress={() => {
-          void handleLikePress();
-        }}
-        disabled={state.isLikePending}
-        style={{
-          marginTop: spacing.xl,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.lg,
-          borderRadius: 999,
-          alignSelf: 'flex-start',
-          backgroundColor: story.likedByViewer ? colors.primary : colors.surface,
-          borderWidth: 1,
-          borderColor: colors.primary,
-          opacity: state.isLikePending ? 0.7 : 1,
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={story.likedByViewer ? 'Unlike story' : 'Like story'}
-        accessibilityState={{ disabled: state.isLikePending, selected: story.likedByViewer }}
-      >
-        <Text
-          style={{
-            color: story.likedByViewer ? colors.background : colors.primary,
-            fontWeight: '700',
+      <View style={{ marginTop: spacing.xl, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Pressable
+          onPress={() => {
+            void handleLikePress();
           }}
+          disabled={state.isLikePending}
+          style={{
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.lg,
+            borderRadius: 999,
+            alignSelf: 'flex-start',
+            backgroundColor: story.likedByViewer ? colors.primary : colors.surface,
+            borderWidth: 1,
+            borderColor: colors.primary,
+            opacity: state.isLikePending ? 0.7 : 1,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={story.likedByViewer ? 'Unlike story' : 'Like story'}
+          accessibilityState={{ disabled: state.isLikePending, selected: story.likedByViewer }}
         >
-          {story.likedByViewer ? '♥' : '♡'} {story.likeCount}
-        </Text>
-      </Pressable>
+          <Text
+            style={{
+              color: story.likedByViewer ? colors.background : colors.primary,
+              fontWeight: '700',
+            }}
+          >
+            {story.likedByViewer ? '♥' : '♡'} {story.likeCount}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            void handleBookmarkPress();
+          }}
+          disabled={state.isBookmarkPending}
+          style={{
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.lg,
+            borderRadius: 999,
+            alignSelf: 'flex-start',
+            backgroundColor: story.savedByViewer ? colors.primary : colors.surface,
+            borderWidth: 1,
+            borderColor: colors.primary,
+            opacity: state.isBookmarkPending ? 0.7 : 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.xs,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={story.savedByViewer ? 'Remove bookmark' : 'Bookmark story'}
+          accessibilityState={{ disabled: state.isBookmarkPending, selected: story.savedByViewer }}
+        >
+          <Bookmark
+            size={18}
+            color={story.savedByViewer ? colors.background : colors.primary}
+            fill={story.savedByViewer ? colors.background : 'transparent'}
+            strokeWidth={2.2}
+          />
+          <Text
+            style={{
+              color: story.savedByViewer ? colors.background : colors.primary,
+              fontWeight: '700',
+            }}
+          >
+            {story.savedByViewer ? 'Saved' : 'Save'}
+          </Text>
+        </Pressable>
+      </View>
 
       {state.loginPromptVisible ? (
         <Text style={{ marginTop: spacing.sm, color: colors.muted }}>
-          Log in to like or comment on this story.
+          Log in to like, bookmark, or comment on this story.
         </Text>
       ) : null}
       {interactionError ? (

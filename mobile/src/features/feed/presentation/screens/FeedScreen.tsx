@@ -12,7 +12,7 @@ import {
   toSearchParams,
   useSearchFilters,
 } from '../../../search/presentation/context/SearchFiltersContext';
-import { FeedPageEntity } from '../../domain/entities';
+import { FeedPageEntity, FeedSortOption } from '../../domain/entities';
 import { FeedCard } from '../components/FeedCard';
 import { createInitialFeedUiState } from '../state/feedUiState';
 
@@ -25,6 +25,10 @@ interface FeedScreenProps {
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
+const SORT_OPTIONS: Array<{ value: FeedSortOption; label: string }> = [
+  { value: 'recent', label: 'Most Recent' },
+  { value: 'popular', label: 'Most Popular' },
+];
 
 export function FeedScreen({
   initialFilters = EMPTY_FILTERS,
@@ -93,6 +97,7 @@ export function FeedScreen({
       setState((current) => ({
         ...current,
         filters: nextFilters,
+        sort: nextSort,
         isLoading: mode === 'initial',
         isRefreshing: mode === 'refresh',
         isLoadingMore: mode === 'append',
@@ -149,6 +154,14 @@ export function FeedScreen({
     loadPage(1, 'initial', { filters: activeFilters });
   };
 
+  const handleSortChange = (sort: FeedSortOption) => {
+    if (sort === state.sort) {
+      return;
+    }
+
+    loadPage(1, 'initial', { filters: activeFilters, sort });
+  };
+
   const renderControls = () => {
     if (!showSearchControls) {
       return null;
@@ -160,20 +173,47 @@ export function FeedScreen({
           <Text style={{ color: colors.muted, fontSize: typography.caption }}>
             {state.totalCount > 0 ? `${state.totalCount} stories` : hasActiveFilters ? 'No matching stories yet' : 'Newest stories'}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sort: Most Recent"
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Feed sort"
             style={{
-              paddingHorizontal: spacing.sm + 4,
-              paddingVertical: spacing.xs + 2,
+              flexDirection: 'row',
               borderRadius: 999,
               borderWidth: 1,
               borderColor: colors.border,
+              overflow: 'hidden',
               backgroundColor: colors.infoSurface,
             }}
           >
-            <Text style={{ color: colors.text, fontWeight: '700' }}>Most Recent</Text>
-          </Pressable>
+            {SORT_OPTIONS.map((option) => {
+              const isSelected = state.sort === option.value;
+
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Sort by ${option.label}`}
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => handleSortChange(option.value)}
+                  style={{
+                    paddingHorizontal: spacing.sm + 4,
+                    paddingVertical: spacing.xs + 2,
+                    backgroundColor: isSelected ? colors.primary : colors.infoSurface,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isSelected ? colors.background : colors.text,
+                      fontWeight: '700',
+                      fontSize: typography.caption,
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <StorySearchControls helperText="Search by title or place." scope={searchScope} />

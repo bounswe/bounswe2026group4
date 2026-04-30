@@ -19,4 +19,10 @@ export const interactionService = {
   async unlikeStory(storyId: string): Promise<void> {
     return repository.unlikeStory(storyId);
   },
+  async bookmarkStory(storyId: string): Promise<void> {
+    return repository.bookmarkStory(storyId);
+  },
+  async unbookmarkStory(storyId: string): Promise<void> {
+    return repository.unbookmarkStory(storyId);
+  },
 };

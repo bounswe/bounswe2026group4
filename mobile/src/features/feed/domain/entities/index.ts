@@ -1,4 +1,4 @@
-export type FeedSortOption = 'recent';
+export type FeedSortOption = 'recent' | 'popular';
 
 export interface FeedEntity {
   id: string;
@@ -8,6 +8,8 @@ export interface FeedEntity {
   previewText: string;
   submittedAt: string;
   hasMedia: boolean;
+  likeCount: number;
+  savedByViewer: boolean;
 }
 
 export interface FeedPageEntity {

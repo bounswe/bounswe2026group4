@@ -20,7 +20,24 @@ describe('feedRemoteSource', () => {
       filters: { q: 'harbor' },
     });
 
-    expect(getSpy).toHaveBeenCalledWith('/stories/search/?page=1&page_size=10&q=harbor');
+    expect(getSpy).toHaveBeenCalledWith('/stories/search/?page=1&page_size=10&sort_by=recent&q=harbor');
+  });
+
+  it('sends popular sorting to the feed endpoint', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    });
+
+    await feedRemoteSource.getFeed({
+      page: 1,
+      sort: 'popular',
+      filters: {},
+    });
+
+    expect(getSpy).toHaveBeenCalledWith('/stories/feed/?page=1&page_size=10&sort_by=popular');
   });
 
   it('uses the feed endpoint when no text query is provided', async () => {
