@@ -1024,6 +1024,7 @@ class TestStoryTimelineView:
         response = client.get(TIMELINE_URL)
         card = response.data['results'][0]
         for field in ('id', 'title', 'time_type', 'year', 'year_start', 'year_end',
+                      'date_value', 'time_value', 'temporal_coverage',
                       'location_lat', 'location_lng', 'photo_url'):
             assert field in card, f'Missing field: {field}'
 
@@ -1079,3 +1080,101 @@ class TestStoryTimelineView:
         assert response.data['count'] == 15
         assert len(response.data['results']) == 10
         assert response.data['next'] is not None
+
+    def test_exact_date_story_included_in_timeline(self, client):
+        import datetime
+        make_story(
+            title='Exact Date Story',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        response = client.get(TIMELINE_URL)
+        assert response.data['count'] == 1
+        card = response.data['results'][0]
+        assert card['title'] == 'Exact Date Story'
+        assert card['date_value'] == '1950-06-15'
+        assert card['time_value'] is None
+
+    def test_exact_date_story_temporal_coverage_is_edtf(self, client):
+        import datetime
+        make_story(
+            title='Exact Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1923, 10, 29),
+        )
+        response = client.get(TIMELINE_URL)
+        card = response.data['results'][0]
+        assert card['temporal_coverage'] == '1923-10-29'
+
+    def test_exact_date_with_time_value_temporal_coverage_includes_time(self, client):
+        import datetime
+        make_story(
+            title='Dated with Time',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1923, 10, 29),
+            time_value=datetime.time(9, 30),
+        )
+        response = client.get(TIMELINE_URL)
+        card = response.data['results'][0]
+        assert card['temporal_coverage'] == '1923-10-29T09:30'
+        assert card['time_value'] == '09:30:00'
+
+    def test_temporal_coverage_for_exact_year_story(self, client):
+        make_story(title='Exact Year', time_type=Story.TIME_EXACT, year=1950)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['temporal_coverage'] == '1950'
+
+    def test_temporal_coverage_for_decade_story(self, client):
+        make_story(title='Eighties', time_type=Story.TIME_DECADE, year=1980)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['temporal_coverage'] == '198X'
+
+    def test_temporal_coverage_for_year_range_story(self, client):
+        make_story(
+            title='Range',
+            time_type=Story.TIME_RANGE,
+            year=None,
+            year_start=1940,
+            year_end=1960,
+        )
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['temporal_coverage'] == '1940/1960'
+
+    def test_exact_date_year_from_filter(self, client):
+        import datetime
+        make_story(
+            title='Old Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1800, 1, 1),
+        )
+        make_story(
+            title='New Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        response = client.get(TIMELINE_URL, {'year_from': 1900})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'New Date'
+
+    def test_exact_date_year_to_filter(self, client):
+        import datetime
+        make_story(
+            title='Old Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1800, 1, 1),
+        )
+        make_story(
+            title='New Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        response = client.get(TIMELINE_URL, {'year_to': 1900})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Old Date'

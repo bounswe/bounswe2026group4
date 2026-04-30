@@ -752,3 +752,60 @@ class TestGetStoryTimeline:
         make_timeline_media_item(s1, media_type=MediaType.IMAGE)
         make_story(title='No Image', year=1910)
         assert get_story_timeline(has_image=None).count() == 2
+
+    def test_exact_date_included_by_year_from_filter(self):
+        import datetime
+        s = make_story(
+            title='Exact Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        assert get_story_timeline(year_from=1950).count() == 1
+        assert get_story_timeline(year_from=1950).first().id == s.id
+
+    def test_exact_date_excluded_by_year_from_filter(self):
+        import datetime
+        make_story(
+            title='Exact Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        assert get_story_timeline(year_from=1951).count() == 0
+
+    def test_exact_date_included_by_year_to_filter(self):
+        import datetime
+        s = make_story(
+            title='Exact Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        assert get_story_timeline(year_to=1950).count() == 1
+        assert get_story_timeline(year_to=1950).first().id == s.id
+
+    def test_exact_date_excluded_by_year_to_filter(self):
+        import datetime
+        make_story(
+            title='Exact Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        assert get_story_timeline(year_to=1949).count() == 0
+
+    def test_exact_date_sorts_by_calendar_year(self):
+        import datetime
+        s_date = make_story(
+            title='Exact 1950-06-15',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        s_before = make_story(title='Exact Year 1940', year=1940)
+        s_after = make_story(title='Exact Year 1960', year=1960)
+        results = list(get_story_timeline())
+        assert results[0].id == s_before.id   # 1940
+        assert results[1].id == s_date.id     # 1950
+        assert results[2].id == s_after.id    # 1960
