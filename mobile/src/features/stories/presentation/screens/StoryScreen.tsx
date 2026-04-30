@@ -50,10 +50,6 @@ function getDisplayNameWithYouLabel(name: string, isCurrentUser: boolean) {
   return isCurrentUser ? `${name} (You)` : name;
 }
 
-function isAnonymousContributorName(name: string) {
-  return name.trim().toLowerCase() === 'anonymous';
-}
-
 function getReadingTimeLabel(paragraphs: string[]) {
   const wordCount = paragraphs.join(' ').trim().split(/\s+/).filter(Boolean).length;
   const minutes = Math.max(1, Math.ceil(wordCount / 200));
@@ -585,7 +581,7 @@ export function StoryScreen({
     let isMounted = true;
 
     const story = state.story;
-    if (story?.isContributorAnonymous || isAnonymousContributorName(story?.contributorName ?? '')) {
+    if (story?.isContributorAnonymous) {
       setContributorVisibilityOverride(null);
       setContributorPhotoUrl(null);
       return () => {
@@ -809,10 +805,10 @@ export function StoryScreen({
   const isStoryOwner = session?.user?.id !== undefined && String(session.user.id) === story.contributorUserId;
   const canDeleteStory = session?.role === roles.admin || isStoryOwner;
   const contributorName = contributorVisibilityOverride ?? getResolvedContributorName(story);
-  const shouldShowContributor =
-    !story.isContributorAnonymous && contributorName.trim().length > 0 && !isAnonymousContributorName(contributorName);
+  const shouldShowContributor = contributorName.trim().length > 0;
   const contributorDisplayName = shouldShowContributor ? getDisplayNameWithYouLabel(contributorName, isStoryOwner) : undefined;
-  const canOpenContributorProfile = shouldShowContributor && Boolean(story.contributorUserId);
+  const canOpenContributorProfile =
+    shouldShowContributor && !story.isContributorAnonymous && Boolean(story.contributorUserId);
   const readingTimeLabel = getReadingTimeLabel(story.narrative);
   const timePeriodLabel = getStoryTimePeriodLabel(story);
   const tags = story.tags ?? [];

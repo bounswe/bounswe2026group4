@@ -53,7 +53,7 @@ describe('story mappers', () => {
     });
   });
 
-  it('marks anonymous fallback when a contributor exists but their public name is hidden', () => {
+  it('keeps anonymous fallback when a contributor exists but their public name is hidden', () => {
     const result = mapStory({
       id: 52,
       user: 7,
@@ -70,12 +70,12 @@ describe('story mappers', () => {
     });
 
     expect(result.contributorName).toBe('Anonymous');
-    expect(result.isContributorAnonymous).toBe(true);
+    expect(result.isContributorAnonymous).toBe(false);
     expect(result.mediaUrl).toBeUndefined();
     expect(result.tags).toEqual([]);
   });
 
-  it('maps normalized anonymous stories without contributor-facing data', () => {
+  it('maps normalized anonymous stories with the anonymous contributor label', () => {
     const result = mapStory({
       id: 53,
       user: 7,
@@ -93,7 +93,7 @@ describe('story mappers', () => {
       media_items: [],
     });
 
-    expect(result.contributorName).toBe('');
+    expect(result.contributorName).toBe('Anonymous');
     expect(result.isContributorAnonymous).toBe(true);
     expect(result.timePeriod).toBe('1980/1989');
     expect(result.temporalCoverageIso8601).toBe('1980/1989');
