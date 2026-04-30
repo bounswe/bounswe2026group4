@@ -37,7 +37,7 @@ export function MapCard({
   onPreviewLayout,
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
-  const selectedMarker = markers.find((marker) => marker.id === selectedMarkerId) ?? markers[0];
+  const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : undefined;
   const [currentRegion, setCurrentRegion] = useState(region);
   const mapContentKey = useMemo(
     () => (markers.length ? markers.map((marker) => `${marker.id}:${marker.latitude}:${marker.longitude}`).join('|') : 'empty'),
@@ -174,7 +174,9 @@ export function MapCard({
         </Text>
 
         {!selectedMarker ? (
-          <Text style={{ color: colors.muted }}>No stories match the current filters.</Text>
+          <Text style={{ color: colors.muted }}>
+            {markers.length ? 'Select a story marker to preview.' : 'No stories match the current filters.'}
+          </Text>
         ) : selectedMarker.isCluster ? (
           <ScrollView
             style={{ maxHeight: 240 }}

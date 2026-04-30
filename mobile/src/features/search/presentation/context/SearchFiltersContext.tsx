@@ -5,11 +5,19 @@ import { StoryFilters } from '../../../stories/domain/repositories';
 import { LocationBounds } from '../../application/services';
 
 export type SearchFilterScope = 'feed' | 'map' | 'main';
+export type ProximityRadiusKm = 1 | 10 | 100;
+
+export interface ProximityCoordinates {
+  latitude: number;
+  longitude: number;
+}
 
 export interface SearchFiltersState {
   query: string;
   location: string;
   locationBounds?: LocationBounds;
+  proximityRadiusKm?: ProximityRadiusKm;
+  proximityCoordinates?: ProximityCoordinates;
   timeFrom: string;
   timeTo: string;
 }
@@ -29,6 +37,8 @@ const initialFilters: SearchFiltersState = {
   query: '',
   location: '',
   locationBounds: undefined,
+  proximityRadiusKm: undefined,
+  proximityCoordinates: undefined,
   timeFrom: '',
   timeTo: '',
 };
@@ -139,6 +149,8 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
             ...currentFilters,
             [key]: '',
             ...(key === 'location' ? { locationBounds: undefined } : {}),
+            ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
+            ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
           }),
           { refresh: true },
         );
@@ -192,13 +204,21 @@ export function toSearchParams(filters: SearchFiltersState): StoryFilters {
   const yearTo =
     yearToCandidate !== undefined && yearFrom !== undefined && yearToCandidate < yearFrom ? undefined : yearToCandidate;
 
-  return {
+  const params: StoryFilters = {
     q: filters.query.trim() || undefined,
     location: filters.location.trim() || undefined,
     locationBounds: filters.locationBounds,
     yearFrom,
     yearTo,
   };
+
+  if (filters.proximityRadiusKm && filters.proximityCoordinates) {
+    params.latitude = filters.proximityCoordinates.latitude;
+    params.longitude = filters.proximityCoordinates.longitude;
+    params.radiusKm = filters.proximityRadiusKm;
+  }
+
+  return params;
 }
 
 function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): SearchFiltersState {
@@ -206,8 +226,31 @@ function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): S
     query: filters?.query ?? '',
     location: filters?.location ?? '',
     locationBounds: normalizeLocationBounds(filters?.locationBounds),
+    proximityRadiusKm: normalizeProximityRadius(filters?.proximityRadiusKm),
+    proximityCoordinates: normalizeProximityCoordinates(filters?.proximityCoordinates),
     timeFrom: filters?.timeFrom ?? '',
     timeTo: filters?.timeTo ?? '',
+  };
+}
+
+function normalizeProximityRadius(radius?: number | null): ProximityRadiusKm | undefined {
+  return radius === 1 || radius === 10 || radius === 100 ? radius : undefined;
+}
+
+function normalizeProximityCoordinates(coordinates?: ProximityCoordinates | null): ProximityCoordinates | undefined {
+  if (!coordinates) {
+    return undefined;
+  }
+
+  const { latitude, longitude } = coordinates;
+
+  if (![latitude, longitude].every(Number.isFinite)) {
+    return undefined;
+  }
+
+  return {
+    latitude,
+    longitude,
   };
 }
 

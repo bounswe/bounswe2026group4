@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
+import { DeviceCoordinates, getCurrentDeviceCoordinates } from '../../../../core/services/deviceLocation';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
-import { DEFAULT_FROM_YEAR, DEFAULT_TO_YEAR, FilterPanel } from '../../../../shared/components/FilterPanel';
+import {
+  FilterPanel,
+  ProximityRadiusOption,
+} from '../../../../shared/components/FilterPanel';
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
 import { geocodeLocationQuery, LocationBounds } from '../../application/services';
@@ -19,6 +23,10 @@ function buildChips(
 
   if (filters.location.trim()) {
     chips.push({ key: 'location', label: `Location: ${filters.location.trim()}` });
+  }
+
+  if (filters.proximityRadiusKm && filters.proximityCoordinates) {
+    chips.push({ key: 'proximityRadiusKm', label: `Distance: ${filters.proximityRadiusKm} km` });
   }
 
   if (filters.timeFrom.trim()) {
@@ -46,10 +54,16 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const [draftLocationBounds, setDraftLocationBounds] = useState<LocationBounds | undefined>();
   const [isLocationResolving, setIsLocationResolving] = useState(false);
   const [locationStatusText, setLocationStatusText] = useState<string | undefined>();
-  const [draftTimeFrom, setDraftTimeFrom] = useState(DEFAULT_FROM_YEAR);
-  const [draftTimeTo, setDraftTimeTo] = useState(DEFAULT_TO_YEAR);
+  const [draftProximityRadiusKm, setDraftProximityRadiusKm] = useState<ProximityRadiusOption | undefined>();
+  const [draftProximityCoordinates, setDraftProximityCoordinates] = useState<DeviceCoordinates | undefined>();
+  const [isProximityResolving, setIsProximityResolving] = useState(false);
+  const [proximityStatusText, setProximityStatusText] = useState<string | undefined>();
+  const [isProximityError, setIsProximityError] = useState(false);
+  const [draftTimeFrom, setDraftTimeFrom] = useState('');
+  const [draftTimeTo, setDraftTimeTo] = useState('');
   const debouncedDraftLocation = useDebounce(draftLocation, 500);
   const locationRequestIdRef = useRef(0);
+  const proximityRequestIdRef = useRef(0);
 
   const chips = useMemo(() => buildChips(filters), [filters]);
 
@@ -58,8 +72,15 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     setDraftLocationBounds(filters.locationBounds);
     setLocationStatusText(undefined);
     setIsLocationResolving(false);
-    setDraftTimeFrom(filters.timeFrom || DEFAULT_FROM_YEAR);
-    setDraftTimeTo(filters.timeTo || DEFAULT_TO_YEAR);
+    setDraftProximityRadiusKm(filters.proximityRadiusKm);
+    setDraftProximityCoordinates(filters.proximityCoordinates);
+    setProximityStatusText(
+      filters.proximityRadiusKm && filters.proximityCoordinates ? 'Using your current location.' : undefined,
+    );
+    setIsProximityError(false);
+    setIsProximityResolving(false);
+    setDraftTimeFrom(filters.timeFrom);
+    setDraftTimeTo(filters.timeTo);
     setShowFilters(true);
   };
 
@@ -68,6 +89,47 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     setDraftLocationBounds(undefined);
     setLocationStatusText(undefined);
     setIsLocationResolving(location.trim().length > 0);
+  };
+
+  const handleProximityRadiusChange = async (radiusKm?: ProximityRadiusOption) => {
+    const requestId = proximityRequestIdRef.current + 1;
+    proximityRequestIdRef.current = requestId;
+    setDraftProximityRadiusKm(radiusKm);
+    setIsProximityError(false);
+
+    if (!radiusKm) {
+      setDraftProximityCoordinates(undefined);
+      setIsProximityResolving(false);
+      setProximityStatusText(undefined);
+      return;
+    }
+
+    setDraftProximityCoordinates(undefined);
+    setIsProximityResolving(true);
+    setProximityStatusText('Fetching your current location...');
+
+    const result = await getCurrentDeviceCoordinates();
+
+    if (proximityRequestIdRef.current !== requestId) {
+      return;
+    }
+
+    setIsProximityResolving(false);
+
+    if (result.status === 'granted') {
+      setDraftProximityCoordinates(result.coordinates);
+      setProximityStatusText(
+        `Filtering within ${radiusKm} km of ${result.coordinates.latitude.toFixed(4)}, ${result.coordinates.longitude.toFixed(4)}.`,
+      );
+      return;
+    }
+
+    setIsProximityError(true);
+    setProximityStatusText(
+      result.status === 'denied'
+        ? 'Location disabled. Enable location permission to use proximity filtering.'
+        : 'Current location is unavailable. Try again or choose Anywhere.',
+    );
   };
 
   useEffect(() => {
@@ -171,21 +233,32 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
               onLocationChange={handleDraftLocationChange}
               onTimeFromChange={setDraftTimeFrom}
               onTimeToChange={setDraftTimeTo}
+              proximityRadiusKm={draftProximityRadiusKm}
+              onProximityRadiusChange={handleProximityRadiusChange}
+              isProximityResolving={isProximityResolving}
+              proximityStatusText={proximityStatusText}
+              isProximityError={isProximityError}
               isLocationResolving={isLocationResolving}
               locationStatusText={locationStatusText}
-              isApplyDisabled={isLocationResolving}
+              isApplyDisabled={isLocationResolving || isProximityResolving || Boolean(draftProximityRadiusKm && !draftProximityCoordinates)}
               onClearAll={() => {
                 setDraftLocation('');
                 setDraftLocationBounds(undefined);
                 setLocationStatusText(undefined);
-                setDraftTimeFrom(DEFAULT_FROM_YEAR);
-                setDraftTimeTo(DEFAULT_TO_YEAR);
+                setDraftProximityRadiusKm(undefined);
+                setDraftProximityCoordinates(undefined);
+                setProximityStatusText(undefined);
+                setIsProximityError(false);
+                setDraftTimeFrom('');
+                setDraftTimeTo('');
                 clearFilters();
               }}
               onApply={() => {
                 updateFilters({
                   location: draftLocation,
                   locationBounds: draftLocation.trim() ? draftLocationBounds : undefined,
+                  proximityRadiusKm: draftProximityRadiusKm,
+                  proximityCoordinates: draftProximityRadiusKm ? draftProximityCoordinates : undefined,
                   timeFrom: draftTimeFrom,
                   timeTo: draftTimeTo,
                 }, { refresh: true });

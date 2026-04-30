@@ -151,6 +151,20 @@ export const storiesLocalSource = {
         }
       }
 
+      const proximity = getProximityFilter(filters);
+
+      if (
+        proximity &&
+        haversineKm(
+          proximity.latitude,
+          proximity.longitude,
+          story.location.latitude,
+          story.location.longitude,
+        ) > proximity.radiusKm
+      ) {
+        return false;
+      }
+
       if (filters.yearFrom !== undefined || filters.yearTo !== undefined) {
         const years = extractYearsFromString(story.timePeriod);
         const minYear = years.length ? Math.min(...years) : undefined;
@@ -231,6 +245,12 @@ function filterRemoteStories(results: unknown[], filters: StoryFilters) {
       if (!placeName.includes(location)) {
         return false;
       }
+    }
+
+    const proximity = getProximityFilter(filters);
+
+    if (proximity && !isRecordWithinRadius(story, proximity)) {
+      return false;
     }
 
     if (filters.yearFrom !== undefined || filters.yearTo !== undefined) {
@@ -376,8 +396,9 @@ function filterFeatureCollectionByBounds(
   filters: StoryFilters,
 ): GeoJSONFeatureCollection {
   const bounds = filters.locationBounds;
+  const proximity = getProximityFilter(filters);
 
-  if (!bounds) {
+  if (!bounds && !proximity) {
     return featureCollection;
   }
 
@@ -403,14 +424,20 @@ function filterFeatureCollectionByBounds(
       const longitude = asNumber(coordinates[0]);
       const latitude = asNumber(coordinates[1]);
 
-      return (
-        latitude !== undefined &&
-        longitude !== undefined &&
-        latitude >= bounds.latMin &&
-        latitude <= bounds.latMax &&
-        longitude >= bounds.lngMin &&
-        longitude <= bounds.lngMax
-      );
+      if (latitude === undefined || longitude === undefined) {
+        return false;
+      }
+
+      if (proximity && haversineKm(proximity.latitude, proximity.longitude, latitude, longitude) > proximity.radiusKm) {
+        return false;
+      }
+
+      return bounds
+        ? latitude >= bounds.latMin &&
+            latitude <= bounds.latMax &&
+            longitude >= bounds.lngMin &&
+            longitude <= bounds.lngMax
+        : true;
     }),
   };
 }
@@ -437,6 +464,14 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.lng_max = filters.locationBounds.lngMax;
   } else if (filters.location?.trim()) {
     params.location = filters.location.trim();
+  }
+
+  const proximity = getProximityFilter(filters);
+
+  if (proximity) {
+    params.latitude = proximity.latitude;
+    params.longitude = proximity.longitude;
+    params.radius_km = proximity.radiusKm;
   }
 
   return params;
@@ -522,4 +557,51 @@ function featureCollectionHasPreviewText(featureCollection: GeoJSONFeatureCollec
 
     return Boolean(properties && asString(properties.preview_text));
   });
+}
+
+function getProximityFilter(filters: StoryFilters) {
+  if (
+    filters.latitude === undefined ||
+    filters.longitude === undefined ||
+    filters.radiusKm === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    latitude: filters.latitude,
+    longitude: filters.longitude,
+    radiusKm: filters.radiusKm,
+  };
+}
+
+function isRecordWithinRadius(
+  story: StoryRecord,
+  proximity: { latitude: number; longitude: number; radiusKm: number },
+) {
+  const latitude = asNumber(story.location_lat);
+  const longitude = asNumber(story.location_lng);
+
+  if (latitude === undefined || longitude === undefined) {
+    return false;
+  }
+
+  return haversineKm(proximity.latitude, proximity.longitude, latitude, longitude) <= proximity.radiusKm;
+}
+
+function haversineKm(startLat: number, startLng: number, endLat: number, endLng: number) {
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(endLat - startLat);
+  const deltaLng = toRadians(endLng - startLng);
+  const startLatRad = toRadians(startLat);
+  const endLatRad = toRadians(endLat);
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(startLatRad) * Math.cos(endLatRad) * Math.sin(deltaLng / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
 }

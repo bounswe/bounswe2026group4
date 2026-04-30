@@ -73,7 +73,11 @@ export function FeedScreen({
   );
 
   const hasActiveFilters = Boolean(
-    activeFilters.q || activeFilters.location || activeFilters.yearFrom || activeFilters.yearTo,
+    activeFilters.q ||
+      activeFilters.location ||
+      activeFilters.yearFrom ||
+      activeFilters.yearTo ||
+      activeFilters.radiusKm,
   );
 
   const loadPage = useCallback(
@@ -261,6 +265,11 @@ function toSearchState(filters: StoryFilters): SearchFiltersState {
     query: filters.q ?? '',
     location: filters.location ?? '',
     locationBounds: filters.locationBounds,
+    proximityRadiusKm: filters.radiusKm === 1 || filters.radiusKm === 10 || filters.radiusKm === 100 ? filters.radiusKm : undefined,
+    proximityCoordinates:
+      filters.latitude !== undefined && filters.longitude !== undefined
+        ? { latitude: filters.latitude, longitude: filters.longitude }
+        : undefined,
     timeFrom: filters.yearFrom ? String(filters.yearFrom) : '',
     timeTo: filters.yearTo ? String(filters.yearTo) : '',
   };
@@ -268,9 +277,10 @@ function toSearchState(filters: StoryFilters): SearchFiltersState {
 
 function hasAnySearchFilters(filters: SearchFiltersState) {
   return Boolean(
-    filters.query.trim() ||
+      filters.query.trim() ||
       filters.location.trim() ||
       filters.locationBounds ||
+      filters.proximityRadiusKm ||
       filters.timeFrom.trim() ||
       filters.timeTo.trim(),
   );
@@ -281,6 +291,8 @@ function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersStat
     left.query === right.query &&
     left.location === right.location &&
     JSON.stringify(left.locationBounds) === JSON.stringify(right.locationBounds) &&
+    left.proximityRadiusKm === right.proximityRadiusKm &&
+    JSON.stringify(left.proximityCoordinates) === JSON.stringify(right.proximityCoordinates) &&
     left.timeFrom === right.timeFrom &&
     left.timeTo === right.timeTo
   );

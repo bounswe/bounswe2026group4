@@ -24,6 +24,22 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
 }));
 
+jest.mock('expo-location', () => ({
+  __esModule: true,
+  Accuracy: {
+    Balanced: 3,
+  },
+  requestForegroundPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  hasServicesEnabledAsync: jest.fn(async () => true),
+  getCurrentPositionAsync: jest.fn(async () => ({
+    coords: {
+      latitude: 41.0082,
+      longitude: 28.9784,
+    },
+  })),
+  getLastKnownPositionAsync: jest.fn(async () => null),
+}));
+
 jest.mock('react-native-webview', () => {
   const React = require('react');
   const { View } = require('react-native');

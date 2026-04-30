@@ -75,7 +75,11 @@ export function MapScreen({
   );
 
   const hasActiveFilters = Boolean(
-    activeFilters.q || activeFilters.location || activeFilters.yearFrom || activeFilters.yearTo,
+    activeFilters.q ||
+      activeFilters.location ||
+      activeFilters.yearFrom ||
+      activeFilters.yearTo ||
+      activeFilters.radiusKm,
   );
 
   const loadMarkers = React.useCallback(async () => {
@@ -148,6 +152,14 @@ export function MapScreen({
     if (state.filters.yearFrom || state.filters.yearTo) {
       parts.push(`Years: ${state.filters.yearFrom ?? 'Any'}-${state.filters.yearTo ?? 'Any'}`);
     }
+    if (state.filters.radiusKm) {
+      const coordinates =
+        state.filters.latitude !== undefined && state.filters.longitude !== undefined
+          ? ` from ${state.filters.latitude.toFixed(4)}, ${state.filters.longitude.toFixed(4)}`
+          : '';
+
+      parts.push(`Distance: ${state.filters.radiusKm} km${coordinates}`);
+    }
 
     return parts;
   }, [state.filters]);
@@ -158,9 +170,10 @@ export function MapScreen({
   );
 
   const mapRegion = useMemo(
-    () => (hasActiveFilters ? getRegionForMarkers(state.markers, ISTANBUL_REGION) : ISTANBUL_REGION),
-    [hasActiveFilters, state.markers],
+    () => getRegionForMarkers(state.markers, ISTANBUL_REGION),
+    [state.markers],
   );
+  const fitToMarkers = state.markers.length > 0 && (!state.selectedMarkerId || hasActiveFilters);
 
   const statusStoryCount = useMemo(() => {
     if (statusIndicatorMode !== 'area' || !hasInteractedWithArea || !visibleRegion) {
@@ -225,7 +238,7 @@ export function MapScreen({
           isLoading={state.isLoading}
           error={state.error}
           statusBadgeText={statusBadgeText}
-          fitToMarkers={hasActiveFilters}
+          fitToMarkers={fitToMarkers}
           onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
           onMarkerPress={handleMarkerPreviewRequest}
@@ -250,7 +263,7 @@ function getPreferredMarkerId(markers: MapMarkerGroup[], filters: StoryFilters) 
   const locationTerm = filters.location?.trim().toLowerCase();
 
   if (!searchTerm && !locationTerm) {
-    return markers[0]?.id;
+    return undefined;
   }
 
   const scoredMarkers = markers

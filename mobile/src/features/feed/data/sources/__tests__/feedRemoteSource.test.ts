@@ -67,6 +67,29 @@ describe('feedRemoteSource', () => {
     );
   });
 
+  it('sends proximity params when radius filtering is active', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    });
+
+    await feedRemoteSource.getFeed({
+      page: 1,
+      sort: 'recent',
+      filters: {
+        latitude: 41.0082,
+        longitude: 28.9784,
+        radiusKm: 10,
+      },
+    });
+
+    expect(getSpy).toHaveBeenCalledWith(
+      '/stories/feed/?page=1&page_size=10&sort_by=recent&latitude=41.0082&longitude=28.9784&radius_km=10',
+    );
+  });
+
   it('filters feed results by geocoded bounds when the backend ignores bbox params', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       count: 2,
@@ -102,6 +125,40 @@ describe('feedRemoteSource', () => {
       count: 1,
       next: null,
       results: [{ id: 2 }],
+    });
+  });
+
+  it('filters feed results by radius when the backend ignores proximity params', async () => {
+    jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 1,
+          location_lat: '41.0082',
+          location_lng: '28.9784',
+        },
+        {
+          id: 2,
+          location_lat: '39.9334',
+          location_lng: '32.8597',
+        },
+      ],
+    });
+
+    const response = await feedRemoteSource.getFeed({
+      filters: {
+        latitude: 41.0082,
+        longitude: 28.9784,
+        radiusKm: 1,
+      },
+    });
+
+    expect(response).toMatchObject({
+      count: 1,
+      next: null,
+      results: [{ id: 1 }],
     });
   });
 });
