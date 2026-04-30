@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { GestureResponderEvent } from 'react-native';
 import { navigationRef } from '../../../../app/navigation/navigationRef';
 import { limits } from '../../../../core/constants/limits';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -9,12 +10,16 @@ import { useToast } from '../../../../shared/hooks/useToast';
 import { authService } from '../../../auth/application/services';
 import { useAuth } from '../../../auth';
 import { userService } from '../../application/services';
-import { ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import { FollowListResult, FollowUserEntity, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import { AuthUser } from '../../../../core/auth/session';
 
 type ProfileMode = 'self' | 'public';
 
 const BIO_MAX_LENGTH = 280;
 const MIN_BIRTH_YEAR = 1900;
+const FOLLOW_STATE_LOOKUP_MAX_PAGES = 10;
+const FOLLOW_LIST_DRAG_THRESHOLD = 8;
+const followStateOverrides = new Map<string, boolean>();
 const MONTH_OPTIONS = [
   'January',
   'February',
@@ -39,6 +44,11 @@ interface ProfileScreenProps {
   uploadProfilePhoto?: typeof userService.uploadProfilePhoto;
   removeProfilePhoto?: typeof userService.removeProfilePhoto;
   deleteAccount?: typeof userService.deleteAccount;
+  followUser?: typeof userService.followUser;
+  unfollowUser?: typeof userService.unfollowUser;
+  getFollowers?: typeof userService.getFollowers;
+  getFollowing?: typeof userService.getFollowing;
+  onOpenUserProfile?: (userId: string) => void;
 }
 
 interface ProfileFormState {
@@ -65,6 +75,46 @@ interface FormErrors {
 interface PendingPhotoState extends ProfilePhotoUploadInput {
   fileSize: number;
   previewUri: string;
+}
+
+type FollowListDisplayUser = FollowUserEntity & {
+  isCurrentUser?: boolean;
+};
+
+function getFollowStateOverrideKey(currentUserId: string | number | undefined, targetUserId: string) {
+  if (currentUserId === undefined) {
+    return null;
+  }
+
+  return `${String(currentUserId)}:${targetUserId}`;
+}
+
+async function inferFollowStateFromFollowers({
+  targetUserId,
+  currentUserId,
+  getFollowers,
+}: {
+  targetUserId: string;
+  currentUserId: string;
+  getFollowers: (userId: string, page?: number) => Promise<FollowListResult>;
+}) {
+  let page = 1;
+
+  while (page <= FOLLOW_STATE_LOOKUP_MAX_PAGES) {
+    const result = await getFollowers(targetUserId, page);
+
+    if (result.users.some((followUser) => followUser.id === currentUserId)) {
+      return true;
+    }
+
+    if (!result.next) {
+      return false;
+    }
+
+    page += 1;
+  }
+
+  return undefined;
 }
 
 function formatJoinedDate(value?: string) {
@@ -95,6 +145,25 @@ function formatBirthDateLabel(value: string) {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+  });
+}
+
+function formatProfileBirthDate(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsedDate = parseBirthDate(value);
+
+  if (!parsedDate) {
+    return undefined;
+  }
+
+  return parsedDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
@@ -376,6 +445,324 @@ function StatChip({ label, value }: { label: string; value: string }) {
   );
 }
 
+function StatButton({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  onPress: () => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${value} ${label}`}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minWidth: 120,
+        padding: spacing.md,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.background,
+        gap: spacing.xs,
+        opacity: pressed ? 0.82 : 1,
+      })}
+    >
+      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+        {label}
+      </Text>
+      <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{value}</Text>
+    </Pressable>
+  );
+}
+
+function FollowActionButton({
+  isAuthenticated,
+  isFollowing,
+  isLoading,
+  onToggle,
+  onRequestLogin,
+}: {
+  isAuthenticated: boolean;
+  isFollowing: boolean;
+  isLoading: boolean;
+  onToggle: () => void;
+  onRequestLogin: () => void;
+}) {
+  if (!isAuthenticated) {
+    return (
+      <Button variant="outline" onPress={onRequestLogin} accessibilityLabel="Log in to follow this user">
+        Log in to follow
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant={isFollowing ? 'outline' : 'primary'}
+      onPress={onToggle}
+      disabled={isLoading}
+      accessibilityLabel={isFollowing ? 'Unfollow user' : 'Follow user'}
+    >
+      {isLoading ? 'Updating...' : isFollowing ? 'Following' : 'Follow'}
+    </Button>
+  );
+}
+
+function FollowListModal({
+  visible,
+  mode,
+  userId,
+  fetchFollowers,
+  fetchFollowing,
+  currentUser,
+  showCurrentUserAtTop,
+  onClose,
+  onOpenUserProfile,
+}: {
+  visible: boolean;
+  mode: 'followers' | 'following';
+  userId: string;
+  fetchFollowers: (userId: string, page?: number) => Promise<FollowListResult>;
+  fetchFollowing: (userId: string, page?: number) => Promise<FollowListResult>;
+  currentUser: AuthUser | null;
+  showCurrentUserAtTop: boolean;
+  onClose: () => void;
+  onOpenUserProfile?: (userId: string) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const [users, setUsers] = useState<FollowUserEntity[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string>();
+  const rowPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const rowPressMovedRef = useRef(false);
+  const isFollowersMode = mode === 'followers';
+  const title = isFollowersMode ? 'Followers' : 'Following';
+  const currentUserId = currentUser?.id == null ? null : String(currentUser.id);
+  const shouldPinCurrentUser =
+    showCurrentUserAtTop && isFollowersMode && currentUserId != null && Boolean(currentUser?.username);
+  const visibleUsers = useMemo<FollowListDisplayUser[]>(() => {
+    if (!shouldPinCurrentUser || !currentUserId || !currentUser) {
+      return users;
+    }
+
+    return [
+      {
+        id: currentUserId,
+        username: currentUser.username,
+        profilePhoto: null,
+        isCurrentUser: true,
+      },
+      ...users
+        .filter((followUser) => followUser.id !== currentUserId)
+        .map((followUser) => ({ ...followUser, isCurrentUser: false })),
+    ];
+  }, [currentUser, currentUserId, shouldPinCurrentUser, users]);
+
+  const loadPage = useCallback(
+    async (nextPage: number, append: boolean) => {
+      setIsLoading(true);
+      setError(undefined);
+
+      try {
+        const result = isFollowersMode
+          ? await fetchFollowers(userId, nextPage)
+          : await fetchFollowing(userId, nextPage);
+
+        setUsers((current) => (append ? [...current, ...result.users] : result.users));
+        setHasMore(Boolean(result.next));
+        setPage(nextPage);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load users.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [fetchFollowers, fetchFollowing, isFollowersMode, userId],
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    setUsers([]);
+    setPage(1);
+    setHasMore(false);
+    void loadPage(1, false);
+  }, [loadPage, mode, visible]);
+
+  const handleRowPressIn = useCallback((event: GestureResponderEvent) => {
+    const { pageX, pageY } = event.nativeEvent;
+
+    rowPressStartRef.current = { x: pageX, y: pageY };
+    rowPressMovedRef.current = false;
+  }, []);
+
+  const handleRowTouchMove = useCallback((event: GestureResponderEvent) => {
+    const start = rowPressStartRef.current;
+
+    if (!start) {
+      return;
+    }
+
+    const { pageX, pageY } = event.nativeEvent;
+    const distance = Math.abs(pageX - start.x) + Math.abs(pageY - start.y);
+
+    if (distance > FOLLOW_LIST_DRAG_THRESHOLD) {
+      rowPressMovedRef.current = true;
+    }
+  }, []);
+
+  const handleRowPress = useCallback(
+    (targetUserId: string) => {
+      if (rowPressMovedRef.current) {
+        rowPressStartRef.current = null;
+        rowPressMovedRef.current = false;
+        return;
+      }
+
+      rowPressStartRef.current = null;
+      onClose();
+      onOpenUserProfile?.(targetUserId);
+    },
+    [onClose, onOpenUserProfile],
+  );
+
+  return (
+    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(10, 10, 10, 0.35)',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <View
+          style={{
+            maxHeight: '82%',
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.lg,
+            paddingBottom: spacing.xl,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            backgroundColor: colors.background,
+            gap: spacing.md,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+            <View>
+              <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{title}</Text>
+              <Text style={{ marginTop: spacing.xs, color: colors.muted }}>
+                {isFollowersMode ? 'People who follow this user.' : 'People this user follows.'}
+              </Text>
+            </View>
+            <Button variant="outline" onPress={onClose}>
+              Close
+            </Button>
+          </View>
+
+          {isLoading && users.length === 0 ? <Loader message={`Loading ${title.toLowerCase()}...`} /> : null}
+          {error && users.length === 0 ? (
+            <ErrorState
+              title={`${title} unavailable`}
+              message={error}
+              retryLabel="Try again"
+              onRetry={() => {
+                void loadPage(1, false);
+              }}
+            />
+          ) : null}
+          {!isLoading && !error && users.length === 0 ? (
+            <Text style={{ color: colors.muted }}>
+              {isFollowersMode ? 'No followers yet.' : 'Not following anyone yet.'}
+            </Text>
+          ) : null}
+
+          {visibleUsers.length > 0 ? (
+            <ScrollView
+              style={{ maxHeight: 360, minHeight: Math.min(260, 72 * visibleUsers.length) }}
+              contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}
+              alwaysBounceVertical
+              overScrollMode="always"
+              keyboardShouldPersistTaps="handled"
+            >
+              {visibleUsers.map((followUser) => {
+                const label = followUser.username ?? 'Anonymous user';
+                const displayLabel = followUser.isCurrentUser ? `${label} (You)` : label;
+
+                return (
+                  <Pressable
+                    key={followUser.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${displayLabel} profile`}
+                    onPressIn={handleRowPressIn}
+                    onTouchMove={handleRowTouchMove}
+                    onPress={() => handleRowPress(followUser.id)}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: spacing.md,
+                      padding: spacing.md,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      opacity: pressed ? 0.82 : 1,
+                    })}
+                  >
+                    {followUser.profilePhoto ? (
+                      <Image
+                        source={{ uri: followUser.profilePhoto }}
+                        accessibilityLabel={`${displayLabel} profile photo`}
+                        style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.infoSurface }}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 21,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: colors.infoSurface,
+                        }}
+                      >
+                        <Text style={{ color: colors.primary, fontWeight: '800' }}>
+                          {label.slice(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={{ flex: 1, color: colors.text, fontWeight: '700' }}>{displayLabel}</Text>
+                  </Pressable>
+                );
+              })}
+              {hasMore ? (
+                <Button
+                  variant="outline"
+                  onPress={() => {
+                    void loadPage(page + 1, true);
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Load more'}
+                </Button>
+              ) : null}
+            </ScrollView>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function FieldCard({
   title,
   children,
@@ -414,8 +801,13 @@ export function ProfileScreen({
   uploadProfilePhoto = userService.uploadProfilePhoto,
   removeProfilePhoto = userService.removeProfilePhoto,
   deleteAccount = userService.deleteAccount,
+  followUser = userService.followUser,
+  unfollowUser = userService.unfollowUser,
+  getFollowers = userService.getFollowers,
+  getFollowing = userService.getFollowing,
+  onOpenUserProfile,
 }: ProfileScreenProps) {
-  const { user, updateUser, logout } = useAuth();
+  const { user, isAuthenticated, updateUser, logout } = useAuth();
   const { toast } = useToast();
   const { colors, spacing, typography } = useAppTheme();
   const isSelfMode = mode === 'self';
@@ -438,6 +830,12 @@ export function ProfileScreen({
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string>();
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [followListMode, setFollowListMode] = useState<'followers' | 'following'>('followers');
+  const [isFollowListVisible, setIsFollowListVisible] = useState(false);
 
   const resetPhotoDraft = useCallback(() => {
     setPendingPhoto(null);
@@ -452,8 +850,30 @@ export function ProfileScreen({
       const nextProfile = isSelfMode
         ? await getCurrentProfile()
         : await getPublicProfile(userId ?? '');
+      const overrideKey = getFollowStateOverrideKey(user?.id, nextProfile.id);
+      const overriddenFollowState = overrideKey ? followStateOverrides.get(overrideKey) : undefined;
+      let resolvedFollowState =
+        overriddenFollowState ??
+        (typeof nextProfile.isFollowedByMe === 'boolean' ? nextProfile.isFollowedByMe : undefined);
+
+      if (
+        resolvedFollowState === undefined &&
+        !isSelfMode &&
+        isAuthenticated &&
+        user?.id != null &&
+        String(user.id) !== nextProfile.id
+      ) {
+        resolvedFollowState = await inferFollowStateFromFollowers({
+          targetUserId: nextProfile.id,
+          currentUserId: String(user.id),
+          getFollowers,
+        });
+      }
 
       setProfile(nextProfile);
+      setFollowersCount(nextProfile.followersCount ?? 0);
+      setFollowingCount(nextProfile.followingCount ?? 0);
+      setIsFollowing(Boolean(resolvedFollowState));
       setFormState(createFormState(nextProfile));
       resetPhotoDraft();
       setIsEditing(false);
@@ -462,7 +882,7 @@ export function ProfileScreen({
     } finally {
       setIsLoading(false);
     }
-  }, [getCurrentProfile, getPublicProfile, isSelfMode, resetPhotoDraft, userId]);
+  }, [getCurrentProfile, getFollowers, getPublicProfile, isAuthenticated, isSelfMode, resetPhotoDraft, user?.id, userId]);
 
   useEffect(() => {
     if (!isSelfMode && !userId) {
@@ -651,6 +1071,66 @@ export function ProfileScreen({
     }
   }, [deleteAccount, toast]);
 
+  const handleRequestLoginForFollow = useCallback(() => {
+    toast.info('Please sign in to follow users.');
+    navigationRef.redirectToAuth?.('unauthorized');
+  }, [toast]);
+
+  const handleToggleFollow = useCallback(async () => {
+    if (!profile || isFollowLoading) {
+      return;
+    }
+
+    const previousFollowing = isFollowing;
+    const nextFollowing = !previousFollowing;
+    const previousFollowersCount = followersCount;
+
+    setIsFollowing(nextFollowing);
+    setFollowersCount((current) => Math.max(0, current + (nextFollowing ? 1 : -1)));
+    setIsFollowLoading(true);
+
+    try {
+      if (nextFollowing) {
+        await followUser(profile.id);
+      } else {
+        await unfollowUser(profile.id);
+      }
+
+      const overrideKey = getFollowStateOverrideKey(user?.id, profile.id);
+
+      if (overrideKey) {
+        followStateOverrides.set(overrideKey, nextFollowing);
+      }
+    } catch {
+      setIsFollowing(previousFollowing);
+      setFollowersCount(previousFollowersCount);
+      toast.error(
+        nextFollowing
+          ? 'Failed to follow user. Please try again.'
+          : 'Failed to unfollow user. Please try again.',
+      );
+    } finally {
+      setIsFollowLoading(false);
+    }
+  }, [followUser, followersCount, isFollowLoading, isFollowing, profile, toast, unfollowUser, user?.id]);
+
+  const openFollowList = useCallback((modeToOpen: 'followers' | 'following') => {
+    setFollowListMode(modeToOpen);
+    setIsFollowListVisible(true);
+  }, []);
+
+  const handleOpenFollowUserProfile = useCallback(
+    (targetUserId: string) => {
+      if (onOpenUserProfile) {
+        onOpenUserProfile(targetUserId);
+        return;
+      }
+
+      navigationRef.navigateToUserProfile?.(targetUserId);
+    },
+    [onOpenUserProfile],
+  );
+
   const title = useMemo(() => {
     if (isSelfMode) {
       return 'Your profile';
@@ -664,6 +1144,7 @@ export function ProfileScreen({
     .filter((value): value is string => Boolean(value))
     .join(' ');
   const joinedDate = formatJoinedDate(profile?.dateJoined);
+  const birthDateDisplay = isSelfMode ? formatProfileBirthDate(profile?.birthDate) : undefined;
   const isDirty = useMemo(() => {
     if (!profile) {
       return false;
@@ -764,9 +1245,30 @@ export function ProfileScreen({
             {joinedDate ? <StatChip label="Joined" value={joinedDate} /> : null}
             {isSelfMode ? <StatChip label="Points" value={String(profile.totalPoints)} /> : null}
             <StatChip label="Stories" value={String(profile.publishedStoryCount ?? 0)} />
+            <StatButton
+              label={followersCount === 1 ? 'Follower' : 'Followers'}
+              value={String(followersCount)}
+              onPress={() => openFollowList('followers')}
+            />
+            <StatButton
+              label="Following"
+              value={String(followingCount)}
+              onPress={() => openFollowList('following')}
+            />
             {profile.location ? <StatChip label="Location" value={profile.location} /> : null}
+            {birthDateDisplay ? <StatChip label="Birth date" value={birthDateDisplay} /> : null}
             {profile.birthYear ? <StatChip label="Birth year" value={String(profile.birthYear)} /> : null}
           </View>
+
+          {!isSelfMode ? (
+            <FollowActionButton
+              isAuthenticated={Boolean(isAuthenticated)}
+              isFollowing={isFollowing}
+              isLoading={isFollowLoading}
+              onToggle={() => void handleToggleFollow()}
+              onRequestLogin={handleRequestLoginForFollow}
+            />
+          ) : null}
 
           {profile.bio ? (
             <FieldCard title="Bio">
@@ -1048,6 +1550,18 @@ export function ProfileScreen({
           </View>
         )}
       </ScrollView>
+
+      <FollowListModal
+        visible={isFollowListVisible}
+        mode={followListMode}
+        userId={profile.id}
+        fetchFollowers={getFollowers}
+        fetchFollowing={getFollowing}
+        currentUser={user}
+        showCurrentUserAtTop={isFollowing}
+        onClose={() => setIsFollowListVisible(false)}
+        onOpenUserProfile={handleOpenFollowUserProfile}
+      />
 
       <Modal
         animationType="slide"

@@ -4,7 +4,7 @@ import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.notifications.models import Notification, NotificationType
+from apps.notifications.models import Notification, NotificationPreference, NotificationType
 from apps.stories.models import Story
 from apps.users.models import User
 
@@ -207,3 +207,95 @@ class TestNotificationDetailView:
         self.client.force_authenticate(user=self.user)
         response = self.client.delete(_detail_url(99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+PREFS_URL = '/notifications/preferences/'
+
+
+@pytest.mark.django_db
+class TestNotificationPreferenceView:
+    def setup_method(self):
+        self.user = _make_user('user@example.com', 'user')
+        self.client = APIClient()
+
+    def test_get_requires_authentication(self):
+        response = self.client.get(PREFS_URL)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_patch_requires_authentication(self):
+        response = self.client.patch(PREFS_URL, {}, format='json')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_get_returns_all_types_defaulting_to_true(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(PREFS_URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert set(response.data['preferences'].keys()) == set(NotificationType.values)
+        assert all(response.data['preferences'].values())
+
+    def test_get_includes_notifications_muted_false_by_default(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(PREFS_URL)
+        assert response.data['notifications_muted'] is False
+
+    def test_get_reflects_saved_disabled_preference(self):
+        NotificationPreference.objects.create(
+            user=self.user, notification_type=NotificationType.NEW_LIKE, is_enabled=False,
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(PREFS_URL)
+        assert response.data['preferences'][NotificationType.NEW_LIKE] is False
+
+    def test_patch_updates_single_type(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(PREFS_URL, {'new_like': False}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['preferences']['new_like'] is False
+        assert NotificationPreference.objects.get(
+            user=self.user, notification_type=NotificationType.NEW_LIKE,
+        ).is_enabled is False
+
+    def test_patch_updates_multiple_types(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            PREFS_URL,
+            {'new_like': False, 'new_comment': False},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['preferences']['new_like'] is False
+        assert response.data['preferences']['new_comment'] is False
+
+    def test_patch_sets_notifications_muted(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(PREFS_URL, {'notifications_muted': True}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['notifications_muted'] is True
+        self.user.refresh_from_db()
+        assert self.user.notifications_muted is True
+
+    def test_patch_notifications_muted_suppresses_create_notification(self):
+        from apps.notifications.services import create_notification
+        self.client.force_authenticate(user=self.user)
+        self.client.patch(PREFS_URL, {'notifications_muted': True}, format='json')
+        actor = _make_user('actor@example.com', 'actor')
+        result = create_notification(
+            recipient=self.user,
+            notification_type=NotificationType.NEW_LIKE,
+            message='msg',
+            actor=actor,
+        )
+        assert result is None
+        assert Notification.objects.filter(recipient=self.user).count() == 0
+
+    def test_patch_with_empty_body_returns_200_and_unchanged_state(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(PREFS_URL, {}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['notifications_muted'] is False
+        assert all(response.data['preferences'].values())
+
+    def test_patch_with_invalid_field_is_ignored(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(PREFS_URL, {'nonexistent_type': False}, format='json')
+        assert response.status_code == status.HTTP_200_OK
