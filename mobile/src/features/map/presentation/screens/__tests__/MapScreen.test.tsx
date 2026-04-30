@@ -4,6 +4,11 @@ import { MapScreen } from '../MapScreen';
 import { MapMarkerGroup } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
 import { storage } from '../../../../../core/storage/storage';
+import { geocodeLocationQuery } from '../../../../search/application/services';
+
+jest.mock('../../../../search/application/services', () => ({
+  geocodeLocationQuery: jest.fn(),
+}));
 
 jest.mock('../../../../../shared/components/WebMapView', () => {
   const React = require('react');
@@ -116,6 +121,7 @@ const markerGroups: MapMarkerGroup[] = [
 
 describe('MapScreen', () => {
   beforeEach(async () => {
+    (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
     await storage.clear();
   });
 
@@ -232,9 +238,10 @@ describe('MapScreen', () => {
     await screen.findByText('No stories match the current filters.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Beykoz');
+    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
-    expect(await screen.findByText('No stories found in Beykoz')).toBeTruthy();
+    expect(await screen.findByText('Place could not be found')).toBeTruthy();
   });
 
   it('applies the default year filters when submitted unchanged', async () => {
@@ -297,6 +304,7 @@ describe('MapScreen', () => {
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -328,6 +336,7 @@ describe('MapScreen', () => {
     await screen.findByText('The Day the Harbor Fell Silent');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {

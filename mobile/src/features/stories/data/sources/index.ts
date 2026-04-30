@@ -48,21 +48,25 @@ export const storiesRemoteSource = {
 
   async getStoriesFromApi(filters: StoryFilters = {}) {
     if (!filters.q?.trim()) {
-      return (
-        await apiClient.get<{ results?: unknown[] }>(
+      const results =
+        (
+          await apiClient.get<{ results?: unknown[] }>(
           `/stories/feed/${buildQueryString({
             page: 1,
             page_size: MAP_PAGE_SIZE,
             sort_by: 'recent',
             ...normalizeStoryFilters(filters),
           })}`,
-        )
-      )?.results ?? [];
+          )
+        )?.results ?? [];
+
+      return filterRemoteStories(results, filters);
     }
 
     const results = await fetchAllPages('/stories/search/', {
       q: filters.q.trim(),
       page_size: MAP_PAGE_SIZE,
+      ...normalizeStoryFilters({ ...filters, q: undefined }),
     });
 
     return filterRemoteStories(results, filters);
@@ -81,7 +85,10 @@ export const storiesRemoteSource = {
         },
       );
 
-      const featureCollection = normalizeMapFeatureCollection(response);
+      const featureCollection = filterFeatureCollectionByBounds(
+        normalizeMapFeatureCollection(response),
+        filters,
+      );
 
       if (!featureCollection.features.length || featureCollectionHasPreviewText(featureCollection)) {
         return featureCollection;
@@ -99,6 +106,7 @@ export const storiesRemoteSource = {
     const results = await fetchAllPages('/stories/search/', {
       q: filters.q.trim(),
       page_size: MAP_PAGE_SIZE,
+      ...normalizeStoryFilters({ ...filters, q: undefined }),
     });
 
     return {
@@ -124,7 +132,19 @@ export const storiesLocalSource = {
         }
       }
 
-      if (filters.location?.trim()) {
+      if (filters.locationBounds) {
+        const latitude = story.location.latitude;
+        const longitude = story.location.longitude;
+        const isWithinBounds =
+          latitude >= filters.locationBounds.latMin &&
+          latitude <= filters.locationBounds.latMax &&
+          longitude >= filters.locationBounds.lngMin &&
+          longitude <= filters.locationBounds.lngMax;
+
+        if (!isWithinBounds) {
+          return false;
+        }
+      } else if (filters.location?.trim()) {
         const normalizedLocation = filters.location.trim().toLowerCase();
         if (!story.location.name.toLowerCase().includes(normalizedLocation)) {
           return false;
@@ -191,7 +211,21 @@ function filterRemoteStories(results: unknown[], filters: StoryFilters) {
       }
     }
 
-    if (filters.location?.trim()) {
+    if (filters.locationBounds) {
+      const latitude = asNumber(story.location_lat);
+      const longitude = asNumber(story.location_lng);
+      const isWithinBounds =
+        latitude !== undefined &&
+        longitude !== undefined &&
+        latitude >= filters.locationBounds.latMin &&
+        latitude <= filters.locationBounds.latMax &&
+        longitude >= filters.locationBounds.lngMin &&
+        longitude <= filters.locationBounds.lngMax;
+
+      if (!isWithinBounds) {
+        return false;
+      }
+    } else if (filters.location?.trim()) {
       const location = filters.location.trim().toLowerCase();
 
       if (!placeName.includes(location)) {
@@ -337,6 +371,50 @@ function attachPreviewTextToFeatureCollection(
   };
 }
 
+function filterFeatureCollectionByBounds(
+  featureCollection: GeoJSONFeatureCollection,
+  filters: StoryFilters,
+): GeoJSONFeatureCollection {
+  const bounds = filters.locationBounds;
+
+  if (!bounds) {
+    return featureCollection;
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: featureCollection.features.filter((value) => {
+      if (!value || typeof value !== 'object') {
+        return false;
+      }
+
+      const geometry = (value as { geometry?: unknown }).geometry;
+
+      if (!geometry || typeof geometry !== 'object') {
+        return false;
+      }
+
+      const coordinates = (geometry as { coordinates?: unknown }).coordinates;
+
+      if (!Array.isArray(coordinates) || coordinates.length < 2) {
+        return false;
+      }
+
+      const longitude = asNumber(coordinates[0]);
+      const latitude = asNumber(coordinates[1]);
+
+      return (
+        latitude !== undefined &&
+        longitude !== undefined &&
+        latitude >= bounds.latMin &&
+        latitude <= bounds.latMax &&
+        longitude >= bounds.lngMin &&
+        longitude <= bounds.lngMax
+      );
+    }),
+  };
+}
+
 function normalizeStoryFilters(filters: StoryFilters) {
   const params: Record<string, string | number> = {};
 
@@ -352,7 +430,12 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.year_to = filters.yearTo;
   }
 
-  if (filters.location?.trim()) {
+  if (filters.locationBounds) {
+    params.lat_min = filters.locationBounds.latMin;
+    params.lat_max = filters.locationBounds.latMax;
+    params.lng_min = filters.locationBounds.lngMin;
+    params.lng_max = filters.locationBounds.lngMax;
+  } else if (filters.location?.trim()) {
     params.location = filters.location.trim();
   }
 

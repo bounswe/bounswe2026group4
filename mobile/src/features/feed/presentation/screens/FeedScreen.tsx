@@ -260,19 +260,27 @@ function toSearchState(filters: StoryFilters): SearchFiltersState {
   return {
     query: filters.q ?? '',
     location: filters.location ?? '',
+    locationBounds: filters.locationBounds,
     timeFrom: filters.yearFrom ? String(filters.yearFrom) : '',
     timeTo: filters.yearTo ? String(filters.yearTo) : '',
   };
 }
 
 function hasAnySearchFilters(filters: SearchFiltersState) {
-  return Object.values(filters).some((value) => value.trim().length > 0);
+  return Boolean(
+    filters.query.trim() ||
+      filters.location.trim() ||
+      filters.locationBounds ||
+      filters.timeFrom.trim() ||
+      filters.timeTo.trim(),
+  );
 }
 
 function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersState) {
   return (
     left.query === right.query &&
     left.location === right.location &&
+    JSON.stringify(left.locationBounds) === JSON.stringify(right.locationBounds) &&
     left.timeFrom === right.timeFrom &&
     left.timeTo === right.timeTo
   );

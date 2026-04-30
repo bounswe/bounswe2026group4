@@ -183,6 +183,10 @@ export function MapScreen({
       return 'No stories found in this area';
     }
 
+    if (activeFilters.location?.trim() && !activeFilters.locationBounds) {
+      return 'Place could not be found';
+    }
+
     if (activeFilters.location?.trim()) {
       return `No stories found in ${activeFilters.location.trim()}`;
     }
