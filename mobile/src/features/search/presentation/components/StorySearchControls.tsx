@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
+import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { DEFAULT_FROM_YEAR, DEFAULT_TO_YEAR, FilterPanel } from '../../../../shared/components/FilterPanel';
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
+import { geocodeLocationQuery, LocationBounds } from '../../application/services';
 import { SearchFilterScope, useSearchFilters } from '../context/SearchFiltersContext';
 
 function buildChips(
@@ -41,17 +43,77 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const { filters, updateFilters, removeFilter, clearFilters, applyFilters } = useSearchFilters(scope);
   const [showFilters, setShowFilters] = useState(false);
   const [draftLocation, setDraftLocation] = useState('');
+  const [draftLocationBounds, setDraftLocationBounds] = useState<LocationBounds | undefined>();
+  const [isLocationResolving, setIsLocationResolving] = useState(false);
+  const [locationStatusText, setLocationStatusText] = useState<string | undefined>();
   const [draftTimeFrom, setDraftTimeFrom] = useState(DEFAULT_FROM_YEAR);
   const [draftTimeTo, setDraftTimeTo] = useState(DEFAULT_TO_YEAR);
+  const debouncedDraftLocation = useDebounce(draftLocation, 500);
+  const locationRequestIdRef = useRef(0);
 
   const chips = useMemo(() => buildChips(filters), [filters]);
 
   const openFilters = () => {
     setDraftLocation(filters.location);
+    setDraftLocationBounds(filters.locationBounds);
+    setLocationStatusText(undefined);
+    setIsLocationResolving(false);
     setDraftTimeFrom(filters.timeFrom || DEFAULT_FROM_YEAR);
     setDraftTimeTo(filters.timeTo || DEFAULT_TO_YEAR);
     setShowFilters(true);
   };
+
+  const handleDraftLocationChange = (location: string) => {
+    setDraftLocation(location);
+    setDraftLocationBounds(undefined);
+    setLocationStatusText(undefined);
+    setIsLocationResolving(location.trim().length > 0);
+  };
+
+  useEffect(() => {
+    if (!showFilters) {
+      return;
+    }
+
+    const location = debouncedDraftLocation.trim();
+    const requestId = locationRequestIdRef.current + 1;
+    locationRequestIdRef.current = requestId;
+
+    if (!location) {
+      setDraftLocationBounds(undefined);
+      setIsLocationResolving(false);
+      setLocationStatusText(undefined);
+      return;
+    }
+
+    setIsLocationResolving(true);
+    setLocationStatusText('Looking up this place...');
+
+    geocodeLocationQuery(location)
+      .then((bounds) => {
+        if (locationRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setDraftLocationBounds(bounds ?? undefined);
+        setLocationStatusText(
+          bounds ? 'Filtering by map area.' : 'No map match found. Apply will search story place names instead.',
+        );
+      })
+      .catch(() => {
+        if (locationRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setDraftLocationBounds(undefined);
+        setLocationStatusText('Location lookup failed. Apply will search story place names instead.');
+      })
+      .finally(() => {
+        if (locationRequestIdRef.current === requestId) {
+          setIsLocationResolving(false);
+        }
+      });
+  }, [debouncedDraftLocation, showFilters]);
 
   return (
     <View style={{ gap: spacing.md }}>
@@ -101,16 +163,21 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
             paddingTop: spacing.xl * 2,
           }}
         >
-          <Pressable onPress={(event) => event.stopPropagation()} style={{ width: '100%' }}>
+          <Pressable onPress={(event) => event?.stopPropagation?.()} style={{ width: '100%' }}>
             <FilterPanel
               location={draftLocation}
               timeFrom={draftTimeFrom}
               timeTo={draftTimeTo}
-              onLocationChange={setDraftLocation}
+              onLocationChange={handleDraftLocationChange}
               onTimeFromChange={setDraftTimeFrom}
               onTimeToChange={setDraftTimeTo}
+              isLocationResolving={isLocationResolving}
+              locationStatusText={locationStatusText}
+              isApplyDisabled={isLocationResolving}
               onClearAll={() => {
                 setDraftLocation('');
+                setDraftLocationBounds(undefined);
+                setLocationStatusText(undefined);
                 setDraftTimeFrom(DEFAULT_FROM_YEAR);
                 setDraftTimeTo(DEFAULT_TO_YEAR);
                 clearFilters();
@@ -118,6 +185,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
               onApply={() => {
                 updateFilters({
                   location: draftLocation,
+                  locationBounds: draftLocation.trim() ? draftLocationBounds : undefined,
                   timeFrom: draftTimeFrom,
                   timeTo: draftTimeTo,
                 }, { refresh: true });

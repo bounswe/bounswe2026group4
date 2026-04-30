@@ -1,1 +1,1 @@
-export const searchService = {};
+export * from './geocodingService';

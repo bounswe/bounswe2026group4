@@ -5,6 +5,12 @@ export interface StoryFilters {
   yearFrom?: number;
   yearTo?: number;
   location?: string;
+  locationBounds?: {
+    latMin: number;
+    latMax: number;
+    lngMin: number;
+    lngMax: number;
+  };
 }
 
 export interface StoryRepository {

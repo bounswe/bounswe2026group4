@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { Input } from '../ui/Input';
 
@@ -47,6 +47,9 @@ interface FilterPanelProps {
   onTimeToChange: (value: string) => void;
   onClearAll: () => void;
   onApply?: () => void;
+  isLocationResolving?: boolean;
+  locationStatusText?: string;
+  isApplyDisabled?: boolean;
 }
 
 export function FilterPanel({
@@ -58,6 +61,9 @@ export function FilterPanel({
   onTimeToChange,
   onClearAll,
   onApply,
+  isLocationResolving = false,
+  locationStatusText,
+  isApplyDisabled = false,
 }: FilterPanelProps) {
   const { colors, spacing, typography } = useAppTheme();
   const parsedTimeFrom = timeFrom ? Number(timeFrom) : undefined;
@@ -127,7 +133,21 @@ export function FilterPanel({
           onChangeText={onLocationChange}
           placeholder="Neighborhood, district, or city"
           accessibilityLabel="Location filter"
+          trailingElement={
+            isLocationResolving ? (
+              <ActivityIndicator
+                accessibilityLabel="Resolving location"
+                color={colors.primary}
+                size="small"
+              />
+            ) : undefined
+          }
         />
+        {locationStatusText ? (
+          <Text style={{ color: colors.muted, fontSize: typography.caption + 1 }}>
+            {locationStatusText}
+          </Text>
+        ) : null}
       </View>
 
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -229,12 +249,14 @@ export function FilterPanel({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Apply filters"
+            disabled={isApplyDisabled}
             onPress={onApply}
             style={{
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm,
               borderRadius: 999,
               backgroundColor: colors.primary,
+              opacity: isApplyDisabled ? 0.55 : 1,
             }}
           >
             <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Apply</Text>

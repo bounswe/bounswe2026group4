@@ -2,12 +2,14 @@ import React, { PropsWithChildren, createContext, useContext, useEffect, useMemo
 import { storageKeys } from '../../../../core/storage/keys';
 import { storage } from '../../../../core/storage/storage';
 import { StoryFilters } from '../../../stories/domain/repositories';
+import { LocationBounds } from '../../application/services';
 
 export type SearchFilterScope = 'feed' | 'map' | 'main';
 
 export interface SearchFiltersState {
   query: string;
   location: string;
+  locationBounds?: LocationBounds;
   timeFrom: string;
   timeTo: string;
 }
@@ -26,6 +28,7 @@ interface SearchFiltersContextValue {
 const initialFilters: SearchFiltersState = {
   query: '',
   location: '',
+  locationBounds: undefined,
   timeFrom: '',
   timeTo: '',
 };
@@ -130,7 +133,15 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
         updateScopedFilters(scope, (currentFilters) => ({ ...currentFilters, ...patch }), options);
       },
       removeFilter: (scope, key) => {
-        updateScopedFilters(scope, (currentFilters) => ({ ...currentFilters, [key]: '' }), { refresh: true });
+        updateScopedFilters(
+          scope,
+          (currentFilters) => ({
+            ...currentFilters,
+            [key]: '',
+            ...(key === 'location' ? { locationBounds: undefined } : {}),
+          }),
+          { refresh: true },
+        );
       },
       clearFilters: (scope) => {
         updateScopedFilters(scope, (currentFilters) => ({
@@ -184,6 +195,7 @@ export function toSearchParams(filters: SearchFiltersState): StoryFilters {
   return {
     q: filters.query.trim() || undefined,
     location: filters.location.trim() || undefined,
+    locationBounds: filters.locationBounds,
     yearFrom,
     yearTo,
   };
@@ -193,7 +205,27 @@ function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): S
   return {
     query: filters?.query ?? '',
     location: filters?.location ?? '',
+    locationBounds: normalizeLocationBounds(filters?.locationBounds),
     timeFrom: filters?.timeFrom ?? '',
     timeTo: filters?.timeTo ?? '',
+  };
+}
+
+function normalizeLocationBounds(bounds?: LocationBounds | null): LocationBounds | undefined {
+  if (!bounds) {
+    return undefined;
+  }
+
+  const { latMin, latMax, lngMin, lngMax } = bounds;
+
+  if (![latMin, latMax, lngMin, lngMax].every(Number.isFinite)) {
+    return undefined;
+  }
+
+  return {
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
   };
 }

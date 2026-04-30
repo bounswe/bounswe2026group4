@@ -109,4 +109,77 @@ describe('storiesRemoteSource', () => {
       ],
     });
   });
+
+  it('passes geocoded location bounds to the map endpoint', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [],
+    });
+
+    await storiesRemoteSource.getMapFeatureCollectionFromApi({
+      location: 'Istanbul',
+      locationBounds: {
+        latMin: 40.8027,
+        latMax: 41.3208,
+        lngMin: 28.0065,
+        lngMax: 29.4564,
+      },
+    });
+
+    expect(getSpy).toHaveBeenCalledWith(
+      '/stories/map/?lat_min=40.8027&lat_max=41.3208&lng_min=28.0065&lng_max=29.4564',
+      {
+        headers: {
+          Accept: 'application/geo+json, application/json',
+        },
+      },
+    );
+  });
+
+  it('filters map features by geocoded bounds when the backend ignores bbox params', async () => {
+    jest.spyOn(apiClient, 'get').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          id: 1,
+          geometry: {
+            type: 'Point',
+            coordinates: [28.9784, 41.0082],
+          },
+          properties: {
+            title: 'Istanbul Story',
+            location_name: 'Istanbul',
+            preview_text: 'Inside Istanbul.',
+          },
+        },
+        {
+          type: 'Feature',
+          id: 2,
+          geometry: {
+            type: 'Point',
+            coordinates: [32.8597, 39.9334],
+          },
+          properties: {
+            title: 'Ankara Story',
+            location_name: 'Ankara',
+            preview_text: 'Inside Ankara.',
+          },
+        },
+      ],
+    });
+
+    const result = await storiesRemoteSource.getMapFeatureCollectionFromApi({
+      location: 'Ankara',
+      locationBounds: {
+        latMin: 39.7,
+        latMax: 40.1,
+        lngMin: 32.5,
+        lngMax: 33.2,
+      },
+    });
+
+    expect(result.features).toHaveLength(1);
+    expect(result.features[0]).toMatchObject({ id: 2 });
+  });
 });
