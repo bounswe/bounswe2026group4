@@ -231,21 +231,26 @@ describe("FeedPage", () => {
     });
   });
 
-  it("shows sort toggle button defaulting to 'Most Recent'", () => {
+  it("shows both sort options with 'Most Recent' active by default", () => {
     getStories.mockReturnValue(new Promise(() => {}));
     renderPage();
 
-    expect(screen.getByRole("button", { name: /sort: most recent/i })).toBeInTheDocument();
+    const recentBtn = screen.getByRole("button", { name: /sort by most recent/i });
+    const popularBtn = screen.getByRole("button", { name: /sort by most popular/i });
+    expect(recentBtn).toBeInTheDocument();
+    expect(popularBtn).toBeInTheDocument();
+    expect(recentBtn).toHaveAttribute("aria-pressed", "true");
+    expect(popularBtn).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("clicking sort toggle switches to 'Most Popular' and re-fetches", async () => {
+  it("clicking 'Most Popular' fetches with sort_by=popular", async () => {
     const user = userEvent.setup();
     getStories.mockResolvedValue(makeResponse());
     renderPage();
 
     await waitFor(() => expect(getStories).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole("button", { name: /sort: most recent/i }));
+    await user.click(screen.getByRole("button", { name: /sort by most popular/i }));
 
     await waitFor(() => {
       expect(getStories).toHaveBeenCalledWith(
@@ -254,11 +259,12 @@ describe("FeedPage", () => {
     });
   });
 
-  it("shows 'Most Popular' label when sort_by=popular is in URL", () => {
+  it("shows 'Most Popular' as active when sort_by=popular is in URL", () => {
     getStories.mockReturnValue(new Promise(() => {}));
     renderPage(["/?sort_by=popular"]);
 
-    expect(screen.getByRole("button", { name: /sort: most popular/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sort by most popular/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /sort by most recent/i })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("calls getStories with sort_by=popular from URL", async () => {
@@ -272,14 +278,14 @@ describe("FeedPage", () => {
     });
   });
 
-  it("clicking sort toggle when on 'Most Popular' switches back to 'Most Recent'", async () => {
+  it("clicking 'Most Recent' when on popular switches back and re-fetches", async () => {
     const user = userEvent.setup();
     getStories.mockResolvedValue(makeResponse());
     renderPage(["/?sort_by=popular"]);
 
     await waitFor(() => expect(getStories).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole("button", { name: /sort: most popular/i }));
+    await user.click(screen.getByRole("button", { name: /sort by most recent/i }));
 
     await waitFor(() => {
       expect(getStories).toHaveBeenCalledWith(
@@ -297,7 +303,7 @@ describe("FeedPage", () => {
 
     await waitFor(() => expect(getStories).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole("button", { name: /sort: most recent/i }));
+    await user.click(screen.getByRole("button", { name: /sort by most popular/i }));
 
     await waitFor(() => {
       expect(getStories).toHaveBeenCalledWith(

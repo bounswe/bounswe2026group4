@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock, TrendingUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SkeletonCard } from "@/components/ui/loading-skeleton";
@@ -78,22 +78,39 @@ function FeedPage() {
             </p>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={sortBy === "recent" ? "Sort: Most Recent" : "Sort: Most Popular"}
-            onClick={() => setFilters({ sort_by: sortBy === "recent" ? "popular" : "recent" })}
+          <div
+            role="group"
+            aria-label="Sort order"
+            className="flex overflow-hidden rounded-md border border-input text-sm font-medium"
           >
-            {sortBy === "recent" ? (
+            <button
+              aria-pressed={sortBy === "recent"}
+              aria-label="Sort by Most Recent"
+              onClick={() => setFilters({ sort_by: "recent" })}
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors ${
+                sortBy === "recent"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-foreground hover:bg-muted"
+              }`}
+            >
               <Clock className="h-4 w-4" aria-hidden="true" />
-            ) : (
+              <span>Most Recent</span>
+            </button>
+            <div className="w-px bg-border" />
+            <button
+              aria-pressed={sortBy === "popular"}
+              aria-label="Sort by Most Popular"
+              onClick={() => setFilters({ sort_by: "popular" })}
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors ${
+                sortBy === "popular"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-foreground hover:bg-muted"
+              }`}
+            >
               <TrendingUp className="h-4 w-4" aria-hidden="true" />
-            )}
-            <span className="hidden sm:inline ml-1.5">
-              {sortBy === "recent" ? "Most Recent" : "Most Popular"}
-            </span>
-            <ArrowUpDown className="ml-1.5 h-3 w-3 text-muted-foreground" aria-hidden="true" />
-          </Button>
+              <span>Most Popular</span>
+            </button>
+          </div>
         </div>
 
         {/* Search & Filter */}
