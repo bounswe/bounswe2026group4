@@ -4,6 +4,11 @@ import { FeedScreen } from '../FeedScreen';
 import { FeedPageEntity } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
 import { storage } from '../../../../../core/storage/storage';
+import { geocodeLocationQuery } from '../../../../search/application/services';
+
+jest.mock('../../../../search/application/services', () => ({
+  geocodeLocationQuery: jest.fn(),
+}));
 
 function makeStory(id: string, overrides: Partial<FeedPageEntity['items'][number]> = {}) {
   return {
@@ -31,6 +36,7 @@ function makeFeedPage(overrides: Partial<FeedPageEntity> = {}): FeedPageEntity {
 
 describe('FeedScreen', () => {
   beforeEach(async () => {
+    (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
     await storage.clear();
   });
 
@@ -177,6 +183,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
+    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -186,6 +193,7 @@ describe('FeedScreen', () => {
         filters: {
           q: undefined,
           location: 'Istanbul',
+          locationBounds: undefined,
           yearFrom: 1900,
           yearTo: 1950,
         },
@@ -246,6 +254,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
+    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
     fireEvent.press(screen.getByText('Reset filter form'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
@@ -256,6 +265,7 @@ describe('FeedScreen', () => {
         filters: {
           q: 'harbor',
           location: undefined,
+          locationBounds: undefined,
           yearFrom: 1980,
           yearTo: 2026,
         },
