@@ -51,6 +51,15 @@ jest.mock('../../../../auth', () => ({
   }),
 }));
 
+jest.mock('../../../../notifications', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  return {
+    NotificationPreferencesSection: () => <Text>Notification preferences</Text>,
+  };
+});
+
 const selfProfile = {
   id: '7',
   username: 'Traveler',

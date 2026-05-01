@@ -9,6 +9,7 @@ import { Button, ErrorState, Input, Loader, Skeleton } from '../../../../shared'
 import { useToast } from '../../../../shared/hooks/useToast';
 import { authService } from '../../../auth/application/services';
 import { useAuth } from '../../../auth';
+import { NotificationPreferencesSection } from '../../../notifications';
 import { userService } from '../../application/services';
 import { FollowListResult, FollowUserEntity, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 import { AuthUser } from '../../../../core/auth/session';
@@ -1507,6 +1508,7 @@ export function ProfileScreen({
               </>
             ) : (
               <>
+                <NotificationPreferencesSection />
                 <Button variant="outline" onPress={() => void logout()}>
                   Sign out
                 </Button>
