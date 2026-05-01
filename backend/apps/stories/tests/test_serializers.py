@@ -6,7 +6,7 @@ import pytest
 from apps.stories.models import Story
 from apps.interactions.models import Like, SavedStory
 from apps.media.models import MediaItem, MediaType
-from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer
+from apps.stories.serializers import FeedQuerySerializer, SearchQuerySerializer, StoryDetailSerializer, StoryFeedSerializer, StoryMapGeoJSONSerializer, StorySerializer, TimelineQuerySerializer
 from apps.tags.models import StoryTag, Tag
 from apps.users.models import User
 
@@ -793,6 +793,50 @@ class TestFeedQuerySerializerGeoValidation:
     def test_radius_km_above_max_is_invalid(self):
         errors = self._invalid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 501.0})
         assert 'radius_km' in errors
+
+
+# ── TimelineQuerySerializer ────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestTimelineQuerySerializer:
+    def test_all_fields_optional(self):
+        s = TimelineQuerySerializer(data={})
+        assert s.is_valid(), s.errors
+
+    def test_accepts_valid_year_range(self):
+        s = TimelineQuerySerializer(data={'year_from': 1800, 'year_to': 1900})
+        assert s.is_valid(), s.errors
+
+    def test_rejects_year_to_less_than_year_from(self):
+        s = TimelineQuerySerializer(data={'year_from': 1900, 'year_to': 1800})
+        assert not s.is_valid()
+        assert 'year_to' in s.errors
+
+    def test_accepts_full_bbox(self):
+        s = TimelineQuerySerializer(data={
+            'lat_min': 40.9, 'lat_max': 41.2, 'lng_min': 28.7, 'lng_max': 29.2,
+        })
+        assert s.is_valid(), s.errors
+
+    def test_rejects_partial_bbox(self):
+        s = TimelineQuerySerializer(data={'lat_min': 40.9, 'lat_max': 41.2})
+        assert not s.is_valid()
+        assert 'lng_min' in s.errors or 'lng_max' in s.errors
+
+    def test_accepts_has_image_true(self):
+        s = TimelineQuerySerializer(data={'has_image': True})
+        assert s.is_valid(), s.errors
+        assert s.validated_data['has_image'] is True
+
+    def test_has_image_defaults_to_none_when_omitted(self):
+        s = TimelineQuerySerializer(data={})
+        assert s.is_valid(), s.errors
+        assert s.validated_data.get('has_image') is None
+
+    def test_has_no_sort_by_field(self):
+        s = TimelineQuerySerializer(data={'sort_by': 'recent'})
+        assert s.is_valid()
+        assert 'sort_by' not in s.validated_data
 
 
 # ── StoryDetailSerializer — temporal coverage fields ─────────────────────────
