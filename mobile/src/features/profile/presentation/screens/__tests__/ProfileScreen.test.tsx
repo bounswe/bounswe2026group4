@@ -203,8 +203,9 @@ describe('ProfileScreen', () => {
     );
 
     expect(await screen.findByText('Traveler')).toBeTruthy();
-    expect(screen.getByText('Profile')).toBeTruthy();
     expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.getByLabelText('Show saved stories')).toBeTruthy();
+    expect(screen.queryByLabelText('Profile content tabs')).toBeNull();
     expect(screen.queryByText('Saved Stories')).toBeNull();
     expect(getSavedStories).not.toHaveBeenCalled();
 

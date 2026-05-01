@@ -456,33 +456,38 @@ function StatButton({
   label,
   value,
   onPress,
+  accessibilityLabel,
+  selected = false,
 }: {
   label: string;
   value: string;
   onPress: () => void;
+  accessibilityLabel?: string;
+  selected?: boolean;
 }) {
   const { colors, spacing, typography } = useAppTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${value} ${label}`}
+      accessibilityLabel={accessibilityLabel ?? `${value} ${label}`}
+      accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => ({
         minWidth: 120,
         padding: spacing.md,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.background,
+        borderColor: selected ? colors.primary : colors.border,
+        backgroundColor: selected ? colors.infoSurface : colors.background,
         gap: spacing.xs,
         opacity: pressed ? 0.82 : 1,
       })}
     >
-      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+      <Text style={{ color: selected ? colors.primary : colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
         {label}
       </Text>
-      <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{value}</Text>
+      <Text style={{ color: selected ? colors.primary : colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{value}</Text>
     </Pressable>
   );
 }
@@ -517,69 +522,6 @@ function FollowActionButton({
     >
       {isLoading ? 'Updating...' : isFollowing ? 'Following' : 'Follow'}
     </Button>
-  );
-}
-
-function SelfProfileTabs({
-  activeTab,
-  onChange,
-}: {
-  activeTab: SelfProfileTab;
-  onChange: (tab: SelfProfileTab) => void;
-}) {
-  const { colors, spacing, typography } = useAppTheme();
-  const tabs: Array<{ key: SelfProfileTab; label: string; accessibilityLabel: string }> = [
-    { key: 'profile', label: 'Profile', accessibilityLabel: 'Show profile info' },
-    { key: 'saved', label: 'Saved', accessibilityLabel: 'Show saved stories' },
-  ];
-
-  return (
-    <View
-      accessibilityLabel="Profile content tabs"
-      style={{
-        flexDirection: 'row',
-        alignSelf: 'flex-start',
-        gap: spacing.xs,
-        padding: spacing.xs,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.surface,
-      }}
-    >
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.key;
-
-        return (
-          <Pressable
-            key={tab.key}
-            accessibilityRole="tab"
-            accessibilityLabel={tab.accessibilityLabel}
-            accessibilityState={{ selected: isActive }}
-            onPress={() => onChange(tab.key)}
-            style={({ pressed }) => ({
-              minWidth: 92,
-              alignItems: 'center',
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-              borderRadius: 999,
-              backgroundColor: isActive ? colors.primary : colors.surface,
-              opacity: pressed ? 0.78 : 1,
-            })}
-          >
-            <Text
-              style={{
-                color: isActive ? colors.background : colors.text,
-                fontSize: typography.caption,
-                fontWeight: '800',
-              }}
-            >
-              {tab.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
   );
 }
 
@@ -1477,6 +1419,17 @@ export function ProfileScreen({
               value={String(followingCount)}
               onPress={() => openFollowList('following')}
             />
+            {isSelfMode ? (
+              <StatButton
+                label="Saved"
+                value="Stories"
+                accessibilityLabel="Show saved stories"
+                selected={activeSelfTab === 'saved'}
+                onPress={() => {
+                  setActiveSelfTab((current) => (current === 'saved' ? 'profile' : 'saved'));
+                }}
+              />
+            ) : null}
             {profile.location ? <StatChip label="Location" value={profile.location} /> : null}
             {birthDateDisplay ? <StatChip label="Birth date" value={birthDateDisplay} /> : null}
             {profile.birthYear ? <StatChip label="Birth year" value={String(profile.birthYear)} /> : null}
@@ -1498,10 +1451,6 @@ export function ProfileScreen({
             </FieldCard>
           ) : null}
         </View>
-
-        {isSelfMode ? (
-          <SelfProfileTabs activeTab={activeSelfTab} onChange={setActiveSelfTab} />
-        ) : null}
 
         {isSelfMode && activeSelfTab === 'saved' ? (
           <SavedStoriesSection
