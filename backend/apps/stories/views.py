@@ -63,6 +63,10 @@ class StoryFeedView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
+            tag=params.get('tag'),
+            latitude=params.get('latitude'),
+            longitude=params.get('longitude'),
+            radius_km=params.get('radius_km'),
         )
         
         qs = apply_bbox_filters(qs, params)
@@ -111,6 +115,10 @@ class StoryMapView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
+            tag=params.get('tag'),
+            latitude=params.get('latitude'),
+            longitude=params.get('longitude'),
+            radius_km=params.get('radius_km'),
         )
         
         qs = apply_bbox_filters(qs, params)
@@ -130,8 +138,8 @@ class StorySearchView(APIView):
     title and location_name. Open to guests and authenticated users alike.
 
     Query params:
-      q         — required, min 1 character after stripping whitespace
-      tag       — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
+            q        — required, min 1 character after stripping whitespace
+      tag      — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
       lat_min   — minimum latitude of bounding box (optional)
       lat_max   — maximum latitude of bounding box (optional)
       lng_min   — minimum longitude of bounding box (optional)
