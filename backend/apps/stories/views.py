@@ -11,6 +11,7 @@ from common.permissions import IsOwnerOrAdmin
 
 
 def apply_bbox_filters(qs, params):
+    """Filter a Story queryset to those whose coordinates fall within the given bounding box."""
     if params.get('lat_min') is not None:
         qs = qs.filter(location_lat__gte=params['lat_min'])
     if params.get('lat_max') is not None:
@@ -38,6 +39,10 @@ class StoryFeedView(APIView):
       latitude   — WGS-84 latitude of user's position (-90 to 90)
       longitude  — WGS-84 longitude of user's position (-180 to 180)
       radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
+      lat_min    — minimum latitude of bounding box (optional)
+      lat_max    — maximum latitude of bounding box (optional)
+      lng_min    — minimum longitude of bounding box (optional)
+      lng_max    — maximum longitude of bounding box (optional)
       page       — page number (default 1)
       page_size  — results per page (default 10, max 100)
     """
@@ -89,6 +94,10 @@ class StoryMapView(APIView):
       latitude   — WGS-84 latitude of user's position (-90 to 90)
       longitude  — WGS-84 longitude of user's position (-180 to 180)
       radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
+      lat_min    — minimum latitude of bounding box (optional)
+      lat_max    — maximum latitude of bounding box (optional)
+      lng_min    — minimum longitude of bounding box (optional)
+      lng_max    — maximum longitude of bounding box (optional)
     """
 
     permission_classes = [AllowAny]
@@ -121,8 +130,12 @@ class StorySearchView(APIView):
     title and location_name. Open to guests and authenticated users alike.
 
     Query params:
-      q        — required, min 1 character after stripping whitespace
-      tag      — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      q         — required, min 1 character after stripping whitespace
+      tag       — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      lat_min   — minimum latitude of bounding box (optional)
+      lat_max   — maximum latitude of bounding box (optional)
+      lng_min   — minimum longitude of bounding box (optional)
+      lng_max   — maximum longitude of bounding box (optional)
     """
 
     permission_classes = [AllowAny]
@@ -143,6 +156,9 @@ class StorySearchView(APIView):
             longitude=params.get('longitude'),
             radius_km=params.get('radius_km'),
         )
+
+        qs = apply_bbox_filters(qs, params)
+
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
 

@@ -224,10 +224,20 @@ class TestStoryFeedView:
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Match'
     
+    def test_feed_bbox_filtering(self, client):
+        make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
+        make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
+        make_story(title='Izmir Story', location_lat=38.4, location_lng=27.1)
+        params = {'lat_min': 40.0, 'lat_max': 42.0, 'lng_min': 28.0, 'lng_max': 29.0}
+        response = client.get(FEED_URL, params)
+        assert response.status_code == 200
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Story'
+
     def test_bbox_non_numeric_lat_min_returns_400(self, client):
         response = client.get(FEED_URL + '?lat_min=abc')
         assert response.status_code == 400
-        
+
     def test_bbox_non_numeric_lng_max_returns_400(self, client):
         response = client.get(FEED_URL + '?lng_max=xyz')
         assert response.status_code == 400
@@ -476,6 +486,31 @@ class TestStorySearchView:
         response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
         assert response.data['count'] == 0
 
+    def test_search_bbox_filtering(self, client):
+        make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
+        make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
+        params = {'q': 'Story', 'lat_min': 40.0, 'lat_max': 42.0, 'lng_min': 28.0, 'lng_max': 29.0}
+        response = client.get(SEARCH_URL, params)
+        assert response.status_code == 200
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Story'
+
+    def test_search_bbox_non_numeric_lat_min_returns_400(self, client):
+        response = client.get(SEARCH_URL + '?q=test&lat_min=abc')
+        assert response.status_code == 400
+
+    def test_search_bbox_lat_min_greater_than_lat_max_returns_400(self, client):
+        response = client.get(SEARCH_URL + '?q=test&lat_min=42&lat_max=40')
+        assert response.status_code == 400
+
+    def test_search_bbox_and_year_filter_combined(self, client):
+        make_story(title='Keep', location_lat=41, location_lng=28.9, year=2000)
+        make_story(title='Old', location_lat=41, location_lng=28.9, year=1800)
+        response = client.get(
+            SEARCH_URL + '?q=Keep&lat_min=40&lat_max=42&lng_min=28&lng_max=29&year_from=1900'
+        )
+        assert response.data['count'] == 1
+
 
 # ── GET /stories/map/ ─────────────────────────────────────────────────────────
 
@@ -580,22 +615,14 @@ class TestStoryMapView:
         assert len(response.data['features']) == 0
         
     def test_map_bbox_filtering(self, client):
-        # Stories in different locations
-        s1 = make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
-        s2 = make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
-        s3 = make_story(title='Izmir Story', location_lat=38.4, location_lng=27.1)
-
-        # Filter for a bounding box around Istanbul
-        params = {
-            'lat_min': 40.0,
-            'lat_max': 42.0,
-            'lng_min': 28.0,
-            'lng_max': 29.0,
-        }
+        make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
+        make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
+        make_story(title='Izmir Story', location_lat=38.4, location_lng=27.1)
+        params = {'lat_min': 40.0, 'lat_max': 42.0, 'lng_min': 28.0, 'lng_max': 29.0}
         response = client.get(MAP_URL, params)
         assert response.status_code == 200
-        titles = [r['title'] for r in response.data['results']]
-        assert titles == ['Istanbul Story']
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['title'] == 'Istanbul Story'
         
     def test_bbox_non_numeric_lat_min_returns_400(self, client):
         response = client.get(MAP_URL + '?lat_min=abc')
@@ -616,8 +643,8 @@ class TestStoryMapView:
             MAP_URL +
             '?lat_min=40&lat_max=42&lng_min=28&lng_max=29&year_from=1900'
         )
-        assert response.data['count'] == 1
-        
+        assert len(response.data['features']) == 1
+
     def test_bbox_and_location_combined(self, client):
         make_story(title='Match', location_name='Galata', location_lat=41, location_lng=28.9)
         make_story(title='Nope', location_name='Ankara', location_lat=41, location_lng=28.9)
@@ -625,8 +652,7 @@ class TestStoryMapView:
             MAP_URL +
             '?location=galata&lat_min=40&lat_max=42&lng_min=28&lng_max=29'
         )
-        assert response.data['count'] == 1
-        
+        assert len(response.data['features']) == 1
 
 
 # ── StoryDetailView — media_items ─────────────────────────────────────────────
