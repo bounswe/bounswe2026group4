@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Calendar, Clock, MapPin, Pause, Play, Trash2, Volume2 } from 'lucide-react-native';
+import { Bookmark, Calendar, Clock, MapPin, Pause, Play, Trash2, Volume2 } from 'lucide-react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { Bookmark, Calendar, Clock, MapPin, Trash2 } from 'lucide-react-native';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
