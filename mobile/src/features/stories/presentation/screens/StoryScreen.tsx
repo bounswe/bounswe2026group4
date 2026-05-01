@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
-import { Calendar, Clock, MapPin, Trash2 } from 'lucide-react-native';
+import Slider from '@react-native-community/slider';
+import { Calendar, Clock, MapPin, Pause, Play, Trash2, Volume2 } from 'lucide-react-native';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { interactionService } from '../../../interactions/application/services';
 import { StoryCommentEntity } from '../../../interactions/domain/entities';
 import { storyService } from '../../application/services';
-import { StoryEntity } from '../../domain/entities';
+import { StoryEntity, StoryMediaItem } from '../../domain/entities';
 import { ErrorState } from '../../../../shared/ui/ErrorState';
 import { Button } from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/Input';
@@ -259,6 +262,272 @@ function StoryNarrative({
           </Text>
         </Pressable>
       ) : null}
+    </View>
+  );
+}
+
+function formatPlaybackTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '0:00';
+  }
+
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function StoryAudioPreview({ item, title }: { item: StoryMediaItem; title: string }) {
+  const { colors, spacing, typography } = useAppTheme();
+  const player = useAudioPlayer({ uri: item.url }, { updateInterval: 250 });
+  const status = useAudioPlayerStatus(player);
+  const [scrubTime, setScrubTime] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [pendingSeekTime, setPendingSeekTime] = useState<number | null>(null);
+  const shouldResumeAfterScrubRef = useRef(false);
+  const duration = status.duration || 0;
+  const displayedTime = isScrubbing ? scrubTime : pendingSeekTime ?? status.currentTime;
+  const label = `${title} audio`;
+
+  useEffect(() => {
+    if (pendingSeekTime == null) {
+      return;
+    }
+
+    if (Math.abs(status.currentTime - pendingSeekTime) < 0.35) {
+      setPendingSeekTime(null);
+    }
+  }, [pendingSeekTime, status.currentTime]);
+
+  const togglePlayback = () => {
+    if (status.playing) {
+      player.pause();
+      return;
+    }
+
+    if (status.didJustFinish) {
+      void player.seekTo(0);
+    }
+    player.play();
+  };
+
+  return (
+    <View
+      accessibilityLabel={label}
+      style={{
+        minHeight: 150,
+        borderRadius: 18,
+        backgroundColor: '#111827',
+        padding: spacing.md,
+        justifyContent: 'space-between',
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={status.playing ? 'Pause story audio' : 'Play story audio'}
+          onPress={togglePlayback}
+          style={({ pressed }) => ({
+            width: 58,
+            height: 58,
+            borderRadius: 999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.background,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          {status.playing ? (
+            <Pause size={26} color="#111827" fill="#111827" />
+          ) : (
+            <Play size={26} color="#111827" fill="#111827" style={{ marginLeft: 2 }} />
+          )}
+        </Pressable>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Text style={{ color: colors.background, fontSize: typography.body, fontWeight: '800' }}>
+            Story audio
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <Volume2 size={16} color="#cbd5e1" />
+            <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '600' }}>
+              Oral history attachment
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={{ gap: spacing.xs }}>
+        <Slider
+          accessibilityLabel="Seek story audio"
+          disabled={duration <= 0}
+          minimumValue={0}
+          maximumValue={Math.max(duration, 0)}
+          value={Math.min(displayedTime, duration || displayedTime)}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor="#334155"
+          thumbTintColor={colors.background}
+          tapToSeek
+          onSlidingStart={(value) => {
+            setPendingSeekTime(null);
+            shouldResumeAfterScrubRef.current = status.playing;
+            if (status.playing) {
+              player.pause();
+            }
+            setIsScrubbing(true);
+            setScrubTime(value);
+          }}
+          onValueChange={(value) => {
+            setScrubTime(value);
+          }}
+          onSlidingComplete={(value) => {
+            setScrubTime(value);
+            setIsScrubbing(false);
+            if (duration > 0) {
+              setPendingSeekTime(value);
+              void player.seekTo(value).then(() => {
+                if (shouldResumeAfterScrubRef.current) {
+                  player.play();
+                }
+                shouldResumeAfterScrubRef.current = false;
+              });
+              return;
+            }
+            setPendingSeekTime(null);
+            shouldResumeAfterScrubRef.current = false;
+          }}
+          style={{
+            width: '100%',
+            height: 36,
+          }}
+        />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '700' }}>
+            {formatPlaybackTime(displayedTime)}
+          </Text>
+          <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '700' }}>
+            {status.isLoaded && duration > 0 ? formatPlaybackTime(duration) : '--:--'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function StoryVideoPreview({ item, title }: { item: StoryMediaItem; title: string }) {
+  const player = useVideoPlayer({ uri: item.url });
+
+  return (
+    <VideoView
+      accessibilityLabel={`${title} video`}
+      player={player}
+      nativeControls
+      contentFit="contain"
+      allowsFullscreen
+      style={{
+        height: 280,
+        width: '100%',
+        borderRadius: 16,
+        backgroundColor: '#111827',
+      }}
+    />
+  );
+}
+
+function StoryAudioVideoPreview({ item, title }: { item: StoryMediaItem; title: string }) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.md,
+        padding: spacing.sm,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        shadowColor: '#000000',
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 2,
+        gap: spacing.sm,
+      }}
+    >
+      <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '800', textTransform: 'uppercase' }}>
+        {item.type === 'audio' ? 'Audio' : 'Video'}
+      </Text>
+      {item.type === 'audio' ? <StoryAudioPreview item={item} title={title} /> : <StoryVideoPreview item={item} title={title} />}
+    </View>
+  );
+}
+
+function StoryMediaGallery({
+  story,
+  hasImageError,
+  onImageError,
+}: {
+  story: StoryEntity;
+  hasImageError: boolean;
+  onImageError: () => void;
+}) {
+  const { colors, spacing } = useAppTheme();
+  const mediaItems = story.mediaItems?.length
+    ? story.mediaItems
+    : story.mediaUrl
+      ? [{ id: 'primary-image', type: 'image' as const, url: story.mediaUrl, altText: story.mediaAltText }]
+      : [];
+
+  if (!mediaItems.length) {
+    return null;
+  }
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      {mediaItems.map((item) => {
+        if (item.type === 'image') {
+          if (hasImageError) {
+            return (
+              <View
+                key={item.id}
+                style={{
+                  width: '100%',
+                  height: 220,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: spacing.lg,
+                }}
+              >
+                <Text style={{ color: colors.text, fontWeight: '700' }}>Story image unavailable</Text>
+                <Text style={{ marginTop: spacing.sm, color: colors.muted, textAlign: 'center' }}>
+                  The image URL could not be loaded on this device.
+                </Text>
+              </View>
+            );
+          }
+
+          return (
+            <Image
+              key={item.id}
+              source={{ uri: item.url }}
+              style={{
+                width: '100%',
+                height: 220,
+                borderRadius: 20,
+                backgroundColor: colors.surface,
+              }}
+              resizeMode="cover"
+              accessibilityLabel={item.altText || `${story.title} media`}
+              onError={onImageError}
+            />
+          );
+        }
+
+        return <StoryAudioVideoPreview key={item.id} item={item} title={story.title} />;
+      })}
     </View>
   );
 }
@@ -919,43 +1188,11 @@ export function StoryScreen({
         </View>
       ) : null}
 
-      {story.mediaUrl ? (
-        hasImageError ? (
-          <View
-            style={{
-              marginTop: spacing.xl,
-              width: '100%',
-              height: 220,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: spacing.lg,
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: '700' }}>Story image unavailable</Text>
-            <Text style={{ marginTop: spacing.sm, color: colors.muted, textAlign: 'center' }}>
-              The image URL could not be loaded on this device.
-            </Text>
-          </View>
-        ) : (
-          <Image
-            source={{ uri: story.mediaUrl }}
-            style={{
-              marginTop: spacing.xl,
-              width: '100%',
-              height: 220,
-              borderRadius: 20,
-              backgroundColor: colors.surface,
-            }}
-            resizeMode="cover"
-            accessibilityLabel={story.mediaAltText || `${story.title} media`}
-            onError={() => setHasImageError(true)}
-          />
-        )
-      ) : null}
+      <StoryMediaGallery
+        story={story}
+        hasImageError={hasImageError}
+        onImageError={() => setHasImageError(true)}
+      />
 
       <StoryNarrative
         story={story}
