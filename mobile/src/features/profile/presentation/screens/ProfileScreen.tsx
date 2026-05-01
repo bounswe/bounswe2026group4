@@ -18,6 +18,7 @@ import { FollowListResult, FollowUserEntity, ProfileEntity, ProfilePhotoUploadIn
 import { AuthUser } from '../../../../core/auth/session';
 
 type ProfileMode = 'self' | 'public';
+type SelfProfileTab = 'profile' | 'saved';
 
 const BIO_MAX_LENGTH = 280;
 const MIN_BIRTH_YEAR = 1900;
@@ -519,6 +520,69 @@ function FollowActionButton({
   );
 }
 
+function SelfProfileTabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: SelfProfileTab;
+  onChange: (tab: SelfProfileTab) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const tabs: Array<{ key: SelfProfileTab; label: string; accessibilityLabel: string }> = [
+    { key: 'profile', label: 'Profile', accessibilityLabel: 'Show profile info' },
+    { key: 'saved', label: 'Saved', accessibilityLabel: 'Show saved stories' },
+  ];
+
+  return (
+    <View
+      accessibilityLabel="Profile content tabs"
+      style={{
+        flexDirection: 'row',
+        alignSelf: 'flex-start',
+        gap: spacing.xs,
+        padding: spacing.xs,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+      }}
+    >
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.key;
+
+        return (
+          <Pressable
+            key={tab.key}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.accessibilityLabel}
+            accessibilityState={{ selected: isActive }}
+            onPress={() => onChange(tab.key)}
+            style={({ pressed }) => ({
+              minWidth: 92,
+              alignItems: 'center',
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: 999,
+              backgroundColor: isActive ? colors.primary : colors.surface,
+              opacity: pressed ? 0.78 : 1,
+            })}
+          >
+            <Text
+              style={{
+                color: isActive ? colors.background : colors.text,
+                fontSize: typography.caption,
+                fontWeight: '800',
+              }}
+            >
+              {tab.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function FollowListModal({
   visible,
   mode,
@@ -993,6 +1057,7 @@ export function ProfileScreen({
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [followListMode, setFollowListMode] = useState<'followers' | 'following'>('followers');
   const [isFollowListVisible, setIsFollowListVisible] = useState(false);
+  const [activeSelfTab, setActiveSelfTab] = useState<SelfProfileTab>('profile');
 
   const resetPhotoDraft = useCallback(() => {
     setPendingPhoto(null);
@@ -1435,6 +1500,10 @@ export function ProfileScreen({
         </View>
 
         {isSelfMode ? (
+          <SelfProfileTabs activeTab={activeSelfTab} onChange={setActiveSelfTab} />
+        ) : null}
+
+        {isSelfMode && activeSelfTab === 'saved' ? (
           <SavedStoriesSection
             userId={profile.id}
             getSavedStories={getSavedStories}
@@ -1442,7 +1511,7 @@ export function ProfileScreen({
           />
         ) : null}
 
-        {isSelfMode ? (
+        {isSelfMode && activeSelfTab === 'profile' ? (
           <View
             style={{
               padding: spacing.lg,
@@ -1695,7 +1764,9 @@ export function ProfileScreen({
               </>
             )}
           </View>
-        ) : (
+        ) : null}
+
+        {!isSelfMode ? (
           <View
             style={{
               padding: spacing.lg,
@@ -1713,7 +1784,7 @@ export function ProfileScreen({
               Stories are intentionally out of scope for this profile version and will be added later.
             </Text>
           </View>
-        )}
+        ) : null}
       </ScrollView>
 
       <FollowListModal

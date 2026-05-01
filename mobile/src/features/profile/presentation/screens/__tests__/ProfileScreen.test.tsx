@@ -202,6 +202,14 @@ describe('ProfileScreen', () => {
       />,
     );
 
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('Profile')).toBeTruthy();
+    expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.queryByText('Saved Stories')).toBeNull();
+    expect(getSavedStories).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+
     expect(await screen.findByText('Saved Stories')).toBeTruthy();
     expect(await screen.findByText('Saved Harbor')).toBeTruthy();
     expect(screen.getByText('Golden Horn')).toBeTruthy();
@@ -221,6 +229,8 @@ describe('ProfileScreen', () => {
       />,
     );
 
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
     expect(await screen.findByText('Saved Harbor')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Remove Saved Harbor from saved stories'));
@@ -246,6 +256,8 @@ describe('ProfileScreen', () => {
       />,
     );
 
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
     expect(await screen.findByText('Saved Harbor')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Remove Saved Harbor from saved stories'));
@@ -270,6 +282,9 @@ describe('ProfileScreen', () => {
         })}
       />,
     );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
 
     expect(await screen.findByText('No saved stories yet')).toBeTruthy();
     expect(screen.getByText('Bookmark stories to find them here later.')).toBeTruthy();
@@ -302,6 +317,8 @@ describe('ProfileScreen', () => {
       />,
     );
 
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
     expect(await screen.findByText('First Saved Story')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Load more saved stories'));
