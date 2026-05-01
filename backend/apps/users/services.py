@@ -8,6 +8,7 @@ from django.db.models import Count, Q
 from django.http import Http404
 
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 
@@ -414,3 +415,5 @@ def reset_password(token_str: str, new_password: str) -> None:
         token.user.save(update_fields=['password'])
         token.is_used = True
         token.save(update_fields=['is_used'])
+        for outstanding in OutstandingToken.objects.filter(user=token.user):
+            BlacklistedToken.objects.get_or_create(token=outstanding)

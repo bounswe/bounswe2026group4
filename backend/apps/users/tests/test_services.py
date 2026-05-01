@@ -861,3 +861,16 @@ class TestResetPassword:
         reset_password(str(token.token), 'NewPassword1')
         with pytest.raises(ValidationError):
             reset_password(str(token.token), 'AnotherPassword1')
+
+    def test_blacklists_outstanding_jwt_tokens(self, user):
+        from apps.users.models import PasswordResetToken
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
+        refresh = RefreshToken.for_user(user)
+        outstanding = OutstandingToken.objects.get(jti=refresh['jti'])
+
+        token = PasswordResetToken.objects.create(user=user)
+        reset_password(str(token.token), 'NewPassword1')
+
+        assert BlacklistedToken.objects.filter(token=outstanding).exists()
