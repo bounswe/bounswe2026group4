@@ -72,6 +72,8 @@ describe('FeedScreen', () => {
     expect(screen.getByText('Story 2')).toBeTruthy();
     expect(screen.getByLabelText('Sort by Most Recent')).toBeTruthy();
     expect(screen.getByLabelText('Sort by Most Popular')).toBeTruthy();
+    expect(screen.getByText('Recent')).toBeTruthy();
+    expect(screen.getByText('Popular')).toBeTruthy();
     expect(screen.getByLabelText('Search stories')).toBeTruthy();
     expect(screen.queryByText('Story feed')).toBeNull();
   });

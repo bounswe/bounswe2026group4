@@ -29,9 +29,9 @@ interface FeedScreenProps {
 
 const EMPTY_FILTERS: StoryFilters = {};
 const EMPTY_STORY_INTERACTION_UPDATES: Record<string, FeedStoryInteractionUpdate> = {};
-const SORT_OPTIONS: Array<{ value: FeedSortOption; label: string }> = [
-  { value: 'recent', label: 'Most Recent' },
-  { value: 'popular', label: 'Most Popular' },
+const SORT_OPTIONS: Array<{ value: FeedSortOption; label: string; shortLabel: string }> = [
+  { value: 'recent', label: 'Most Recent', shortLabel: 'Recent' },
+  { value: 'popular', label: 'Most Popular', shortLabel: 'Popular' },
 ];
 
 export interface FeedStoryInteractionUpdate {
@@ -192,9 +192,12 @@ export function FeedScreen({
 
   const renderControls = () => {
     return (
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md }}>
-        <View style={{ gap: spacing.sm }}>
-          <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs, gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+          <Text
+            numberOfLines={1}
+            style={{ flex: 1, color: colors.muted, fontSize: typography.caption }}
+          >
             {state.totalCount > 0 ? `${state.totalCount} stories` : hasActiveFilters ? 'No matching stories yet' : 'Newest stories'}
           </Text>
           <View
@@ -203,7 +206,12 @@ export function FeedScreen({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              gap: spacing.sm,
+              flexShrink: 0,
+              padding: 2,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.infoSurface,
             }}
           >
             {SORT_OPTIONS.map((option) => {
@@ -218,11 +226,9 @@ export function FeedScreen({
                   onPress={() => handleSortChange(option.value)}
                   style={{
                     borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.sm,
-                    backgroundColor: isSelected ? colors.primary : colors.surface,
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs,
+                    backgroundColor: isSelected ? colors.primary : 'transparent',
                   }}
                 >
                   <Text
@@ -232,7 +238,7 @@ export function FeedScreen({
                       fontSize: typography.caption,
                     }}
                   >
-                    {option.label}
+                    {option.shortLabel}
                   </Text>
                 </Pressable>
               );
