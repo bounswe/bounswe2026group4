@@ -10,6 +10,19 @@ from common.pagination import StoryPagination
 from common.permissions import IsOwnerOrAdmin
 
 
+def apply_bbox_filters(qs, params):
+    """Filter a Story queryset to those whose coordinates fall within the given bounding box."""
+    if params.get('lat_min') is not None:
+        qs = qs.filter(location_lat__gte=params['lat_min'])
+    if params.get('lat_max') is not None:
+        qs = qs.filter(location_lat__lte=params['lat_max'])
+    if params.get('lng_min') is not None:
+        qs = qs.filter(location_lng__gte=params['lng_min'])
+    if params.get('lng_max') is not None:
+        qs = qs.filter(location_lng__lte=params['lng_max'])
+    return qs
+
+
 class StoryFeedView(APIView):
     """
     GET /stories/feed/
@@ -26,13 +39,20 @@ class StoryFeedView(APIView):
       latitude   — WGS-84 latitude of user's position (-90 to 90)
       longitude  — WGS-84 longitude of user's position (-180 to 180)
       radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
+      lat_min    — minimum latitude of bounding box (optional)
+      lat_max    — maximum latitude of bounding box (optional)
+      lng_min    — minimum longitude of bounding box (optional)
+      lng_max    — maximum longitude of bounding box (optional)
       page       — page number (default 1)
       page_size  — results per page (default 10, max 100)
     """
 
     # Public endpoint — guests must be able to browse stories without logging in
     permission_classes = [AllowAny]
+    
+    
 
+    #storyfeedview
     def get(self, request):
         query_serializer = FeedQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
@@ -48,6 +68,9 @@ class StoryFeedView(APIView):
             longitude=params.get('longitude'),
             radius_km=params.get('radius_km'),
         )
+        
+        qs = apply_bbox_filters(qs, params)
+        
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
 
@@ -75,6 +98,10 @@ class StoryMapView(APIView):
       latitude   — WGS-84 latitude of user's position (-90 to 90)
       longitude  — WGS-84 longitude of user's position (-180 to 180)
       radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
+      lat_min    — minimum latitude of bounding box (optional)
+      lat_max    — maximum latitude of bounding box (optional)
+      lng_min    — minimum longitude of bounding box (optional)
+      lng_max    — maximum longitude of bounding box (optional)
     """
 
     permission_classes = [AllowAny]
@@ -93,6 +120,8 @@ class StoryMapView(APIView):
             longitude=params.get('longitude'),
             radius_km=params.get('radius_km'),
         )
+        
+        qs = apply_bbox_filters(qs, params)
 
         serializer = StoryMapGeoJSONSerializer(qs, many=True)
         return Response({
@@ -111,6 +140,10 @@ class StorySearchView(APIView):
     Query params:
       q        — required, min 1 character after stripping whitespace
       tag      — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      lat_min   — minimum latitude of bounding box (optional)
+      lat_max   — maximum latitude of bounding box (optional)
+      lng_min   — minimum longitude of bounding box (optional)
+      lng_max   — maximum longitude of bounding box (optional)
     """
 
     permission_classes = [AllowAny]
@@ -131,6 +164,9 @@ class StorySearchView(APIView):
             longitude=params.get('longitude'),
             radius_km=params.get('radius_km'),
         )
+
+        qs = apply_bbox_filters(qs, params)
+
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
 

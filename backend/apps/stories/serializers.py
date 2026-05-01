@@ -330,6 +330,12 @@ class FeedQuerySerializer(serializers.Serializer):
     # Maximum of 500 km — uncapped radius would force a full table scan into memory.
     radius_km = serializers.FloatField(required=False, min_value=0.001, max_value=500.0)
 
+    # Bounding box filter — all four are independently optional
+    lat_min = serializers.FloatField(required=False, min_value=-90, max_value=90)
+    lat_max = serializers.FloatField(required=False, min_value=-90, max_value=90)
+    lng_min = serializers.FloatField(required=False, min_value=-180, max_value=180)
+    lng_max = serializers.FloatField(required=False, min_value=-180, max_value=180)
+
     def validate(self, data):
         year_from = data.get('year_from')
         year_to = data.get('year_to')
@@ -345,6 +351,18 @@ class FeedQuerySerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {f: 'Required when performing radius filtering.' for f in missing}
             )
+
+        if data.get('lat_min') is not None and data.get('lat_max') is not None:
+            if data['lat_min'] > data['lat_max']:
+                raise serializers.ValidationError(
+                    {'lat_max': 'lat_max must be greater than or equal to lat_min.'}
+                )
+
+        if data.get('lng_min') is not None and data.get('lng_max') is not None:
+            if data['lng_min'] > data['lng_max']:
+                raise serializers.ValidationError(
+                    {'lng_max': 'lng_max must be greater than or equal to lng_min.'}
+                )
 
         return data
 
