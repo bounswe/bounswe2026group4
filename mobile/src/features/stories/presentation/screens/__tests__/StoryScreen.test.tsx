@@ -19,6 +19,8 @@ jest.mock('../../../../interactions/application/services', () => ({
   interactionService: {
     likeStory: jest.fn(async () => undefined),
     unlikeStory: jest.fn(async () => undefined),
+    bookmarkStory: jest.fn(async () => undefined),
+    unbookmarkStory: jest.fn(async () => undefined),
     getComments: jest.fn(async () => []),
     addComment: jest.fn(async () => undefined),
     deleteComment: jest.fn(async () => undefined),
@@ -46,6 +48,7 @@ const baseStory: StoryEntity = {
   tags: ['Harbor', 'Labor'],
   likeCount: 27,
   likedByViewer: false,
+  savedByViewer: false,
   comments: [
     {
       id: 'comment-1',
@@ -373,11 +376,14 @@ describe('StoryScreen', () => {
   });
 
   it('toggles likes for authenticated users', async () => {
+    const onStoryInteractionUpdated = jest.fn();
+
     render(
       <StoryScreen
         storyId="story-001"
         session={userSession}
         getStory={async () => baseStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
       />,
     );
 
@@ -388,6 +394,12 @@ describe('StoryScreen', () => {
       expect(screen.getByText('♥ 28')).toBeTruthy();
     });
     expect(interactionService.likeStory).toHaveBeenCalledWith('story-001');
+    expect(onStoryInteractionUpdated).toHaveBeenCalledWith({
+      storyId: 'story-001',
+      likedByViewer: true,
+      likeCount: 28,
+      savedByViewer: false,
+    });
   });
 
   it('prompts unauthenticated users to log in before liking', async () => {
@@ -406,7 +418,7 @@ describe('StoryScreen', () => {
     fireEvent.press(screen.getByText('♡ 27'));
 
     await waitFor(() => {
-      expect(screen.getByText('Log in to like or comment on this story.')).toBeTruthy();
+      expect(screen.getByText('Log in to like, bookmark, or comment on this story.')).toBeTruthy();
     });
     expect(onRequestLogin).toHaveBeenCalledTimes(1);
   });
@@ -428,6 +440,95 @@ describe('StoryScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('♡ 27')).toBeTruthy();
       expect(screen.getByText('Network error')).toBeTruthy();
+    });
+  });
+
+  it('bookmarks stories for authenticated users with an optimistic update', async () => {
+    const onStoryInteractionUpdated = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
+      />,
+    );
+
+    expect(await screen.findByLabelText('Bookmark story')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Bookmark story'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Remove bookmark')).toBeTruthy();
+      expect(screen.getByText('Saved')).toBeTruthy();
+    });
+    expect(interactionService.bookmarkStory).toHaveBeenCalledWith('story-001');
+    expect(onStoryInteractionUpdated).toHaveBeenCalledWith({
+      storyId: 'story-001',
+      likedByViewer: false,
+      likeCount: 27,
+      savedByViewer: true,
+    });
+  });
+
+  it('removes bookmarks for authenticated users with an optimistic update', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => ({ ...baseStory, savedByViewer: true })}
+      />,
+    );
+
+    expect(await screen.findByLabelText('Remove bookmark')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Remove bookmark'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Bookmark story')).toBeTruthy();
+      expect(screen.getByText('Save')).toBeTruthy();
+    });
+    expect(interactionService.unbookmarkStory).toHaveBeenCalledWith('story-001');
+  });
+
+  it('prompts unauthenticated users to log in before bookmarking', async () => {
+    const onRequestLogin = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={guestSession}
+        onRequestLogin={onRequestLogin}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByLabelText('Bookmark story')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Bookmark story'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Log in to like, bookmark, or comment on this story.')).toBeTruthy();
+    });
+    expect(onRequestLogin).toHaveBeenCalledTimes(1);
+    expect(interactionService.bookmarkStory).not.toHaveBeenCalled();
+  });
+
+  it('reverts optimistic bookmarks when the API request fails', async () => {
+    (interactionService.bookmarkStory as jest.Mock).mockRejectedValueOnce(new Error('Bookmark failed'));
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByLabelText('Bookmark story')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Bookmark story'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Bookmark story')).toBeTruthy();
+      expect(screen.getByText('Bookmark failed')).toBeTruthy();
     });
   });
 

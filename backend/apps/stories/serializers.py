@@ -254,6 +254,8 @@ class StoryFeedSerializer(serializers.ModelSerializer):
             'status',
             'contributor_name',
             'preview_text',
+            'like_count',
+            'save_count',
             'user_has_liked',
             'user_has_saved',
             'submitted_at',

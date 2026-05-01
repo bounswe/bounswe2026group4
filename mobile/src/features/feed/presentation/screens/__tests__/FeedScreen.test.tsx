@@ -20,6 +20,8 @@ function makeStory(id: string, overrides: Partial<FeedPageEntity['items'][number
     previewText: 'A short preview about local history and memory.',
     submittedAt: '2026-03-18T10:00:00Z',
     hasMedia: false,
+    likeCount: 0,
+    savedByViewer: false,
     ...overrides,
   };
 }
@@ -68,16 +70,20 @@ describe('FeedScreen', () => {
 
     expect(await screen.findByText('Story 1')).toBeTruthy();
     expect(screen.getByText('Story 2')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sort: Most Recent' })).toBeTruthy();
+    expect(screen.getByLabelText('Sort by Most Recent')).toBeTruthy();
+    expect(screen.getByLabelText('Sort by Most Popular')).toBeTruthy();
+    expect(screen.getByText('Recent')).toBeTruthy();
+    expect(screen.getByText('Popular')).toBeTruthy();
     expect(screen.getByLabelText('Search stories')).toBeTruthy();
     expect(screen.queryByText('Story feed')).toBeNull();
   });
 
-  it('hides top feed controls when search controls are disabled', async () => {
+  it('keeps sort controls visible when search controls are disabled', async () => {
     renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} showSearchControls={false} />);
 
     expect(await screen.findByText('Story 1')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Sort: Most Recent' })).toBeNull();
+    expect(screen.getByLabelText('Sort by Most Recent')).toBeTruthy();
+    expect(screen.getByLabelText('Sort by Most Popular')).toBeTruthy();
     expect(screen.queryByLabelText('Search stories')).toBeNull();
   });
 
@@ -135,6 +141,85 @@ describe('FeedScreen', () => {
         sort: 'recent',
         filters: {},
       });
+    });
+  });
+
+  it('uses the provided initial sort for the first feed request', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} initialSort="popular" />);
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenCalledWith({
+        page: 1,
+        sort: 'popular',
+        filters: {},
+      });
+    });
+    expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('switches to Most Popular and persists the selected sort in state', async () => {
+    const onSortChange = jest.fn();
+    const getFeed = jest
+      .fn<Promise<FeedPageEntity>, [any]>()
+      .mockResolvedValueOnce(makeFeedPage())
+      .mockResolvedValueOnce(
+        makeFeedPage({
+          items: [
+            makeStory('popular', { title: 'Popular Story', likeCount: 42 }),
+            makeStory('quiet', { title: 'Quiet Story', likeCount: 3 }),
+          ],
+        }),
+      );
+
+    renderScreen(<FeedScreen getFeed={getFeed} onSortChange={onSortChange} />);
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Sort by Most Popular'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'popular',
+        filters: {},
+      });
+    });
+
+    expect(await screen.findByText('Popular Story')).toBeTruthy();
+    expect(onSortChange).toHaveBeenCalledWith('popular');
+    expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Sort by Most Recent').props.accessibilityState.selected).toBe(false);
+  });
+
+  it('applies story interaction updates to visible feed cards', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(
+      makeFeedPage({
+        items: [makeStory('1', { likeCount: 0, savedByViewer: false })],
+        totalCount: 1,
+      }),
+    );
+    const { rerender } = render(
+      <SearchFiltersProvider>
+        <FeedScreen getFeed={getFeed} storyInteractionUpdates={{}} />
+      </SearchFiltersProvider>,
+    );
+
+    expect(await screen.findByText('♥ 0')).toBeTruthy();
+    expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
+
+    rerender(
+      <SearchFiltersProvider>
+        <FeedScreen
+          getFeed={getFeed}
+          storyInteractionUpdates={{ '1': { likeCount: 1, savedByViewer: true } }}
+        />
+      </SearchFiltersProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('♥ 1')).toBeTruthy();
+      expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
     });
   });
 

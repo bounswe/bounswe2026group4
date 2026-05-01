@@ -175,9 +175,17 @@ class TestStoryFeedView:
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
+            'like_count', 'save_count',
             'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(card.keys())
+
+    def test_feed_result_contains_interaction_counts(self, client):
+        make_story(like_count=6, save_count=2)
+        response = client.get(FEED_URL)
+        card = response.data['results'][0]
+        assert card['like_count'] == 6
+        assert card['save_count'] == 2
 
     def test_returns_400_for_invalid_sort_by(self, client):
         response = client.get(FEED_URL + '?sort_by=invalid')

@@ -12,38 +12,60 @@ import {
   toSearchParams,
   useSearchFilters,
 } from '../../../search/presentation/context/SearchFiltersContext';
-import { FeedPageEntity } from '../../domain/entities';
+import { FeedPageEntity, FeedSortOption } from '../../domain/entities';
 import { FeedCard } from '../components/FeedCard';
 import { createInitialFeedUiState } from '../state/feedUiState';
 
 interface FeedScreenProps {
   initialFilters?: StoryFilters;
+  initialSort?: FeedSortOption;
+  onSortChange?: (sort: FeedSortOption) => void;
   onOpenStory?: (storyId: string) => void;
   getFeed?: typeof storyService.getFeed;
   showSearchControls?: boolean;
   searchScope?: SearchFilterScope;
+  storyInteractionUpdates?: Record<string, FeedStoryInteractionUpdate>;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
+const EMPTY_STORY_INTERACTION_UPDATES: Record<string, FeedStoryInteractionUpdate> = {};
+const SORT_OPTIONS: Array<{ value: FeedSortOption; label: string; shortLabel: string }> = [
+  { value: 'recent', label: 'Most Recent', shortLabel: 'Recent' },
+  { value: 'popular', label: 'Most Popular', shortLabel: 'Popular' },
+];
+
+export interface FeedStoryInteractionUpdate {
+  likeCount?: number;
+  savedByViewer?: boolean;
+}
 
 export function FeedScreen({
   initialFilters = EMPTY_FILTERS,
+  initialSort = 'recent',
+  onSortChange,
   onOpenStory,
   getFeed = storyService.getFeed,
   showSearchControls = true,
   searchScope = 'feed',
+  storyInteractionUpdates = EMPTY_STORY_INTERACTION_UPDATES,
 }: FeedScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { filters, refreshToken, isHydrated, setFilters } = useSearchFilters(searchScope);
   const debouncedQuery = useDebounce(filters.query, 350);
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
-  const [state, setState] = useState(() => createInitialFeedUiState(initialFilters));
+  const [state, setState] = useState(() => createInitialFeedUiState(initialFilters, initialSort));
   const stateRef = useRef(state);
+  const storyInteractionUpdatesRef = useRef(storyInteractionUpdates);
   const hasRequestedNextPage = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    storyInteractionUpdatesRef.current = storyInteractionUpdates;
+    setState((current) => applyStoryInteractionUpdates(current, storyInteractionUpdates));
+  }, [storyInteractionUpdates]);
 
   const seedFilters = useMemo(() => toSearchState(initialFilters), [initialFilters]);
 
@@ -97,6 +119,7 @@ export function FeedScreen({
       setState((current) => ({
         ...current,
         filters: nextFilters,
+        sort: nextSort,
         isLoading: mode === 'initial',
         isRefreshing: mode === 'refresh',
         isLoadingMore: mode === 'append',
@@ -110,7 +133,12 @@ export function FeedScreen({
           filters: nextFilters,
         });
 
-        setState((current) => mergeFeedPage(current, response, mode));
+        setState((current) =>
+          applyStoryInteractionUpdates(
+            mergeFeedPage(current, response, mode),
+            storyInteractionUpdatesRef.current,
+          ),
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unable to load the story feed.';
 
@@ -153,34 +181,72 @@ export function FeedScreen({
     loadPage(1, 'initial', { filters: activeFilters });
   };
 
-  const renderControls = () => {
-    if (!showSearchControls) {
-      return null;
+  const handleSortChange = (sort: FeedSortOption) => {
+    if (sort === state.sort) {
+      return;
     }
 
+    onSortChange?.(sort);
+    loadPage(1, 'initial', { filters: activeFilters, sort });
+  };
+
+  const renderControls = () => {
     return (
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
-          <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs, gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+          <Text
+            numberOfLines={1}
+            style={{ flex: 1, color: colors.muted, fontSize: typography.caption }}
+          >
             {state.totalCount > 0 ? `${state.totalCount} stories` : hasActiveFilters ? 'No matching stories yet' : 'Newest stories'}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sort: Most Recent"
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Feed sort"
             style={{
-              paddingHorizontal: spacing.sm + 4,
-              paddingVertical: spacing.xs + 2,
+              flexDirection: 'row',
+              alignItems: 'center',
+              flexShrink: 0,
+              padding: 2,
               borderRadius: 999,
               borderWidth: 1,
               borderColor: colors.border,
               backgroundColor: colors.infoSurface,
             }}
           >
-            <Text style={{ color: colors.text, fontWeight: '700' }}>Most Recent</Text>
-          </Pressable>
+            {SORT_OPTIONS.map((option) => {
+              const isSelected = state.sort === option.value;
+
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Sort by ${option.label}`}
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => handleSortChange(option.value)}
+                  style={{
+                    borderRadius: 999,
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs,
+                    backgroundColor: isSelected ? colors.primary : 'transparent',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isSelected ? colors.background : colors.text,
+                      fontWeight: '700',
+                      fontSize: typography.caption,
+                    }}
+                  >
+                    {option.shortLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
-        <StorySearchControls helperText="Search by title or place." scope={searchScope} />
+        {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
       </View>
     );
   };
@@ -258,6 +324,39 @@ export function FeedScreen({
       />
     </View>
   );
+}
+
+function applyStoryInteractionUpdates(
+  state: ReturnType<typeof createInitialFeedUiState>,
+  updates: Record<string, FeedStoryInteractionUpdate>,
+) {
+  if (!Object.keys(updates).length || !state.items.length) {
+    return state;
+  }
+
+  let hasChanges = false;
+  const items = state.items.map((item) => {
+    const update = updates[item.id];
+
+    if (!update) {
+      return item;
+    }
+
+    const nextItem = {
+      ...item,
+      likeCount: update.likeCount ?? item.likeCount,
+      savedByViewer: update.savedByViewer ?? item.savedByViewer,
+    };
+
+    hasChanges =
+      hasChanges ||
+      nextItem.likeCount !== item.likeCount ||
+      nextItem.savedByViewer !== item.savedByViewer;
+
+    return nextItem;
+  });
+
+  return hasChanges ? { ...state, items } : state;
 }
 
 function toSearchState(filters: StoryFilters): SearchFiltersState {
