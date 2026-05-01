@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { Bookmark } from 'lucide-react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { FeedEntity } from '../../domain/entities';
 
@@ -54,23 +55,45 @@ export function FeedCard({ story, onPress }: FeedCardProps) {
         >
           {story.title}
         </Text>
-        {story.hasMedia ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
           <View
-            accessibilityLabel="Has media"
+            accessibilityLabel={story.savedByViewer ? 'Bookmarked story' : 'Not bookmarked story'}
             style={{
-              paddingHorizontal: spacing.sm,
-              paddingVertical: spacing.xs,
+              width: 30,
+              height: 30,
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.background,
+              borderColor: story.savedByViewer ? colors.primary : colors.border,
+              backgroundColor: story.savedByViewer ? colors.primary : colors.background,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <Text style={{ color: colors.muted, fontSize: typography.caption, fontWeight: '700' }}>
-              IMG
-            </Text>
+            <Bookmark
+              size={16}
+              color={story.savedByViewer ? colors.background : colors.muted}
+              fill={story.savedByViewer ? colors.background : 'transparent'}
+              strokeWidth={2.2}
+            />
           </View>
-        ) : null}
+          {story.hasMedia ? (
+            <View
+              accessibilityLabel="Has media"
+              style={{
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+              }}
+            >
+              <Text style={{ color: colors.muted, fontSize: typography.caption, fontWeight: '700' }}>
+                IMG
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {story.locationName ? (
@@ -78,6 +101,18 @@ export function FeedCard({ story, onPress }: FeedCardProps) {
       ) : null}
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <View
+          style={{
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+            borderRadius: 999,
+            backgroundColor: colors.background,
+          }}
+        >
+          <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '600' }}>
+            ♥ {story.likeCount}
+          </Text>
+        </View>
         {story.timePeriod ? (
           <View
             style={{

@@ -14,7 +14,7 @@ export interface FeedUiState {
   filters: StoryFilters;
 }
 
-export function createInitialFeedUiState(filters: StoryFilters = {}): FeedUiState {
+export function createInitialFeedUiState(filters: StoryFilters = {}, sort: FeedSortOption = 'recent'): FeedUiState {
   return {
     items: [],
     isLoading: true,
@@ -24,7 +24,7 @@ export function createInitialFeedUiState(filters: StoryFilters = {}): FeedUiStat
     page: 1,
     totalCount: 0,
     hasNextPage: false,
-    sort: 'recent',
+    sort,
     filters,
   };
 }
