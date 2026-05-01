@@ -14,6 +14,15 @@ export interface SubmissionImageInput {
   type: string;
 }
 
+export type SubmissionMediaType = 'audio' | 'video';
+
+export interface SubmissionMediaInput {
+  uri: string;
+  name: string;
+  type: string;
+  mediaType: SubmissionMediaType;
+}
+
 export interface CreateStoryInput {
   title: string;
   narrative: string;
@@ -25,6 +34,9 @@ export interface CreateStoryInput {
   yearEnd?: number;
   tags: string[];
   image?: SubmissionImageInput | null;
+  audio?: SubmissionMediaInput | null;
+  video?: SubmissionMediaInput | null;
+  contributorVisible: boolean;
 }
 
 interface StoryCreateResponse {
@@ -40,7 +52,7 @@ function buildStoryFormData(input: CreateStoryInput) {
   formData.append('location_lng', input.location.longitude.toFixed(6));
   formData.append('location_name', input.placeName.trim());
   formData.append('time_type', input.timeType);
-  formData.append('contributor_visible', 'true');
+  formData.append('contributor_visible', input.contributorVisible ? 'true' : 'false');
 
   if (input.timeType === 'year_range') {
     if (typeof input.yearStart === 'number') {
@@ -56,12 +68,12 @@ function buildStoryFormData(input: CreateStoryInput) {
   return formData;
 }
 
-function buildImageFormData(image: SubmissionImageInput) {
+function buildUploadFormData(file: SubmissionImageInput | SubmissionMediaInput) {
   const formData = new FormData();
   formData.append('file', {
-    uri: image.uri,
-    name: image.name,
-    type: image.type,
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
   } as unknown as Blob);
   return formData;
 }
@@ -80,7 +92,18 @@ export const submissionsService = {
     if (input.image) {
       await apiClient.post(
         `${endpoints.stories}/${story.id}/images/`,
-        buildImageFormData(input.image),
+        buildUploadFormData(input.image),
+      );
+    }
+
+    const mediaUploads = [input.audio, input.video].filter(
+      (media): media is SubmissionMediaInput => Boolean(media),
+    );
+
+    for (const media of mediaUploads) {
+      await apiClient.post(
+        `${endpoints.stories}/${story.id}/media/`,
+        buildUploadFormData(media),
       );
     }
 

@@ -140,6 +140,39 @@ describe('StoryScreen', () => {
     expect(screen.getByTestId('story-location-map')).toBeTruthy();
   });
 
+  it('renders audio and video media on story detail', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => ({
+          ...baseStory,
+          mediaItems: [
+            {
+              id: 'image-1',
+              type: 'image',
+              url: 'https://example.com/story.jpg',
+            },
+            {
+              id: 'audio-1',
+              type: 'audio',
+              url: 'https://example.com/story.mp3',
+            },
+            {
+              id: 'video-1',
+              type: 'video',
+              url: 'https://example.com/story.mp4',
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.getByLabelText(`${baseStory.title} media`)).toBeTruthy();
+    expect(screen.getByLabelText(`${baseStory.title} audio`)).toBeTruthy();
+    expect(screen.getByLabelText(`${baseStory.title} video`)).toBeTruthy();
+  });
+
   it('opens the contributor profile when the contributor name is pressed', async () => {
     const onOpenContributorProfile = jest.fn();
 
