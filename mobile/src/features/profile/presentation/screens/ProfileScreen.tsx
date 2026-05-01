@@ -808,10 +808,12 @@ function SavedStoriesSection({
   userId,
   getSavedStories,
   unbookmarkStory,
+  onTotalCountChange,
 }: {
   userId: string;
   getSavedStories: (userId: string, page?: number) => Promise<FeedPageEntity>;
   unbookmarkStory: (storyId: string) => Promise<void>;
+  onTotalCountChange?: (count: number) => void;
 }) {
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
@@ -822,6 +824,7 @@ function SavedStoriesSection({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string>();
   const [pendingStoryId, setPendingStoryId] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
 
   const loadPage = useCallback(
     async (nextPage: number, append: boolean) => {
@@ -838,6 +841,8 @@ function SavedStoriesSection({
         setStories((current) => (append ? [...current, ...result.items] : result.items));
         setPage(nextPage);
         setHasMore(result.hasNextPage);
+        setTotalCount(result.totalCount);
+        onTotalCountChange?.(result.totalCount);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : 'Unable to load saved stories.');
       } finally {
@@ -845,7 +850,7 @@ function SavedStoriesSection({
         setIsLoadingMore(false);
       }
     },
-    [getSavedStories, userId],
+    [getSavedStories, onTotalCountChange, userId],
   );
 
   useEffect(() => {
@@ -862,22 +867,28 @@ function SavedStoriesSection({
       }
 
       const previousStories = stories;
+      const previousTotalCount = totalCount;
       const nextStories = stories.filter((story) => story.id !== storyId);
+      const nextTotalCount = Math.max(0, totalCount - 1);
 
       setPendingStoryId(storyId);
       setStories(nextStories);
+      setTotalCount(nextTotalCount);
+      onTotalCountChange?.(nextTotalCount);
 
       try {
         await unbookmarkStory(storyId);
         toast.success('Removed from saved stories.');
       } catch {
         setStories(previousStories);
+        setTotalCount(previousTotalCount);
+        onTotalCountChange?.(previousTotalCount);
         toast.error('Failed to remove saved story. Please try again.');
       } finally {
         setPendingStoryId(null);
       }
     },
-    [pendingStoryId, stories, toast, unbookmarkStory],
+    [onTotalCountChange, pendingStoryId, stories, toast, totalCount, unbookmarkStory],
   );
 
   return (
@@ -1000,6 +1011,7 @@ export function ProfileScreen({
   const [followListMode, setFollowListMode] = useState<'followers' | 'following'>('followers');
   const [isFollowListVisible, setIsFollowListVisible] = useState(false);
   const [activeSelfTab, setActiveSelfTab] = useState<SelfProfileTab>('profile');
+  const [savedStoriesCount, setSavedStoriesCount] = useState<number | null>(null);
 
   const resetPhotoDraft = useCallback(() => {
     setPendingPhoto(null);
@@ -1057,6 +1069,32 @@ export function ProfileScreen({
 
     void loadProfile();
   }, [isSelfMode, loadProfile, userId]);
+
+  useEffect(() => {
+    if (!isSelfMode || !profile?.id) {
+      setSavedStoriesCount(null);
+      return;
+    }
+
+    let isActive = true;
+
+    setSavedStoriesCount(null);
+    void getSavedStories(profile.id, 1)
+      .then((result) => {
+        if (isActive) {
+          setSavedStoriesCount(result.totalCount);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setSavedStoriesCount(0);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [getSavedStories, isSelfMode, profile?.id]);
 
   const validateForm = useCallback(() => {
     const nextErrors: FormErrors = {};
@@ -1422,7 +1460,7 @@ export function ProfileScreen({
             {isSelfMode ? (
               <StatButton
                 label="Saved"
-                value="Stories"
+                value={savedStoriesCount === null ? '...' : String(savedStoriesCount)}
                 accessibilityLabel="Show saved stories"
                 selected={activeSelfTab === 'saved'}
                 onPress={() => {
@@ -1457,6 +1495,7 @@ export function ProfileScreen({
             userId={profile.id}
             getSavedStories={getSavedStories}
             unbookmarkStory={unbookmarkStory}
+            onTotalCountChange={setSavedStoriesCount}
           />
         ) : null}
 

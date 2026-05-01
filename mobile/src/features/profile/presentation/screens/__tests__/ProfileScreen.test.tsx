@@ -207,7 +207,11 @@ describe('ProfileScreen', () => {
     expect(screen.getByLabelText('Show saved stories')).toBeTruthy();
     expect(screen.queryByLabelText('Profile content tabs')).toBeNull();
     expect(screen.queryByText('Saved Stories')).toBeNull();
-    expect(getSavedStories).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(getSavedStories).toHaveBeenCalledWith('7', 1);
+      expect(screen.getByText('1')).toBeTruthy();
+    });
 
     fireEvent.press(screen.getByLabelText('Show saved stories'));
 
@@ -215,7 +219,7 @@ describe('ProfileScreen', () => {
     expect(await screen.findByText('Saved Harbor')).toBeTruthy();
     expect(screen.getByText('Golden Horn')).toBeTruthy();
     expect(screen.getByLabelText('Remove Saved Harbor from saved stories')).toBeTruthy();
-    expect(getSavedStories).toHaveBeenCalledWith('7', 1);
+    expect(getSavedStories).toHaveBeenCalledTimes(2);
   });
 
   it('removes a saved story with an optimistic update and confirmation toast', async () => {
@@ -298,6 +302,11 @@ describe('ProfileScreen', () => {
   it('loads more saved stories when more bookmark pages exist', async () => {
     const getSavedStories = jest
       .fn()
+      .mockResolvedValueOnce(makeSavedStoriesPage({
+        items: [makeSavedStory('saved-1', 'First Saved Story')],
+        totalCount: 2,
+        hasNextPage: true,
+      }))
       .mockResolvedValueOnce(makeSavedStoriesPage({
         items: [makeSavedStory('saved-1', 'First Saved Story')],
         totalCount: 2,
