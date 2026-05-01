@@ -12,6 +12,7 @@ export function useFilterState() {
   const yearTo = searchParams.get("year_to") ? Number(searchParams.get("year_to")) : "";
   const location = searchParams.get("location") || "";
   const page = searchParams.get("page") ? Number(searchParams.get("page")) : 1;
+  const sortBy = searchParams.get("sort_by") || "recent";
 
   const hasActiveFilters = Boolean(q || yearFrom || yearTo || location);
 
@@ -65,6 +66,7 @@ export function useFilterState() {
     yearTo,
     location,
     page,
+    sortBy,
     hasActiveFilters,
     setFilters,
     removeFilter,

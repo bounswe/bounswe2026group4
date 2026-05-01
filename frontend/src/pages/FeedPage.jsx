@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SkeletonCard } from "@/components/ui/loading-skeleton";
@@ -13,7 +13,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 const PAGE_SIZE = 12;
 
 function FeedPage() {
-  const { q, yearFrom, yearTo, location, page, hasActiveFilters, setFilters } =
+  const { q, yearFrom, yearTo, location, page, sortBy, hasActiveFilters, setFilters } =
     useFilterState();
 
   const [stories, setStories] = useState([]);
@@ -29,7 +29,7 @@ function FeedPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getStories({ q, yearFrom, yearTo, location, page, pageSize: PAGE_SIZE });
+      const data = await getStories({ q, yearFrom, yearTo, location, page, pageSize: PAGE_SIZE, sortBy });
       setStories(data.results);
       setTotalCount(data.count);
       setHasNext(Boolean(data.next));
@@ -43,7 +43,7 @@ function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, yearFrom, yearTo, location, page]);
+  }, [q, yearFrom, yearTo, location, page, sortBy]);
 
   useEffect(() => {
     fetchStories();
@@ -78,11 +78,38 @@ function FeedPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" aria-label="Sort: Most Recent">
-              <Clock aria-hidden="true" />
-              <span className="hidden sm:inline">Most Recent</span>
-            </Button>
+          <div
+            role="group"
+            aria-label="Sort order"
+            className="flex overflow-hidden rounded-md border border-input text-sm font-medium"
+          >
+            <button
+              aria-pressed={sortBy === "recent"}
+              aria-label="Sort by Most Recent"
+              onClick={() => setFilters({ sort_by: "recent" })}
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors ${
+                sortBy === "recent"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              <Clock className="h-4 w-4" aria-hidden="true" />
+              <span>Most Recent</span>
+            </button>
+            <div className="w-px bg-border" />
+            <button
+              aria-pressed={sortBy === "popular"}
+              aria-label="Sort by Most Popular"
+              onClick={() => setFilters({ sort_by: "popular" })}
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors ${
+                sortBy === "popular"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              <TrendingUp className="h-4 w-4" aria-hidden="true" />
+              <span>Most Popular</span>
+            </button>
           </div>
         </div>
 
