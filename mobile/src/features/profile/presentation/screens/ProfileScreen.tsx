@@ -3,12 +3,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { GestureResponderEvent } from 'react-native';
 import { navigationRef } from '../../../../app/navigation/navigationRef';
+import { ROUTES } from '../../../../app/navigation/routes';
 import { limits } from '../../../../core/constants/limits';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
-import { Button, ErrorState, Input, Loader, Skeleton } from '../../../../shared';
+import { Button, EmptyState, ErrorState, Input, Loader, Skeleton } from '../../../../shared';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { authService } from '../../../auth/application/services';
 import { useAuth } from '../../../auth';
+import { interactionService } from '../../../interactions/application/services';
+import { FeedCard } from '../../../feed/presentation/components/FeedCard';
+import { FeedEntity, FeedPageEntity } from '../../../feed/domain/entities';
 import { userService } from '../../application/services';
 import { FollowListResult, FollowUserEntity, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 import { AuthUser } from '../../../../core/auth/session';
@@ -48,6 +52,8 @@ interface ProfileScreenProps {
   unfollowUser?: typeof userService.unfollowUser;
   getFollowers?: typeof userService.getFollowers;
   getFollowing?: typeof userService.getFollowing;
+  getSavedStories?: typeof userService.getSavedStories;
+  unbookmarkStory?: typeof interactionService.unbookmarkStory;
   onOpenUserProfile?: (userId: string) => void;
 }
 
@@ -792,6 +798,155 @@ function FieldCard({
   );
 }
 
+function SavedStoriesSection({
+  userId,
+  getSavedStories,
+  unbookmarkStory,
+}: {
+  userId: string;
+  getSavedStories: (userId: string, page?: number) => Promise<FeedPageEntity>;
+  unbookmarkStory: (storyId: string) => Promise<void>;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const { toast } = useToast();
+  const [stories, setStories] = useState<FeedEntity[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string>();
+  const [pendingStoryId, setPendingStoryId] = useState<string | null>(null);
+
+  const loadPage = useCallback(
+    async (nextPage: number, append: boolean) => {
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      setError(undefined);
+
+      try {
+        const result = await getSavedStories(userId, nextPage);
+        setStories((current) => (append ? [...current, ...result.items] : result.items));
+        setPage(nextPage);
+        setHasMore(result.hasNextPage);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load saved stories.');
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [getSavedStories, userId],
+  );
+
+  useEffect(() => {
+    setStories([]);
+    setPage(1);
+    setHasMore(false);
+    void loadPage(1, false);
+  }, [loadPage]);
+
+  const handleRemoveBookmark = useCallback(
+    async (storyId: string) => {
+      if (pendingStoryId) {
+        return;
+      }
+
+      const previousStories = stories;
+      const nextStories = stories.filter((story) => story.id !== storyId);
+
+      setPendingStoryId(storyId);
+      setStories(nextStories);
+
+      try {
+        await unbookmarkStory(storyId);
+        toast.success('Removed from saved stories.');
+      } catch {
+        setStories(previousStories);
+        toast.error('Failed to remove saved story. Please try again.');
+      } finally {
+        setPendingStoryId(null);
+      }
+    },
+    [pendingStoryId, stories, toast, unbookmarkStory],
+  );
+
+  return (
+    <View
+      accessibilityLabel="Saved stories section"
+      style={{
+        padding: spacing.lg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ gap: spacing.xs }}>
+        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+          Saved Stories
+        </Text>
+        <Text style={{ color: colors.muted }}>
+          Stories you bookmarked, ordered by most recently saved.
+        </Text>
+      </View>
+
+      {isLoading && stories.length === 0 ? <Loader message="Loading saved stories..." /> : null}
+
+      {error && stories.length === 0 ? (
+        <ErrorState
+          title="Saved stories unavailable"
+          message={error}
+          retryLabel="Try again"
+          onRetry={() => {
+            void loadPage(1, false);
+          }}
+        />
+      ) : null}
+
+      {!isLoading && !error && stories.length === 0 ? (
+        <EmptyState
+          title="No saved stories yet"
+          message="Bookmark stories to find them here later."
+          actionLabel="Browse stories"
+          onAction={() => navigationRef.navigate?.(ROUTES.FEED)}
+        />
+      ) : null}
+
+      {stories.length > 0 ? (
+        <View style={{ gap: spacing.md }}>
+          {stories.map((story) => (
+            <FeedCard
+              key={story.id}
+              story={{ ...story, savedByViewer: true }}
+              bookmarkAccessibilityLabel={`Remove ${story.title} from saved stories`}
+              isBookmarkPending={pendingStoryId === story.id}
+              onBookmarkPress={(storyId) => {
+                void handleRemoveBookmark(storyId);
+              }}
+            />
+          ))}
+          {hasMore ? (
+            <Button
+              variant="outline"
+              onPress={() => {
+                void loadPage(page + 1, true);
+              }}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? 'Loading...' : 'Load more saved stories'}
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function ProfileScreen({
   mode = 'self',
   userId,
@@ -805,6 +960,8 @@ export function ProfileScreen({
   unfollowUser = userService.unfollowUser,
   getFollowers = userService.getFollowers,
   getFollowing = userService.getFollowing,
+  getSavedStories = userService.getSavedStories,
+  unbookmarkStory = interactionService.unbookmarkStory,
   onOpenUserProfile,
 }: ProfileScreenProps) {
   const { user, isAuthenticated, updateUser, logout } = useAuth();
@@ -1276,6 +1433,14 @@ export function ProfileScreen({
             </FieldCard>
           ) : null}
         </View>
+
+        {isSelfMode ? (
+          <SavedStoriesSection
+            userId={profile.id}
+            getSavedStories={getSavedStories}
+            unbookmarkStory={unbookmarkStory}
+          />
+        ) : null}
 
         {isSelfMode ? (
           <View
