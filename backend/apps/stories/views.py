@@ -138,7 +138,7 @@ class StorySearchView(APIView):
     title and location_name. Open to guests and authenticated users alike.
 
     Query params:
-            q        — required, min 1 character after stripping whitespace
+      q        — required, min 1 character after stripping whitespace
       tag      — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
       lat_min   — minimum latitude of bounding box (optional)
       lat_max   — maximum latitude of bounding box (optional)
