@@ -211,6 +211,58 @@ describe('SubmissionScreen', () => {
     expect(navigationRef.navigate).toHaveBeenCalledWith(ROUTES.FEED);
   });
 
+  it('submits specific date stories with optional time and EDTF temporal coverage', async () => {
+    (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Republic Day');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story tied to a specific day.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
+    fireEvent.press(screen.getByText('Specific Date'));
+    fireEvent.changeText(screen.getByLabelText('Specific date day'), '29');
+    fireEvent.changeText(screen.getByLabelText('Specific date month'), '10');
+    fireEvent.changeText(screen.getByLabelText('Specific date year'), '1923');
+    fireEvent.changeText(screen.getByLabelText('Optional specific time'), '09:30');
+
+    fireEvent.press(screen.getByText('Submit story'));
+
+    await waitFor(() => {
+      expect(submissionsService.createStory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeType: 'exact_date',
+          dateValue: '1923-10-29',
+          timeValue: '09:30',
+          temporalCoverage: '1923-10-29T09:30',
+        }),
+      );
+    });
+  });
+
+  it('validates specific date and optional time inputs', async () => {
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Invalid Date');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story with invalid temporal input.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
+    fireEvent.press(screen.getByText('Specific Date'));
+    fireEvent.changeText(screen.getByLabelText('Specific date day'), '31');
+    fireEvent.changeText(screen.getByLabelText('Specific date month'), '02');
+    fireEvent.changeText(screen.getByLabelText('Specific date year'), '1923');
+    fireEvent.changeText(screen.getByLabelText('Optional specific time'), '25:00');
+
+    fireEvent.press(screen.getByText('Submit story'));
+
+    expect(await screen.findByText('Enter a valid calendar date.')).toBeTruthy();
+    expect(screen.getByText('Time must use 24-hour HH:MM format.')).toBeTruthy();
+    expect(submissionsService.createStory).not.toHaveBeenCalled();
+  });
+
   it('debounces story location search API calls by 300ms', async () => {
     jest.useFakeTimers();
     renderSubmissionScreen();

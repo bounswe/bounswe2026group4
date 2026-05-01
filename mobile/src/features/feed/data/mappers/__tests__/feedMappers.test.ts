@@ -49,6 +49,19 @@ describe('feed mappers', () => {
     expect(page.items[0].likeCount).toBe(3);
   });
 
+  it('maps exact date feed card time periods without changing year-based formatting', () => {
+    expect(
+      mapFeedItem({
+        id: 44,
+        title: 'Republic Day',
+        location_name: 'Ankara',
+        time_type: 'exact_date',
+        date_value: '1923-10-29',
+        time_value: '09:30:00',
+      }).timePeriod,
+    ).toBe('1923-10-29 09:30');
+  });
+
   it('maps legacy like count aliases from feed payloads', () => {
     expect(
       mapFeedItem({

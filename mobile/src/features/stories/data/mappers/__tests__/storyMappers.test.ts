@@ -115,6 +115,26 @@ describe('story mappers', () => {
     expect(result.mediaUrl).toBe('https://example.com/story.jpg');
   });
 
+  it('maps exact date stories to a readable time period', () => {
+    const result = mapStory({
+      id: 56,
+      user: 7,
+      title: 'Republic Day',
+      narrative: 'A precise date memory.',
+      status: 'published',
+      location_name: 'Ankara',
+      location_lat: '39.9334',
+      location_lng: '32.8597',
+      time_type: 'exact_date',
+      date_value: '1923-10-29',
+      time_value: '09:30:00',
+      contributor_name: 'Aylin',
+      submitted_at: '2026-03-18T10:00:00Z',
+    });
+
+    expect(result.timePeriod).toBe('1923-10-29 09:30');
+  });
+
   it('maps normalized anonymous stories with the anonymous contributor label', () => {
     const result = mapStory({
       id: 53,
