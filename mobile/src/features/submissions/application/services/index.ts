@@ -1,7 +1,9 @@
 import { apiClient } from '../../../../core/api/client';
 import { endpoints } from '../../../../core/api/endpoints';
+import { buildEdtfTemporalCoverage, normalizeTimeValue, type StoryTimeType } from './temporal';
 
-export type StoryTimeType = 'exact_year' | 'approximate_year' | 'decade' | 'year_range';
+export type { StoryTimeType } from './temporal';
+export { buildDateValueFromParts, buildEdtfTemporalCoverage, normalizeTimeValue } from './temporal';
 
 export interface SubmissionLocationInput {
   latitude: number;
@@ -14,6 +16,15 @@ export interface SubmissionImageInput {
   type: string;
 }
 
+export type SubmissionMediaType = 'audio' | 'video';
+
+export interface SubmissionMediaInput {
+  uri: string;
+  name: string;
+  type: string;
+  mediaType: SubmissionMediaType;
+}
+
 export interface CreateStoryInput {
   title: string;
   narrative: string;
@@ -23,8 +34,14 @@ export interface CreateStoryInput {
   year?: number;
   yearStart?: number;
   yearEnd?: number;
+  dateValue?: string;
+  timeValue?: string;
+  temporalCoverage?: string;
   tags: string[];
   image?: SubmissionImageInput | null;
+  audio?: SubmissionMediaInput | null;
+  video?: SubmissionMediaInput | null;
+  contributorVisible: boolean;
 }
 
 interface StoryCreateResponse {
@@ -33,6 +50,14 @@ interface StoryCreateResponse {
 
 function buildStoryFormData(input: CreateStoryInput) {
   const formData = new FormData();
+  const hasExactDateTimeValue = input.timeType === 'exact_date' && Boolean(input.timeValue?.trim());
+  const normalizedExactDateTimeValue = hasExactDateTimeValue
+    ? normalizeTimeValue(input.timeValue ?? '')
+    : undefined;
+
+  if (hasExactDateTimeValue && !normalizedExactDateTimeValue) {
+    throw new Error('timeValue must use HH:MM format.');
+  }
 
   formData.append('title', input.title.trim());
   formData.append('narrative', input.narrative.trim());
@@ -40,9 +65,28 @@ function buildStoryFormData(input: CreateStoryInput) {
   formData.append('location_lng', input.location.longitude.toFixed(6));
   formData.append('location_name', input.placeName.trim());
   formData.append('time_type', input.timeType);
-  formData.append('contributor_visible', 'true');
+  formData.append(
+    'temporal_coverage',
+    input.temporalCoverage ??
+      buildEdtfTemporalCoverage({
+        timeType: input.timeType,
+        year: input.year,
+        yearStart: input.yearStart,
+        yearEnd: input.yearEnd,
+        dateValue: input.dateValue,
+        timeValue: normalizedExactDateTimeValue ?? input.timeValue,
+      }),
+  );
+  formData.append('contributor_visible', input.contributorVisible ? 'true' : 'false');
 
-  if (input.timeType === 'year_range') {
+  if (input.timeType === 'exact_date') {
+    if (input.dateValue) {
+      formData.append('date_value', input.dateValue);
+    }
+    if (normalizedExactDateTimeValue) {
+      formData.append('time_value', normalizedExactDateTimeValue);
+    }
+  } else if (input.timeType === 'year_range') {
     if (typeof input.yearStart === 'number') {
       formData.append('year_start', String(input.yearStart));
     }
@@ -56,12 +100,12 @@ function buildStoryFormData(input: CreateStoryInput) {
   return formData;
 }
 
-function buildImageFormData(image: SubmissionImageInput) {
+function buildUploadFormData(file: SubmissionImageInput | SubmissionMediaInput) {
   const formData = new FormData();
   formData.append('file', {
-    uri: image.uri,
-    name: image.name,
-    type: image.type,
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
   } as unknown as Blob);
   return formData;
 }
@@ -80,7 +124,18 @@ export const submissionsService = {
     if (input.image) {
       await apiClient.post(
         `${endpoints.stories}/${story.id}/images/`,
-        buildImageFormData(input.image),
+        buildUploadFormData(input.image),
+      );
+    }
+
+    const mediaUploads = [input.audio, input.video].filter(
+      (media): media is SubmissionMediaInput => Boolean(media),
+    );
+
+    for (const media of mediaUploads) {
+      await apiClient.post(
+        `${endpoints.stories}/${story.id}/media/`,
+        buildUploadFormData(media),
       );
     }
 

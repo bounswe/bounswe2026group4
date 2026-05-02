@@ -1,6 +1,8 @@
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Case, Exists, ExpressionWrapper, IntegerField, OuterRef, Q, When
+from django.db.models.functions import Coalesce, ExtractYear
 
 from apps.interactions.models import Like, SavedStory
+from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 
 
@@ -113,6 +115,98 @@ def get_story_feed(
         qs = qs.order_by('-like_count')
 
     return qs
+
+
+def get_story_timeline(
+    year_from=None,
+    year_to=None,
+    lat_min=None,
+    lat_max=None,
+    lng_min=None,
+    lng_max=None,
+    has_image=None,
+):
+    """
+    Return published stories sorted by effective historical midpoint ascending.
+
+    Sorting rules per time_type:
+      exact_year / approximate_year → year
+      decade                        → year + 5  (midpoint of the decade)
+      year_range                    → (year_start + year_end) / 2
+
+    year_from/year_to filtering uses interval-overlap semantics so that a decade
+    or year_range story is included whenever its represented period intersects the
+    requested window:
+      exact / approx  — point value; must fall within [year_from, year_to]
+      decade          — interval [year, year+9]; included if year+9 >= year_from
+      year_range      — interval [year_start, year_end]; standard overlap rules
+
+    lat_min/lat_max/lng_min/lng_max narrow results to a geographic bounding box.
+    has_image=True restricts to stories that have at least one image MediaItem.
+    """
+    qs = Story.objects.filter(status=Story.STATUS_PUBLISHED)
+
+    if year_from is not None:
+        qs = qs.filter(
+            # decade: interval ends at year+9; include if year+9 >= year_from ↔ year >= year_from-9
+            Q(time_type=Story.TIME_DECADE, year__gte=year_from - 9) |
+            # exact / approximate: point must be at or after year_from
+            Q(time_type__in=[Story.TIME_EXACT, Story.TIME_APPROXIMATE], year__gte=year_from) |
+            # year_range: interval ends at year_end; include if year_end >= year_from
+            Q(time_type=Story.TIME_RANGE, year_end__gte=year_from) |
+            # exact_date: compare by calendar year extracted from date_value
+            Q(time_type=Story.TIME_DATE, date_value__year__gte=year_from)
+        )
+
+    if year_to is not None:
+        # All non-range time types start at year; year_range starts at year_start.
+        # Decade starts at year too (same as exact/approx), so no special case needed here.
+        # exact_date has no year field — its date_value year is compared directly.
+        qs = qs.filter(
+            Q(year__lte=year_to) |
+            Q(year_start__lte=year_to) |
+            Q(time_type=Story.TIME_DATE, date_value__year__lte=year_to)
+        )
+
+    if lat_min is not None:
+        qs = qs.filter(
+            location_lat__gte=lat_min,
+            location_lat__lte=lat_max,
+            location_lng__gte=lng_min,
+            location_lng__lte=lng_max,
+        )
+
+    if has_image is True:
+        # Exists avoids the JOIN-based duplicates that would need .distinct(),
+        # which conflicts with ORDER BY on an annotated column in MySQL.
+        has_image_subq = MediaItem.objects.filter(
+            story=OuterRef('pk'),
+            media_type=MediaType.IMAGE,
+        )
+        qs = qs.filter(Exists(has_image_subq))
+
+    # Build a synthetic sort key using the midpoint of each story's time interval.
+    from django.db.models import F
+    sort_key = Case(
+        When(
+            time_type=Story.TIME_RANGE,
+            then=ExpressionWrapper(
+                (F('year_start') + F('year_end')) / 2,
+                output_field=IntegerField(),
+            ),
+        ),
+        When(
+            time_type=Story.TIME_DECADE,
+            then=ExpressionWrapper(F('year') + 5, output_field=IntegerField()),
+        ),
+        When(
+            time_type=Story.TIME_DATE,
+            then=ExtractYear('date_value'),
+        ),
+        default=F('year'),
+        output_field=IntegerField(),
+    )
+    return qs.annotate(historical_year=sort_key).order_by('historical_year', 'date_value')
 
 
 def get_story_search(

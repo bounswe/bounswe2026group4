@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   LayoutChangeEvent,
@@ -8,7 +8,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { Pause, Play, Volume2 } from 'lucide-react-native';
 import { ROUTES } from '../../../../app/navigation/routes';
 import { navigationRef } from '../../../../app/navigation/navigationRef';
 import { limits } from '../../../../core/constants/limits';
@@ -19,8 +24,10 @@ import {
   CreateStoryInput,
   StoryTimeType,
   SubmissionImageInput,
+  SubmissionMediaInput,
   submissionsService,
 } from '../../application/services';
+import { buildDateValueFromParts, buildEdtfTemporalCoverage, normalizeTimeValue } from '../../application/services/temporal';
 import { StoryLocationPicker } from '../components/StoryLocationPicker';
 
 const TAG_OPTIONS = [
@@ -34,11 +41,14 @@ const TAG_OPTIONS = [
   { label: 'Politics', value: 'politics' },
 ] as const;
 
-const TIME_TYPES: Array<{ value: StoryTimeType; label: string; helper: string }> = [
-  { value: 'exact_year', label: 'Exact Year', helper: 'Use a specific known year.' },
-  { value: 'approximate_year', label: 'Approximate', helper: 'For estimated years like circa 1450.' },
-  { value: 'decade', label: 'Decade', helper: 'Enter the decade base year like 1980.' },
-  { value: 'year_range', label: 'Year Range', helper: 'Capture stories that span multiple years.' },
+const MAX_STORY_YEAR = 2026;
+
+const TIME_TYPES: Array<{ value: StoryTimeType; label: string; accessibilityLabel: string; helper: string }> = [
+  { value: 'exact_year', label: 'Exact', accessibilityLabel: 'Exact Year', helper: 'Use a specific known year.' },
+  { value: 'approximate_year', label: 'Approx', accessibilityLabel: 'Approximate Year', helper: 'For estimated years like circa 1450.' },
+  { value: 'decade', label: 'Decade', accessibilityLabel: 'Decade', helper: 'Enter the decade base year like 1980.' },
+  { value: 'year_range', label: 'Range', accessibilityLabel: 'Year Range', helper: 'Capture stories that span multiple years.' },
+  { value: 'exact_date', label: 'Date', accessibilityLabel: 'Specific Date', helper: 'Use a day, month, and year. Time is optional.' },
 ];
 
 type FieldName =
@@ -49,8 +59,14 @@ type FieldName =
   | 'year'
   | 'yearStart'
   | 'yearEnd'
+  | 'dateDay'
+  | 'dateMonth'
+  | 'dateYear'
+  | 'timeValue'
   | 'tags'
-  | 'image';
+  | 'image'
+  | 'audio'
+  | 'video';
 
 type LayoutTargetName = FieldName | 'time';
 
@@ -62,8 +78,14 @@ const FIELD_SCROLL_ORDER: FieldName[] = [
   'year',
   'yearStart',
   'yearEnd',
+  'dateDay',
+  'dateMonth',
+  'dateYear',
+  'timeValue',
   'tags',
   'image',
+  'audio',
+  'video',
 ];
 
 interface SubmissionFormState {
@@ -76,10 +98,17 @@ interface SubmissionFormState {
   year: string;
   yearStart: string;
   yearEnd: string;
+  dateDay: string;
+  dateMonth: string;
+  dateYear: string;
+  timeValue: string;
   selectedTags: string[];
   customTag: string;
   image: (SubmissionImageInput & { fileSize?: number | null }) | null;
   imagePreviewUri: string | null;
+  audio: (SubmissionMediaInput & { fileSize?: number | null }) | null;
+  video: (SubmissionMediaInput & { fileSize?: number | null }) | null;
+  contributorVisible: boolean;
   isSubmitting: boolean;
   apiError?: string;
 }
@@ -94,15 +123,39 @@ const initialState: SubmissionFormState = {
   year: '',
   yearStart: '',
   yearEnd: '',
+  dateDay: '',
+  dateMonth: '',
+  dateYear: '',
+  timeValue: '',
   selectedTags: [],
   customTag: '',
   image: null,
   imagePreviewUri: null,
+  audio: null,
+  video: null,
+  contributorVisible: true,
   isSubmitting: false,
 };
 
 function normalizeTagName(tag: string) {
   return tag.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+
+function normalizeYearInput(value: string, allowNegative = true) {
+  const trimmedValue = value.trim();
+  const isNegative = allowNegative && trimmedValue.startsWith('-');
+  const digitsOnly = trimmedValue.replace(/[^0-9]/g, '').slice(0, 4);
+  const numericValue = Number(digitsOnly);
+
+  if (digitsOnly.length === 4 && Number.isFinite(numericValue) && numericValue > MAX_STORY_YEAR) {
+    return isNegative ? `-${digitsOnly}` : String(MAX_STORY_YEAR);
+  }
+
+  return `${isNegative ? '-' : ''}${digitsOnly}`;
+}
+
+function isYearAfterLimit(value: string) {
+  return Number(value) > MAX_STORY_YEAR;
 }
 
 function inferMimeType(uri: string) {
@@ -113,8 +166,41 @@ function inferMimeType(uri: string) {
   return 'image/jpeg';
 }
 
+function inferAudioMimeType(nameOrUri: string) {
+  const normalized = nameOrUri.toLowerCase();
+  if (normalized.endsWith('.wav')) {
+    return 'audio/wav';
+  }
+  if (normalized.endsWith('.ogg')) {
+    return 'audio/ogg';
+  }
+  return 'audio/mpeg';
+}
+
+function inferVideoMimeType(nameOrUri: string) {
+  const normalized = nameOrUri.toLowerCase();
+  if (normalized.endsWith('.webm')) {
+    return 'video/webm';
+  }
+  return 'video/mp4';
+}
+
 function isValidImageType(mimeType: string) {
   return mimeType === 'image/jpeg' || mimeType === 'image/png';
+}
+
+function isValidAudioType(mimeType: string) {
+  return (
+    mimeType === 'audio/mpeg' ||
+    mimeType === 'audio/mp3' ||
+    mimeType === 'audio/wav' ||
+    mimeType === 'audio/x-wav' ||
+    mimeType === 'audio/ogg'
+  );
+}
+
+function isValidVideoType(mimeType: string) {
+  return mimeType === 'video/mp4' || mimeType === 'video/webm';
 }
 
 function buildFieldLabel(tag: string) {
@@ -123,6 +209,172 @@ function buildFieldLabel(tag: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function formatPlaybackTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '0:00';
+  }
+
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function AudioPlaybackPreview({ uri, label, title }: { uri: string; label: string; title: string }) {
+  const { colors, spacing, typography } = useAppTheme();
+  const player = useAudioPlayer({ uri }, { updateInterval: 250 });
+  const status = useAudioPlayerStatus(player);
+  const [scrubTime, setScrubTime] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [pendingSeekTime, setPendingSeekTime] = useState<number | null>(null);
+  const shouldResumeAfterScrubRef = useRef(false);
+  const duration = status.duration || 0;
+  const displayedTime = isScrubbing ? scrubTime : pendingSeekTime ?? status.currentTime;
+
+  useEffect(() => {
+    if (pendingSeekTime == null) {
+      return;
+    }
+
+    if (Math.abs(status.currentTime - pendingSeekTime) < 0.35) {
+      setPendingSeekTime(null);
+    }
+  }, [pendingSeekTime, status.currentTime]);
+
+  const togglePlayback = () => {
+    if (status.playing) {
+      player.pause();
+      return;
+    }
+
+    if (status.didJustFinish) {
+      void player.seekTo(0);
+    }
+    player.play();
+  };
+
+  return (
+    <View
+      accessibilityLabel={label}
+      style={{
+        minHeight: 150,
+        borderRadius: 18,
+        backgroundColor: '#111827',
+        padding: spacing.md,
+        justifyContent: 'space-between',
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={status.playing ? 'Pause audio preview' : 'Play audio preview'}
+          onPress={togglePlayback}
+          style={({ pressed }) => ({
+            width: 58,
+            height: 58,
+            borderRadius: 999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.background,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          {status.playing ? (
+            <Pause size={26} color="#111827" fill="#111827" />
+          ) : (
+            <Play size={26} color="#111827" fill="#111827" style={{ marginLeft: 2 }} />
+          )}
+        </Pressable>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Text numberOfLines={1} style={{ color: colors.background, fontSize: typography.body, fontWeight: '800' }}>
+            {title}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <Volume2 size={16} color="#cbd5e1" />
+            <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '600' }}>
+              Audio preview
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={{ gap: spacing.xs }}>
+        <Slider
+          accessibilityLabel="Seek audio preview"
+          disabled={duration <= 0}
+          minimumValue={0}
+          maximumValue={Math.max(duration, 0)}
+          value={Math.min(displayedTime, duration || displayedTime)}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor="#334155"
+          thumbTintColor={colors.background}
+          tapToSeek
+          onSlidingStart={(value) => {
+            setPendingSeekTime(null);
+            shouldResumeAfterScrubRef.current = status.playing;
+            if (status.playing) {
+              player.pause();
+            }
+            setIsScrubbing(true);
+            setScrubTime(value);
+          }}
+          onValueChange={(value) => {
+            setScrubTime(value);
+          }}
+          onSlidingComplete={(value) => {
+            setScrubTime(value);
+            setIsScrubbing(false);
+            if (duration > 0) {
+              setPendingSeekTime(value);
+              void player.seekTo(value).then(() => {
+                if (shouldResumeAfterScrubRef.current) {
+                  player.play();
+                }
+                shouldResumeAfterScrubRef.current = false;
+              });
+              return;
+            }
+            setPendingSeekTime(null);
+            shouldResumeAfterScrubRef.current = false;
+          }}
+          style={{
+            width: '100%',
+            height: 36,
+          }}
+        />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '700' }}>
+            {formatPlaybackTime(displayedTime)}
+          </Text>
+          <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '700' }}>
+            {status.isLoaded && duration > 0 ? formatPlaybackTime(duration) : '--:--'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function VideoPlaybackPreview({ uri, label }: { uri: string; label: string }) {
+  const player = useVideoPlayer({ uri });
+
+  return (
+    <VideoView
+      accessibilityLabel={label}
+      player={player}
+      nativeControls
+      contentFit="contain"
+      allowsFullscreen
+      style={{
+        height: 280,
+        width: '100%',
+        borderRadius: 16,
+        backgroundColor: '#111827',
+      }}
+    />
+  );
 }
 
 export function SubmissionScreen() {
@@ -137,6 +389,8 @@ export function SubmissionScreen() {
     () => TIME_TYPES.find((timeType) => timeType.value === state.timeType) ?? TIME_TYPES[0],
     [state.timeType],
   );
+  const sharedDateError = fieldErrors.dateDay || fieldErrors.dateMonth || fieldErrors.dateYear;
+  const sharedYearRangeError = fieldErrors.yearStart || fieldErrors.yearEnd;
 
   const updateField = <K extends keyof SubmissionFormState>(field: K, value: SubmissionFormState[K]) => {
     setState((current) => ({ ...current, [field]: value, apiError: undefined }));
@@ -209,26 +463,67 @@ export function SubmissionScreen() {
       nextErrors.tags = `Choose up to ${limits.maxTagsPerStory} tags.`;
     }
 
-    if (state.timeType === 'year_range') {
+    if (state.timeType === 'exact_date') {
+      const hasDay = Boolean(state.dateDay.trim());
+      const hasMonth = Boolean(state.dateMonth.trim());
+      const hasYear = Boolean(state.dateYear.trim());
+
+      if (!hasDay) {
+        nextErrors.dateDay = 'Day is required.';
+      }
+      if (!hasMonth) {
+        nextErrors.dateMonth = 'Month is required.';
+      }
+      if (!hasYear) {
+        nextErrors.dateYear = 'Year is required.';
+      } else if (Number.isNaN(Number(state.dateYear))) {
+        nextErrors.dateYear = 'Year must be a number.';
+      } else if (isYearAfterLimit(state.dateYear)) {
+        nextErrors.dateYear = `Year cannot be later than ${MAX_STORY_YEAR}.`;
+      }
+
+      if (
+        hasDay &&
+        hasMonth &&
+        hasYear &&
+        !nextErrors.dateYear &&
+        !buildDateValueFromParts(state.dateDay, state.dateMonth, state.dateYear)
+      ) {
+        nextErrors.dateDay = 'Enter a valid calendar date.';
+        nextErrors.dateMonth = 'Enter a valid calendar date.';
+        nextErrors.dateYear = 'Enter a valid calendar date.';
+      }
+
+      if (state.timeValue.trim() && !normalizeTimeValue(state.timeValue)) {
+        nextErrors.timeValue = 'Time must use 24-hour HH:MM format.';
+      }
+    } else if (state.timeType === 'year_range') {
       if (!state.yearStart.trim()) {
         nextErrors.yearStart = 'Start year is required.';
       } else if (Number.isNaN(Number(state.yearStart))) {
         nextErrors.yearStart = 'Start year must be a number.';
+      } else if (isYearAfterLimit(state.yearStart)) {
+        nextErrors.yearStart = `Start year cannot be later than ${MAX_STORY_YEAR}.`;
       }
 
       if (!state.yearEnd.trim()) {
         nextErrors.yearEnd = 'End year is required.';
       } else if (Number.isNaN(Number(state.yearEnd))) {
         nextErrors.yearEnd = 'End year must be a number.';
+      } else if (isYearAfterLimit(state.yearEnd)) {
+        nextErrors.yearEnd = `End year cannot be later than ${MAX_STORY_YEAR}.`;
       }
 
       if (!nextErrors.yearStart && !nextErrors.yearEnd && Number(state.yearStart) >= Number(state.yearEnd)) {
         nextErrors.yearStart = 'Start year must be earlier than end year.';
+        nextErrors.yearEnd = 'End year must be later than start year.';
       }
     } else if (!state.year.trim()) {
       nextErrors.year = 'Year is required.';
     } else if (Number.isNaN(Number(state.year))) {
       nextErrors.year = 'Year must be a number.';
+    } else if (isYearAfterLimit(state.year)) {
+      nextErrors.year = `Year cannot be later than ${MAX_STORY_YEAR}.`;
     }
 
     if (state.image) {
@@ -236,6 +531,22 @@ export function SubmissionScreen() {
         nextErrors.image = 'Only JPG and PNG images are allowed.';
       } else if ((state.image.fileSize ?? 0) > limits.maxStoryImageBytes) {
         nextErrors.image = 'Image must be smaller than 2MB.';
+      }
+    }
+
+    if (state.audio) {
+      if (!isValidAudioType(state.audio.type)) {
+        nextErrors.audio = 'Only MP3, WAV, and OGG audio files are allowed.';
+      } else if ((state.audio.fileSize ?? 0) > limits.maxStoryAudioBytes) {
+        nextErrors.audio = 'Audio must be smaller than 10MB.';
+      }
+    }
+
+    if (state.video) {
+      if (!isValidVideoType(state.video.type)) {
+        nextErrors.video = 'Only MP4 and WEBM videos are allowed.';
+      } else if ((state.video.fileSize ?? 0) > limits.maxStoryVideoBytes) {
+        nextErrors.video = 'Video must be smaller than 50MB.';
       }
     }
 
@@ -364,6 +675,99 @@ export function SubmissionScreen() {
     clearFieldError('image');
   };
 
+  const applyPickedAudio = (asset: DocumentPicker.DocumentPickerAsset) => {
+    const mimeType = asset.mimeType ?? inferAudioMimeType(asset.name || asset.uri);
+    const audio = {
+      uri: asset.uri,
+      name: asset.name || 'story-audio.mp3',
+      type: mimeType,
+      mediaType: 'audio' as const,
+      fileSize: asset.size,
+    };
+
+    updateField('audio', audio);
+
+    if (!isValidAudioType(mimeType)) {
+      setFieldErrors((current) => ({ ...current, audio: 'Only MP3, WAV, and OGG audio files are allowed.' }));
+      return false;
+    }
+
+    if ((asset.size ?? 0) > limits.maxStoryAudioBytes) {
+      setFieldErrors((current) => ({ ...current, audio: 'Audio must be smaller than 10MB.' }));
+      return false;
+    }
+
+    clearFieldError('audio');
+    return true;
+  };
+
+  const handlePickAudio = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+    if (!result.canceled) {
+      applyPickedAudio(result.assets[0]);
+    }
+  };
+
+  const removeAudio = () => {
+    updateField('audio', null);
+    clearFieldError('audio');
+  };
+
+  const applyPickedVideo = (asset: ImagePicker.ImagePickerAsset) => {
+    const mimeType = asset.mimeType ?? inferVideoMimeType(asset.fileName ?? asset.uri);
+    const video = {
+      uri: asset.uri,
+      name: asset.fileName ?? `story-video.${mimeType === 'video/webm' ? 'webm' : 'mp4'}`,
+      type: mimeType,
+      mediaType: 'video' as const,
+      fileSize: asset.fileSize,
+    };
+
+    updateField('video', video);
+
+    if (!isValidVideoType(mimeType)) {
+      setFieldErrors((current) => ({ ...current, video: 'Only MP4 and WEBM videos are allowed.' }));
+      return false;
+    }
+
+    if ((asset.fileSize ?? 0) > limits.maxStoryVideoBytes) {
+      setFieldErrors((current) => ({ ...current, video: 'Video must be smaller than 50MB.' }));
+      return false;
+    }
+
+    clearFieldError('video');
+    return true;
+  };
+
+  const handlePickVideo = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      setFieldErrors((current) => ({ ...current, video: 'Photo library permission is required.' }));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      allowsEditing: true,
+      quality: 0.85,
+    });
+
+    if (!result.canceled) {
+      applyPickedVideo(result.assets[0]);
+    }
+  };
+
+  const removeVideo = () => {
+    updateField('video', null);
+    clearFieldError('video');
+  };
+
   const submit = async () => {
     if (state.isSubmitting) {
       return;
@@ -386,9 +790,23 @@ export function SubmissionScreen() {
       timeType: state.timeType,
       tags: state.selectedTags,
       image: state.image,
+      audio: state.audio,
+      video: state.video,
+      contributorVisible: state.contributorVisible,
     };
 
-    if (state.timeType === 'year_range') {
+    if (state.timeType === 'exact_date') {
+      const dateValue = buildDateValueFromParts(state.dateDay, state.dateMonth, state.dateYear);
+      const timeValue = normalizeTimeValue(state.timeValue);
+
+      payload.dateValue = dateValue;
+      payload.timeValue = timeValue;
+      payload.temporalCoverage = buildEdtfTemporalCoverage({
+        timeType: state.timeType,
+        dateValue,
+        timeValue,
+      });
+    } else if (state.timeType === 'year_range') {
       payload.yearStart = Number(state.yearStart);
       payload.yearEnd = Number(state.yearEnd);
     } else {
@@ -437,7 +855,7 @@ export function SubmissionScreen() {
           </Text>
           <Text style={{ color: colors.muted }}>
             Match the web flow: add the title, narrative, map pin, place name, time details, tags,
-            and an optional image before publishing.
+            optional media, and visibility before publishing.
           </Text>
         </View>
 
@@ -534,83 +952,182 @@ export function SubmissionScreen() {
 
         <View testID="submission-field-time" onLayout={registerFieldLayout('time')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Time information</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+          <View
+            testID="submission-time-type-options"
+            style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}
+          >
             {TIME_TYPES.map((timeType) => {
               const active = timeType.value === state.timeType;
               return (
                 <Pressable
                   key={timeType.value}
+                  accessibilityRole="button"
+                  accessibilityLabel={timeType.accessibilityLabel}
+                  accessibilityState={{ selected: active }}
                   onPress={() => {
                     updateField('timeType', timeType.value);
                     clearFieldError('year');
                     clearFieldError('yearStart');
                     clearFieldError('yearEnd');
+                    clearFieldError('dateDay');
+                    clearFieldError('dateMonth');
+                    clearFieldError('dateYear');
+                    clearFieldError('timeValue');
                   }}
                   style={{
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.sm + 2,
+                    flexBasis: 88,
+                    flexGrow: 1,
+                    minHeight: 38,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs + 2,
                     borderRadius: 999,
                     borderWidth: 1,
                     borderColor: active ? colors.primary : colors.border,
-                    backgroundColor: active ? colors.primary : colors.surface,
+                    backgroundColor: active ? colors.primary : colors.infoSurface,
                   }}
                 >
-                  <Text style={{ color: active ? colors.background : colors.text, fontWeight: '700' }}>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    style={{ color: active ? colors.background : colors.text, fontWeight: '800', fontSize: 13 }}
+                  >
                     {timeType.label}
                   </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
           <Text style={{ color: colors.muted }}>{selectedTimeType.helper}</Text>
 
-          {state.timeType === 'year_range' ? (
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          {state.timeType === 'exact_date' ? (
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View
+                  testID="submission-field-date-day"
+                  onLayout={registerFieldLayout('dateDay', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.dateDay}
+                    onChangeText={(value) => {
+                      updateField('dateDay', value.replace(/[^0-9]/g, '').slice(0, 2));
+                      clearFieldError('dateDay');
+                    }}
+                    placeholder="DD"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Specific date day"
+                    style={getInputShellStyle('dateDay')}
+                  />
+                </View>
+                <View
+                  testID="submission-field-date-month"
+                  onLayout={registerFieldLayout('dateMonth', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.dateMonth}
+                    onChangeText={(value) => {
+                      updateField('dateMonth', value.replace(/[^0-9]/g, '').slice(0, 2));
+                      clearFieldError('dateMonth');
+                    }}
+                    placeholder="MM"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Specific date month"
+                    style={getInputShellStyle('dateMonth')}
+                  />
+                </View>
+                <View
+                  testID="submission-field-date-year"
+                  onLayout={registerFieldLayout('dateYear', 'time')}
+                  style={{ flex: 1.4, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.dateYear}
+                    onChangeText={(value) => {
+                      updateField('dateYear', normalizeYearInput(value, false));
+                      clearFieldError('dateYear');
+                    }}
+                    placeholder="YYYY"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Specific date year"
+                    style={getInputShellStyle('dateYear')}
+                  />
+                </View>
+              </View>
+              {sharedDateError ? <Text style={{ color: colors.danger }}>{sharedDateError}</Text> : null}
               <View
-                testID="submission-field-year-start"
-                onLayout={registerFieldLayout('yearStart', 'time')}
-                style={{ flex: 1, gap: spacing.sm }}
+                testID="submission-field-time-value"
+                onLayout={registerFieldLayout('timeValue', 'time')}
+                style={{ gap: spacing.sm }}
               >
                 <Input
-                  value={state.yearStart}
+                  value={state.timeValue}
                   onChangeText={(value) => {
-                    updateField('yearStart', value);
-                    clearFieldError('yearStart');
+                    updateField('timeValue', value.replace(/[^0-9:]/g, '').slice(0, 5));
+                    clearFieldError('timeValue');
                   }}
-                  placeholder="Start year"
-                  keyboardType="numeric"
+                  placeholder="Optional time, e.g. 09:30"
                   editable={!state.isSubmitting}
-                  accessibilityLabel="Start year"
-                  style={getInputShellStyle('yearStart')}
+                  accessibilityLabel="Optional specific time"
+                  style={getInputShellStyle('timeValue')}
                 />
-                {fieldErrors.yearStart ? <Text style={{ color: colors.danger }}>{fieldErrors.yearStart}</Text> : null}
+                {fieldErrors.timeValue ? <Text style={{ color: colors.danger }}>{fieldErrors.timeValue}</Text> : null}
               </View>
-              <View
-                testID="submission-field-year-end"
-                onLayout={registerFieldLayout('yearEnd', 'time')}
-                style={{ flex: 1, gap: spacing.sm }}
-              >
-                <Input
-                  value={state.yearEnd}
-                  onChangeText={(value) => {
-                    updateField('yearEnd', value);
-                    clearFieldError('yearEnd');
-                  }}
-                  placeholder="End year"
-                  keyboardType="numeric"
-                  editable={!state.isSubmitting}
-                  accessibilityLabel="End year"
-                  style={getInputShellStyle('yearEnd')}
-                />
-                {fieldErrors.yearEnd ? <Text style={{ color: colors.danger }}>{fieldErrors.yearEnd}</Text> : null}
+            </View>
+          ) : state.timeType === 'year_range' ? (
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View
+                  testID="submission-field-year-start"
+                  onLayout={registerFieldLayout('yearStart', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.yearStart}
+                    onChangeText={(value) => {
+                      updateField('yearStart', normalizeYearInput(value));
+                      clearFieldError('yearStart');
+                    }}
+                    placeholder="Start year"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Start year"
+                    style={getInputShellStyle('yearStart')}
+                  />
+                </View>
+                <View
+                  testID="submission-field-year-end"
+                  onLayout={registerFieldLayout('yearEnd', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.yearEnd}
+                    onChangeText={(value) => {
+                      updateField('yearEnd', normalizeYearInput(value));
+                      clearFieldError('yearEnd');
+                    }}
+                    placeholder="End year"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="End year"
+                    style={getInputShellStyle('yearEnd')}
+                  />
+                </View>
               </View>
+              {sharedYearRangeError ? <Text style={{ color: colors.danger }}>{sharedYearRangeError}</Text> : null}
             </View>
           ) : (
             <View testID="submission-field-year" onLayout={registerFieldLayout('year', 'time')} style={{ gap: spacing.sm }}>
               <Input
                 value={state.year}
                 onChangeText={(value) => {
-                  updateField('year', value);
+                  updateField('year', normalizeYearInput(value));
                   clearFieldError('year');
                 }}
                 placeholder={state.timeType === 'decade' ? 'e.g. 1980' : 'e.g. 1453'}
@@ -720,6 +1237,137 @@ export function SubmissionScreen() {
           ) : null}
           {fieldErrors.image ? <Text style={{ color: colors.danger }}>{fieldErrors.image}</Text> : null}
         </View>
+
+        <View testID="submission-field-audio" onLayout={registerFieldLayout('audio')} style={{ gap: spacing.sm }}>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Audio upload</Text>
+          <Button onPress={handlePickAudio} disabled={state.isSubmitting}>
+            Choose audio
+          </Button>
+          <Text style={{ color: colors.muted }}>
+            MP3, WAV, or OGG only, maximum 10MB.
+          </Text>
+          {state.audio ? (
+            <View
+              style={{
+                padding: spacing.sm,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                shadowColor: '#000000',
+                shadowOpacity: 0.08,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 2,
+                gap: spacing.sm,
+              }}
+            >
+              <AudioPlaybackPreview
+                uri={state.audio.uri}
+                label="Selected story audio preview"
+                title={state.audio.name}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }}>
+                <Text numberOfLines={2} style={{ color: colors.text, flex: 1 }}>
+                  Selected audio
+                </Text>
+                <Pressable onPress={removeAudio} accessibilityLabel="Remove audio">
+                  <Text style={{ color: colors.danger, fontWeight: '700' }}>Remove</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+          {fieldErrors.audio ? <Text style={{ color: colors.danger }}>{fieldErrors.audio}</Text> : null}
+        </View>
+
+        <View testID="submission-field-video" onLayout={registerFieldLayout('video')} style={{ gap: spacing.sm }}>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Video upload</Text>
+          <Button onPress={handlePickVideo} disabled={state.isSubmitting}>
+            Choose video
+          </Button>
+          <Text style={{ color: colors.muted }}>
+            MP4 or WEBM only, maximum 50MB.
+          </Text>
+          {state.video ? (
+            <View
+              style={{
+                padding: spacing.sm,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                shadowColor: '#000000',
+                shadowOpacity: 0.08,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 2,
+                gap: spacing.sm,
+              }}
+            >
+              <VideoPlaybackPreview
+                uri={state.video.uri}
+                label="Selected story video preview"
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }}>
+                <Text numberOfLines={2} style={{ color: colors.text, flex: 1 }}>
+                  {state.video.name}
+                </Text>
+                <Pressable onPress={removeVideo} accessibilityLabel="Remove video">
+                  <Text style={{ color: colors.danger, fontWeight: '700' }}>Remove</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+          {fieldErrors.video ? <Text style={{ color: colors.danger }}>{fieldErrors.video}</Text> : null}
+        </View>
+
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: state.contributorVisible, disabled: state.isSubmitting }}
+          accessibilityLabel="Show my name on this story"
+          disabled={state.isSubmitting}
+          onPress={() => updateField('contributorVisible', !state.contributorVisible)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            padding: spacing.md,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+          }}
+        >
+          <View
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              borderWidth: 2,
+              borderColor: state.contributorVisible ? colors.primary : colors.border,
+              backgroundColor: state.contributorVisible ? colors.primary : colors.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {state.contributorVisible ? (
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 3,
+                  backgroundColor: colors.background,
+                }}
+              />
+            ) : null}
+          </View>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={{ color: colors.text, fontWeight: '700' }}>Show my name on this story</Text>
+            <Text style={{ color: colors.muted }}>
+              Turn this off to submit anonymously and hide profile access from this story.
+            </Text>
+          </View>
+        </Pressable>
 
         <Button onPress={submit} disabled={state.isSubmitting} fullWidth>
           {state.isSubmitting ? 'Submitting story...' : 'Submit story'}

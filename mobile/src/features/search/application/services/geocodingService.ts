@@ -11,6 +11,7 @@ export interface LocationSuggestion {
   subtitle?: string;
   latitude: number;
   longitude: number;
+  bounds?: LocationBounds;
 }
 
 interface NominatimSearchResult {
@@ -130,5 +131,6 @@ function parseNominatimSuggestion(result: NominatimSearchResult): LocationSugges
     subtitle: fallbackRest.join(', ') || undefined,
     latitude,
     longitude,
+    bounds: parseNominatimBounds(result.boundingbox) ?? undefined,
   };
 }

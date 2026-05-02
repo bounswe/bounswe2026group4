@@ -2,6 +2,8 @@ import {
   StoryCommentPreview,
   StoryEntity,
   StoryLocation,
+  StoryMediaItem,
+  StoryMediaType,
   StoryMapPin,
   StorySummaryEntity,
 } from '../../domain/entities';
@@ -36,6 +38,8 @@ interface StoryRecord {
   temporal_coverage_iso8601?: unknown;
   contributorName?: unknown;
   contributor_name?: unknown;
+  contributor_visible?: unknown;
+  contributorVisible?: unknown;
   contributor_visibility?: unknown;
   contributorVisibility?: unknown;
   is_anonymous?: unknown;
@@ -161,6 +165,8 @@ function formatTimePeriod(story: Record<string, unknown>) {
   const year = asNumericValue(story.year);
   const yearStart = asNumericValue(story.year_start) ?? asNumericValue(story.yearStart);
   const yearEnd = asNumericValue(story.year_end) ?? asNumericValue(story.yearEnd);
+  const dateValue = asString(story.date_value) || asString(story.dateValue);
+  const timeValue = asString(story.time_value) || asString(story.timeValue);
 
   if (timeType === 'year_range' && yearStart !== undefined && yearEnd !== undefined) {
     return `${yearStart}-${yearEnd}`;
@@ -168,6 +174,10 @@ function formatTimePeriod(story: Record<string, unknown>) {
 
   if (timeType === 'decade' && year !== undefined) {
     return `${year}s`;
+  }
+
+  if (timeType === 'exact_date' && dateValue) {
+    return `${dateValue}${timeValue ? ` ${timeValue.slice(0, 5)}` : ''}`;
   }
 
   if (year !== undefined) {
@@ -201,6 +211,8 @@ function formatTimePeriodFromRecord(story: StoryRecord | Record<string, unknown>
   const year = asNumber(story.year);
   const yearStart = asNumber(story.year_start);
   const yearEnd = asNumber(story.year_end);
+  const dateValue = asString((story as Record<string, unknown>).date_value) || asString((story as Record<string, unknown>).dateValue);
+  const timeValue = asString((story as Record<string, unknown>).time_value) || asString((story as Record<string, unknown>).timeValue);
   const explicit = asString((story as Record<string, unknown>).timePeriod) || asString((story as Record<string, unknown>).time_period);
 
   if (explicit) {
@@ -216,6 +228,8 @@ function formatTimePeriodFromRecord(story: StoryRecord | Record<string, unknown>
       return year !== undefined ? `${Math.floor(year / 10) * 10}s` : '';
     case 'year_range':
       return yearStart !== undefined && yearEnd !== undefined ? `${yearStart}-${yearEnd}` : '';
+    case 'exact_date':
+      return dateValue ? `${dateValue}${timeValue ? ` ${timeValue.slice(0, 5)}` : ''}` : '';
     default:
       return '';
   }
@@ -286,6 +300,52 @@ function getPrimaryMediaAltText(value: StoryRecord) {
   return asString(firstImage?.alt_text) || asString(firstImage?.altText) || asString(firstImage?.caption) || undefined;
 }
 
+function isStoryMediaType(value: unknown): value is StoryMediaType {
+  return value === 'image' || value === 'audio' || value === 'video';
+}
+
+function getMediaItems(value: StoryRecord): StoryMediaItem[] {
+  const explicitMediaUrl = asString(value.mediaUrl) || asString(value.media_url);
+  const explicitAltText = asString(value.mediaAltText) || asString(value.media_alt_text) || undefined;
+  type OrderedStoryMediaItem = StoryMediaItem & { order: number };
+  const normalizedItems = Array.isArray(value.media_items)
+    ? (value.media_items as StoryMediaItemRecord[])
+        .reduce<OrderedStoryMediaItem[]>((items, item, index) => {
+          const type = item?.media_type ?? item?.mediaType;
+          const url = asString(item?.url);
+
+          if (!isStoryMediaType(type) || !url) {
+            return items;
+          }
+
+          items.push({
+            id: asStringId(item.id) ?? `${type}-${index}`,
+            type,
+            url,
+            altText: asString(item.alt_text) || asString(item.altText) || asString(item.caption) || undefined,
+            order: asNumber(item.order) ?? index,
+          });
+          return items;
+        }, [])
+        .sort((left, right) => left.order - right.order)
+        .map(({ order: _order, ...item }) => item)
+    : [];
+
+  if (explicitMediaUrl && !normalizedItems.some((item) => item.type === 'image' && item.url === explicitMediaUrl)) {
+    return [
+      {
+        id: 'primary-image',
+        type: 'image',
+        url: explicitMediaUrl,
+        altText: explicitAltText,
+      },
+      ...normalizedItems,
+    ];
+  }
+
+  return normalizedItems;
+}
+
 function getTags(value: StoryRecord | Record<string, unknown>) {
   let rawTags: unknown[] = [];
 
@@ -317,13 +377,13 @@ function getTemporalCoverageIso8601(value: StoryRecord | Record<string, unknown>
 
 function isAnonymousStory(value: StoryRecord) {
   const visibility = asString(value.contributor_visibility) || asString(value.contributorVisibility);
-  const contributorName = asString(value.contributorName) || asString(value.contributor_name);
 
   return (
     visibility === 'anonymous' ||
+    value.contributor_visible === false ||
+    value.contributorVisible === false ||
     value.is_anonymous === true ||
-    value.isAnonymous === true ||
-    contributorName.trim().toLowerCase() === 'anonymous'
+    value.isAnonymous === true
   );
 }
 
@@ -368,6 +428,7 @@ export function mapStory(value: unknown): StoryEntity {
   const comments = Array.isArray(story.comments) && story.comments.every(isCommentPreview) ? story.comments : [];
   const contributorName = getContributorName(story);
   const isContributorAnonymous = isAnonymousStory(story);
+  const mediaItems = getMediaItems(story);
 
   if (!id || typeof story.title !== 'string' || !narrative.length || !location.name || !submittedAt) {
     throw new Error('Invalid story payload.');
@@ -387,6 +448,7 @@ export function mapStory(value: unknown): StoryEntity {
     submittedAt,
     mediaUrl: getPrimaryMediaUrl(story),
     mediaAltText: getPrimaryMediaAltText(story),
+    mediaItems,
     tags: getTags(story),
     likeCount: asNumber(story.likeCount) ?? asNumber(story.like_count) ?? 0,
     likedByViewer: asBoolean(story.likedByViewer, asBoolean(story.user_has_liked, false)),

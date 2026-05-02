@@ -5,11 +5,12 @@ import { FeedScreen } from '../FeedScreen';
 import { FeedPageEntity } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
 import { storage } from '../../../../../core/storage/storage';
-import { geocodeLocationQuery } from '../../../../search/application/services';
+import { geocodeLocationQuery, searchLocationSuggestions } from '../../../../search/application/services';
 import { interactionService } from '../../../../interactions/application/services';
 
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
+  searchLocationSuggestions: jest.fn(),
 }));
 
 jest.mock('../../../../interactions/application/services', () => ({
@@ -18,6 +19,8 @@ jest.mock('../../../../interactions/application/services', () => ({
     unbookmarkStory: jest.fn(async () => undefined),
   },
 }));
+
+const istanbulBounds = { latMin: 40.8, latMax: 41.2, lngMin: 28.7, lngMax: 29.2 };
 
 function makeStory(id: string, overrides: Partial<FeedPageEntity['items'][number]> = {}) {
   return {
@@ -49,6 +52,7 @@ describe('FeedScreen', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
     jest.mocked(Location.requestForegroundPermissionsAsync).mockResolvedValue({ granted: true } as never);
     jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
     jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValue(null);
@@ -387,6 +391,10 @@ describe('FeedScreen', () => {
 
   it('updates advanced filters in feed requests', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(istanbulBounds);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValueOnce([
+      { id: 'istanbul', title: 'Istanbul', subtitle: 'Turkiye', latitude: 41.0082, longitude: 28.9784, bounds: istanbulBounds },
+    ]);
 
     renderScreen(<FeedScreen getFeed={getFeed} />);
 
@@ -395,7 +403,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -405,7 +413,7 @@ describe('FeedScreen', () => {
         filters: {
           q: undefined,
           location: 'Istanbul',
-          locationBounds: undefined,
+          locationBounds: istanbulBounds,
           yearFrom: 1900,
           yearTo: 1950,
         },
@@ -415,6 +423,48 @@ describe('FeedScreen', () => {
     expect(screen.getByLabelText('Remove Location: Istanbul')).toBeTruthy();
     expect(screen.getByLabelText('Remove From: 1900')).toBeTruthy();
     expect(screen.getByLabelText('Remove To: 1950')).toBeTruthy();
+  });
+
+  it('shows location suggestions and applies the selected place', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    const galataBounds = { latMin: 41.02, latMax: 41.04, lngMin: 28.96, lngMax: 28.99 };
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(null);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'galata',
+        title: 'Galata',
+        subtitle: 'Beyoglu, Istanbul',
+        latitude: 41.0256,
+        longitude: 28.9742,
+        bounds: galataBounds,
+      },
+    ]);
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Galat');
+
+    expect(await screen.findByTestId('location-filter-suggestions')).toBeTruthy();
+    expect(screen.getByText('Galata')).toBeTruthy();
+    expect(screen.getByText('Beyoglu, Istanbul')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Select location Galata'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'recent',
+        filters: {
+          q: undefined,
+          location: 'Galata',
+          locationBounds: galataBounds,
+          yearFrom: undefined,
+          yearTo: undefined,
+        },
+      });
+    });
   });
 
   it('does not apply placeholder year filters when submitted unchanged', async () => {
@@ -548,6 +598,7 @@ describe('FeedScreen', () => {
 
   it('resets only filter fields and preserves the search query', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(istanbulBounds);
 
     renderScreen(<FeedScreen getFeed={getFeed} />);
 
@@ -557,7 +608,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByText('Reset filter form'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 

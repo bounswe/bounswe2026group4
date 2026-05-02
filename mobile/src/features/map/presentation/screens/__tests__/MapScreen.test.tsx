@@ -4,11 +4,14 @@ import { MapScreen } from '../MapScreen';
 import { MapMarkerGroup } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
 import { storage } from '../../../../../core/storage/storage';
-import { geocodeLocationQuery } from '../../../../search/application/services';
+import { geocodeLocationQuery, searchLocationSuggestions } from '../../../../search/application/services';
 
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
+  searchLocationSuggestions: jest.fn(),
 }));
+
+const goldenHornBounds = { latMin: 41, latMax: 41.05, lngMin: 28.94, lngMax: 28.99 };
 
 jest.mock('../../../../../shared/components/WebMapView', () => {
   const React = require('react');
@@ -122,6 +125,7 @@ const markerGroups: MapMarkerGroup[] = [
 describe('MapScreen', () => {
   beforeEach(async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
     await storage.clear();
   });
 
@@ -237,16 +241,21 @@ describe('MapScreen', () => {
     });
   });
 
-  it('shows a no-results badge for a location search', async () => {
-    renderScreen(<MapScreen getMarkerGroups={async () => []} />);
+  it('keeps unapplied location filters disabled when the place cannot be found', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue([]);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
     await screen.findByText('No stories match the current filters.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Beykoz');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Location not found. Choose a listed place before applying.')).toBeTruthy();
+    expect(screen.getByLabelText('Apply filters').props.accessibilityState.disabled).toBe(true);
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
-    expect(await screen.findByText('Place could not be found')).toBeTruthy();
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenLastCalledWith({});
+    });
   });
 
   it('does not apply placeholder year filters when submitted unchanged', async () => {
@@ -303,19 +312,21 @@ describe('MapScreen', () => {
 
   it('refetches all markers when a chip filter is removed', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
 
     renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
     await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
+        locationBounds: goldenHornBounds,
         yearFrom: undefined,
         yearTo: undefined,
       });
@@ -335,19 +346,21 @@ describe('MapScreen', () => {
 
   it('refetches all markers when clear all filters is pressed', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
 
     renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
 
     await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
       expect(getMarkerGroups).toHaveBeenLastCalledWith({
         q: undefined,
         location: 'Golden Horn',
+        locationBounds: goldenHornBounds,
         yearFrom: undefined,
         yearTo: undefined,
       });

@@ -17,12 +17,57 @@ jest.mock('expo-image-picker', () => ({
   __esModule: true,
   MediaTypeOptions: {
     Images: 'images',
+    Videos: 'videos',
   },
   requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
   launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
 }));
+
+jest.mock('expo-document-picker', () => ({
+  __esModule: true,
+  getDocumentAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
+}));
+
+jest.mock('expo-audio', () => ({
+  __esModule: true,
+  useAudioPlayer: jest.fn(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    seekTo: jest.fn(async () => undefined),
+  })),
+  useAudioPlayerStatus: jest.fn(() => ({
+    currentTime: 0,
+    duration: 0,
+    playing: false,
+    didJustFinish: false,
+    isLoaded: false,
+  })),
+}));
+
+jest.mock('expo-video', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    __esModule: true,
+    useVideoPlayer: jest.fn(() => ({})),
+    VideoView: ({ children, ...props }: { children?: React.ReactNode }) =>
+      React.createElement(View, props, children),
+  };
+});
+
+jest.mock('@react-native-community/slider', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: { children?: React.ReactNode }) =>
+      React.createElement(View, props, children),
+  };
+});
 
 jest.mock('expo-location', () => ({
   __esModule: true,

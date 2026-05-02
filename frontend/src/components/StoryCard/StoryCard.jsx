@@ -4,6 +4,7 @@ import { MapPin, Calendar, Heart, User } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatTimePeriod } from "./storyCardUtils";
+import TagChip from "@/components/Tags/TagChip";
 
 const StoryCard = ({ story }) => {
   const location = useLocation();
@@ -59,6 +60,14 @@ const StoryCard = ({ story }) => {
             <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 break-words">
               {preview}…
             </p>
+          )}
+
+          {story.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {story.tags.map((tag) => (
+                <TagChip key={tag.id} tag={tag} />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
