@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { MapPin, Calendar, ArrowLeft, MessageSquare, Trash2, Loader2 } from "lucide-react";
+import { MapPin, Calendar, ArrowLeft, MessageSquare, Trash2, Loader2, Music } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/loading-skeleton";
@@ -69,6 +69,9 @@ function StoryDetailPage() {
   const [userHasCommented, setUserHasCommented] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [imageErrors, setImageErrors] = useState({});
+  const [videoErrors, setVideoErrors] = useState({});
+  const [audioErrors, setAudioErrors] = useState({});
 
   const canDelete = story && (user?.id === story.user || user?.role === "admin");
 
@@ -92,6 +95,9 @@ function StoryDetailPage() {
     setNotFound(false);
     setCommentCount(0);
     setUserHasCommented(false);
+    setImageErrors({});
+    setVideoErrors({});
+    setAudioErrors({});
     try {
       const data = await getStoryById(id);
       setStory(data);
@@ -118,6 +124,8 @@ function StoryDetailPage() {
   const submittedDate = story ? formatDate(story.submitted_at) : null;
   const contributorName = story?.contributor_name ?? null;
   const images = (story?.media_items ?? []).filter((m) => m.media_type === "image");
+  const videos = (story?.media_items ?? []).filter((m) => m.media_type === "video");
+  const audios = (story?.media_items ?? []).filter((m) => m.media_type === "audio");
 
   if (notFound) {
     return (
@@ -250,15 +258,86 @@ function StoryDetailPage() {
                 className={`mb-8 grid gap-3 ${images.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}
                 aria-label="Story images"
               >
-                {images.map((img, idx) => (
-                  <figure key={img.id ?? idx} className="overflow-hidden rounded-xl bg-muted">
-                    <img
-                      src={img.url}
-                      alt={`Story image ${idx + 1}`}
-                      className="w-full object-cover max-h-96"
-                    />
-                  </figure>
-                ))}
+                {images.map((img, idx) => {
+                  const key = img.id ?? idx;
+                  return (
+                    <figure key={key} className="overflow-hidden rounded-xl bg-muted">
+                      {imageErrors[key] ? (
+                        <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+                          Image could not be loaded
+                        </div>
+                      ) : (
+                        <img
+                          src={img.url}
+                          alt={`Story image ${idx + 1}`}
+                          className="w-full object-cover max-h-96"
+                          onError={() => setImageErrors((prev) => ({ ...prev, [key]: true }))}
+                        />
+                      )}
+                    </figure>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Videos */}
+            {videos.length > 0 && (
+              <div className="mb-8 space-y-3" aria-label="Story videos">
+                {videos.map((vid, idx) => {
+                  const key = vid.id ?? idx;
+                  return (
+                    <figure key={key} className="overflow-hidden rounded-xl bg-muted">
+                      {videoErrors[key] ? (
+                        <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+                          Video could not be loaded
+                        </div>
+                      ) : (
+                        <video
+                          src={vid.url}
+                          controls
+                          preload="auto"
+                          className="w-full max-h-96 rounded-xl bg-black"
+                          aria-label={`Story video ${idx + 1}`}
+                          onError={() => setVideoErrors((prev) => ({ ...prev, [key]: true }))}
+                        />
+                      )}
+                    </figure>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Audio */}
+            {audios.length > 0 && (
+              <div className="mb-8 space-y-3" aria-label="Story audio">
+                {audios.map((aud, idx) => {
+                  const key = aud.id ?? idx;
+                  return (
+                    <figure key={key} className="overflow-hidden rounded-xl bg-muted p-4">
+                      {audioErrors[key] ? (
+                        <div className="flex items-center justify-center h-12 text-sm text-muted-foreground">
+                          Audio could not be loaded
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                              <Music className="h-4 w-4 text-primary" aria-hidden="true" />
+                            </div>
+                            <span className="text-sm font-medium">{story.title}</span>
+                          </div>
+                          <audio
+                            src={aud.url}
+                            controls
+                            className="w-full"
+                            aria-label={`Story audio ${idx + 1}`}
+                            onError={() => setAudioErrors((prev) => ({ ...prev, [key]: true }))}
+                          />
+                        </>
+                      )}
+                    </figure>
+                  );
+                })}
               </div>
             )}
 

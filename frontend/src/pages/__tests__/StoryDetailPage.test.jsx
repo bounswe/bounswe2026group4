@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useEffect } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
@@ -273,7 +273,7 @@ describe("StoryDetailPage", () => {
     expect(screen.queryByLabelText("Story images")).not.toBeInTheDocument();
   });
 
-  it("only renders image media_type items, not audio or video", async () => {
+  it("renders image, video, and audio sections when all media types present", async () => {
     getStoryById.mockResolvedValue(makeStory({
       media_items: [
         { id: 1, url: "http://example.com/img.jpg", media_type: "image", order: 0 },
@@ -287,9 +287,194 @@ describe("StoryDetailPage", () => {
       expect(screen.getByLabelText("Story images")).toBeInTheDocument();
     });
 
-    const imgs = screen.getAllByRole("img");
-    expect(imgs).toHaveLength(1);
-    expect(imgs[0]).toHaveAttribute("src", "http://example.com/img.jpg");
+    expect(screen.getByRole("img", { name: "Story image 1" })).toHaveAttribute("src", "http://example.com/img.jpg");
+    expect(screen.getByLabelText("Story video 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Story audio 1")).toBeInTheDocument();
+  });
+
+  it("renders video player for stories with video attachments", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 5, url: "http://example.com/clip.mp4", media_type: "video", order: 0 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story videos")).toBeInTheDocument();
+    });
+
+    const video = screen.getByLabelText("Story video 1");
+    expect(video.tagName).toBe("VIDEO");
+    expect(video).toHaveAttribute("src", "http://example.com/clip.mp4");
+    expect(video).toHaveAttribute("controls");
+    expect(video).toHaveAttribute("preload", "auto");
+  });
+
+  it("renders audio player for stories with audio attachments", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 6, url: "http://example.com/track.mp3", media_type: "audio", order: 0 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story audio")).toBeInTheDocument();
+    });
+
+    const audio = screen.getByLabelText("Story audio 1");
+    expect(audio.tagName).toBe("AUDIO");
+    expect(audio).toHaveAttribute("src", "http://example.com/track.mp3");
+    expect(audio).toHaveAttribute("controls");
+  });
+
+  it("renders multiple video items", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 7, url: "http://example.com/v1.mp4", media_type: "video", order: 0 },
+        { id: 8, url: "http://example.com/v2.mp4", media_type: "video", order: 1 },
+        { id: 9, url: "http://example.com/v3.mp4", media_type: "video", order: 2 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story video 1")).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText("Story video 1")).toHaveAttribute("src", "http://example.com/v1.mp4");
+    expect(screen.getByLabelText("Story video 2")).toHaveAttribute("src", "http://example.com/v2.mp4");
+    expect(screen.getByLabelText("Story video 3")).toHaveAttribute("src", "http://example.com/v3.mp4");
+  });
+
+  it("renders multiple audio items", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 10, url: "http://example.com/a1.mp3", media_type: "audio", order: 0 },
+        { id: 11, url: "http://example.com/a2.mp3", media_type: "audio", order: 1 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story audio 1")).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText("Story audio 1")).toHaveAttribute("src", "http://example.com/a1.mp3");
+    expect(screen.getByLabelText("Story audio 2")).toHaveAttribute("src", "http://example.com/a2.mp3");
+  });
+
+  it("renders media sections in order: images then videos then audio", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 1, url: "img.jpg", media_type: "image", order: 0 },
+        { id: 2, url: "vid.mp4", media_type: "video", order: 1 },
+        { id: 3, url: "aud.mp3", media_type: "audio", order: 2 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story images")).toBeInTheDocument();
+    });
+
+    const imagesSection = screen.getByLabelText("Story images");
+    const videosSection = screen.getByLabelText("Story videos");
+    const audioSection = screen.getByLabelText("Story audio");
+
+    expect(imagesSection.compareDocumentPosition(videosSection)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(videosSection.compareDocumentPosition(audioSection)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("does not render video section when no video media items", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 1, url: "img.jpg", media_type: "image", order: 0 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText("Story videos")).not.toBeInTheDocument();
+  });
+
+  it("does not render audio section when no audio media items", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 1, url: "img.jpg", media_type: "image", order: 0 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "The Great Fire of Beyoglu" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText("Story audio")).not.toBeInTheDocument();
+  });
+
+  it("shows fallback when video fails to load", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 20, url: "http://example.com/bad.mp4", media_type: "video", order: 0 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story video 1")).toBeInTheDocument();
+    });
+
+    fireEvent.error(screen.getByLabelText("Story video 1"));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Story video 1")).not.toBeInTheDocument();
+      expect(screen.getByText("Video could not be loaded")).toBeInTheDocument();
+    });
+  });
+
+  it("shows fallback when audio fails to load", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 21, url: "http://example.com/bad.mp3", media_type: "audio", order: 0 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Story audio 1")).toBeInTheDocument();
+    });
+
+    fireEvent.error(screen.getByLabelText("Story audio 1"));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Story audio 1")).not.toBeInTheDocument();
+      expect(screen.getByText("Audio could not be loaded")).toBeInTheDocument();
+    });
+  });
+
+  it("shows fallback when image fails to load", async () => {
+    getStoryById.mockResolvedValue(makeStory({
+      media_items: [
+        { id: 22, url: "http://example.com/bad.jpg", media_type: "image", order: 0 },
+      ],
+    }));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "Story image 1" })).toBeInTheDocument();
+    });
+
+    fireEvent.error(screen.getByRole("img", { name: "Story image 1" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("img", { name: "Story image 1" })).not.toBeInTheDocument();
+      expect(screen.getByText("Image could not be loaded")).toBeInTheDocument();
+    });
   });
 
   it("renders map when coordinates are present", async () => {
