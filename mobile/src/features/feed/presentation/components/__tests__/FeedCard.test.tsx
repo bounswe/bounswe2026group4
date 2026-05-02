@@ -11,6 +11,9 @@ const story: FeedEntity = {
   previewText: 'Once upon a time there was a bridge that spanned the river in the heart of the old city.',
   submittedAt: '2026-03-18T10:00:00Z',
   hasMedia: true,
+  likeCount: 14,
+  savedByViewer: false,
+  tags: ['Architecture', 'Ottoman'],
 };
 
 describe('FeedCard', () => {
@@ -21,6 +24,9 @@ describe('FeedCard', () => {
     expect(screen.getByText('Old City')).toBeTruthy();
     expect(screen.getByText('1453')).toBeTruthy();
     expect(screen.getByText('18 Mar 2026')).toBeTruthy();
+    expect(screen.getByText('♡ 14')).toBeTruthy();
+    expect(screen.getByText('Architecture')).toBeTruthy();
+    expect(screen.getByText('Ottoman')).toBeTruthy();
     expect(screen.getByText(story.previewText)).toBeTruthy();
     expect(screen.getByLabelText('Has media')).toBeTruthy();
   });
@@ -32,6 +38,17 @@ describe('FeedCard', () => {
     fireEvent.press(screen.getByLabelText('Read story: The Ancient Bridge'));
 
     expect(onPress).toHaveBeenCalledWith('story-101');
+  });
+
+  it('opens a tag from the card without opening the story', () => {
+    const onPress = jest.fn();
+    const onTagPress = jest.fn();
+
+    render(<FeedCard story={story} onPress={onPress} onTagPress={onTagPress} />);
+    fireEvent.press(screen.getByTestId('feed-card-tag-Architecture'));
+
+    expect(onTagPress).toHaveBeenCalledWith('Architecture');
+    expect(onPress).not.toHaveBeenCalled();
   });
 
   it('hides the media indicator when the story has no media', () => {

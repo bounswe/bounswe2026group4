@@ -149,9 +149,8 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
           scope,
           (currentFilters) => ({
             ...currentFilters,
-            [key]: '',
+            [key]: key === 'tags' ? [] : '',
             ...(key === 'location' ? { locationBounds: undefined } : {}),
-            ...(key === 'tags' ? { tags: [] } : {}),
             ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
             ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
           }),
@@ -210,10 +209,10 @@ export function toSearchParams(filters: SearchFiltersState): StoryFilters {
   const params: StoryFilters = {
     q: filters.query.trim() || undefined,
     location: filters.location.trim() || undefined,
-    tags: filters.tags.length ? filters.tags : undefined,
     locationBounds: filters.locationBounds,
     yearFrom,
     yearTo,
+    tags: filters.tags.length ? filters.tags : undefined,
   };
 
   if (filters.proximityRadiusKm && filters.proximityCoordinates) {

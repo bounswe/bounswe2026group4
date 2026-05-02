@@ -36,17 +36,18 @@ export const feedRemoteSource = {
 
     const proximity = getProximityFilter(filters);
     const bounds = filters.locationBounds;
+    const responseResults = response.results ?? [];
     const selectedTags = filters.tags ?? [];
+    const tagsToRefine = selectedTags.slice(1);
 
-    if (!bounds && !proximity && !selectedTags.length) {
+    if (!bounds && !proximity && !tagsToRefine.length) {
       return response;
     }
 
-    const results = (response.results ?? []).filter((story) => {
-      if (selectedTags.length && !storyHasTags(story, selectedTags)) {
+    const results = responseResults.filter((story) => {
+      if (tagsToRefine.length && !storyHasTagsWhenAvailable(story, selectedTags)) {
         return false;
       }
-
       if (proximity && !isStoryWithinRadius(story, proximity)) {
         return false;
       }
@@ -155,9 +156,9 @@ function asNumber(value: unknown) {
   return undefined;
 }
 
-function storyHasTags(story: unknown, selectedTags: string[]) {
+function storyHasTagsWhenAvailable(story: unknown, selectedTags: string[]) {
   if (!story || typeof story !== 'object') {
-    return false;
+    return true;
   }
 
   const record = story as Record<string, unknown>;
@@ -166,6 +167,10 @@ function storyHasTags(story: unknown, selectedTags: string[]) {
     : Array.isArray(record.tag_names)
       ? record.tag_names
       : [];
+
+  if (!rawTags.length) {
+    return true;
+  }
   const tagNames = rawTags
     .map((tag) => {
       if (typeof tag === 'string') {

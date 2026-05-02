@@ -1,11 +1,13 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
+import { TagChip } from '../../../../shared/components/TagChip';
 import { FeedEntity } from '../../domain/entities';
 
 interface FeedCardProps {
   story: FeedEntity;
   onPress?: (storyId: string) => void;
+  onTagPress?: (tag: string) => void;
 }
 
 function formatSubmittedAt(value: string) {
@@ -26,8 +28,9 @@ function formatSubmittedAt(value: string) {
   });
 }
 
-export function FeedCard({ story, onPress }: FeedCardProps) {
+export function FeedCard({ story, onPress, onTagPress }: FeedCardProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const tags = story.tags ?? [];
 
   return (
     <Pressable
@@ -77,6 +80,27 @@ export function FeedCard({ story, onPress }: FeedCardProps) {
         <Text style={{ color: colors.muted, fontSize: typography.body }}>{story.locationName}</Text>
       ) : null}
 
+      {tags.length > 0 ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {tags.map((tag) => (
+            <TagChip
+              key={tag}
+              label={tag}
+              value={tag}
+              testID={`feed-card-tag-${tag}`}
+              onPress={
+                onTagPress
+                  ? (event) => {
+                      event?.stopPropagation?.();
+                      onTagPress(tag);
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </View>
+      ) : null}
+
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {story.timePeriod ? (
           <View
@@ -92,6 +116,24 @@ export function FeedCard({ story, onPress }: FeedCardProps) {
             </Text>
           </View>
         ) : null}
+        <View
+          style={{
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+            borderRadius: 999,
+            backgroundColor: story.savedByViewer ? colors.primary : colors.background,
+          }}
+        >
+          <Text
+            style={{
+              color: story.savedByViewer ? colors.background : colors.text,
+              fontSize: typography.caption,
+              fontWeight: '700',
+            }}
+          >
+            {story.savedByViewer ? '♥' : '♡'} {story.likeCount}
+          </Text>
+        </View>
         {story.submittedAt ? (
           <View
             style={{

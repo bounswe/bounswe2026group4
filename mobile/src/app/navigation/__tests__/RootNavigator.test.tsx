@@ -10,6 +10,8 @@ import { geocodeLocationQuery } from '../../../features/search/application/servi
 
 jest.mock('../../../features/search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
+  searchTags: jest.fn(async () => []),
+  searchLocationSuggestions: jest.fn(),
 }));
 
 function renderNavigator() {

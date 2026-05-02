@@ -17,6 +17,7 @@ describe('toSearchParams', () => {
       locationBounds: undefined,
       yearFrom: undefined,
       yearTo: undefined,
+      tags: undefined,
     });
   });
 
@@ -35,15 +36,15 @@ describe('toSearchParams', () => {
         locationBounds,
         timeFrom: '',
         timeTo: '',
-        tags: ['folklore', 'ottoman-era'],
+        tags: [],
       }),
     ).toEqual({
       q: undefined,
       location: 'Istanbul',
-      tags: ['folklore', 'ottoman-era'],
       locationBounds,
       yearFrom: undefined,
       yearTo: undefined,
+      tags: undefined,
     });
   });
 });

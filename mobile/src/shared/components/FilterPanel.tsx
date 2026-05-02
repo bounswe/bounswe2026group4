@@ -1,7 +1,10 @@
-import React from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Plus, Search, X } from 'lucide-react-native';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
+import { SearchTag } from '../../features/search/application/services';
 import { Input } from '../ui/Input';
+import { formatTagLabel, TagChip } from './TagChip';
 
 export const DEFAULT_FROM_YEAR = '1980';
 export const DEFAULT_TO_YEAR = '2026';
@@ -52,7 +55,7 @@ interface FilterPanelProps {
   timeTo: string;
   selectedTags?: string[];
   tagQuery?: string;
-  tagOptions?: string[];
+  tagOptions?: SearchTag[];
   isTagsLoading?: boolean;
   onLocationChange: (value: string) => void;
   onTimeFromChange: (value: string) => void;
@@ -70,6 +73,7 @@ interface FilterPanelProps {
   isLocationResolving?: boolean;
   locationStatusText?: string;
   isApplyDisabled?: boolean;
+  onTagPickerOpenChange?: (isOpen: boolean) => void;
 }
 
 export function FilterPanel({
@@ -96,10 +100,13 @@ export function FilterPanel({
   isLocationResolving = false,
   locationStatusText,
   isApplyDisabled = false,
+  onTagPickerOpenChange,
 }: FilterPanelProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const parsedTimeFrom = timeFrom ? Number(timeFrom) : undefined;
   const parsedTimeTo = timeTo ? Number(timeTo) : undefined;
+  const selectableTagOptions = tagOptions.filter((tag) => !selectedTags.includes(tag.name));
   const hasInvalidRange =
     parsedTimeFrom !== undefined &&
     Number.isFinite(parsedTimeFrom) &&
@@ -176,7 +183,13 @@ export function FilterPanel({
           }
         />
         {locationStatusText ? (
-          <Text style={{ color: colors.muted, fontSize: typography.caption + 1 }}>
+          <Text
+            accessibilityRole={locationStatusText.startsWith('Location not found') ? 'alert' : undefined}
+            style={{
+              color: locationStatusText.startsWith('Location not found') ? colors.danger : colors.muted,
+              fontSize: typography.caption + 1,
+            }}
+          >
             {locationStatusText}
           </Text>
         ) : null}
@@ -185,72 +198,161 @@ export function FilterPanel({
       <View style={{ gap: spacing.sm }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ color: colors.text, fontWeight: '600' }}>Tags</Text>
-          {isTagsLoading ? (
-            <ActivityIndicator
-              accessibilityLabel="Loading tags"
-              color={colors.primary}
-              size="small"
-            />
-          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            {isTagsLoading ? (
+              <ActivityIndicator accessibilityLabel="Loading tags" color={colors.primary} size="small" />
+            ) : null}
+          </View>
         </View>
-        <Input
-          value={tagQuery}
-          onChangeText={onTagQueryChange ?? (() => {})}
-          placeholder="Search tags"
-          accessibilityLabel="Tag filter search"
-          autoCorrect={false}
-        />
-        {selectedTags.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            {selectedTags.map((tag) => (
+
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {selectedTags.map((tag) => (
+            <TagChip
+              key={tag}
+              label={formatTagLabel(tag)}
+              value={tag}
+              selected
+              removable
+              accessibilityLabel={`Remove tag ${formatTagLabel(tag)}`}
+              onPress={() => onRemoveTag?.(tag)}
+            />
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add tag filter"
+            accessibilityState={{ expanded: isTagPickerOpen }}
+            onTouchStart={(event) => event.stopPropagation()}
+            onPress={() => {
+              setIsTagPickerOpen((current) => {
+                const next = !current;
+                onTagPickerOpenChange?.(next);
+                return next;
+              });
+            }}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xs,
+              paddingHorizontal: spacing.sm + spacing.xs,
+              paddingVertical: spacing.xs,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderStyle: 'dashed',
+              borderColor: colors.muted,
+              backgroundColor: colors.background,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Plus size={13} color={colors.muted} strokeWidth={2.4} />
+            <Text style={{ color: colors.muted, fontSize: typography.caption + 1, fontWeight: '700' }}>
+              Add tag
+            </Text>
+          </Pressable>
+        </View>
+
+        {isTagPickerOpen ? (
+          <View
+            onTouchStart={(event) => event.stopPropagation()}
+            style={{
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 12,
+              backgroundColor: colors.background,
+              overflow: 'hidden',
+            }}
+          >
+            <View
+              onTouchStart={(event) => event.stopPropagation()}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs,
+              }}
+            >
+              <Search size={16} color={colors.muted} strokeWidth={2.2} />
+              <TextInput
+                value={tagQuery}
+                onChangeText={onTagQueryChange ?? (() => {})}
+                placeholder="Search tags"
+                placeholderTextColor={colors.muted}
+                accessibilityLabel="Tag filter search"
+                autoCorrect={false}
+                autoCapitalize="none"
+                style={{
+                  flex: 1,
+                  minHeight: 40,
+                  color: colors.text,
+                  fontSize: typography.body,
+                }}
+              />
               <Pressable
-                key={tag}
                 accessibilityRole="button"
-                accessibilityLabel={`Remove tag ${tag}`}
-                onPress={() => onRemoveTag?.(tag)}
+                accessibilityLabel="Close tag picker"
+                onPress={() => {
+                  setIsTagPickerOpen(false);
+                  onTagPickerOpenChange?.(false);
+                }}
                 style={({ pressed }) => ({
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
+                  padding: spacing.xs,
                   borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: colors.primary,
-                  backgroundColor: colors.infoSurface,
-                  opacity: pressed ? 0.75 : 1,
+                  opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Text style={{ color: colors.primary, fontWeight: '700' }}>{tag} x</Text>
+                <X size={14} color={colors.muted} strokeWidth={2.4} />
               </Pressable>
-            ))}
+            </View>
+
+            <ScrollView
+              style={{ maxHeight: 220 }}
+              contentContainerStyle={{ padding: spacing.xs, gap: spacing.xs }}
+              showsVerticalScrollIndicator
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              onTouchStart={(event) => event.stopPropagation()}
+            >
+              {isTagsLoading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm }}>
+                  <ActivityIndicator accessibilityLabel="Loading tags" color={colors.primary} size="small" />
+                  <Text style={{ color: colors.muted }}>Loading...</Text>
+                </View>
+              ) : null}
+              {!isTagsLoading && selectableTagOptions.length ? (
+                selectableTagOptions.map((tag) => (
+                  <Pressable
+                    key={tag.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select tag ${tag.name}`}
+                    onPress={() => onToggleTag?.(tag.name)}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: spacing.sm,
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: spacing.xs,
+                      borderRadius: 8,
+                      backgroundColor: pressed ? colors.infoSurface : colors.background,
+                    })}
+                  >
+                    <TagChip label={formatTagLabel(tag.name)} value={tag.name} />
+                    {tag.storyCount !== undefined ? (
+                      <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+                        {tag.storyCount}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                ))
+              ) : null}
+              {!isTagsLoading && !selectableTagOptions.length ? (
+                <Text style={{ color: colors.muted, padding: spacing.sm }}>No tags found</Text>
+              ) : null}
+            </ScrollView>
           </View>
         ) : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          {tagOptions.map((tag) => {
-            const isSelected = selectedTags.includes(tag);
-
-            return (
-              <Pressable
-                key={tag}
-                accessibilityRole="button"
-                accessibilityLabel={`${isSelected ? 'Remove' : 'Select'} tag ${tag}`}
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => onToggleTag?.(tag)}
-                style={({ pressed }) => ({
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  backgroundColor: isSelected ? colors.infoSurface : colors.surface,
-                  opacity: pressed ? 0.75 : 1,
-                })}
-              >
-                <Text style={{ color: isSelected ? colors.primary : colors.text, fontWeight: '700' }}>
-                  {tag}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
       </View>
 
       <View style={{ gap: spacing.sm }}>
@@ -333,13 +435,12 @@ export function FilterPanel({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Increase start year"
-                  disabled={Number(clampYearValue(timeFrom || DEFAULT_FROM_YEAR)) >= MAX_YEAR}
+                  accessibilityState={{ disabled: Number(timeFrom || DEFAULT_FROM_YEAR) >= MAX_YEAR }}
                   onPress={() => stepYear(timeFrom, onTimeFromChange, 1, DEFAULT_FROM_YEAR)}
                   style={({ pressed }) => ({
                     paddingHorizontal: spacing.sm,
                     paddingVertical: spacing.sm,
-                    opacity:
-                      Number(clampYearValue(timeFrom || DEFAULT_FROM_YEAR)) >= MAX_YEAR ? 0.4 : pressed ? 0.75 : 1,
+                    opacity: pressed ? 0.75 : 1,
                   })}
                 >
                   <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
@@ -374,13 +475,12 @@ export function FilterPanel({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Increase end year"
-                  disabled={Number(clampYearValue(timeTo || DEFAULT_TO_YEAR)) >= MAX_YEAR}
+                  accessibilityState={{ disabled: Number(timeTo || DEFAULT_TO_YEAR) >= MAX_YEAR }}
                   onPress={() => stepYear(timeTo, onTimeToChange, 1, DEFAULT_TO_YEAR)}
                   style={({ pressed }) => ({
                     paddingHorizontal: spacing.sm,
                     paddingVertical: spacing.sm,
-                    opacity:
-                      Number(clampYearValue(timeTo || DEFAULT_TO_YEAR)) >= MAX_YEAR ? 0.4 : pressed ? 0.75 : 1,
+                    opacity: pressed ? 0.75 : 1,
                   })}
                 >
                   <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
@@ -392,7 +492,7 @@ export function FilterPanel({
       </View>
 
       {hasInvalidRange ? (
-        <Text style={{ color: colors.danger, fontSize: typography.caption + 1 }}>
+        <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: typography.caption + 1 }}>
           Start year cannot be later than end year.
         </Text>
       ) : null}
@@ -401,23 +501,22 @@ export function FilterPanel({
         <Pressable accessibilityRole="button" onPress={onClearAll}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Reset filter form</Text>
         </Pressable>
-        {onApply ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Apply filters"
-            disabled={isApplyDisabled}
-            onPress={onApply}
-            style={{
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-              borderRadius: 999,
-              backgroundColor: colors.primary,
-              opacity: isApplyDisabled ? 0.55 : 1,
-            }}
-          >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Apply</Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Apply filters"
+          accessibilityState={{ disabled: isApplyDisabled || hasInvalidRange }}
+          disabled={isApplyDisabled || hasInvalidRange}
+          onPress={onApply}
+          style={({ pressed }) => ({
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            borderRadius: 999,
+            backgroundColor: colors.primary,
+            opacity: isApplyDisabled || hasInvalidRange ? 0.45 : pressed ? 0.8 : 1,
+          })}
+        >
+          <Text style={{ color: colors.background, fontWeight: '700' }}>Apply</Text>
+        </Pressable>
       </View>
     </View>
   );

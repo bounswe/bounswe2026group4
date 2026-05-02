@@ -109,6 +109,45 @@ describe('feedRemoteSource', () => {
     );
   });
 
+  it('does not drop tag-filtered feed results when the backend omits tag fields', async () => {
+    jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [{ id: 1, title: 'Tagged story' }],
+    });
+
+    const response = await feedRemoteSource.getFeed({
+      filters: { tags: ['folklore', 'ottoman-era'] },
+    });
+
+    expect(response).toMatchObject({
+      count: 1,
+      results: [{ id: 1, title: 'Tagged story' }],
+    });
+  });
+
+  it('refines extra selected tags when feed results include tag fields', async () => {
+    jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
+      results: [
+        { id: 1, title: 'Full match', tags: [{ name: 'folklore' }, { name: 'ottoman-era' }] },
+        { id: 2, title: 'Partial match', tags: [{ name: 'folklore' }] },
+      ],
+    });
+
+    const response = await feedRemoteSource.getFeed({
+      filters: { tags: ['folklore', 'ottoman-era'] },
+    });
+
+    expect(response).toMatchObject({
+      count: 1,
+      results: [{ id: 1, title: 'Full match' }],
+    });
+  });
+
   it('filters feed results by geocoded bounds when the backend ignores bbox params', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       count: 2,

@@ -8,6 +8,8 @@ import { geocodeLocationQuery } from '../../../../search/application/services';
 
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
+  searchTags: jest.fn(async () => []),
+  searchLocationSuggestions: jest.fn(),
 }));
 
 jest.mock('../../../../../shared/components/WebMapView', () => {

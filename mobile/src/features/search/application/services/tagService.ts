@@ -14,8 +14,8 @@ interface TagRecord {
 }
 
 export async function searchTags(query = ''): Promise<SearchTag[]> {
-  const params = new URLSearchParams();
   const trimmedQuery = query.trim();
+  const params = new URLSearchParams();
 
   if (trimmedQuery) {
     params.append('q', trimmedQuery);
@@ -39,11 +39,12 @@ function mapTag(value: unknown): SearchTag | null {
   const tag = value as TagRecord;
   const id = typeof tag.id === 'string' || typeof tag.id === 'number' ? String(tag.id) : undefined;
   const name = typeof tag.name === 'string' ? tag.name.trim() : '';
-  const storyCount = typeof tag.story_count === 'number'
-    ? tag.story_count
-    : typeof tag.storyCount === 'number'
-      ? tag.storyCount
-      : undefined;
+  const storyCount =
+    typeof tag.story_count === 'number'
+      ? tag.story_count
+      : typeof tag.storyCount === 'number'
+        ? tag.storyCount
+        : undefined;
 
   return id && name ? { id, name, storyCount } : null;
 }

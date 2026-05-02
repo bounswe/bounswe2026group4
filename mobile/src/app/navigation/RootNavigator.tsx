@@ -13,6 +13,7 @@ import { navigationRef } from './navigationRef';
 import { MapScreen } from '../../features/map';
 import { StoryScreen } from '../../features/stories';
 import { StorySearchControls } from '../../features/search/presentation/components/StorySearchControls';
+import { useSearchFilters } from '../../features/search/presentation/context/SearchFiltersContext';
 import { useToast } from '../../shared/hooks/useToast';
 import { APP_NAME } from '../../core/constants/app';
 
@@ -263,6 +264,7 @@ export function RootNavigator() {
   const { isAuthenticated, loading, logout, user } = useAuth();
   const { colors, spacing } = useAppTheme();
   const { toast } = useToast();
+  const { updateFilters } = useSearchFilters('main');
   const { width } = useWindowDimensions();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
@@ -494,6 +496,26 @@ export function RootNavigator() {
     navigateToSnapshot({ route: ROUTES.USER_PROFILE, userId });
   };
 
+  const handleOpenTag = useCallback(
+    (tag: string) => {
+      updateFilters(
+        {
+          query: '',
+          location: '',
+          locationBounds: undefined,
+          proximityRadiusKm: undefined,
+          proximityCoordinates: undefined,
+          timeFrom: '',
+          timeTo: '',
+          tags: [tag],
+        },
+        { refresh: true },
+      );
+      navigateToSnapshot({ route: ROUTES.FEED }, { resetStack: true, preserveCurrent: false });
+    },
+    [navigateToSnapshot, updateFilters],
+  );
+
   if (!hasResolvedInitialSession && loading) {
     return (
       <Screen>
@@ -575,6 +597,7 @@ export function RootNavigator() {
           navigateToSnapshot({ route: ROUTES.FEED }, { resetStack: true, preserveCurrent: false });
         }}
         onOpenContributorProfile={handleOpenUserProfile}
+        onOpenTag={handleOpenTag}
       />
     );
   } else {
@@ -629,7 +652,12 @@ export function RootNavigator() {
               fillContent
               hideHeader
             >
-              <FeedScreen onOpenStory={handleOpenStoryDetail} showSearchControls={false} searchScope="main" />
+              <FeedScreen
+                onOpenStory={handleOpenStoryDetail}
+                onOpenTag={handleOpenTag}
+                showSearchControls={false}
+                searchScope="main"
+              />
             </ScreenShell>
           </View>
         </ScrollView>

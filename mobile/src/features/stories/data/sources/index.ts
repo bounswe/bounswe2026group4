@@ -123,9 +123,7 @@ export const storiesLocalSource = {
     return storiesFixture.filter((story) => {
       if (filters.q?.trim()) {
         const query = filters.q.trim().toLowerCase();
-        const searchableText = [story.title, story.location.name, story.timePeriod, ...story.narrative, ...(story.tags ?? [])]
-          .join(' ')
-          .toLowerCase();
+        const searchableText = [story.title, story.location.name].join(' ').toLowerCase();
 
         if (!searchableText.includes(query)) {
           return false;
@@ -133,9 +131,9 @@ export const storiesLocalSource = {
       }
 
       if (filters.tags?.length) {
-        const storyTags = (story.tags ?? []).map((tag) => tag.toLowerCase());
+        const normalizedTags = (story.tags ?? []).map((tag) => tag.toLowerCase());
 
-        if (!filters.tags.every((tag) => storyTags.includes(tag.toLowerCase()))) {
+        if (!filters.tags.every((tag) => normalizedTags.includes(tag.toLowerCase()))) {
           return false;
         }
       }
@@ -223,25 +221,17 @@ function filterRemoteStories(results: unknown[], filters: StoryFilters) {
     const story = value as StoryRecord;
     const placeName = asString(story.location_name).toLowerCase();
     const title = asString(story.title).toLowerCase();
-    const preview = asString(story.preview_text).toLowerCase();
-    const narrative = asString(story.narrative).toLowerCase();
     const tags = getTagNames(story);
 
     if (filters.q?.trim()) {
       const query = filters.q.trim().toLowerCase();
 
-      if (
-        !title.includes(query) &&
-        !placeName.includes(query) &&
-        !preview.includes(query) &&
-        !narrative.includes(query) &&
-        !tags.some((tag) => tag.toLowerCase().includes(query))
-      ) {
+      if (!title.includes(query) && !placeName.includes(query)) {
         return false;
       }
     }
 
-    if (filters.tags?.length) {
+    if (filters.tags && filters.tags.length > 1 && tags.length) {
       const normalizedTags = tags.map((tag) => tag.toLowerCase());
 
       if (!filters.tags.every((tag) => normalizedTags.includes(tag.toLowerCase()))) {
@@ -503,6 +493,10 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.radius_km = proximity.radiusKm;
   }
 
+  if (filters.tags?.length) {
+    params.tag = filters.tags[0];
+  }
+
   return params;
 }
 
@@ -538,10 +532,6 @@ function extractYearsFromString(value: string) {
     .filter((year) => Number.isFinite(year));
 }
 
-function asString(value: unknown) {
-  return typeof value === 'string' ? value : '';
-}
-
 function getTagNames(story: StoryRecord) {
   const rawTags = Array.isArray(story.tags)
     ? story.tags
@@ -552,17 +542,32 @@ function getTagNames(story: StoryRecord) {
   return rawTags
     .map((tag) => {
       if (typeof tag === 'string') {
-        return tag;
+        return tag.trim();
       }
 
       if (tag && typeof tag === 'object') {
-        const record = tag as Record<string, unknown>;
-        return asString(record.name) || asString(record.label) || asString(record.slug);
+        const tagRecord = tag as Record<string, unknown>;
+
+        if (typeof tagRecord.name === 'string') {
+          return tagRecord.name.trim();
+        }
+
+        if (typeof tagRecord.label === 'string') {
+          return tagRecord.label.trim();
+        }
+
+        if (typeof tagRecord.slug === 'string') {
+          return tagRecord.slug.trim();
+        }
       }
 
       return '';
     })
-    .filter(Boolean);
+    .filter((tag): tag is string => Boolean(tag));
+}
+
+function asString(value: unknown) {
+  return typeof value === 'string' ? value : '';
 }
 
 function asNumber(value: unknown) {

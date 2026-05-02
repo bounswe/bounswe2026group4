@@ -250,7 +250,10 @@ describe('FilterPanel', () => {
         timeTo=""
         selectedTags={['folklore']}
         tagQuery=""
-        tagOptions={['folklore', 'ottoman-era']}
+        tagOptions={[
+          { id: 'folklore', name: 'folklore', storyCount: 2 },
+          { id: 'ottoman-era', name: 'ottoman-era', storyCount: 5 },
+        ]}
         onLocationChange={jest.fn()}
         onTimeFromChange={jest.fn()}
         onTimeToChange={jest.fn()}
@@ -261,10 +264,12 @@ describe('FilterPanel', () => {
       />,
     );
 
+    fireEvent.press(screen.getByLabelText('Add tag filter'));
     fireEvent.changeText(screen.getByLabelText('Tag filter search'), 'ottoman');
     fireEvent.press(screen.getByLabelText('Select tag ottoman-era'));
-    fireEvent.press(screen.getAllByLabelText('Remove tag folklore')[0]);
+    fireEvent.press(screen.getByLabelText('Remove tag Folklore'));
 
+    expect(screen.getByText('5')).toBeTruthy();
     expect(onTagQueryChange).toHaveBeenCalledWith('ottoman');
     expect(onToggleTag).toHaveBeenCalledWith('ottoman-era');
     expect(onRemoveTag).toHaveBeenCalledWith('folklore');

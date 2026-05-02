@@ -8,6 +8,9 @@ export interface FeedEntity {
   previewText: string;
   submittedAt: string;
   hasMedia: boolean;
+  likeCount: number;
+  savedByViewer: boolean;
+  tags?: string[];
 }
 
 export interface FeedPageEntity {

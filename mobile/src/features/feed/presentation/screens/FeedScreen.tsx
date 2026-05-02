@@ -19,6 +19,7 @@ import { createInitialFeedUiState } from '../state/feedUiState';
 interface FeedScreenProps {
   initialFilters?: StoryFilters;
   onOpenStory?: (storyId: string) => void;
+  onOpenTag?: (tag: string) => void;
   getFeed?: typeof storyService.getFeed;
   showSearchControls?: boolean;
   searchScope?: SearchFilterScope;
@@ -29,6 +30,7 @@ const EMPTY_FILTERS: StoryFilters = {};
 export function FeedScreen({
   initialFilters = EMPTY_FILTERS,
   onOpenStory,
+  onOpenTag,
   getFeed = storyService.getFeed,
   showSearchControls = true,
   searchScope = 'feed',
@@ -77,7 +79,8 @@ export function FeedScreen({
       activeFilters.location ||
       activeFilters.yearFrom ||
       activeFilters.yearTo ||
-      activeFilters.radiusKm,
+      activeFilters.radiusKm ||
+      activeFilters.tags?.length,
   );
 
   const loadPage = useCallback(
@@ -241,7 +244,7 @@ export function FeedScreen({
         testID="feed-list"
         data={state.items}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <FeedCard story={item} onPress={onOpenStory} />}
+        renderItem={({ item }) => <FeedCard story={item} onPress={onOpenStory} onTagPress={onOpenTag} />}
         contentContainerStyle={{
           paddingHorizontal: spacing.lg,
           paddingBottom: spacing.xl,

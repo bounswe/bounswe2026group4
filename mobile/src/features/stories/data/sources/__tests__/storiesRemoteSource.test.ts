@@ -178,6 +178,51 @@ describe('storiesRemoteSource', () => {
     );
   });
 
+  it('keeps text search results only when the query matches title or place', async () => {
+    jest.spyOn(apiClient, 'get').mockResolvedValue({
+      next: null,
+      results: [
+        {
+          id: 1,
+          title: 'Harbor Memory',
+          location_name: 'Istanbul',
+          preview_text: 'A waterfront story.',
+        },
+        {
+          id: 2,
+          title: 'Waterfront Story',
+          location_name: 'Harbor Quarter',
+          preview_text: 'A local memory.',
+        },
+        {
+          id: 3,
+          title: 'Market Story',
+          location_name: 'Istanbul',
+          preview_text: 'The harbor appears only in this preview.',
+        },
+        {
+          id: 4,
+          title: 'Festival Story',
+          location_name: 'Istanbul',
+          narrative: 'The harbor appears only in this narrative.',
+        },
+        {
+          id: 5,
+          title: 'Tagged Story',
+          location_name: 'Istanbul',
+          tags: [{ name: 'harbor' }],
+        },
+      ],
+    });
+
+    const result = await storiesRemoteSource.getStoriesFromApi({ q: 'harbor' });
+
+    expect(result).toEqual([
+      expect.objectContaining({ id: 1 }),
+      expect.objectContaining({ id: 2 }),
+    ]);
+  });
+
   it('filters map features by geocoded bounds when the backend ignores bbox params', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       type: 'FeatureCollection',

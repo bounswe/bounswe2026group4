@@ -1,20 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { DeviceCoordinates, getCurrentDeviceCoordinates } from '../../../../core/services/deviceLocation';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
-import {
-  FilterPanel,
-  ProximityRadiusOption,
-} from '../../../../shared/components/FilterPanel';
+import { FilterPanel, ProximityRadiusOption } from '../../../../shared/components/FilterPanel';
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
-import { geocodeLocationQuery, LocationBounds, searchTags } from '../../application/services';
+import { geocodeLocationQuery, LocationBounds, searchTags, SearchTag } from '../../application/services';
 import { SearchFilterScope, useSearchFilters } from '../context/SearchFiltersContext';
 
-function buildChips(
-  filters: ReturnType<typeof useSearchFilters>['filters'],
-): FilterChipItem[] {
+function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): FilterChipItem[] {
   const chips: FilterChipItem[] = [];
 
   if (filters.query.trim()) {
@@ -52,8 +47,10 @@ interface StorySearchControlsProps {
 
 export function StorySearchControls({ helperText, hideHeading = false, scope }: StorySearchControlsProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const { height } = useWindowDimensions();
   const { filters, updateFilters, removeFilter, clearFilters, applyFilters } = useSearchFilters(scope);
   const [showFilters, setShowFilters] = useState(false);
+  const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const [draftLocation, setDraftLocation] = useState('');
   const [draftLocationBounds, setDraftLocationBounds] = useState<LocationBounds | undefined>();
   const [isLocationResolving, setIsLocationResolving] = useState(false);
@@ -67,7 +64,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const [draftTimeTo, setDraftTimeTo] = useState('');
   const [draftTags, setDraftTags] = useState<string[]>([]);
   const [draftTagQuery, setDraftTagQuery] = useState('');
-  const [tagOptions, setTagOptions] = useState<string[]>([]);
+  const [tagOptions, setTagOptions] = useState<SearchTag[]>([]);
   const [isTagsLoading, setIsTagsLoading] = useState(false);
   const debouncedDraftLocation = useDebounce(draftLocation, 500);
   const debouncedDraftTagQuery = useDebounce(draftTagQuery, 300);
@@ -76,8 +73,10 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const tagRequestIdRef = useRef(0);
 
   const chips = useMemo(() => buildChips(filters), [filters]);
+  const filterModalMaxHeight = Math.max(height - spacing.xl * 4, 360);
 
   const openFilters = () => {
+    setIsTagPickerOpen(false);
     setDraftLocation(filters.location);
     setDraftLocationBounds(filters.locationBounds);
     setLocationStatusText(undefined);
@@ -93,6 +92,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     setDraftTimeTo(filters.timeTo);
     setDraftTags(filters.tags);
     setDraftTagQuery('');
+    setTagOptions([]);
     setShowFilters(true);
   };
 
@@ -157,6 +157,49 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       return;
     }
 
+    const requestId = tagRequestIdRef.current + 1;
+    tagRequestIdRef.current = requestId;
+    setIsTagsLoading(true);
+
+    searchTags(debouncedDraftTagQuery)
+      .then((tags) => {
+        if (tagRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        const selectedTagOptions = draftTags.map((tag) => ({
+          id: `selected-${tag}`,
+          name: tag,
+        }));
+        const mergedTags = [...selectedTagOptions, ...tags];
+        setTagOptions(
+          mergedTags.filter(
+            (tag, index, values) => values.findIndex((candidate) => candidate.name === tag.name) === index,
+          ),
+        );
+      })
+      .catch(() => {
+        if (tagRequestIdRef.current === requestId) {
+          setTagOptions(
+            draftTags.map((tag) => ({
+              id: `selected-${tag}`,
+              name: tag,
+            })),
+          );
+        }
+      })
+      .finally(() => {
+        if (tagRequestIdRef.current === requestId) {
+          setIsTagsLoading(false);
+        }
+      });
+  }, [debouncedDraftTagQuery, draftTags, showFilters]);
+
+  useEffect(() => {
+    if (!showFilters) {
+      return;
+    }
+
     const location = debouncedDraftLocation.trim();
     const requestId = locationRequestIdRef.current + 1;
     locationRequestIdRef.current = requestId;
@@ -197,36 +240,6 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       });
   }, [debouncedDraftLocation, showFilters]);
 
-  useEffect(() => {
-    if (!showFilters) {
-      return;
-    }
-
-    const requestId = tagRequestIdRef.current + 1;
-    tagRequestIdRef.current = requestId;
-    setIsTagsLoading(true);
-
-    searchTags(debouncedDraftTagQuery)
-      .then((tags) => {
-        if (tagRequestIdRef.current !== requestId) {
-          return;
-        }
-
-        const nextOptions = tags.map((tag) => tag.name);
-        setTagOptions(Array.from(new Set([...draftTags, ...nextOptions])));
-      })
-      .catch(() => {
-        if (tagRequestIdRef.current === requestId) {
-          setTagOptions(draftTags);
-        }
-      })
-      .finally(() => {
-        if (tagRequestIdRef.current === requestId) {
-          setIsTagsLoading(false);
-        }
-      });
-  }, [debouncedDraftTagQuery, draftTags, showFilters]);
-
   return (
     <View style={{ gap: spacing.md }}>
       {hideHeading ? null : (
@@ -261,71 +274,85 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
         transparent
         animationType="fade"
         visible={showFilters}
-        onRequestClose={() => setShowFilters(false)}
+        onRequestClose={() => {
+          setShowFilters(false);
+          setIsTagPickerOpen(false);
+        }}
       >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close filters"
-          onPress={() => setShowFilters(false)}
+          onPress={() => {
+            setShowFilters(false);
+            setIsTagPickerOpen(false);
+          }}
           style={{
             flex: 1,
-            justifyContent: 'flex-start',
+            justifyContent: 'center',
             backgroundColor: 'rgba(17, 24, 39, 0.35)',
             paddingHorizontal: spacing.lg,
-            paddingTop: spacing.xl * 2,
+            paddingVertical: spacing.xl,
           }}
         >
-          <Pressable onPress={(event) => event?.stopPropagation?.()} style={{ width: '100%' }}>
-            <FilterPanel
-              location={draftLocation}
-              timeFrom={draftTimeFrom}
-              timeTo={draftTimeTo}
-              selectedTags={draftTags}
-              tagQuery={draftTagQuery}
-              tagOptions={tagOptions}
-              isTagsLoading={isTagsLoading}
-              onLocationChange={handleDraftLocationChange}
-              onTimeFromChange={setDraftTimeFrom}
-              onTimeToChange={setDraftTimeTo}
-              onTagQueryChange={setDraftTagQuery}
-              onToggleTag={toggleDraftTag}
-              onRemoveTag={(tag) => setDraftTags((currentTags) => currentTags.filter((currentTag) => currentTag !== tag))}
-              proximityRadiusKm={draftProximityRadiusKm}
-              onProximityRadiusChange={handleProximityRadiusChange}
-              isProximityResolving={isProximityResolving}
-              proximityStatusText={proximityStatusText}
-              isProximityError={isProximityError}
-              isLocationResolving={isLocationResolving}
-              locationStatusText={locationStatusText}
-              isApplyDisabled={isLocationResolving || isProximityResolving || Boolean(draftProximityRadiusKm && !draftProximityCoordinates)}
-              onClearAll={() => {
-                setDraftLocation('');
-                setDraftLocationBounds(undefined);
-                setLocationStatusText(undefined);
-                setDraftProximityRadiusKm(undefined);
-                setDraftProximityCoordinates(undefined);
-                setProximityStatusText(undefined);
-                setIsProximityError(false);
-                setDraftTimeFrom('');
-                setDraftTimeTo('');
-                setDraftTags([]);
-                setDraftTagQuery('');
-                clearFilters();
-              }}
-              onApply={() => {
-                updateFilters({
-                  location: draftLocation,
-                  locationBounds: draftLocation.trim() ? draftLocationBounds : undefined,
-                  proximityRadiusKm: draftProximityRadiusKm,
-                  proximityCoordinates: draftProximityRadiusKm ? draftProximityCoordinates : undefined,
-                  timeFrom: draftTimeFrom,
-                  timeTo: draftTimeTo,
-                  tags: draftTags,
-                }, { refresh: true });
-                applyFilters();
-                setShowFilters(false);
-              }}
-            />
+          <Pressable onPress={(event) => event?.stopPropagation?.()} style={{ width: '100%', maxHeight: filterModalMaxHeight }}>
+            <ScrollView
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+              contentContainerStyle={{ paddingBottom: spacing.lg }}
+            >
+              <FilterPanel
+                location={draftLocation}
+                timeFrom={draftTimeFrom}
+                timeTo={draftTimeTo}
+                selectedTags={draftTags}
+                tagQuery={draftTagQuery}
+                tagOptions={tagOptions}
+                isTagsLoading={isTagsLoading}
+                onLocationChange={handleDraftLocationChange}
+                onTimeFromChange={setDraftTimeFrom}
+                onTimeToChange={setDraftTimeTo}
+                onTagQueryChange={setDraftTagQuery}
+                onToggleTag={toggleDraftTag}
+                onRemoveTag={(tag) => setDraftTags((currentTags) => currentTags.filter((currentTag) => currentTag !== tag))}
+                proximityRadiusKm={draftProximityRadiusKm}
+                onProximityRadiusChange={handleProximityRadiusChange}
+                isProximityResolving={isProximityResolving}
+                proximityStatusText={proximityStatusText}
+                isProximityError={isProximityError}
+                isLocationResolving={isLocationResolving}
+                locationStatusText={locationStatusText}
+                isApplyDisabled={isLocationResolving || isProximityResolving || Boolean(draftProximityRadiusKm && !draftProximityCoordinates)}
+                onTagPickerOpenChange={setIsTagPickerOpen}
+                onClearAll={() => {
+                  setDraftLocation('');
+                  setDraftLocationBounds(undefined);
+                  setLocationStatusText(undefined);
+                  setDraftProximityRadiusKm(undefined);
+                  setDraftProximityCoordinates(undefined);
+                  setProximityStatusText(undefined);
+                  setIsProximityError(false);
+                  setDraftTimeFrom('');
+                  setDraftTimeTo('');
+                  setDraftTags([]);
+                  setDraftTagQuery('');
+                  clearFilters();
+                }}
+                onApply={() => {
+                  updateFilters({
+                    location: draftLocation,
+                    locationBounds: draftLocation.trim() ? draftLocationBounds : undefined,
+                    proximityRadiusKm: draftProximityRadiusKm,
+                    proximityCoordinates: draftProximityRadiusKm ? draftProximityCoordinates : undefined,
+                    timeFrom: draftTimeFrom,
+                    timeTo: draftTimeTo,
+                    tags: draftTags,
+                  }, { refresh: true });
+                  applyFilters();
+                  setShowFilters(false);
+                }}
+              />
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
