@@ -7,6 +7,9 @@ import { FeedEntity } from '../../domain/entities';
 interface FeedCardProps {
   story: FeedEntity;
   onPress?: (storyId: string) => void;
+  onBookmarkPress?: (storyId: string) => void;
+  isBookmarkPending?: boolean;
+  bookmarkAccessibilityLabel?: string;
 }
 
 function formatSubmittedAt(value: string) {
@@ -27,8 +30,32 @@ function formatSubmittedAt(value: string) {
   });
 }
 
-export function FeedCard({ story, onPress }: FeedCardProps) {
+export function FeedCard({
+  story,
+  onPress,
+  onBookmarkPress,
+  isBookmarkPending = false,
+  bookmarkAccessibilityLabel,
+}: FeedCardProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const bookmarkIndicatorStyle = {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: story.savedByViewer ? colors.primary : colors.border,
+    backgroundColor: story.savedByViewer ? colors.primary : colors.background,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+  const bookmarkIcon = (
+    <Bookmark
+      size={16}
+      color={story.savedByViewer ? colors.background : colors.muted}
+      fill={story.savedByViewer ? colors.background : 'transparent'}
+      strokeWidth={2.2}
+    />
+  );
 
   return (
     <Pressable
@@ -56,26 +83,33 @@ export function FeedCard({ story, onPress }: FeedCardProps) {
           {story.title}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-          <View
-            accessibilityLabel={story.savedByViewer ? 'Bookmarked story' : 'Not bookmarked story'}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: story.savedByViewer ? colors.primary : colors.border,
-              backgroundColor: story.savedByViewer ? colors.primary : colors.background,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Bookmark
-              size={16}
-              color={story.savedByViewer ? colors.background : colors.muted}
-              fill={story.savedByViewer ? colors.background : 'transparent'}
-              strokeWidth={2.2}
-            />
-          </View>
+          {onBookmarkPress ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                bookmarkAccessibilityLabel ?? (story.savedByViewer ? 'Bookmarked story' : 'Not bookmarked story')
+              }
+              accessibilityState={{ disabled: isBookmarkPending, selected: story.savedByViewer }}
+              disabled={isBookmarkPending}
+              onPress={(event) => {
+                event?.stopPropagation?.();
+                onBookmarkPress(story.id);
+              }}
+              style={({ pressed }) => ({
+                ...bookmarkIndicatorStyle,
+                opacity: isBookmarkPending ? 0.62 : pressed ? 0.78 : 1,
+              })}
+            >
+              {bookmarkIcon}
+            </Pressable>
+          ) : (
+            <View
+              accessibilityLabel={story.savedByViewer ? 'Bookmarked story' : 'Not bookmarked story'}
+              style={bookmarkIndicatorStyle}
+            >
+              {bookmarkIcon}
+            </View>
+          )}
           {story.hasMedia ? (
             <View
               accessibilityLabel="Has media"

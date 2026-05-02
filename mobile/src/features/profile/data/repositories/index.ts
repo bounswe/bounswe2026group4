@@ -7,6 +7,7 @@ import {
 import { ProfileRepository } from '../../domain/repositories';
 import { mapCurrentProfile, mapFollowList, mapPublicProfile, mergePublicProfileSummary } from '../mappers';
 import { profileRemoteSource } from '../sources';
+import { mapFeedPage } from '../../../feed/data/mappers';
 
 export class ProfileRepositoryImpl implements ProfileRepository {
   async getCurrentProfile(): Promise<ProfileEntity> {
@@ -68,5 +69,10 @@ export class ProfileRepositoryImpl implements ProfileRepository {
   async getFollowing(userId: string, page = 1): Promise<FollowListResult> {
     const payload = await profileRemoteSource.getFollowing(userId, page);
     return mapFollowList(payload);
+  }
+
+  async getSavedStories(userId: string, page = 1) {
+    const payload = await profileRemoteSource.getSavedStories(userId, page);
+    return mapFeedPage(payload, page, 10);
   }
 }

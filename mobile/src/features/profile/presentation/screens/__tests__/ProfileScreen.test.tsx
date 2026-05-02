@@ -1,8 +1,11 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { ScrollView } from 'react-native';
 import { ProfileScreen } from '../ProfileScreen';
 import { navigationRef } from '../../../../../app/navigation/navigationRef';
+import { userService } from '../../../application/services';
+import { FeedEntity, FeedPageEntity } from '../../../../feed/domain/entities';
 
 const mockToastSuccess = jest.fn();
 const mockToastError = jest.fn();
@@ -89,9 +92,38 @@ const publicProfile = {
   isFollowedByMe: false,
 };
 
+function makeSavedStory(id: string, title = `Saved Story ${id}`): FeedEntity {
+  return {
+    id,
+    title,
+    locationName: 'Golden Horn',
+    timePeriod: '1978',
+    previewText: 'A saved story about local history.',
+    submittedAt: '2026-03-18T10:00:00Z',
+    hasMedia: false,
+    likeCount: 4,
+    savedByViewer: true,
+  };
+}
+
+function makeSavedStoriesPage(overrides: Partial<FeedPageEntity> = {}): FeedPageEntity {
+  return {
+    items: [makeSavedStory('saved-1', 'Saved Harbor')],
+    page: 1,
+    pageSize: 10,
+    totalCount: 1,
+    hasNextPage: false,
+    ...overrides,
+  };
+}
+
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(userService, 'getSavedStories').mockResolvedValue(makeSavedStoriesPage({
+      items: [],
+      totalCount: 0,
+    }));
     mockAuthUser = {
       id: 7,
       email: 'traveler@example.com',
@@ -158,6 +190,207 @@ describe('ProfileScreen', () => {
 
     expect(await screen.findByText('Traveler')).toBeTruthy();
     expect(screen.getByText('May 20, 1995')).toBeTruthy();
+  });
+
+  it('renders saved stories on the signed-in user profile', async () => {
+    const getSavedStories = jest.fn(async () => makeSavedStoriesPage());
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getSavedStories={getSavedStories}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.getByLabelText('Show saved stories')).toBeTruthy();
+    expect(screen.queryByLabelText('Profile content tabs')).toBeNull();
+    expect(screen.queryByText('Saved Stories')).toBeNull();
+
+    await waitFor(() => {
+      expect(getSavedStories).toHaveBeenCalledWith('7', 1);
+      expect(screen.getByText('1')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+
+    expect(await screen.findByText('Saved Stories')).toBeTruthy();
+    expect(await screen.findByText('Saved Harbor')).toBeTruthy();
+    expect(screen.getByText('Golden Horn')).toBeTruthy();
+    expect(screen.getByLabelText('Remove Saved Harbor from saved stories')).toBeTruthy();
+    expect(getSavedStories).toHaveBeenCalledTimes(2);
+  });
+
+  it('scrolls to the saved stories section when the saved stat is pressed', async () => {
+    const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+
+    try {
+      render(
+        <ProfileScreen
+          mode="self"
+          getCurrentProfile={async () => selfProfile}
+          getSavedStories={async () => makeSavedStoriesPage()}
+        />,
+      );
+
+      expect(await screen.findByText('Traveler')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Show saved stories'));
+      expect(await screen.findByText('Saved Stories')).toBeTruthy();
+
+      fireEvent(screen.getByTestId('profile-saved-stories-wrapper'), 'layout', {
+        nativeEvent: { layout: { y: 640 } },
+      });
+
+      await waitFor(() => {
+        expect(scrollToSpy).toHaveBeenCalledWith({ y: 624, animated: true });
+      });
+    } finally {
+      scrollToSpy.mockRestore();
+    }
+  });
+
+  it('opens a saved story from the profile saved list', async () => {
+    const onOpenStory = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getSavedStories={async () => makeSavedStoriesPage()}
+        onOpenStory={onOpenStory}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+    expect(await screen.findByText('Saved Harbor')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Read story: Saved Harbor'));
+
+    expect(onOpenStory).toHaveBeenCalledWith('saved-1');
+  });
+
+  it('removes a saved story with an optimistic update and confirmation toast', async () => {
+    const unbookmarkStory = jest.fn(async () => undefined);
+    const onStoryInteractionUpdated = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getSavedStories={async () => makeSavedStoriesPage()}
+        unbookmarkStory={unbookmarkStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+    expect(await screen.findByText('Saved Harbor')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Remove Saved Harbor from saved stories'));
+
+    await waitFor(() => {
+      expect(unbookmarkStory).toHaveBeenCalledWith('saved-1');
+      expect(screen.queryByText('Saved Harbor')).toBeNull();
+      expect(mockToastSuccess).toHaveBeenCalledWith('Removed from saved stories.');
+      expect(onStoryInteractionUpdated).toHaveBeenCalledWith({ storyId: 'saved-1', savedByViewer: false });
+    });
+  });
+
+  it('restores a saved story when removing the bookmark fails', async () => {
+    const onStoryInteractionUpdated = jest.fn();
+    const unbookmarkStory = jest.fn(async () => {
+      throw new Error('Network error');
+    });
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getSavedStories={async () => makeSavedStoriesPage()}
+        unbookmarkStory={unbookmarkStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+    expect(await screen.findByText('Saved Harbor')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Remove Saved Harbor from saved stories'));
+
+    await waitFor(() => {
+      expect(unbookmarkStory).toHaveBeenCalledWith('saved-1');
+      expect(mockToastError).toHaveBeenCalledWith('Failed to remove saved story. Please try again.');
+      expect(screen.getByText('Saved Harbor')).toBeTruthy();
+      expect(onStoryInteractionUpdated).toHaveBeenLastCalledWith({ storyId: 'saved-1', savedByViewer: true });
+    });
+  });
+
+  it('shows the saved stories empty state and browse action', async () => {
+    navigationRef.navigate = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getSavedStories={async () => makeSavedStoriesPage({
+          items: [],
+          totalCount: 0,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+
+    expect(await screen.findByText('No saved stories yet')).toBeTruthy();
+    expect(screen.getByText('Bookmark stories to find them here later.')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Browse stories'));
+
+    expect(navigationRef.navigate).toHaveBeenCalledWith('Feed');
+  });
+
+  it('loads more saved stories when more bookmark pages exist', async () => {
+    const getSavedStories = jest
+      .fn()
+      .mockResolvedValueOnce(makeSavedStoriesPage({
+        items: [makeSavedStory('saved-1', 'First Saved Story')],
+        totalCount: 2,
+        hasNextPage: true,
+      }))
+      .mockResolvedValueOnce(makeSavedStoriesPage({
+        items: [makeSavedStory('saved-1', 'First Saved Story')],
+        totalCount: 2,
+        hasNextPage: true,
+      }))
+      .mockResolvedValueOnce(makeSavedStoriesPage({
+        items: [makeSavedStory('saved-2', 'Second Saved Story')],
+        page: 2,
+        totalCount: 2,
+        hasNextPage: false,
+      }));
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getSavedStories={getSavedStories}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+    expect(await screen.findByText('First Saved Story')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Load more saved stories'));
+
+    expect(await screen.findByText('Second Saved Story')).toBeTruthy();
+    expect(getSavedStories).toHaveBeenCalledWith('7', 2);
   });
 
   it('falls back to the public birth year on the signed-in user profile when the full date is unavailable', async () => {
@@ -398,6 +631,7 @@ describe('ProfileScreen', () => {
     expect(screen.queryByText('May 20, 1995')).toBeNull();
     expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
     expect(screen.queryByText('Edit Profile')).toBeNull();
+    expect(screen.queryByText('Saved Stories')).toBeNull();
     expect(screen.getByText('12')).toBeTruthy();
     expect(screen.getByText('5')).toBeTruthy();
 

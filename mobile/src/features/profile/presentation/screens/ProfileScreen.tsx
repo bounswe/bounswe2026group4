@@ -3,17 +3,22 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { GestureResponderEvent } from 'react-native';
 import { navigationRef } from '../../../../app/navigation/navigationRef';
+import { ROUTES } from '../../../../app/navigation/routes';
 import { limits } from '../../../../core/constants/limits';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
-import { Button, ErrorState, Input, Loader, Skeleton } from '../../../../shared';
+import { Button, EmptyState, ErrorState, Input, Loader, Skeleton } from '../../../../shared';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { authService } from '../../../auth/application/services';
 import { useAuth } from '../../../auth';
+import { interactionService } from '../../../interactions/application/services';
+import { FeedCard } from '../../../feed/presentation/components/FeedCard';
+import { FeedEntity, FeedPageEntity } from '../../../feed/domain/entities';
 import { userService } from '../../application/services';
 import { FollowListResult, FollowUserEntity, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
 import { AuthUser } from '../../../../core/auth/session';
 
 type ProfileMode = 'self' | 'public';
+type SelfProfileTab = 'profile' | 'saved';
 
 const BIO_MAX_LENGTH = 280;
 const MIN_BIRTH_YEAR = 1900;
@@ -48,7 +53,11 @@ interface ProfileScreenProps {
   unfollowUser?: typeof userService.unfollowUser;
   getFollowers?: typeof userService.getFollowers;
   getFollowing?: typeof userService.getFollowing;
+  getSavedStories?: typeof userService.getSavedStories;
+  unbookmarkStory?: typeof interactionService.unbookmarkStory;
   onOpenUserProfile?: (userId: string) => void;
+  onOpenStory?: (storyId: string) => void;
+  onStoryInteractionUpdated?: (update: { storyId: string; savedByViewer?: boolean; likeCount?: number }) => void;
 }
 
 interface ProfileFormState {
@@ -449,33 +458,38 @@ function StatButton({
   label,
   value,
   onPress,
+  accessibilityLabel,
+  selected = false,
 }: {
   label: string;
   value: string;
   onPress: () => void;
+  accessibilityLabel?: string;
+  selected?: boolean;
 }) {
   const { colors, spacing, typography } = useAppTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${value} ${label}`}
+      accessibilityLabel={accessibilityLabel ?? `${value} ${label}`}
+      accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => ({
         minWidth: 120,
         padding: spacing.md,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.background,
+        borderColor: selected ? colors.primary : colors.border,
+        backgroundColor: selected ? colors.infoSurface : colors.background,
         gap: spacing.xs,
         opacity: pressed ? 0.82 : 1,
       })}
     >
-      <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+      <Text style={{ color: selected ? colors.primary : colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
         {label}
       </Text>
-      <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{value}</Text>
+      <Text style={{ color: selected ? colors.primary : colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{value}</Text>
     </Pressable>
   );
 }
@@ -792,6 +806,173 @@ function FieldCard({
   );
 }
 
+function SavedStoriesSection({
+  userId,
+  getSavedStories,
+  unbookmarkStory,
+  onTotalCountChange,
+  onOpenStory,
+  onStoryInteractionUpdated,
+}: {
+  userId: string;
+  getSavedStories: (userId: string, page?: number) => Promise<FeedPageEntity>;
+  unbookmarkStory: (storyId: string) => Promise<void>;
+  onTotalCountChange?: (count: number) => void;
+  onOpenStory?: (storyId: string) => void;
+  onStoryInteractionUpdated?: (update: { storyId: string; savedByViewer?: boolean; likeCount?: number }) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const { toast } = useToast();
+  const [stories, setStories] = useState<FeedEntity[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string>();
+  const [pendingStoryId, setPendingStoryId] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const loadPage = useCallback(
+    async (nextPage: number, append: boolean) => {
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      setError(undefined);
+
+      try {
+        const result = await getSavedStories(userId, nextPage);
+        setStories((current) => (append ? [...current, ...result.items] : result.items));
+        setPage(nextPage);
+        setHasMore(result.hasNextPage);
+        setTotalCount(result.totalCount);
+        onTotalCountChange?.(result.totalCount);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load saved stories.');
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [getSavedStories, onTotalCountChange, userId],
+  );
+
+  useEffect(() => {
+    setStories([]);
+    setPage(1);
+    setHasMore(false);
+    void loadPage(1, false);
+  }, [loadPage]);
+
+  const handleRemoveBookmark = useCallback(
+    async (storyId: string) => {
+      if (pendingStoryId) {
+        return;
+      }
+
+      const previousStories = stories;
+      const previousTotalCount = totalCount;
+      const nextStories = stories.filter((story) => story.id !== storyId);
+      const nextTotalCount = Math.max(0, totalCount - 1);
+
+      setPendingStoryId(storyId);
+      setStories(nextStories);
+      setTotalCount(nextTotalCount);
+      onTotalCountChange?.(nextTotalCount);
+      onStoryInteractionUpdated?.({ storyId, savedByViewer: false });
+
+      try {
+        await unbookmarkStory(storyId);
+        toast.success('Removed from saved stories.');
+      } catch {
+        setStories(previousStories);
+        setTotalCount(previousTotalCount);
+        onTotalCountChange?.(previousTotalCount);
+        onStoryInteractionUpdated?.({ storyId, savedByViewer: true });
+        toast.error('Failed to remove saved story. Please try again.');
+      } finally {
+        setPendingStoryId(null);
+      }
+    },
+    [onStoryInteractionUpdated, onTotalCountChange, pendingStoryId, stories, toast, totalCount, unbookmarkStory],
+  );
+
+  return (
+    <View
+      accessibilityLabel="Saved stories section"
+      style={{
+        padding: spacing.lg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ gap: spacing.xs }}>
+        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+          Saved Stories
+        </Text>
+        <Text style={{ color: colors.muted }}>
+          Stories you bookmarked, ordered by most recently saved.
+        </Text>
+      </View>
+
+      {isLoading && stories.length === 0 ? <Loader message="Loading saved stories..." /> : null}
+
+      {error && stories.length === 0 ? (
+        <ErrorState
+          title="Saved stories unavailable"
+          message={error}
+          retryLabel="Try again"
+          onRetry={() => {
+            void loadPage(1, false);
+          }}
+        />
+      ) : null}
+
+      {!isLoading && !error && stories.length === 0 ? (
+        <EmptyState
+          title="No saved stories yet"
+          message="Bookmark stories to find them here later."
+          actionLabel="Browse stories"
+          onAction={() => navigationRef.navigate?.(ROUTES.FEED)}
+        />
+      ) : null}
+
+      {stories.length > 0 ? (
+        <View style={{ gap: spacing.md }}>
+          {stories.map((story) => (
+            <FeedCard
+              key={story.id}
+              story={{ ...story, savedByViewer: true }}
+              bookmarkAccessibilityLabel={`Remove ${story.title} from saved stories`}
+              isBookmarkPending={pendingStoryId === story.id}
+              onPress={onOpenStory}
+              onBookmarkPress={(storyId) => {
+                void handleRemoveBookmark(storyId);
+              }}
+            />
+          ))}
+          {hasMore ? (
+            <Button
+              variant="outline"
+              onPress={() => {
+                void loadPage(page + 1, true);
+              }}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? 'Loading...' : 'Load more saved stories'}
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function ProfileScreen({
   mode = 'self',
   userId,
@@ -805,7 +986,11 @@ export function ProfileScreen({
   unfollowUser = userService.unfollowUser,
   getFollowers = userService.getFollowers,
   getFollowing = userService.getFollowing,
+  getSavedStories = userService.getSavedStories,
+  unbookmarkStory = interactionService.unbookmarkStory,
   onOpenUserProfile,
+  onOpenStory,
+  onStoryInteractionUpdated,
 }: ProfileScreenProps) {
   const { user, isAuthenticated, updateUser, logout } = useAuth();
   const { toast } = useToast();
@@ -836,6 +1021,11 @@ export function ProfileScreen({
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [followListMode, setFollowListMode] = useState<'followers' | 'following'>('followers');
   const [isFollowListVisible, setIsFollowListVisible] = useState(false);
+  const [activeSelfTab, setActiveSelfTab] = useState<SelfProfileTab>('profile');
+  const [savedStoriesCount, setSavedStoriesCount] = useState<number | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const savedStoriesSectionYRef = useRef(0);
+  const shouldScrollToSavedStoriesRef = useRef(false);
 
   const resetPhotoDraft = useCallback(() => {
     setPendingPhoto(null);
@@ -893,6 +1083,32 @@ export function ProfileScreen({
 
     void loadProfile();
   }, [isSelfMode, loadProfile, userId]);
+
+  useEffect(() => {
+    if (!isSelfMode || !profile?.id) {
+      setSavedStoriesCount(null);
+      return;
+    }
+
+    let isActive = true;
+
+    setSavedStoriesCount(null);
+    void getSavedStories(profile.id, 1)
+      .then((result) => {
+        if (isActive) {
+          setSavedStoriesCount(result.totalCount);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setSavedStoriesCount(0);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [getSavedStories, isSelfMode, profile?.id]);
 
   const validateForm = useCallback(() => {
     const nextErrors: FormErrors = {};
@@ -1157,6 +1373,33 @@ export function ProfileScreen({
     );
   }, [formState, isPhotoRemoved, pendingPhoto, profile]);
   const profilePhotoUri = pendingPhoto?.previewUri ?? (isPhotoRemoved ? null : profile?.profilePhoto ?? null);
+  const scrollToSavedStories = useCallback(() => {
+    const y = savedStoriesSectionYRef.current;
+
+    if (y <= 0) {
+      return false;
+    }
+
+    scrollViewRef.current?.scrollTo({
+      y: Math.max(y - spacing.md, 0),
+      animated: true,
+    });
+    return true;
+  }, [spacing.md]);
+
+  useEffect(() => {
+    if (activeSelfTab !== 'saved' || !shouldScrollToSavedStoriesRef.current) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (scrollToSavedStories()) {
+        shouldScrollToSavedStoriesRef.current = false;
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [activeSelfTab, scrollToSavedStories]);
 
   if (isLoading) {
     return <LoadingState />;
@@ -1182,6 +1425,8 @@ export function ProfileScreen({
   return (
     <>
       <ScrollView
+        ref={scrollViewRef}
+        testID="profile-scroll-view"
         contentContainerStyle={{
           paddingBottom: spacing.xl,
           gap: spacing.lg,
@@ -1255,6 +1500,21 @@ export function ProfileScreen({
               value={String(followingCount)}
               onPress={() => openFollowList('following')}
             />
+            {isSelfMode ? (
+              <StatButton
+                label="Saved"
+                value={savedStoriesCount === null ? '...' : String(savedStoriesCount)}
+                accessibilityLabel="Show saved stories"
+                selected={activeSelfTab === 'saved'}
+                onPress={() => {
+                  setActiveSelfTab((current) => {
+                    const nextTab = current === 'saved' ? 'profile' : 'saved';
+                    shouldScrollToSavedStoriesRef.current = nextTab === 'saved';
+                    return nextTab;
+                  });
+                }}
+              />
+            ) : null}
             {profile.location ? <StatChip label="Location" value={profile.location} /> : null}
             {birthDateDisplay ? <StatChip label="Birth date" value={birthDateDisplay} /> : null}
             {profile.birthYear ? <StatChip label="Birth year" value={String(profile.birthYear)} /> : null}
@@ -1277,7 +1537,28 @@ export function ProfileScreen({
           ) : null}
         </View>
 
-        {isSelfMode ? (
+        {isSelfMode && activeSelfTab === 'saved' ? (
+          <View
+            testID="profile-saved-stories-wrapper"
+            onLayout={(event) => {
+              savedStoriesSectionYRef.current = event.nativeEvent.layout.y;
+              if (shouldScrollToSavedStoriesRef.current && scrollToSavedStories()) {
+                shouldScrollToSavedStoriesRef.current = false;
+              }
+            }}
+          >
+            <SavedStoriesSection
+              userId={profile.id}
+              getSavedStories={getSavedStories}
+              unbookmarkStory={unbookmarkStory}
+              onTotalCountChange={setSavedStoriesCount}
+              onOpenStory={onOpenStory}
+              onStoryInteractionUpdated={onStoryInteractionUpdated}
+            />
+          </View>
+        ) : null}
+
+        {isSelfMode && activeSelfTab === 'profile' ? (
           <View
             style={{
               padding: spacing.lg,
@@ -1530,7 +1811,9 @@ export function ProfileScreen({
               </>
             )}
           </View>
-        ) : (
+        ) : null}
+
+        {!isSelfMode ? (
           <View
             style={{
               padding: spacing.lg,
@@ -1548,7 +1831,7 @@ export function ProfileScreen({
               Stories are intentionally out of scope for this profile version and will be added later.
             </Text>
           </View>
-        )}
+        ) : null}
       </ScrollView>
 
       <FollowListModal
