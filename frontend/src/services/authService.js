@@ -31,3 +31,13 @@ export async function logout() {
     clear();
   }
 }
+
+export async function verifyEmail(email, code) {
+  const response = await axios.post(`${API_URL}/auth/verify-email/`, { email, code });
+  return response.data;
+}
+
+export async function resendVerificationCode(email) {
+  const response = await axios.post(`${API_URL}/auth/verify-email/resend/`, { email });
+  return response.data;
+}
