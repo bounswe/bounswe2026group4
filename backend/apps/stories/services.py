@@ -61,7 +61,7 @@ def get_story_feed(
     year_from=None,
     year_to=None,
     location=None,
-    tag=None,
+    tags=None,
     latitude=None,
     longitude=None,
     radius_km=None,
@@ -102,8 +102,11 @@ def get_story_feed(
     if location:
         qs = qs.filter(location_name__icontains=location)
 
-    if tag:
-        qs = qs.filter(story_tags__tag__name__iexact=tag).distinct()
+    for tag in (tags or []):
+        # Each chained filter is a separate JOIN — AND semantics: story must have ALL tags
+        qs = qs.filter(story_tags__tag__name__iexact=tag)
+    if tags:
+        qs = qs.distinct()
 
     if latitude is not None and longitude is not None and radius_km is not None:
         qs = _apply_radius_filter(qs, latitude, longitude, radius_km)
@@ -215,7 +218,7 @@ def get_story_search(
     year_from=None,
     year_to=None,
     location=None,
-    tag=None,
+    tags=None,
     latitude=None,
     longitude=None,
     radius_km=None,
@@ -254,8 +257,11 @@ def get_story_search(
     if location:
         qs = qs.filter(location_name__icontains=location)
 
-    if tag:
-        qs = qs.filter(story_tags__tag__name__iexact=tag).distinct()
+    for tag in (tags or []):
+        # Each chained filter is a separate JOIN — AND semantics: story must have ALL tags
+        qs = qs.filter(story_tags__tag__name__iexact=tag)
+    if tags:
+        qs = qs.distinct()
 
     if latitude is not None and longitude is not None and radius_km is not None:
         qs = _apply_radius_filter(qs, latitude, longitude, radius_km)

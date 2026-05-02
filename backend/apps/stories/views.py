@@ -35,7 +35,7 @@ class StoryFeedView(APIView):
       year_from  — include stories from this year onwards
       year_to    — include stories up to and including this year
       location   — case-insensitive substring match against location_name
-      tag        — exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      tags       — AND filter: repeat for each tag, e.g. "?tags=ottoman-era&tags=folklore"
       latitude   — WGS-84 latitude of user's position (-90 to 90)
       longitude  — WGS-84 longitude of user's position (-180 to 180)
       radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
@@ -63,14 +63,14 @@ class StoryFeedView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
-            tag=params.get('tag'),
+            tags=params.get('tags'),
             latitude=params.get('latitude'),
             longitude=params.get('longitude'),
             radius_km=params.get('radius_km'),
         )
-        
+
         qs = apply_bbox_filters(qs, params)
-        
+
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
 
@@ -94,7 +94,7 @@ class StoryMapView(APIView):
       year_from  — include stories from this year onwards
       year_to    — include stories up to and including this year
       location   — case-insensitive substring match against location_name
-      tag        — exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      tags       — AND filter: repeat for each tag, e.g. "?tags=ottoman-era&tags=folklore"
       latitude   — WGS-84 latitude of user's position (-90 to 90)
       longitude  — WGS-84 longitude of user's position (-180 to 180)
       radius_km  — filter radius in kilometres (must be provided with latitude + longitude)
@@ -115,7 +115,7 @@ class StoryMapView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
-            tag=params.get('tag'),
+            tags=params.get('tags'),
             latitude=params.get('latitude'),
             longitude=params.get('longitude'),
             radius_km=params.get('radius_km'),
@@ -139,7 +139,7 @@ class StorySearchView(APIView):
 
     Query params:
       q        — required, min 1 character after stripping whitespace
-      tag      — optional exact tag name filter (case-insensitive), e.g. "ottoman-era"
+      tags     — AND filter: repeat for each tag, e.g. "?tags=ottoman-era&tags=folklore"
       lat_min   — minimum latitude of bounding box (optional)
       lat_max   — maximum latitude of bounding box (optional)
       lng_min   — minimum longitude of bounding box (optional)
@@ -159,7 +159,7 @@ class StorySearchView(APIView):
             year_from=params.get('year_from'),
             year_to=params.get('year_to'),
             location=params.get('location'),
-            tag=params.get('tag'),
+            tags=params.get('tags'),
             latitude=params.get('latitude'),
             longitude=params.get('longitude'),
             radius_km=params.get('radius_km'),

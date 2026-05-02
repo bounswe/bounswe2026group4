@@ -315,7 +315,7 @@ class TestGetStoryFeedTagFilter:
         make_story(title='Untagged Story')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        qs = get_story_feed(tag='folklore')
+        qs = get_story_feed(tags=['folklore'])
         assert qs.count() == 1
         assert qs.first().title == 'Tagged Story'
 
@@ -323,14 +323,14 @@ class TestGetStoryFeedTagFilter:
         story = make_story()
         tag = Tag.objects.create(name='ottoman-era')
         StoryTag.objects.create(story=story, tag=tag)
-        assert get_story_feed(tag='folklore').count() == 0
+        assert get_story_feed(tags=['folklore']).count() == 0
 
     def test_feed_tag_filter_is_case_insensitive(self):
         story = make_story()
         tag = Tag.objects.create(name='ottoman-era')
         StoryTag.objects.create(story=story, tag=tag)
-        assert get_story_feed(tag='Ottoman-Era').count() == 1
-        assert get_story_feed(tag='OTTOMAN-ERA').count() == 1
+        assert get_story_feed(tags=['Ottoman-Era']).count() == 1
+        assert get_story_feed(tags=['OTTOMAN-ERA']).count() == 1
 
     def test_feed_tag_filter_combined_with_year_filter(self):
         match = make_story(title='Match', year=1950)
@@ -338,7 +338,7 @@ class TestGetStoryFeedTagFilter:
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=match, tag=tag)
         StoryTag.objects.create(story=no_match, tag=tag)
-        qs = get_story_feed(tag='folklore', year_from=1900)
+        qs = get_story_feed(tags=['folklore'], year_from=1900)
         assert qs.count() == 1
         assert qs.first().title == 'Match'
 
@@ -348,7 +348,7 @@ class TestGetStoryFeedTagFilter:
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=match, tag=tag)
         StoryTag.objects.create(story=no_match, tag=tag)
-        qs = get_story_feed(tag='folklore', location='Istanbul')
+        qs = get_story_feed(tags=['folklore'], location='Istanbul')
         assert qs.count() == 1
         assert qs.first().title == 'Match'
 
@@ -359,7 +359,32 @@ class TestGetStoryFeedTagFilter:
         StoryTag.objects.create(story=story, tag=tag1)
         StoryTag.objects.create(story=story, tag=tag2)
         # Filtering by one tag on a story that has multiple tags must not produce duplicates
-        assert get_story_feed(tag='folklore').count() == 1
+        assert get_story_feed(tags=['folklore']).count() == 1
+
+    def test_feed_multi_tag_and_returns_only_stories_with_all_tags(self):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        both = make_story(title='Both Tags')
+        only_first = make_story(title='Only Folklore')
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        StoryTag.objects.create(story=only_first, tag=tag1)
+        qs = get_story_feed(tags=['folklore', 'ottoman-era'])
+        assert qs.count() == 1
+        assert qs.first().title == 'Both Tags'
+
+    def test_feed_multi_tag_and_empty_when_no_story_has_all_tags(self):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        story = make_story()
+        StoryTag.objects.create(story=story, tag=tag1)
+        # story only has tag1, not tag2
+        assert get_story_feed(tags=['folklore', 'ottoman-era']).count() == 0
+
+    def test_feed_no_tags_param_returns_all_stories(self):
+        make_story(title='Story A')
+        make_story(title='Story B')
+        assert get_story_feed(tags=None).count() == 2
 
 
 # ── get_story_search — tag filter ────────────────────────────────────────────
@@ -371,20 +396,32 @@ class TestGetStorySearchTagFilter:
         make_story(title='Istanbul Lore')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        qs = get_story_search('Istanbul', tag='folklore')
+        qs = get_story_search('Istanbul', tags=['folklore'])
         assert qs.count() == 1
         assert qs.first().title == 'Istanbul Tale'
 
     def test_search_tag_param_excludes_untagged(self):
         make_story(title='Istanbul Tale')
-        assert get_story_search('Istanbul', tag='folklore').count() == 0
+        assert get_story_search('Istanbul', tags=['folklore']).count() == 0
 
     def test_search_tag_and_q_both_must_match(self):
         # Story matches tag but neither title nor location_name matches q — should not appear
         tagged = make_story(title='Ankara Chronicle', location_name='Ankara')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        assert get_story_search('Istanbul', tag='folklore').count() == 0
+        assert get_story_search('Istanbul', tags=['folklore']).count() == 0
+
+    def test_search_multi_tag_and_returns_only_stories_with_all_tags(self):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        both = make_story(title='Istanbul Both')
+        only_first = make_story(title='Istanbul Folklore Only')
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        StoryTag.objects.create(story=only_first, tag=tag1)
+        qs = get_story_search('Istanbul', tags=['folklore', 'ottoman-era'])
+        assert qs.count() == 1
+        assert qs.first().title == 'Istanbul Both'
 
 
 # ── delete_story ──────────────────────────────────────────────────────────────
@@ -531,7 +568,7 @@ class TestGetStoryFeedGeoFilter:
         near_tagged = make_geo_story(NEAR_LAT, NEAR_LNG, title='NearTagged')
         StoryTag.objects.create(story=near_tagged, tag=tag)
         near_untagged = make_geo_story(NEAR_LAT, NEAR_LNG, title='NearUntagged')
-        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0, tag='geo-svc-tag')
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0, tags=['geo-svc-tag'])
         assert near_tagged in qs
         assert near_untagged not in qs
 
