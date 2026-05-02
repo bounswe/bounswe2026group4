@@ -58,7 +58,7 @@ class TestStoryFeedSerializer:
             'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
             'like_count', 'save_count',
-            'user_has_liked', 'user_has_saved', 'submitted_at',
+            'user_has_liked', 'user_has_saved', 'submitted_at', 'tags',
         }
         assert expected_fields == set(data.keys())
 

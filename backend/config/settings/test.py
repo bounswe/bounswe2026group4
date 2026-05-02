@@ -53,5 +53,6 @@ REST_FRAMEWORK = {  # noqa: F405
         'anon': '10000/minute',
         'user': '10000/minute',
         'login': '10000/minute',
+        'password_reset': '10000/minute',
     },
 }

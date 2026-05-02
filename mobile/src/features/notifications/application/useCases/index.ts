@@ -1,3 +1,1 @@
-export async function notificationsUseCasePlaceholder() {
-  return null;
-}
+export { notificationService, notificationsService } from '../services';

@@ -176,9 +176,26 @@ class TestStoryFeedView:
             'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
             'like_count', 'save_count',
-            'user_has_liked', 'user_has_saved', 'submitted_at',
+            'user_has_liked', 'user_has_saved', 'submitted_at', 'tags',
         }
         assert expected_fields == set(card.keys())
+
+    def test_feed_story_card_includes_tags(self, client):
+        story = make_story()
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=story, tag=tag)
+        response = client.get(FEED_URL)
+        card = response.data['results'][0]
+        assert 'tags' in card
+        assert len(card['tags']) == 1
+        assert card['tags'][0]['name'] == 'folklore'
+        assert 'id' in card['tags'][0]
+
+    def test_feed_story_card_tags_empty_when_no_tags(self, client):
+        make_story()
+        response = client.get(FEED_URL)
+        card = response.data['results'][0]
+        assert card['tags'] == []
 
     def test_feed_result_contains_interaction_counts(self, client):
         make_story(like_count=6, save_count=2)

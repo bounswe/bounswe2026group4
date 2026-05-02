@@ -85,7 +85,7 @@ def get_story_feed(
 
     sort_by — 'recent' (default) orders by submission date; 'popular' orders by like_count
     """
-    qs = Story.objects.filter(status=Story.STATUS_PUBLISHED)
+    qs = Story.objects.filter(status=Story.STATUS_PUBLISHED).prefetch_related('tags')
 
     if year_from is not None:
         qs = qs.filter(
@@ -235,6 +235,7 @@ def get_story_search(
     qs = (
         Story.objects
         .filter(status=Story.STATUS_PUBLISHED)
+        .prefetch_related('tags')
         .filter(Q(title__icontains=q) | Q(location_name__icontains=q))
     )
 
