@@ -78,6 +78,22 @@ describe("authService", () => {
       );
       expect(result).toEqual({ message: "verified" });
     });
+
+    it("propagates network errors", async () => {
+      axios.post.mockRejectedValue(new Error("Network error"));
+      await expect(verifyEmail("test@example.com", "123456")).rejects.toThrow(
+        "Network error"
+      );
+    });
+
+    it("propagates server errors with response", async () => {
+      const err = new Error("server");
+      err.response = { status: 500, data: { detail: "Server error" } };
+      axios.post.mockRejectedValue(err);
+      await expect(verifyEmail("test@example.com", "123456")).rejects.toMatchObject({
+        response: { status: 500 },
+      });
+    });
   });
 
   describe("resendVerificationCode", () => {
@@ -91,6 +107,22 @@ describe("authService", () => {
         { email: "test@example.com" }
       );
       expect(result).toEqual({ message: "sent" });
+    });
+
+    it("propagates network errors", async () => {
+      axios.post.mockRejectedValue(new Error("Network error"));
+      await expect(resendVerificationCode("test@example.com")).rejects.toThrow(
+        "Network error"
+      );
+    });
+
+    it("propagates server errors with response", async () => {
+      const err = new Error("server");
+      err.response = { status: 500, data: { detail: "Server error" } };
+      axios.post.mockRejectedValue(err);
+      await expect(resendVerificationCode("test@example.com")).rejects.toMatchObject({
+        response: { status: 500 },
+      });
     });
   });
 

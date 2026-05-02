@@ -32,6 +32,9 @@ export async function logout() {
   }
 }
 
+// Email verification endpoints are intentionally unauthenticated — the user
+// has just registered and does not yet have JWT tokens. Use the raw axios
+// client (no Authorization header) rather than the authenticated api client.
 export async function verifyEmail(email, code) {
   const response = await axios.post(`${API_URL}/auth/verify-email/`, { email, code });
   return response.data;
