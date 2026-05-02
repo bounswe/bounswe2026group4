@@ -173,6 +173,7 @@ export function MapScreen({
     () => getRegionForMarkers(state.markers, ISTANBUL_REGION),
     [state.markers],
   );
+  const userLocation = filters.proximityRadiusKm && filters.proximityCoordinates ? filters.proximityCoordinates : undefined;
   const fitToMarkers = state.markers.length > 0 && (!state.selectedMarkerId || hasActiveFilters);
 
   const statusStoryCount = useMemo(() => {
@@ -239,6 +240,7 @@ export function MapScreen({
           error={state.error}
           statusBadgeText={statusBadgeText}
           fitToMarkers={fitToMarkers}
+          userLocation={userLocation}
           onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
           onMarkerPress={handleMarkerPreviewRequest}

@@ -121,3 +121,10 @@ export async function uploadStoryImage(storyId, file) {
   const response = await api.post(`/stories/${storyId}/images/`, formData);
   return response.data.image;
 }
+
+export async function uploadStoryMedia(storyId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post(`/stories/${storyId}/media/`, formData);
+  return response.data;
+}

@@ -10,6 +10,11 @@ type MarkerItem = {
   label?: string;
 };
 
+interface UserLocationLike {
+  latitude: number;
+  longitude: number;
+}
+
 interface RegionLike {
   latitude: number;
   longitude: number;
@@ -20,6 +25,7 @@ interface RegionLike {
 interface WebMapViewProps {
   region: RegionLike;
   markers?: MarkerItem[];
+  userLocation?: UserLocationLike;
   interactive?: boolean;
   onMarkerPress?: (markerId: string) => void;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
@@ -29,10 +35,12 @@ interface WebMapViewProps {
 const mapHtml = ({
   region,
   markers,
+  userLocation,
   interactive,
 }: {
   region: RegionLike;
   markers: MarkerItem[];
+  userLocation?: UserLocationLike;
   interactive: boolean;
 }) => `<!DOCTYPE html>
 <html>
@@ -85,6 +93,15 @@ const mapHtml = ({
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
         pointer-events: none;
       }
+
+      .user-location-marker {
+        width: 18px;
+        height: 18px;
+        border-radius: 9999px;
+        background: #1d4ed8;
+        border: 3px solid #ffffff;
+        box-shadow: 0 0 0 6px rgba(29, 78, 216, 0.18);
+      }
     </style>
   </head>
   <body>
@@ -93,6 +110,7 @@ const mapHtml = ({
     <script>
       const region = ${JSON.stringify(region)};
       const markers = ${JSON.stringify(markers)};
+      const userLocation = ${JSON.stringify(userLocation ?? null)};
       const interactive = ${interactive ? 'true' : 'false'};
       let hasCompletedInitialMove = false;
 
@@ -157,6 +175,15 @@ const mapHtml = ({
           .addTo(map);
       });
 
+      if (userLocation) {
+        const element = document.createElement('div');
+        element.className = 'user-location-marker';
+
+        new maplibregl.Marker({ element, anchor: 'center' })
+          .setLngLat([userLocation.longitude, userLocation.latitude])
+          .addTo(map);
+      }
+
       if (!interactive) {
         map.boxZoom.disable();
       }
@@ -194,6 +221,7 @@ const mapHtml = ({
 export function WebMapView({
   region,
   markers = [],
+  userLocation,
   interactive = true,
   onMarkerPress,
   onMapPress,
@@ -201,9 +229,9 @@ export function WebMapView({
 }: WebMapViewProps) {
   const source = useMemo(
     () => ({
-      html: mapHtml({ region, markers, interactive }),
+      html: mapHtml({ region, markers, userLocation, interactive }),
     }),
-    [interactive, markers, region],
+    [interactive, markers, region, userLocation],
   );
 
   return (

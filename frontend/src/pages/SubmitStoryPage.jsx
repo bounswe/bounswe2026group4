@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 import { Button, Input, Label } from "@/components/ui";
 import MapPicker from "@/components/MapPicker/MapPicker";
 import TagInput from "@/components/Tags/TagInput";
-import { createStory, uploadStoryImage } from "@/services/storyService";
+import { createStory, uploadStoryImage, uploadStoryMedia } from "@/services/storyService";
 import { useToast } from "@/hooks/useToast";
 
 const TIME_TYPES = [
@@ -16,8 +16,15 @@ const TIME_TYPES = [
 ];
 
 const MAX_TAGS = 3;
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_IMAGES = 3;
+const MAX_VIDEOS = 3;
+const MAX_AUDIOS = 3;
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png"];
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
+const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm"];
+const MAX_AUDIO_SIZE = 10 * 1024 * 1024;
+const ALLOWED_AUDIO_TYPES = ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg"];
 
 function SubmitStoryPage() {
   const navigate = useNavigate();
@@ -32,20 +39,25 @@ function SubmitStoryPage() {
   const [yearStart, setYearStart] = useState("");
   const [yearEnd, setYearEnd] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [videoFiles, setVideoFiles] = useState([]);
+  const [audioFiles, setAudioFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [imageError, setImageError] = useState("");
+  const [videoError, setVideoError] = useState("");
+  const [audioError, setAudioError] = useState("");
+
+  const imagePreviewsRef = useRef([]);
+  imagePreviewsRef.current = imagePreviews;
 
   useEffect(() => {
     return () => {
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
-      }
+      imagePreviewsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [imagePreview]);
+  }, []);
 
   function validateForm() {
     const errors = {};
@@ -72,42 +84,114 @@ function SubmitStoryPage() {
   }
 
   function handleImageChange(e) {
-    const file = e.target.files?.[0];
+    const selected = Array.from(e.target.files ?? []);
+    e.target.value = "";
     setImageError("");
 
-    if (!file) {
-      setImageFile(null);
-      setImagePreview(null);
-      return;
+    const newFiles = [];
+    const newPreviews = [];
+    let error = "";
+
+    for (const file of selected) {
+      if (imageFiles.length + newFiles.length >= MAX_IMAGES) {
+        error = `You can upload at most ${MAX_IMAGES} images`;
+        break;
+      }
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        error = "Only JPG and PNG images are allowed";
+        continue;
+      }
+      if (file.size > MAX_IMAGE_SIZE) {
+        error = "Each image must be smaller than 2MB";
+        continue;
+      }
+      newFiles.push(file);
+      newPreviews.push(URL.createObjectURL(file));
     }
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setImageError("Only JPG and PNG images are allowed");
-      setImageFile(null);
-      setImagePreview(null);
-      e.target.value = "";
-      return;
+    if (error) setImageError(error);
+    if (newFiles.length > 0) {
+      setImageFiles((prev) => [...prev, ...newFiles]);
+      setImagePreviews((prev) => [...prev, ...newPreviews]);
+    }
+  }
+
+  function removeImage(idx) {
+    URL.revokeObjectURL(imagePreviews[idx]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== idx));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleVideoChange(e) {
+    const selected = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    setVideoError("");
+
+    const newFiles = [];
+    let error = "";
+
+    for (const file of selected) {
+      if (videoFiles.length + newFiles.length >= MAX_VIDEOS) {
+        error = `You can upload at most ${MAX_VIDEOS} videos`;
+        break;
+      }
+      if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+        error = "Only MP4 and WebM videos are allowed";
+        continue;
+      }
+      if (file.size > MAX_VIDEO_SIZE) {
+        error = "Each video must be smaller than 50MB";
+        continue;
+      }
+      newFiles.push(file);
     }
 
-    if (file.size > MAX_IMAGE_SIZE) {
-      setImageError("Image must be smaller than 2MB");
-      setImageFile(null);
-      setImagePreview(null);
-      e.target.value = "";
-      return;
+    if (error) setVideoError(error);
+    if (newFiles.length > 0) setVideoFiles((prev) => [...prev, ...newFiles]);
+  }
+
+  function removeVideo(idx) {
+    setVideoFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleAudioChange(e) {
+    const selected = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    setAudioError("");
+
+    const newFiles = [];
+    let error = "";
+
+    for (const file of selected) {
+      if (audioFiles.length + newFiles.length >= MAX_AUDIOS) {
+        error = `You can upload at most ${MAX_AUDIOS} audio files`;
+        break;
+      }
+      if (!ALLOWED_AUDIO_TYPES.includes(file.type)) {
+        error = "Only MP3, WAV, and OGG audio files are allowed";
+        continue;
+      }
+      if (file.size > MAX_AUDIO_SIZE) {
+        error = "Each audio file must be smaller than 10MB";
+        continue;
+      }
+      newFiles.push(file);
     }
 
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
-    }
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    if (error) setAudioError(error);
+    if (newFiles.length > 0) setAudioFiles((prev) => [...prev, ...newFiles]);
+  }
+
+  function removeAudio(idx) {
+    setAudioFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setApiError("");
     setImageError("");
+    setVideoError("");
+    setAudioError("");
 
     if (!validateForm()) return;
 
@@ -134,17 +218,42 @@ function SubmitStoryPage() {
 
       const story = await createStory(formData);
 
-      let imageUploadFailed = false;
-      if (imageFile) {
+      const failedUploads = [];
+
+      let imageUploadError = false;
+      for (const imgFile of imageFiles) {
         try {
-          await uploadStoryImage(story.id, imageFile);
+          await uploadStoryImage(story.id, imgFile);
         } catch {
-          imageUploadFailed = true;
+          imageUploadError = true;
         }
       }
+      if (imageUploadError) failedUploads.push("image");
 
-      if (imageUploadFailed) {
-        toast.error("Story saved, but the image could not be uploaded.");
+      let videoUploadError = false;
+      for (const vidFile of videoFiles) {
+        try {
+          await uploadStoryMedia(story.id, vidFile);
+        } catch {
+          videoUploadError = true;
+        }
+      }
+      if (videoUploadError) failedUploads.push("video");
+
+      let audioUploadError = false;
+      for (const audFile of audioFiles) {
+        try {
+          await uploadStoryMedia(story.id, audFile);
+        } catch {
+          audioUploadError = true;
+        }
+      }
+      if (audioUploadError) failedUploads.push("audio");
+
+      if (failedUploads.length > 1) {
+        toast.error("Story saved, but some media could not be uploaded.");
+      } else if (failedUploads.length === 1) {
+        toast.error(`Story saved, but the ${failedUploads[0]} could not be uploaded.`);
       } else {
         toast.success("Story submitted successfully!");
       }
@@ -342,23 +451,113 @@ function SubmitStoryPage() {
 
           {/* Image upload */}
           <div className="space-y-2">
-            <Label htmlFor="image">Image (optional)</Label>
+            <Label htmlFor="image">Images (optional, up to {MAX_IMAGES})</Label>
             <Input
               id="image"
               type="file"
               accept="image/jpeg,image/png"
+              multiple
               onChange={handleImageChange}
-              disabled={isSubmitting}
+              disabled={isSubmitting || imageFiles.length >= MAX_IMAGES}
             />
+            <p className="text-xs text-muted-foreground">Accepted formats: JPG, PNG · Max 2 MB per image</p>
             {imageError && (
               <p className="text-sm text-destructive">{imageError}</p>
             )}
-            {imagePreview && (
-              <img
-                src={imagePreview}
-                alt="Preview"
-                className="mt-2 max-h-48 rounded-md object-cover"
-              />
+            {imagePreviews.length > 0 && (
+              <div
+                className={`mt-2 grid gap-2 ${imagePreviews.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"}`}
+                aria-label="Image previews"
+              >
+                {imagePreviews.map((url, idx) => (
+                  <div key={idx} className="relative group">
+                    <img
+                      src={url}
+                      alt={`Preview ${idx + 1}`}
+                      className="rounded-md object-cover w-full h-24"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      disabled={isSubmitting}
+                      className="absolute top-1 right-1 rounded-full bg-background/80 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity focus-visible:opacity-100"
+                      aria-label={`Remove image ${idx + 1}`}
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Video upload */}
+          <div className="space-y-2">
+            <Label htmlFor="video">Videos (optional, up to {MAX_VIDEOS})</Label>
+            <Input
+              id="video"
+              type="file"
+              accept="video/mp4,video/webm"
+              multiple
+              onChange={handleVideoChange}
+              disabled={isSubmitting || videoFiles.length >= MAX_VIDEOS}
+            />
+            <p className="text-xs text-muted-foreground">Accepted formats: MP4, WebM · Max 50 MB per video</p>
+            {videoError && (
+              <p className="text-sm text-destructive">{videoError}</p>
+            )}
+            {videoFiles.length > 0 && (
+              <ul className="mt-1 space-y-1" aria-label="Selected videos">
+                {videoFiles.map((file, idx) => (
+                  <li key={idx} className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeVideo(idx)}
+                      disabled={isSubmitting}
+                      className="ml-2 shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label={`Remove video ${idx + 1}`}
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Audio upload */}
+          <div className="space-y-2">
+            <Label htmlFor="audio">Audio (optional, up to {MAX_AUDIOS})</Label>
+            <Input
+              id="audio"
+              type="file"
+              accept="audio/mpeg,audio/wav,audio/ogg"
+              multiple
+              onChange={handleAudioChange}
+              disabled={isSubmitting || audioFiles.length >= MAX_AUDIOS}
+            />
+            <p className="text-xs text-muted-foreground">Accepted formats: MP3, WAV, OGG · Max 10 MB per file</p>
+            {audioError && (
+              <p className="text-sm text-destructive">{audioError}</p>
+            )}
+            {audioFiles.length > 0 && (
+              <ul className="mt-1 space-y-1" aria-label="Selected audio files">
+                {audioFiles.map((file, idx) => (
+                  <li key={idx} className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAudio(idx)}
+                      disabled={isSubmitting}
+                      className="ml-2 shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label={`Remove audio ${idx + 1}`}
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 

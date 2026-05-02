@@ -58,7 +58,7 @@ class TestStoryFeedSerializer:
             'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
             'like_count', 'save_count',
-            'user_has_liked', 'user_has_saved', 'submitted_at',
+            'user_has_liked', 'user_has_saved', 'submitted_at', 'tags',
         }
         assert expected_fields == set(data.keys())
 
@@ -701,7 +701,14 @@ class TestFeedQuerySerializerGeoValidation:
         })
 
     def test_geo_params_combined_with_tag_filter_is_valid(self):
-        self._valid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 1.0, 'tag': 'ottoman'})
+        self._valid({'latitude': 41.0, 'longitude': 29.0, 'radius_km': 1.0, 'tags': ['ottoman']})
+
+    def test_multi_tags_list_is_valid(self):
+        self._valid({'tags': ['ottoman-era', 'folklore']})
+
+    def test_empty_tags_list_is_invalid(self):
+        errors = self._invalid({'tags': []})
+        assert 'tags' in errors
 
     # ── Partial geo param sets rejected ──────────────────────────────────────
 

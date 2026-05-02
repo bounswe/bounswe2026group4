@@ -176,9 +176,26 @@ class TestStoryFeedView:
             'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
             'like_count', 'save_count',
-            'user_has_liked', 'user_has_saved', 'submitted_at',
+            'user_has_liked', 'user_has_saved', 'submitted_at', 'tags',
         }
         assert expected_fields == set(card.keys())
+
+    def test_feed_story_card_includes_tags(self, client):
+        story = make_story()
+        tag = Tag.objects.create(name='folklore')
+        StoryTag.objects.create(story=story, tag=tag)
+        response = client.get(FEED_URL)
+        card = response.data['results'][0]
+        assert 'tags' in card
+        assert len(card['tags']) == 1
+        assert card['tags'][0]['name'] == 'folklore'
+        assert 'id' in card['tags'][0]
+
+    def test_feed_story_card_tags_empty_when_no_tags(self, client):
+        make_story()
+        response = client.get(FEED_URL)
+        card = response.data['results'][0]
+        assert card['tags'] == []
 
     def test_feed_result_contains_interaction_counts(self, client):
         make_story(like_count=6, save_count=2)
@@ -204,14 +221,14 @@ class TestStoryFeedView:
         make_story(title='Untagged')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        response = client.get(FEED_URL + '?tag=folklore')
+        response = client.get(FEED_URL + '?tags=folklore')
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Tagged'
 
     def test_feed_tag_filter_returns_empty_when_no_match(self, client):
         make_story(title='Untagged')
         Tag.objects.create(name='folklore')
-        response = client.get(FEED_URL + '?tag=folklore')
+        response = client.get(FEED_URL + '?tags=folklore')
         assert response.data['count'] == 0
 
     def test_feed_tag_and_location_filter_combined(self, client):
@@ -220,9 +237,29 @@ class TestStoryFeedView:
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=match, tag=tag)
         StoryTag.objects.create(story=no_match, tag=tag)
-        response = client.get(FEED_URL + '?tag=folklore&location=Istanbul')
+        response = client.get(FEED_URL + '?tags=folklore&location=Istanbul')
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Match'
+
+    def test_feed_multi_tag_and_returns_only_stories_with_all_tags(self, client):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        both = make_story(title='Both Tags')
+        only_first = make_story(title='Only Folklore')
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        StoryTag.objects.create(story=only_first, tag=tag1)
+        response = client.get(FEED_URL + '?tags=folklore&tags=ottoman-era')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Both Tags'
+
+    def test_feed_multi_tag_and_empty_when_no_story_has_all_tags(self, client):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        story = make_story()
+        StoryTag.objects.create(story=story, tag=tag1)
+        response = client.get(FEED_URL + '?tags=folklore&tags=ottoman-era')
+        assert response.data['count'] == 0
     
     def test_feed_bbox_filtering(self, client):
         make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
@@ -469,13 +506,13 @@ class TestStorySearchView:
         make_story(title='Istanbul Lore')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
+        response = client.get(SEARCH_URL + '?q=Istanbul&tags=folklore')
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Istanbul Tale'
 
     def test_search_tag_filter_returns_empty_when_tag_missing(self, client):
         make_story(title='Istanbul Tale')
-        response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
+        response = client.get(SEARCH_URL + '?q=Istanbul&tags=folklore')
         assert response.data['count'] == 0
 
     def test_search_tag_and_q_both_must_match(self, client):
@@ -483,8 +520,20 @@ class TestStorySearchView:
         story = make_story(title='Ankara Chronicle', location_name='Ankara')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=story, tag=tag)
-        response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
+        response = client.get(SEARCH_URL + '?q=Istanbul&tags=folklore')
         assert response.data['count'] == 0
+
+    def test_search_multi_tag_and_returns_only_stories_with_all_tags(self, client):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        both = make_story(title='Istanbul Both')
+        only_first = make_story(title='Istanbul Folklore Only')
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        StoryTag.objects.create(story=only_first, tag=tag1)
+        response = client.get(SEARCH_URL + '?q=Istanbul&tags=folklore&tags=ottoman-era')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Both'
 
     def test_search_bbox_filtering(self, client):
         make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
@@ -605,15 +654,27 @@ class TestStoryMapView:
         make_story(title='Untagged')
         tag = Tag.objects.create(name='ottoman-era')
         StoryTag.objects.create(story=tagged, tag=tag)
-        response = client.get(MAP_URL + '?tag=ottoman-era')
+        response = client.get(MAP_URL + '?tags=ottoman-era')
         assert len(response.data['features']) == 1
         assert response.data['features'][0]['properties']['title'] == 'Tagged'
 
     def test_map_tag_filter_returns_empty_when_no_match(self, client):
         make_story(title='Untagged')
-        response = client.get(MAP_URL + '?tag=ottoman-era')
+        response = client.get(MAP_URL + '?tags=ottoman-era')
         assert len(response.data['features']) == 0
-        
+
+    def test_map_multi_tag_and_returns_only_stories_with_all_tags(self, client):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        both = make_story(title='Both Tags')
+        only_first = make_story(title='Only Folklore')
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        StoryTag.objects.create(story=only_first, tag=tag1)
+        response = client.get(MAP_URL + '?tags=folklore&tags=ottoman-era')
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['title'] == 'Both Tags'
+
     def test_map_bbox_filtering(self, client):
         make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
         make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
@@ -970,7 +1031,7 @@ class TestStoryFeedViewGeoFilter:
         near_tagged = make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='TaggedNear')
         StoryTag.objects.create(story=near_tagged, tag=tag)
         make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='UntaggedNear')
-        response = client.get(f'{FEED_URL}?{self._geo_params()}&tag=view-geo-tag')
+        response = client.get(f'{FEED_URL}?{self._geo_params()}&tags=view-geo-tag')
         assert response.status_code == status.HTTP_200_OK
         titles = [s['title'] for s in response.data['results']]
         assert 'TaggedNear' in titles

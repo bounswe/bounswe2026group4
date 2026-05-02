@@ -236,6 +236,7 @@ class StoryFeedSerializer(serializers.ModelSerializer):
 
     user_has_liked = serializers.SerializerMethodField()
     user_has_saved = serializers.SerializerMethodField()
+    tags = TagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Story
@@ -259,6 +260,7 @@ class StoryFeedSerializer(serializers.ModelSerializer):
             'user_has_liked',
             'user_has_saved',
             'submitted_at',
+            'tags',
         ]
         read_only_fields = fields
 
@@ -322,8 +324,12 @@ class FeedQuerySerializer(serializers.Serializer):
     year_to = serializers.IntegerField(required=False)
     # Substring match against location_name — partial values like "galata" are valid
     location = serializers.CharField(required=False, allow_blank=False)
-    # Exact (case-insensitive) match against tag name — use the tag slug, e.g. "ottoman-era"
-    tag = serializers.CharField(required=False, allow_blank=False)
+    # AND filter — each tag name must match exactly (case-insensitive); all must be present on the story
+    tags = serializers.ListField(
+        child=serializers.CharField(allow_blank=False),
+        required=False,
+        allow_empty=False,
+    )
     latitude = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
     longitude = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
     # Minimum of 0.001 km — a zero radius would always return empty results.
@@ -406,7 +412,7 @@ class SearchQuerySerializer(FeedQuerySerializer):
     Validates query parameters for the story search endpoint.
 
     q is required. All filter params from FeedQuerySerializer (sort_by, year_from,
-    year_to, location, tag, latitude, longitude, radius_km) are inherited so search
+    year_to, location, tags, latitude, longitude, radius_km) are inherited so search
     results can be narrowed with the same filters as the feed.
     """
 
