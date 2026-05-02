@@ -288,6 +288,30 @@ describe('SubmissionScreen', () => {
 
     expect(await screen.findByText('Enter a valid calendar date.')).toBeTruthy();
     expect(screen.getByText('Time must use 24-hour HH:MM format.')).toBeTruthy();
+    expect(getInputShellStyle('Specific date day').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('Specific date month').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('Specific date year').borderColor).toBe(lightColors.danger);
+    expect(submissionsService.createStory).not.toHaveBeenCalled();
+  });
+
+  it('marks both year range inputs when start year is not earlier than end year', async () => {
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Range Error');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story with an invalid range.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
+    fireEvent.press(screen.getByLabelText('Year Range'));
+    fireEvent.changeText(screen.getByLabelText('Start year'), '1923');
+    fireEvent.changeText(screen.getByLabelText('End year'), '1923');
+
+    fireEvent.press(screen.getByText('Submit story'));
+
+    expect(await screen.findByText('Start year must be earlier than end year.')).toBeTruthy();
+    expect(getInputShellStyle('Start year').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('End year').borderColor).toBe(lightColors.danger);
     expect(submissionsService.createStory).not.toHaveBeenCalled();
   });
 

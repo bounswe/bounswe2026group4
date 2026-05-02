@@ -389,6 +389,8 @@ export function SubmissionScreen() {
     () => TIME_TYPES.find((timeType) => timeType.value === state.timeType) ?? TIME_TYPES[0],
     [state.timeType],
   );
+  const sharedDateError = fieldErrors.dateDay || fieldErrors.dateMonth || fieldErrors.dateYear;
+  const sharedYearRangeError = fieldErrors.yearStart || fieldErrors.yearEnd;
 
   const updateField = <K extends keyof SubmissionFormState>(field: K, value: SubmissionFormState[K]) => {
     setState((current) => ({ ...current, [field]: value, apiError: undefined }));
@@ -488,6 +490,8 @@ export function SubmissionScreen() {
         !buildDateValueFromParts(state.dateDay, state.dateMonth, state.dateYear)
       ) {
         nextErrors.dateDay = 'Enter a valid calendar date.';
+        nextErrors.dateMonth = 'Enter a valid calendar date.';
+        nextErrors.dateYear = 'Enter a valid calendar date.';
       }
 
       if (state.timeValue.trim() && !normalizeTimeValue(state.timeValue)) {
@@ -512,6 +516,7 @@ export function SubmissionScreen() {
 
       if (!nextErrors.yearStart && !nextErrors.yearEnd && Number(state.yearStart) >= Number(state.yearEnd)) {
         nextErrors.yearStart = 'Start year must be earlier than end year.';
+        nextErrors.yearEnd = 'End year must be later than start year.';
       }
     } else if (!state.year.trim()) {
       nextErrors.year = 'Year is required.';
@@ -1017,7 +1022,6 @@ export function SubmissionScreen() {
                     accessibilityLabel="Specific date day"
                     style={getInputShellStyle('dateDay')}
                   />
-                  {fieldErrors.dateDay ? <Text style={{ color: colors.danger }}>{fieldErrors.dateDay}</Text> : null}
                 </View>
                 <View
                   testID="submission-field-date-month"
@@ -1036,7 +1040,6 @@ export function SubmissionScreen() {
                     accessibilityLabel="Specific date month"
                     style={getInputShellStyle('dateMonth')}
                   />
-                  {fieldErrors.dateMonth ? <Text style={{ color: colors.danger }}>{fieldErrors.dateMonth}</Text> : null}
                 </View>
                 <View
                   testID="submission-field-date-year"
@@ -1055,9 +1058,9 @@ export function SubmissionScreen() {
                     accessibilityLabel="Specific date year"
                     style={getInputShellStyle('dateYear')}
                   />
-                  {fieldErrors.dateYear ? <Text style={{ color: colors.danger }}>{fieldErrors.dateYear}</Text> : null}
                 </View>
               </View>
+              {sharedDateError ? <Text style={{ color: colors.danger }}>{sharedDateError}</Text> : null}
               <View
                 testID="submission-field-time-value"
                 onLayout={registerFieldLayout('timeValue', 'time')}
@@ -1078,45 +1081,46 @@ export function SubmissionScreen() {
               </View>
             </View>
           ) : state.timeType === 'year_range' ? (
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <View
-                testID="submission-field-year-start"
-                onLayout={registerFieldLayout('yearStart', 'time')}
-                style={{ flex: 1, gap: spacing.sm }}
-              >
-                <Input
-                  value={state.yearStart}
-                  onChangeText={(value) => {
-                    updateField('yearStart', normalizeYearInput(value));
-                    clearFieldError('yearStart');
-                  }}
-                  placeholder="Start year"
-                  keyboardType="numeric"
-                  editable={!state.isSubmitting}
-                  accessibilityLabel="Start year"
-                  style={getInputShellStyle('yearStart')}
-                />
-                {fieldErrors.yearStart ? <Text style={{ color: colors.danger }}>{fieldErrors.yearStart}</Text> : null}
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View
+                  testID="submission-field-year-start"
+                  onLayout={registerFieldLayout('yearStart', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.yearStart}
+                    onChangeText={(value) => {
+                      updateField('yearStart', normalizeYearInput(value));
+                      clearFieldError('yearStart');
+                    }}
+                    placeholder="Start year"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Start year"
+                    style={getInputShellStyle('yearStart')}
+                  />
+                </View>
+                <View
+                  testID="submission-field-year-end"
+                  onLayout={registerFieldLayout('yearEnd', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.yearEnd}
+                    onChangeText={(value) => {
+                      updateField('yearEnd', normalizeYearInput(value));
+                      clearFieldError('yearEnd');
+                    }}
+                    placeholder="End year"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="End year"
+                    style={getInputShellStyle('yearEnd')}
+                  />
+                </View>
               </View>
-              <View
-                testID="submission-field-year-end"
-                onLayout={registerFieldLayout('yearEnd', 'time')}
-                style={{ flex: 1, gap: spacing.sm }}
-              >
-                <Input
-                  value={state.yearEnd}
-                  onChangeText={(value) => {
-                    updateField('yearEnd', normalizeYearInput(value));
-                    clearFieldError('yearEnd');
-                  }}
-                  placeholder="End year"
-                  keyboardType="numeric"
-                  editable={!state.isSubmitting}
-                  accessibilityLabel="End year"
-                  style={getInputShellStyle('yearEnd')}
-                />
-                {fieldErrors.yearEnd ? <Text style={{ color: colors.danger }}>{fieldErrors.yearEnd}</Text> : null}
-              </View>
+              {sharedYearRangeError ? <Text style={{ color: colors.danger }}>{sharedYearRangeError}</Text> : null}
             </View>
           ) : (
             <View testID="submission-field-year" onLayout={registerFieldLayout('year', 'time')} style={{ gap: spacing.sm }}>
