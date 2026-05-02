@@ -112,6 +112,17 @@ describe('SubmissionScreen', () => {
     expect(submissionsService.createStory).not.toHaveBeenCalled();
   });
 
+  it('renders compact time type options without horizontal scrolling', () => {
+    renderSubmissionScreen();
+
+    expect(screen.getByTestId('submission-time-type-options')).toBeTruthy();
+    expect(screen.getByText('Exact')).toBeTruthy();
+    expect(screen.getByText('Approx')).toBeTruthy();
+    expect(screen.getByText('Decade')).toBeTruthy();
+    expect(screen.getByText('Range')).toBeTruthy();
+    expect(screen.getByText('Date')).toBeTruthy();
+  });
+
   it('marks blank required inputs with red outer borders', async () => {
     renderSubmissionScreen();
 
@@ -178,6 +189,23 @@ describe('SubmissionScreen', () => {
     }
   });
 
+  it('caps future year input values at 2026', () => {
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Year'), '8888');
+    expect(screen.getByLabelText('Year').props.value).toBe('2026');
+
+    fireEvent.press(screen.getByLabelText('Year Range'));
+    fireEvent.changeText(screen.getByLabelText('Start year'), '8888');
+    fireEvent.changeText(screen.getByLabelText('End year'), '8888');
+    expect(screen.getByLabelText('Start year').props.value).toBe('2026');
+    expect(screen.getByLabelText('End year').props.value).toBe('2026');
+
+    fireEvent.press(screen.getByLabelText('Specific Date'));
+    fireEvent.changeText(screen.getByLabelText('Specific date year'), '8888');
+    expect(screen.getByLabelText('Specific date year').props.value).toBe('2026');
+  });
+
   it('submits the story payload and returns the user to the feed on success', async () => {
     (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
     renderSubmissionScreen();
@@ -221,7 +249,7 @@ describe('SubmissionScreen', () => {
       nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
     });
     fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
-    fireEvent.press(screen.getByText('Specific Date'));
+    fireEvent.press(screen.getByLabelText('Specific Date'));
     fireEvent.changeText(screen.getByLabelText('Specific date day'), '29');
     fireEvent.changeText(screen.getByLabelText('Specific date month'), '10');
     fireEvent.changeText(screen.getByLabelText('Specific date year'), '1923');
@@ -250,7 +278,7 @@ describe('SubmissionScreen', () => {
       nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
     });
     fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
-    fireEvent.press(screen.getByText('Specific Date'));
+    fireEvent.press(screen.getByLabelText('Specific Date'));
     fireEvent.changeText(screen.getByLabelText('Specific date day'), '31');
     fireEvent.changeText(screen.getByLabelText('Specific date month'), '02');
     fireEvent.changeText(screen.getByLabelText('Specific date year'), '1923');

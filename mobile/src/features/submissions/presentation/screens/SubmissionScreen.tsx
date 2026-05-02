@@ -41,12 +41,14 @@ const TAG_OPTIONS = [
   { label: 'Politics', value: 'politics' },
 ] as const;
 
-const TIME_TYPES: Array<{ value: StoryTimeType; label: string; helper: string }> = [
-  { value: 'exact_year', label: 'Exact Year', helper: 'Use a specific known year.' },
-  { value: 'approximate_year', label: 'Approximate', helper: 'For estimated years like circa 1450.' },
-  { value: 'decade', label: 'Decade', helper: 'Enter the decade base year like 1980.' },
-  { value: 'year_range', label: 'Year Range', helper: 'Capture stories that span multiple years.' },
-  { value: 'exact_date', label: 'Specific Date', helper: 'Use a day, month, and year. Time is optional.' },
+const MAX_STORY_YEAR = 2026;
+
+const TIME_TYPES: Array<{ value: StoryTimeType; label: string; accessibilityLabel: string; helper: string }> = [
+  { value: 'exact_year', label: 'Exact', accessibilityLabel: 'Exact Year', helper: 'Use a specific known year.' },
+  { value: 'approximate_year', label: 'Approx', accessibilityLabel: 'Approximate Year', helper: 'For estimated years like circa 1450.' },
+  { value: 'decade', label: 'Decade', accessibilityLabel: 'Decade', helper: 'Enter the decade base year like 1980.' },
+  { value: 'year_range', label: 'Range', accessibilityLabel: 'Year Range', helper: 'Capture stories that span multiple years.' },
+  { value: 'exact_date', label: 'Date', accessibilityLabel: 'Specific Date', helper: 'Use a day, month, and year. Time is optional.' },
 ];
 
 type FieldName =
@@ -137,6 +139,23 @@ const initialState: SubmissionFormState = {
 
 function normalizeTagName(tag: string) {
   return tag.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+
+function normalizeYearInput(value: string, allowNegative = true) {
+  const trimmedValue = value.trim();
+  const isNegative = allowNegative && trimmedValue.startsWith('-');
+  const digitsOnly = trimmedValue.replace(/[^0-9]/g, '').slice(0, 4);
+  const numericValue = Number(digitsOnly);
+
+  if (digitsOnly.length === 4 && Number.isFinite(numericValue) && numericValue > MAX_STORY_YEAR) {
+    return isNegative ? `-${digitsOnly}` : String(MAX_STORY_YEAR);
+  }
+
+  return `${isNegative ? '-' : ''}${digitsOnly}`;
+}
+
+function isYearAfterLimit(value: string) {
+  return Number(value) > MAX_STORY_YEAR;
 }
 
 function inferMimeType(uri: string) {
@@ -455,9 +474,19 @@ export function SubmissionScreen() {
       }
       if (!hasYear) {
         nextErrors.dateYear = 'Year is required.';
+      } else if (Number.isNaN(Number(state.dateYear))) {
+        nextErrors.dateYear = 'Year must be a number.';
+      } else if (isYearAfterLimit(state.dateYear)) {
+        nextErrors.dateYear = `Year cannot be later than ${MAX_STORY_YEAR}.`;
       }
 
-      if (hasDay && hasMonth && hasYear && !buildDateValueFromParts(state.dateDay, state.dateMonth, state.dateYear)) {
+      if (
+        hasDay &&
+        hasMonth &&
+        hasYear &&
+        !nextErrors.dateYear &&
+        !buildDateValueFromParts(state.dateDay, state.dateMonth, state.dateYear)
+      ) {
         nextErrors.dateDay = 'Enter a valid calendar date.';
       }
 
@@ -469,12 +498,16 @@ export function SubmissionScreen() {
         nextErrors.yearStart = 'Start year is required.';
       } else if (Number.isNaN(Number(state.yearStart))) {
         nextErrors.yearStart = 'Start year must be a number.';
+      } else if (isYearAfterLimit(state.yearStart)) {
+        nextErrors.yearStart = `Start year cannot be later than ${MAX_STORY_YEAR}.`;
       }
 
       if (!state.yearEnd.trim()) {
         nextErrors.yearEnd = 'End year is required.';
       } else if (Number.isNaN(Number(state.yearEnd))) {
         nextErrors.yearEnd = 'End year must be a number.';
+      } else if (isYearAfterLimit(state.yearEnd)) {
+        nextErrors.yearEnd = `End year cannot be later than ${MAX_STORY_YEAR}.`;
       }
 
       if (!nextErrors.yearStart && !nextErrors.yearEnd && Number(state.yearStart) >= Number(state.yearEnd)) {
@@ -484,6 +517,8 @@ export function SubmissionScreen() {
       nextErrors.year = 'Year is required.';
     } else if (Number.isNaN(Number(state.year))) {
       nextErrors.year = 'Year must be a number.';
+    } else if (isYearAfterLimit(state.year)) {
+      nextErrors.year = `Year cannot be later than ${MAX_STORY_YEAR}.`;
     }
 
     if (state.image) {
@@ -912,12 +947,18 @@ export function SubmissionScreen() {
 
         <View testID="submission-field-time" onLayout={registerFieldLayout('time')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Time information</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+          <View
+            testID="submission-time-type-options"
+            style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}
+          >
             {TIME_TYPES.map((timeType) => {
               const active = timeType.value === state.timeType;
               return (
                 <Pressable
                   key={timeType.value}
+                  accessibilityRole="button"
+                  accessibilityLabel={timeType.accessibilityLabel}
+                  accessibilityState={{ selected: active }}
                   onPress={() => {
                     updateField('timeType', timeType.value);
                     clearFieldError('year');
@@ -929,21 +970,31 @@ export function SubmissionScreen() {
                     clearFieldError('timeValue');
                   }}
                   style={{
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.sm + 2,
+                    flexBasis: 88,
+                    flexGrow: 1,
+                    minHeight: 38,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs + 2,
                     borderRadius: 999,
                     borderWidth: 1,
                     borderColor: active ? colors.primary : colors.border,
-                    backgroundColor: active ? colors.primary : colors.surface,
+                    backgroundColor: active ? colors.primary : colors.infoSurface,
                   }}
                 >
-                  <Text style={{ color: active ? colors.background : colors.text, fontWeight: '700' }}>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    style={{ color: active ? colors.background : colors.text, fontWeight: '800', fontSize: 13 }}
+                  >
                     {timeType.label}
                   </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
           <Text style={{ color: colors.muted }}>{selectedTimeType.helper}</Text>
 
           {state.timeType === 'exact_date' ? (
@@ -995,7 +1046,7 @@ export function SubmissionScreen() {
                   <Input
                     value={state.dateYear}
                     onChangeText={(value) => {
-                      updateField('dateYear', value.replace(/[^0-9]/g, '').slice(0, 4));
+                      updateField('dateYear', normalizeYearInput(value, false));
                       clearFieldError('dateYear');
                     }}
                     placeholder="YYYY"
@@ -1036,7 +1087,7 @@ export function SubmissionScreen() {
                 <Input
                   value={state.yearStart}
                   onChangeText={(value) => {
-                    updateField('yearStart', value);
+                    updateField('yearStart', normalizeYearInput(value));
                     clearFieldError('yearStart');
                   }}
                   placeholder="Start year"
@@ -1055,7 +1106,7 @@ export function SubmissionScreen() {
                 <Input
                   value={state.yearEnd}
                   onChangeText={(value) => {
-                    updateField('yearEnd', value);
+                    updateField('yearEnd', normalizeYearInput(value));
                     clearFieldError('yearEnd');
                   }}
                   placeholder="End year"
@@ -1072,7 +1123,7 @@ export function SubmissionScreen() {
               <Input
                 value={state.year}
                 onChangeText={(value) => {
-                  updateField('year', value);
+                  updateField('year', normalizeYearInput(value));
                   clearFieldError('year');
                 }}
                 placeholder={state.timeType === 'decade' ? 'e.g. 1980' : 'e.g. 1453'}
