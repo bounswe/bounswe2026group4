@@ -11,12 +11,6 @@ vi.mock("@/services/authService", () => ({
   register: vi.fn(),
 }));
 
-// Mock useAuth
-const mockLogin = vi.fn();
-vi.mock("@/hooks/useAuth", () => ({
-  useAuth: () => ({ login: mockLogin }),
-}));
-
 // Mock useNavigate
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -205,7 +199,6 @@ describe("RegisterPage", () => {
   it("calls register with correct arguments on valid submission", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPage();
 
     await fillForm(user);
@@ -221,112 +214,72 @@ describe("RegisterPage", () => {
     });
   });
 
-  // 4. Auto-login after registration
-  it("calls login with email and password after successful registration", async () => {
+  // 4. Navigation to verify-email after registration
+  it("navigates to /verify-email after successful registration", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPage();
 
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith(VALID_EMAIL, VALID_PASSWORD);
-    });
-  });
-
-  it("navigates to /complete-profile after successful registration and auto-login", async () => {
-    const user = userEvent.setup();
-    register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
-    renderRegisterPage();
-
-    await fillForm(user);
-    await user.click(screen.getByRole("button", { name: /create account/i }));
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
-        state: { from: null },
+      expect(mockNavigate).toHaveBeenCalledWith("/verify-email", {
+        state: { email: VALID_EMAIL, from: null },
         replace: true,
       });
     });
   });
 
-  it("passes the original destination in state when navigating to /complete-profile", async () => {
+  it("passes the original destination in state when navigating to /verify-email", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPageWithFrom("/submit-story");
 
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
-        state: { from: { pathname: "/submit-story", search: "", hash: "", state: null, key: "testkey" } },
+      expect(mockNavigate).toHaveBeenCalledWith("/verify-email", {
+        state: {
+          email: VALID_EMAIL,
+          from: { pathname: "/submit-story", search: "", hash: "", state: null, key: "testkey" },
+        },
         replace: true,
       });
     });
   });
 
-  it("preserves URL search params in state when navigating to /complete-profile", async () => {
+  it("preserves URL search params in state when navigating to /verify-email", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPageWithFrom("/map", { search: "?q=castle&year_from=1900" });
 
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
-        state: { from: { pathname: "/map", search: "?q=castle&year_from=1900", hash: "", state: null, key: "testkey" } },
+      expect(mockNavigate).toHaveBeenCalledWith("/verify-email", {
+        state: {
+          email: VALID_EMAIL,
+          from: { pathname: "/map", search: "?q=castle&year_from=1900", hash: "", state: null, key: "testkey" },
+        },
         replace: true,
       });
     });
   });
 
-  it("shows welcome toast on successful registration and auto-login", async () => {
+  it("shows verification toast after successful registration", async () => {
     const user = userEvent.setup();
     register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockResolvedValue({ user: { id: 1, username: VALID_USERNAME } });
     renderRegisterPage();
 
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(await screen.findByText("Account created! Welcome!")).toBeInTheDocument();
-  });
-
-  // 5. Auto-login failure fallback
-  it("navigates to /login with from state when auto-login fails", async () => {
-    const user = userEvent.setup();
-    register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockRejectedValue(new Error("Auto-login failed"));
-    renderRegisterPageWithFrom("/submit-story");
-
-    await fillForm(user);
-    await user.click(screen.getByRole("button", { name: /create account/i }));
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/login", {
-        state: { from: { pathname: "/submit-story", search: "", hash: "", state: null, key: "testkey" } },
-        replace: true,
-      });
-    });
-  });
-
-  it("shows a sign-in guidance toast when auto-login fails", async () => {
-    const user = userEvent.setup();
-    register.mockResolvedValue({ message: "Registration successful.", user: {} });
-    mockLogin.mockRejectedValue(new Error("Auto-login failed"));
-    renderRegisterPage();
-
-    await fillForm(user);
-    await user.click(screen.getByRole("button", { name: /create account/i }));
-
-    expect(await screen.findByText(/account created.*sign in/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/check your email for a verification code/i)
+    ).toBeInTheDocument();
   });
 
   // 6. Loading state
