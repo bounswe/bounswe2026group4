@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 /**
  * Manages search/filter state via URL query parameters.
- * Supported params: q, year_from, year_to, location, page
+ * Supported params: q, year_from, year_to, location, tags, page, sort_by
+ * Tags are stored as a comma-separated string: tags=foo,bar
  */
 export function useFilterState() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -13,13 +15,16 @@ export function useFilterState() {
   const location = searchParams.get("location") || "";
   const page = searchParams.get("page") ? Number(searchParams.get("page")) : 1;
   const sortBy = searchParams.get("sort_by") || "recent";
+  const tagsRaw = searchParams.get("tags") || "";
+  const tags = useMemo(() => (tagsRaw ? tagsRaw.split(",").filter(Boolean) : []), [tagsRaw]);
 
-  const hasActiveFilters = Boolean(q || yearFrom || yearTo || location);
+  const hasActiveFilters = Boolean(q || yearFrom || yearTo || location || tags.length > 0);
 
   /**
    * Update one or more URL params.
    * Non-page updates automatically reset page to 1.
    * Pass { replace: true } to replace the history entry (good for debounced search).
+   * Arrays are joined as comma-separated strings; empty arrays delete the param.
    */
   function setFilters(updates, { replace = false } = {}) {
     setSearchParams(
@@ -30,7 +35,13 @@ export function useFilterState() {
           next.set("page", "1");
         }
         for (const [key, value] of Object.entries(updates)) {
-          if (value !== "" && value !== null && value !== undefined) {
+          if (Array.isArray(value)) {
+            if (value.length > 0) {
+              next.set(key, value.join(","));
+            } else {
+              next.delete(key);
+            }
+          } else if (value !== "" && value !== null && value !== undefined) {
             next.set(key, String(value));
           } else {
             next.delete(key);
@@ -55,6 +66,25 @@ export function useFilterState() {
     );
   }
 
+  /** Remove a single tag from the tags filter and reset page. */
+  function removeTag(tagName) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const current = next.get("tags") ? next.get("tags").split(",").filter(Boolean) : [];
+        const updated = current.filter((t) => t !== tagName);
+        if (updated.length > 0) {
+          next.set("tags", updated.join(","));
+        } else {
+          next.delete("tags");
+        }
+        next.set("page", "1");
+        return next;
+      },
+      { replace: true }
+    );
+  }
+
   /** Clear all filter params. */
   function clearAll() {
     setSearchParams({}, { replace: true });
@@ -67,9 +97,11 @@ export function useFilterState() {
     location,
     page,
     sortBy,
+    tags,
     hasActiveFilters,
     setFilters,
     removeFilter,
+    removeTag,
     clearAll,
   };
 }
