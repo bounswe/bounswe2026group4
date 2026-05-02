@@ -4,4 +4,4 @@ To complete your registration, please enter the following verification code:
 
     {{ code }}
 
-This code expires in 24 hours. If you did not create an account, you can safely ignore this email.
+This code expires in 15 minutes. If you did not create an account, you can safely ignore this email.
