@@ -1,4 +1,5 @@
 import secrets
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
@@ -116,6 +117,34 @@ class EmailVerificationCode(models.Model):
 
     def __str__(self):
         return f'{self.user.email} — {self.code}'
+
+
+def _password_reset_token_expiry():
+    return timezone.now() + timedelta(hours=1)
+
+
+class PasswordResetToken(models.Model):
+    """
+    Single-use token for password reset. Valid for 1 hour after creation.
+    Tokens are invalidated (is_used=True) after successful use or when a new
+    reset is requested, so only one valid token exists per user at a time.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=_password_reset_token_expiry)
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'password_reset_tokens'
+
+    def is_expired(self) -> bool:
+        """Return True if the token's 1-hour window has passed."""
+        return timezone.now() > self.expires_at
+
+    def __str__(self):
+        return f'PasswordResetToken({self.user.email})'
 
 
 class Follow(models.Model):

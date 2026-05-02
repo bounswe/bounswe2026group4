@@ -8,6 +8,8 @@ interface FeedApiRecord {
   year?: unknown;
   year_start?: unknown;
   year_end?: unknown;
+  date_value?: unknown;
+  time_value?: unknown;
   preview_text?: unknown;
   narrative?: unknown;
   submitted_at?: unknown;
@@ -116,6 +118,8 @@ function formatTimePeriod(record: FeedApiRecord) {
   const year = asInteger(record.year, NaN);
   const yearStart = asInteger(record.year_start, NaN);
   const yearEnd = asInteger(record.year_end, NaN);
+  const dateValue = asString(record.date_value);
+  const timeValue = asString(record.time_value);
 
   switch (record.time_type) {
     case 'exact_year':
@@ -126,6 +130,8 @@ function formatTimePeriod(record: FeedApiRecord) {
       return Number.isFinite(year) ? `${Math.floor(year / 10) * 10}s` : '';
     case 'year_range':
       return Number.isFinite(yearStart) && Number.isFinite(yearEnd) ? `${yearStart}-${yearEnd}` : '';
+    case 'exact_date':
+      return dateValue ? `${dateValue}${timeValue ? ` ${timeValue.slice(0, 5)}` : ''}` : '';
     default:
       return '';
   }

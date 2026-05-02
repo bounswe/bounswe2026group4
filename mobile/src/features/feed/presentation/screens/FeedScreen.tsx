@@ -3,6 +3,7 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { EmptyState, ErrorState, Loader, SkeletonCard } from '../../../../shared';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
+import { interactionService } from '../../../interactions/application/services';
 import { storyService } from '../../../stories/application/services';
 import { StoryFilters } from '../../../stories/domain/repositories';
 import { StorySearchControls } from '../../../search/presentation/components/StorySearchControls';
@@ -23,9 +24,14 @@ interface FeedScreenProps {
   onOpenStory?: (storyId: string) => void;
   onOpenTag?: (tag: string) => void;
   getFeed?: typeof storyService.getFeed;
+  bookmarkStory?: typeof interactionService.bookmarkStory;
+  unbookmarkStory?: typeof interactionService.unbookmarkStory;
   showSearchControls?: boolean;
   searchScope?: SearchFilterScope;
   storyInteractionUpdates?: Record<string, FeedStoryInteractionUpdate>;
+  onStoryInteractionUpdated?: (update: { storyId: string } & FeedStoryInteractionUpdate) => void;
+  isAuthenticated?: boolean;
+  onRequestLogin?: () => void;
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
@@ -47,15 +53,21 @@ export function FeedScreen({
   onOpenStory,
   onOpenTag,
   getFeed = storyService.getFeed,
+  bookmarkStory = interactionService.bookmarkStory,
+  unbookmarkStory = interactionService.unbookmarkStory,
   showSearchControls = true,
   searchScope = 'feed',
   storyInteractionUpdates = EMPTY_STORY_INTERACTION_UPDATES,
+  onStoryInteractionUpdated,
+  isAuthenticated = true,
+  onRequestLogin,
 }: FeedScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { filters, refreshToken, isHydrated, setFilters } = useSearchFilters(searchScope);
   const debouncedQuery = useDebounce(filters.query, 350);
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [state, setState] = useState(() => createInitialFeedUiState(initialFilters, initialSort));
+  const [pendingBookmarkIds, setPendingBookmarkIds] = useState<Record<string, boolean>>({});
   const stateRef = useRef(state);
   const storyInteractionUpdatesRef = useRef(storyInteractionUpdates);
   const hasRequestedNextPage = useRef(false);
@@ -193,6 +205,58 @@ export function FeedScreen({
     loadPage(1, 'initial', { filters: activeFilters, sort });
   };
 
+  const handleBookmarkPress = useCallback(
+    async (storyId: string) => {
+      if (!isAuthenticated) {
+        onRequestLogin?.();
+        return;
+      }
+
+      if (pendingBookmarkIds[storyId]) {
+        return;
+      }
+
+      const previousStory = stateRef.current.items.find((item) => item.id === storyId);
+
+      if (!previousStory) {
+        return;
+      }
+
+      const savedByViewer = !previousStory.savedByViewer;
+
+      setPendingBookmarkIds((current) => ({ ...current, [storyId]: true }));
+      setState((current) => applyStoryInteractionUpdates(current, { [storyId]: { savedByViewer } }));
+      onStoryInteractionUpdated?.({ storyId, savedByViewer });
+
+      try {
+        if (savedByViewer) {
+          await bookmarkStory(storyId);
+        } else {
+          await unbookmarkStory(storyId);
+        }
+      } catch {
+        setState((current) =>
+          applyStoryInteractionUpdates(current, { [storyId]: { savedByViewer: previousStory.savedByViewer } }),
+        );
+        onStoryInteractionUpdated?.({ storyId, savedByViewer: previousStory.savedByViewer });
+      } finally {
+        setPendingBookmarkIds((current) => {
+          const next = { ...current };
+          delete next[storyId];
+          return next;
+        });
+      }
+    },
+    [
+      bookmarkStory,
+      isAuthenticated,
+      onRequestLogin,
+      onStoryInteractionUpdated,
+      pendingBookmarkIds,
+      unbookmarkStory,
+    ],
+  );
+
   const renderControls = () => {
     return (
       <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs, gap: spacing.sm }}>
@@ -310,7 +374,17 @@ export function FeedScreen({
         testID="feed-list"
         data={state.items}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <FeedCard story={item} onPress={onOpenStory} onTagPress={onOpenTag} />}
+        renderItem={({ item }) => (
+    <FeedCard
+      story={item}
+      onPress={onOpenStory}
+      onTagPress={onOpenTag}
+      onBookmarkPress={(storyId) => {
+        void handleBookmarkPress(storyId);
+      }}
+      isBookmarkPending={Boolean(pendingBookmarkIds[item.id])}
+    />
+  )}
         contentContainerStyle={{
           paddingHorizontal: spacing.lg,
           paddingBottom: spacing.xl,

@@ -1,5 +1,6 @@
 import { ProfileRepositoryImpl } from '../../data/repositories';
 import { FollowListResult, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import { FeedPageEntity } from '../../../feed/domain/entities';
 
 const repository = new ProfileRepositoryImpl();
 
@@ -36,5 +37,8 @@ export const userService = {
   },
   async getFollowing(userId: string, page = 1): Promise<FollowListResult> {
     return repository.getFollowing(userId, page);
+  },
+  async getSavedStories(userId: string, page = 1): Promise<FeedPageEntity> {
+    return repository.getSavedStories(userId, page);
   },
 };

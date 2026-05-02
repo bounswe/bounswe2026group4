@@ -64,4 +64,16 @@ describe('FeedCard', () => {
     expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
     expect(screen.queryByLabelText('Not bookmarked story')).toBeNull();
   });
+
+  it('calls the bookmark handler from the card bookmark button', () => {
+    const onPress = jest.fn();
+    const onBookmarkPress = jest.fn();
+
+    render(<FeedCard story={story} onPress={onPress} onBookmarkPress={onBookmarkPress} />);
+
+    fireEvent.press(screen.getByLabelText('Not bookmarked story'));
+
+    expect(onBookmarkPress).toHaveBeenCalledWith('story-101');
+    expect(onPress).not.toHaveBeenCalled();
+  });
 });

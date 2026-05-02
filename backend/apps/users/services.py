@@ -2,15 +2,18 @@ import logging
 
 import magic
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import Http404
 
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 
-from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
+from apps.users.email_service import send_password_reset_email, send_verification_email
+from apps.users.models import EmailVerificationCode, Follow, PasswordResetToken, User, UserProfile
 
 _MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
 _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
@@ -20,22 +23,25 @@ logger = logging.getLogger(__name__)
 
 def register_user(validated_data: dict) -> User:
     """
-    Creates a new user and generates an email verification code.
-    The code is currently not sent — email infra is not yet implemented.
+    Creates a new user, generates an email verification code, and sends the verification email.
+    Email failures are caught and logged — they do not prevent account creation.
     """
-    user = User.objects.create_user(
-        email=validated_data['email'],
-        username=validated_data['username'],
-        password=validated_data['password'],
-    )
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=validated_data['email'],
+                username=validated_data['username'],
+                password=validated_data['password'],
+            )
+            code = EmailVerificationCode.generate_code()
+            EmailVerificationCode.objects.create(user=user, code=code)
+    except IntegrityError:
+        raise ValidationError({'email': 'A user with this email or username already exists.'})
 
-    # Generate and store a verification code for future use 
-    code = EmailVerificationCode.generate_code()
-    EmailVerificationCode.objects.create(user=user, code=code)
-
-    # TODO: replace with actual email sending once email infra is ready
-    logger.info('[STUB] Email verification code %s', code)
-
+    try:
+        send_verification_email(user.email, code)
+    except Exception:
+        logger.exception('Failed to send verification email to %s', user.email)
     return user
 
 
@@ -359,3 +365,55 @@ def get_user_bookmarks(user_id: int, requesting_user):
         .select_related('user')
         .order_by('-saved_by__saved_at')
     )
+
+
+def request_password_reset(email: str) -> None:
+    """
+    Generates a password reset token and emails the reset link to the given address.
+
+    Intentionally silent for unknown/inactive emails to prevent user enumeration —
+    the caller always receives the same response regardless of whether the email exists.
+    Any existing unused tokens for the user are invalidated before creating the new one
+    so only one valid reset link exists at a time.
+    """
+    try:
+        user = User.objects.get(email=email, is_active=True)
+    except User.DoesNotExist:
+        return
+
+    PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
+    token = PasswordResetToken.objects.create(user=user)
+    reset_link = f"{settings.FRONTEND_URL}/reset-password/{token.token}"
+    try:
+        send_password_reset_email(user.email, reset_link)
+    except Exception:
+        logger.exception('Failed to send password reset email to %s', user.email)
+
+
+def reset_password(token_str: str, new_password: str) -> None:
+    """
+    Validates the reset token and updates the user's password.
+
+    Uses a single generic error for invalid, expired, and already-used tokens
+    to avoid leaking information about token state.
+    The password write and token invalidation are atomic so they cannot diverge.
+    """
+    _invalid = ValidationError({'token': 'Invalid or expired reset token.'})
+
+    try:
+        token = PasswordResetToken.objects.select_related('user').get(
+            token=token_str, is_used=False
+        )
+    except (PasswordResetToken.DoesNotExist, ValueError):
+        raise _invalid
+
+    if token.is_expired():
+        raise _invalid
+
+    with transaction.atomic():
+        token.user.set_password(new_password)
+        token.user.save(update_fields=['password'])
+        token.is_used = True
+        token.save(update_fields=['is_used'])
+        for outstanding in OutstandingToken.objects.filter(user=token.user):
+            BlacklistedToken.objects.get_or_create(token=outstanding)

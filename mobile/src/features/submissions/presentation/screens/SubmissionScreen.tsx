@@ -34,14 +34,35 @@ import {
   SubmissionMediaInput,
   submissionsService,
 } from '../../application/services';
+import { buildDateValueFromParts, buildEdtfTemporalCoverage, normalizeTimeValue } from '../../application/services/temporal';
 import { StoryLocationPicker } from '../components/StoryLocationPicker';
 
-const TIME_TYPES: Array<{ value: StoryTimeType; label: string; helper: string }> = [
-  { value: 'exact_year', label: 'Exact Year', helper: 'Use a specific known year.' },
-  { value: 'approximate_year', label: 'Approximate', helper: 'For estimated years like circa 1450.' },
-  { value: 'decade', label: 'Decade', helper: 'Enter the decade base year like 1980.' },
-  { value: 'year_range', label: 'Year Range', helper: 'Capture stories that span multiple years.' },
+const MAX_STORY_YEAR = 2026;
+
+const TIME_TYPES: Array<{
+  value: StoryTimeType;
+  label: string;
+  accessibilityLabel: string;
+  helper: string;
+}> = [
+  { value: 'exact_year', label: 'Exact', accessibilityLabel: 'Exact Year', helper: 'Use a specific known year.' },
+  { value: 'approximate_year', label: 'Approx', accessibilityLabel: 'Approximate Year', helper: 'For estimated years like circa 1450.' },
+  { value: 'decade', label: 'Decade', accessibilityLabel: 'Decade', helper: 'Enter the decade base year like 1980.' },
+  { value: 'year_range', label: 'Range', accessibilityLabel: 'Year Range', helper: 'Capture stories that span multiple years.' },
+  { value: 'exact_date', label: 'Date', accessibilityLabel: 'Specific Date', helper: 'Use a day, month, and year. Time is optional.' },
 ];
+
+const TAG_OPTIONS = [
+  { label: 'Architecture', value: 'architecture' },
+  { label: 'War', value: 'war' },
+  { label: 'Culture', value: 'culture' },
+  { label: 'Trade', value: 'trade' },
+  { label: 'Religion', value: 'religion' },
+  { label: 'Daily Life', value: 'daily-life' },
+  { label: 'Art', value: 'art' },
+  { label: 'Politics', value: 'politics' },
+] as const;
+
 
 type FieldName =
   | 'title'
@@ -51,6 +72,10 @@ type FieldName =
   | 'year'
   | 'yearStart'
   | 'yearEnd'
+  | 'dateDay'
+  | 'dateMonth'
+  | 'dateYear'
+  | 'timeValue'
   | 'tags'
   | 'image'
   | 'audio'
@@ -66,6 +91,10 @@ const FIELD_SCROLL_ORDER: FieldName[] = [
   'year',
   'yearStart',
   'yearEnd',
+  'dateDay',
+  'dateMonth',
+  'dateYear',
+  'timeValue',
   'tags',
   'image',
   'audio',
@@ -82,6 +111,10 @@ interface SubmissionFormState {
   year: string;
   yearStart: string;
   yearEnd: string;
+  dateDay: string;
+  dateMonth: string;
+  dateYear: string;
+  timeValue: string;
   selectedTags: string[];
   customTag: string;
   image: (SubmissionImageInput & { fileSize?: number | null }) | null;
@@ -103,6 +136,10 @@ const initialState: SubmissionFormState = {
   year: '',
   yearStart: '',
   yearEnd: '',
+  dateDay: '',
+  dateMonth: '',
+  dateYear: '',
+  timeValue: '',
   selectedTags: [],
   customTag: '',
   image: null,
@@ -115,6 +152,23 @@ const initialState: SubmissionFormState = {
 
 function normalizeTagName(tag: string) {
   return tag.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+
+function normalizeYearInput(value: string, allowNegative = true) {
+  const trimmedValue = value.trim();
+  const isNegative = allowNegative && trimmedValue.startsWith('-');
+  const digitsOnly = trimmedValue.replace(/[^0-9]/g, '').slice(0, 4);
+  const numericValue = Number(digitsOnly);
+
+  if (digitsOnly.length === 4 && Number.isFinite(numericValue) && numericValue > MAX_STORY_YEAR) {
+    return isNegative ? `-${digitsOnly}` : String(MAX_STORY_YEAR);
+  }
+
+  return `${isNegative ? '-' : ''}${digitsOnly}`;
+}
+
+function isYearAfterLimit(value: string) {
+  return Number(value) > MAX_STORY_YEAR;
 }
 
 function inferMimeType(uri: string) {
@@ -353,54 +407,59 @@ export function SubmissionScreen() {
     () => TIME_TYPES.find((timeType) => timeType.value === state.timeType) ?? TIME_TYPES[0],
     [state.timeType],
   );
-  const selectedTagNames = useMemo(() => new Set(state.selectedTags), [state.selectedTags]);
-  const visibleTagSuggestions = useMemo(
-    () => tagSuggestions.filter((tag) => !selectedTagNames.has(tag.name)),
-    [selectedTagNames, tagSuggestions],
-  );
-  const normalizedTagQuery = normalizeTagName(state.customTag);
-  const hasExactTagSuggestion = tagSuggestions.some((tag) => tag.name === normalizedTagQuery);
-  const canCreateTag =
-    Boolean(normalizedTagQuery) &&
-    !selectedTagNames.has(normalizedTagQuery) &&
-    !hasExactTagSuggestion &&
-    !isTagsLoading;
+ const selectedTagNames = useMemo(() => new Set(state.selectedTags), [state.selectedTags]);
 
-  useEffect(() => {
-    if (!isTagPickerOpen) {
-      updateField('customTag', '');
-      setTagSuggestions([]);
-      setIsTagsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTagPickerOpen]);
+const visibleTagSuggestions = useMemo(
+  () => tagSuggestions.filter((tag) => !selectedTagNames.has(tag.name)),
+  [selectedTagNames, tagSuggestions],
+);
 
-  useEffect(() => {
-    if (!isTagPickerOpen) {
-      return;
-    }
+const normalizedTagQuery = normalizeTagName(state.customTag);
+const hasExactTagSuggestion = tagSuggestions.some((tag) => tag.name === normalizedTagQuery);
+const canCreateTag =
+  Boolean(normalizedTagQuery) &&
+  !selectedTagNames.has(normalizedTagQuery) &&
+  !hasExactTagSuggestion &&
+  !isTagsLoading;
 
-    const requestId = tagRequestIdRef.current + 1;
-    tagRequestIdRef.current = requestId;
-    setIsTagsLoading(true);
+useEffect(() => {
+  if (!isTagPickerOpen) {
+    updateField('customTag', '');
+    setTagSuggestions([]);
+    setIsTagsLoading(false);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isTagPickerOpen]);
 
-    searchTags(debouncedTagQuery)
-      .then((tags) => {
-        if (tagRequestIdRef.current === requestId) {
-          setTagSuggestions(tags);
-        }
-      })
-      .catch(() => {
-        if (tagRequestIdRef.current === requestId) {
-          setTagSuggestions([]);
-        }
-      })
-      .finally(() => {
-        if (tagRequestIdRef.current === requestId) {
-          setIsTagsLoading(false);
-        }
-      });
-  }, [debouncedTagQuery, isTagPickerOpen]);
+useEffect(() => {
+  if (!isTagPickerOpen) {
+    return;
+  }
+
+  const requestId = tagRequestIdRef.current + 1;
+  tagRequestIdRef.current = requestId;
+  setIsTagsLoading(true);
+
+  searchTags(debouncedTagQuery)
+    .then((tags) => {
+      if (tagRequestIdRef.current === requestId) {
+        setTagSuggestions(tags);
+      }
+    })
+    .catch(() => {
+      if (tagRequestIdRef.current === requestId) {
+        setTagSuggestions([]);
+      }
+    })
+    .finally(() => {
+      if (tagRequestIdRef.current === requestId) {
+        setIsTagsLoading(false);
+      }
+    });
+}, [debouncedTagQuery, isTagPickerOpen]);
+
+const sharedDateError = fieldErrors.dateDay || fieldErrors.dateMonth || fieldErrors.dateYear;
+const sharedYearRangeError = fieldErrors.yearStart || fieldErrors.yearEnd;
 
   const updateField = <K extends keyof SubmissionFormState>(field: K, value: SubmissionFormState[K]) => {
     setState((current) => ({ ...current, [field]: value, apiError: undefined }));
@@ -494,26 +553,67 @@ export function SubmissionScreen() {
       nextErrors.tags = `Choose up to ${limits.maxTagsPerStory} tags.`;
     }
 
-    if (state.timeType === 'year_range') {
+    if (state.timeType === 'exact_date') {
+      const hasDay = Boolean(state.dateDay.trim());
+      const hasMonth = Boolean(state.dateMonth.trim());
+      const hasYear = Boolean(state.dateYear.trim());
+
+      if (!hasDay) {
+        nextErrors.dateDay = 'Day is required.';
+      }
+      if (!hasMonth) {
+        nextErrors.dateMonth = 'Month is required.';
+      }
+      if (!hasYear) {
+        nextErrors.dateYear = 'Year is required.';
+      } else if (Number.isNaN(Number(state.dateYear))) {
+        nextErrors.dateYear = 'Year must be a number.';
+      } else if (isYearAfterLimit(state.dateYear)) {
+        nextErrors.dateYear = `Year cannot be later than ${MAX_STORY_YEAR}.`;
+      }
+
+      if (
+        hasDay &&
+        hasMonth &&
+        hasYear &&
+        !nextErrors.dateYear &&
+        !buildDateValueFromParts(state.dateDay, state.dateMonth, state.dateYear)
+      ) {
+        nextErrors.dateDay = 'Enter a valid calendar date.';
+        nextErrors.dateMonth = 'Enter a valid calendar date.';
+        nextErrors.dateYear = 'Enter a valid calendar date.';
+      }
+
+      if (state.timeValue.trim() && !normalizeTimeValue(state.timeValue)) {
+        nextErrors.timeValue = 'Time must use 24-hour HH:MM format.';
+      }
+    } else if (state.timeType === 'year_range') {
       if (!state.yearStart.trim()) {
         nextErrors.yearStart = 'Start year is required.';
       } else if (Number.isNaN(Number(state.yearStart))) {
         nextErrors.yearStart = 'Start year must be a number.';
+      } else if (isYearAfterLimit(state.yearStart)) {
+        nextErrors.yearStart = `Start year cannot be later than ${MAX_STORY_YEAR}.`;
       }
 
       if (!state.yearEnd.trim()) {
         nextErrors.yearEnd = 'End year is required.';
       } else if (Number.isNaN(Number(state.yearEnd))) {
         nextErrors.yearEnd = 'End year must be a number.';
+      } else if (isYearAfterLimit(state.yearEnd)) {
+        nextErrors.yearEnd = `End year cannot be later than ${MAX_STORY_YEAR}.`;
       }
 
       if (!nextErrors.yearStart && !nextErrors.yearEnd && Number(state.yearStart) >= Number(state.yearEnd)) {
         nextErrors.yearStart = 'Start year must be earlier than end year.';
+        nextErrors.yearEnd = 'End year must be later than start year.';
       }
     } else if (!state.year.trim()) {
       nextErrors.year = 'Year is required.';
     } else if (Number.isNaN(Number(state.year))) {
       nextErrors.year = 'Year must be a number.';
+    } else if (isYearAfterLimit(state.year)) {
+      nextErrors.year = `Year cannot be later than ${MAX_STORY_YEAR}.`;
     }
 
     if (state.image) {
@@ -769,7 +869,18 @@ export function SubmissionScreen() {
       contributorVisible: state.contributorVisible,
     };
 
-    if (state.timeType === 'year_range') {
+    if (state.timeType === 'exact_date') {
+      const dateValue = buildDateValueFromParts(state.dateDay, state.dateMonth, state.dateYear);
+      const timeValue = normalizeTimeValue(state.timeValue);
+
+      payload.dateValue = dateValue;
+      payload.timeValue = timeValue;
+      payload.temporalCoverage = buildEdtfTemporalCoverage({
+        timeType: state.timeType,
+        dateValue,
+        timeValue,
+      });
+    } else if (state.timeType === 'year_range') {
       payload.yearStart = Number(state.yearStart);
       payload.yearEnd = Number(state.yearEnd);
     } else {
@@ -922,83 +1033,182 @@ export function SubmissionScreen() {
 
         <View testID="submission-field-time" onLayout={registerFieldLayout('time')} style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.text, fontWeight: '700' }}>Time information</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+          <View
+            testID="submission-time-type-options"
+            style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}
+          >
             {TIME_TYPES.map((timeType) => {
               const active = timeType.value === state.timeType;
               return (
                 <Pressable
                   key={timeType.value}
+                  accessibilityRole="button"
+                  accessibilityLabel={timeType.accessibilityLabel}
+                  accessibilityState={{ selected: active }}
                   onPress={() => {
                     updateField('timeType', timeType.value);
                     clearFieldError('year');
                     clearFieldError('yearStart');
                     clearFieldError('yearEnd');
+                    clearFieldError('dateDay');
+                    clearFieldError('dateMonth');
+                    clearFieldError('dateYear');
+                    clearFieldError('timeValue');
                   }}
                   style={{
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.sm + 2,
+                    flexBasis: 88,
+                    flexGrow: 1,
+                    minHeight: 38,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.xs + 2,
                     borderRadius: 999,
                     borderWidth: 1,
                     borderColor: active ? colors.primary : colors.border,
-                    backgroundColor: active ? colors.primary : colors.surface,
+                    backgroundColor: active ? colors.primary : colors.infoSurface,
                   }}
                 >
-                  <Text style={{ color: active ? colors.background : colors.text, fontWeight: '700' }}>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    style={{ color: active ? colors.background : colors.text, fontWeight: '800', fontSize: 13 }}
+                  >
                     {timeType.label}
                   </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
           <Text style={{ color: colors.muted }}>{selectedTimeType.helper}</Text>
 
-          {state.timeType === 'year_range' ? (
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          {state.timeType === 'exact_date' ? (
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View
+                  testID="submission-field-date-day"
+                  onLayout={registerFieldLayout('dateDay', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.dateDay}
+                    onChangeText={(value) => {
+                      updateField('dateDay', value.replace(/[^0-9]/g, '').slice(0, 2));
+                      clearFieldError('dateDay');
+                    }}
+                    placeholder="DD"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Specific date day"
+                    style={getInputShellStyle('dateDay')}
+                  />
+                </View>
+                <View
+                  testID="submission-field-date-month"
+                  onLayout={registerFieldLayout('dateMonth', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.dateMonth}
+                    onChangeText={(value) => {
+                      updateField('dateMonth', value.replace(/[^0-9]/g, '').slice(0, 2));
+                      clearFieldError('dateMonth');
+                    }}
+                    placeholder="MM"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Specific date month"
+                    style={getInputShellStyle('dateMonth')}
+                  />
+                </View>
+                <View
+                  testID="submission-field-date-year"
+                  onLayout={registerFieldLayout('dateYear', 'time')}
+                  style={{ flex: 1.4, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.dateYear}
+                    onChangeText={(value) => {
+                      updateField('dateYear', normalizeYearInput(value, false));
+                      clearFieldError('dateYear');
+                    }}
+                    placeholder="YYYY"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Specific date year"
+                    style={getInputShellStyle('dateYear')}
+                  />
+                </View>
+              </View>
+              {sharedDateError ? <Text style={{ color: colors.danger }}>{sharedDateError}</Text> : null}
               <View
-                testID="submission-field-year-start"
-                onLayout={registerFieldLayout('yearStart', 'time')}
-                style={{ flex: 1, gap: spacing.sm }}
+                testID="submission-field-time-value"
+                onLayout={registerFieldLayout('timeValue', 'time')}
+                style={{ gap: spacing.sm }}
               >
                 <Input
-                  value={state.yearStart}
+                  value={state.timeValue}
                   onChangeText={(value) => {
-                    updateField('yearStart', value);
-                    clearFieldError('yearStart');
+                    updateField('timeValue', value.replace(/[^0-9:]/g, '').slice(0, 5));
+                    clearFieldError('timeValue');
                   }}
-                  placeholder="Start year"
-                  keyboardType="numeric"
+                  placeholder="Optional time, e.g. 09:30"
                   editable={!state.isSubmitting}
-                  accessibilityLabel="Start year"
-                  style={getInputShellStyle('yearStart')}
+                  accessibilityLabel="Optional specific time"
+                  style={getInputShellStyle('timeValue')}
                 />
-                {fieldErrors.yearStart ? <Text style={{ color: colors.danger }}>{fieldErrors.yearStart}</Text> : null}
+                {fieldErrors.timeValue ? <Text style={{ color: colors.danger }}>{fieldErrors.timeValue}</Text> : null}
               </View>
-              <View
-                testID="submission-field-year-end"
-                onLayout={registerFieldLayout('yearEnd', 'time')}
-                style={{ flex: 1, gap: spacing.sm }}
-              >
-                <Input
-                  value={state.yearEnd}
-                  onChangeText={(value) => {
-                    updateField('yearEnd', value);
-                    clearFieldError('yearEnd');
-                  }}
-                  placeholder="End year"
-                  keyboardType="numeric"
-                  editable={!state.isSubmitting}
-                  accessibilityLabel="End year"
-                  style={getInputShellStyle('yearEnd')}
-                />
-                {fieldErrors.yearEnd ? <Text style={{ color: colors.danger }}>{fieldErrors.yearEnd}</Text> : null}
+            </View>
+          ) : state.timeType === 'year_range' ? (
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View
+                  testID="submission-field-year-start"
+                  onLayout={registerFieldLayout('yearStart', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.yearStart}
+                    onChangeText={(value) => {
+                      updateField('yearStart', normalizeYearInput(value));
+                      clearFieldError('yearStart');
+                    }}
+                    placeholder="Start year"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="Start year"
+                    style={getInputShellStyle('yearStart')}
+                  />
+                </View>
+                <View
+                  testID="submission-field-year-end"
+                  onLayout={registerFieldLayout('yearEnd', 'time')}
+                  style={{ flex: 1, gap: spacing.sm }}
+                >
+                  <Input
+                    value={state.yearEnd}
+                    onChangeText={(value) => {
+                      updateField('yearEnd', normalizeYearInput(value));
+                      clearFieldError('yearEnd');
+                    }}
+                    placeholder="End year"
+                    keyboardType="numeric"
+                    editable={!state.isSubmitting}
+                    accessibilityLabel="End year"
+                    style={getInputShellStyle('yearEnd')}
+                  />
+                </View>
               </View>
+              {sharedYearRangeError ? <Text style={{ color: colors.danger }}>{sharedYearRangeError}</Text> : null}
             </View>
           ) : (
             <View testID="submission-field-year" onLayout={registerFieldLayout('year', 'time')} style={{ gap: spacing.sm }}>
               <Input
                 value={state.year}
                 onChangeText={(value) => {
-                  updateField('year', value);
+                  updateField('year', normalizeYearInput(value));
                   clearFieldError('year');
                 }}
                 placeholder={state.timeType === 'decade' ? 'e.g. 1980' : 'e.g. 1453'}

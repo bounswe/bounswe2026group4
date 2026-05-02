@@ -14,6 +14,7 @@ interface MapCardProps {
   error?: string;
   statusBadgeText?: string;
   fitToMarkers?: boolean;
+  userLocation?: { latitude: number; longitude: number };
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
   onMarkerPress?: () => void;
@@ -30,6 +31,7 @@ export function MapCard({
   error,
   statusBadgeText,
   fitToMarkers = false,
+  userLocation,
   onSelectMarker,
   onOpenStory,
   onMarkerPress,
@@ -46,12 +48,12 @@ export function MapCard({
 
   useEffect(() => {
     if (fitToMarkers) {
-      setCurrentRegion(region);
+      setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
       return;
     }
 
     if (!selectedMarker) {
-      setCurrentRegion(region);
+      setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
       return;
     }
 
@@ -77,6 +79,7 @@ export function MapCard({
         <WebMapView
           key={mapContentKey}
           region={currentRegion}
+          userLocation={userLocation}
           markers={markers.map((marker) => ({
             id: marker.id,
             latitude: marker.latitude,
@@ -226,4 +229,13 @@ function truncatePreview(value: string) {
   }
 
   return `${value.slice(0, PREVIEW_MAX_LENGTH - 1).trim()}...`;
+}
+
+function regionsEqual(left: Region, right: Region) {
+  return (
+    left.latitude === right.latitude &&
+    left.longitude === right.longitude &&
+    left.latitudeDelta === right.latitudeDelta &&
+    left.longitudeDelta === right.longitudeDelta
+  );
 }
