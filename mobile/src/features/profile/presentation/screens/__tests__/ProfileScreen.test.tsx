@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { ScrollView } from 'react-native';
 import { ProfileScreen } from '../ProfileScreen';
 import { navigationRef } from '../../../../../app/navigation/navigationRef';
 import { userService } from '../../../application/services';
@@ -222,8 +223,58 @@ describe('ProfileScreen', () => {
     expect(getSavedStories).toHaveBeenCalledTimes(2);
   });
 
+  it('scrolls to the saved stories section when the saved stat is pressed', async () => {
+    const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+
+    try {
+      render(
+        <ProfileScreen
+          mode="self"
+          getCurrentProfile={async () => selfProfile}
+          getSavedStories={async () => makeSavedStoriesPage()}
+        />,
+      );
+
+      expect(await screen.findByText('Traveler')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Show saved stories'));
+      expect(await screen.findByText('Saved Stories')).toBeTruthy();
+
+      fireEvent(screen.getByTestId('profile-saved-stories-wrapper'), 'layout', {
+        nativeEvent: { layout: { y: 640 } },
+      });
+
+      await waitFor(() => {
+        expect(scrollToSpy).toHaveBeenCalledWith({ y: 624, animated: true });
+      });
+    } finally {
+      scrollToSpy.mockRestore();
+    }
+  });
+
+  it('opens a saved story from the profile saved list', async () => {
+    const onOpenStory = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getSavedStories={async () => makeSavedStoriesPage()}
+        onOpenStory={onOpenStory}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Show saved stories'));
+    expect(await screen.findByText('Saved Harbor')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Read story: Saved Harbor'));
+
+    expect(onOpenStory).toHaveBeenCalledWith('saved-1');
+  });
+
   it('removes a saved story with an optimistic update and confirmation toast', async () => {
     const unbookmarkStory = jest.fn(async () => undefined);
+    const onStoryInteractionUpdated = jest.fn();
 
     render(
       <ProfileScreen
@@ -231,6 +282,7 @@ describe('ProfileScreen', () => {
         getCurrentProfile={async () => selfProfile}
         getSavedStories={async () => makeSavedStoriesPage()}
         unbookmarkStory={unbookmarkStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
       />,
     );
 
@@ -244,10 +296,12 @@ describe('ProfileScreen', () => {
       expect(unbookmarkStory).toHaveBeenCalledWith('saved-1');
       expect(screen.queryByText('Saved Harbor')).toBeNull();
       expect(mockToastSuccess).toHaveBeenCalledWith('Removed from saved stories.');
+      expect(onStoryInteractionUpdated).toHaveBeenCalledWith({ storyId: 'saved-1', savedByViewer: false });
     });
   });
 
   it('restores a saved story when removing the bookmark fails', async () => {
+    const onStoryInteractionUpdated = jest.fn();
     const unbookmarkStory = jest.fn(async () => {
       throw new Error('Network error');
     });
@@ -258,6 +312,7 @@ describe('ProfileScreen', () => {
         getCurrentProfile={async () => selfProfile}
         getSavedStories={async () => makeSavedStoriesPage()}
         unbookmarkStory={unbookmarkStory}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
       />,
     );
 
@@ -271,6 +326,7 @@ describe('ProfileScreen', () => {
       expect(unbookmarkStory).toHaveBeenCalledWith('saved-1');
       expect(mockToastError).toHaveBeenCalledWith('Failed to remove saved story. Please try again.');
       expect(screen.getByText('Saved Harbor')).toBeTruthy();
+      expect(onStoryInteractionUpdated).toHaveBeenLastCalledWith({ storyId: 'saved-1', savedByViewer: true });
     });
   });
 

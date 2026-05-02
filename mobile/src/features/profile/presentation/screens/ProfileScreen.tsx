@@ -56,6 +56,8 @@ interface ProfileScreenProps {
   getSavedStories?: typeof userService.getSavedStories;
   unbookmarkStory?: typeof interactionService.unbookmarkStory;
   onOpenUserProfile?: (userId: string) => void;
+  onOpenStory?: (storyId: string) => void;
+  onStoryInteractionUpdated?: (update: { storyId: string; savedByViewer?: boolean; likeCount?: number }) => void;
 }
 
 interface ProfileFormState {
@@ -809,11 +811,15 @@ function SavedStoriesSection({
   getSavedStories,
   unbookmarkStory,
   onTotalCountChange,
+  onOpenStory,
+  onStoryInteractionUpdated,
 }: {
   userId: string;
   getSavedStories: (userId: string, page?: number) => Promise<FeedPageEntity>;
   unbookmarkStory: (storyId: string) => Promise<void>;
   onTotalCountChange?: (count: number) => void;
+  onOpenStory?: (storyId: string) => void;
+  onStoryInteractionUpdated?: (update: { storyId: string; savedByViewer?: boolean; likeCount?: number }) => void;
 }) {
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
@@ -875,6 +881,7 @@ function SavedStoriesSection({
       setStories(nextStories);
       setTotalCount(nextTotalCount);
       onTotalCountChange?.(nextTotalCount);
+      onStoryInteractionUpdated?.({ storyId, savedByViewer: false });
 
       try {
         await unbookmarkStory(storyId);
@@ -883,12 +890,13 @@ function SavedStoriesSection({
         setStories(previousStories);
         setTotalCount(previousTotalCount);
         onTotalCountChange?.(previousTotalCount);
+        onStoryInteractionUpdated?.({ storyId, savedByViewer: true });
         toast.error('Failed to remove saved story. Please try again.');
       } finally {
         setPendingStoryId(null);
       }
     },
-    [onTotalCountChange, pendingStoryId, stories, toast, totalCount, unbookmarkStory],
+    [onStoryInteractionUpdated, onTotalCountChange, pendingStoryId, stories, toast, totalCount, unbookmarkStory],
   );
 
   return (
@@ -942,6 +950,7 @@ function SavedStoriesSection({
               story={{ ...story, savedByViewer: true }}
               bookmarkAccessibilityLabel={`Remove ${story.title} from saved stories`}
               isBookmarkPending={pendingStoryId === story.id}
+              onPress={onOpenStory}
               onBookmarkPress={(storyId) => {
                 void handleRemoveBookmark(storyId);
               }}
@@ -980,6 +989,8 @@ export function ProfileScreen({
   getSavedStories = userService.getSavedStories,
   unbookmarkStory = interactionService.unbookmarkStory,
   onOpenUserProfile,
+  onOpenStory,
+  onStoryInteractionUpdated,
 }: ProfileScreenProps) {
   const { user, isAuthenticated, updateUser, logout } = useAuth();
   const { toast } = useToast();
@@ -1012,6 +1023,9 @@ export function ProfileScreen({
   const [isFollowListVisible, setIsFollowListVisible] = useState(false);
   const [activeSelfTab, setActiveSelfTab] = useState<SelfProfileTab>('profile');
   const [savedStoriesCount, setSavedStoriesCount] = useState<number | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const savedStoriesSectionYRef = useRef(0);
+  const shouldScrollToSavedStoriesRef = useRef(false);
 
   const resetPhotoDraft = useCallback(() => {
     setPendingPhoto(null);
@@ -1359,6 +1373,33 @@ export function ProfileScreen({
     );
   }, [formState, isPhotoRemoved, pendingPhoto, profile]);
   const profilePhotoUri = pendingPhoto?.previewUri ?? (isPhotoRemoved ? null : profile?.profilePhoto ?? null);
+  const scrollToSavedStories = useCallback(() => {
+    const y = savedStoriesSectionYRef.current;
+
+    if (y <= 0) {
+      return false;
+    }
+
+    scrollViewRef.current?.scrollTo({
+      y: Math.max(y - spacing.md, 0),
+      animated: true,
+    });
+    return true;
+  }, [spacing.md]);
+
+  useEffect(() => {
+    if (activeSelfTab !== 'saved' || !shouldScrollToSavedStoriesRef.current) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (scrollToSavedStories()) {
+        shouldScrollToSavedStoriesRef.current = false;
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [activeSelfTab, scrollToSavedStories]);
 
   if (isLoading) {
     return <LoadingState />;
@@ -1384,6 +1425,8 @@ export function ProfileScreen({
   return (
     <>
       <ScrollView
+        ref={scrollViewRef}
+        testID="profile-scroll-view"
         contentContainerStyle={{
           paddingBottom: spacing.xl,
           gap: spacing.lg,
@@ -1464,7 +1507,11 @@ export function ProfileScreen({
                 accessibilityLabel="Show saved stories"
                 selected={activeSelfTab === 'saved'}
                 onPress={() => {
-                  setActiveSelfTab((current) => (current === 'saved' ? 'profile' : 'saved'));
+                  setActiveSelfTab((current) => {
+                    const nextTab = current === 'saved' ? 'profile' : 'saved';
+                    shouldScrollToSavedStoriesRef.current = nextTab === 'saved';
+                    return nextTab;
+                  });
                 }}
               />
             ) : null}
@@ -1491,12 +1538,24 @@ export function ProfileScreen({
         </View>
 
         {isSelfMode && activeSelfTab === 'saved' ? (
-          <SavedStoriesSection
-            userId={profile.id}
-            getSavedStories={getSavedStories}
-            unbookmarkStory={unbookmarkStory}
-            onTotalCountChange={setSavedStoriesCount}
-          />
+          <View
+            testID="profile-saved-stories-wrapper"
+            onLayout={(event) => {
+              savedStoriesSectionYRef.current = event.nativeEvent.layout.y;
+              if (shouldScrollToSavedStoriesRef.current && scrollToSavedStories()) {
+                shouldScrollToSavedStoriesRef.current = false;
+              }
+            }}
+          >
+            <SavedStoriesSection
+              userId={profile.id}
+              getSavedStories={getSavedStories}
+              unbookmarkStory={unbookmarkStory}
+              onTotalCountChange={setSavedStoriesCount}
+              onOpenStory={onOpenStory}
+              onStoryInteractionUpdated={onStoryInteractionUpdated}
+            />
+          </View>
         ) : null}
 
         {isSelfMode && activeSelfTab === 'profile' ? (

@@ -6,9 +6,17 @@ import { FeedPageEntity } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
 import { storage } from '../../../../../core/storage/storage';
 import { geocodeLocationQuery } from '../../../../search/application/services';
+import { interactionService } from '../../../../interactions/application/services';
 
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
+}));
+
+jest.mock('../../../../interactions/application/services', () => ({
+  interactionService: {
+    bookmarkStory: jest.fn(async () => undefined),
+    unbookmarkStory: jest.fn(async () => undefined),
+  },
 }));
 
 function makeStory(id: string, overrides: Partial<FeedPageEntity['items'][number]> = {}) {
@@ -39,6 +47,7 @@ function makeFeedPage(overrides: Partial<FeedPageEntity> = {}): FeedPageEntity {
 
 describe('FeedScreen', () => {
   beforeEach(async () => {
+    jest.clearAllMocks();
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
     jest.mocked(Location.requestForegroundPermissionsAsync).mockResolvedValue({ granted: true } as never);
     jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
@@ -49,6 +58,8 @@ describe('FeedScreen', () => {
         longitude: 28.9784,
       },
     } as never);
+    jest.mocked(interactionService.bookmarkStory).mockResolvedValue(undefined);
+    jest.mocked(interactionService.unbookmarkStory).mockResolvedValue(undefined);
     await storage.clear();
   });
 
@@ -221,6 +232,112 @@ describe('FeedScreen', () => {
       expect(screen.getByText('♥ 1')).toBeTruthy();
       expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
     });
+  });
+
+  it('bookmarks stories from the feed with an optimistic update', async () => {
+    const onStoryInteractionUpdated = jest.fn();
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(
+      makeFeedPage({
+        items: [makeStory('1', { savedByViewer: false })],
+        totalCount: 1,
+      }),
+    );
+
+    renderScreen(
+      <FeedScreen
+        getFeed={getFeed}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
+        isAuthenticated
+      />,
+    );
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Not bookmarked story'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
+      expect(interactionService.bookmarkStory).toHaveBeenCalledWith('1');
+      expect(onStoryInteractionUpdated).toHaveBeenCalledWith({ storyId: '1', savedByViewer: true });
+    });
+  });
+
+  it('removes feed bookmarks with an optimistic update', async () => {
+    const onStoryInteractionUpdated = jest.fn();
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(
+      makeFeedPage({
+        items: [makeStory('1', { savedByViewer: true })],
+        totalCount: 1,
+      }),
+    );
+
+    renderScreen(
+      <FeedScreen
+        getFeed={getFeed}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
+        isAuthenticated
+      />,
+    );
+
+    expect(await screen.findByLabelText('Bookmarked story')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Bookmarked story'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
+      expect(interactionService.unbookmarkStory).toHaveBeenCalledWith('1');
+      expect(onStoryInteractionUpdated).toHaveBeenCalledWith({ storyId: '1', savedByViewer: false });
+    });
+  });
+
+  it('reverts feed bookmark updates when the request fails', async () => {
+    jest.mocked(interactionService.bookmarkStory).mockRejectedValueOnce(new Error('Network error'));
+    const onStoryInteractionUpdated = jest.fn();
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(
+      makeFeedPage({
+        items: [makeStory('1', { savedByViewer: false })],
+        totalCount: 1,
+      }),
+    );
+
+    renderScreen(
+      <FeedScreen
+        getFeed={getFeed}
+        onStoryInteractionUpdated={onStoryInteractionUpdated}
+        isAuthenticated
+      />,
+    );
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Not bookmarked story'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
+      expect(onStoryInteractionUpdated).toHaveBeenLastCalledWith({ storyId: '1', savedByViewer: false });
+    });
+  });
+
+  it('prompts guests before bookmarking from the feed', async () => {
+    const onRequestLogin = jest.fn();
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(
+      makeFeedPage({
+        items: [makeStory('1', { savedByViewer: false })],
+        totalCount: 1,
+      }),
+    );
+
+    renderScreen(
+      <FeedScreen
+        getFeed={getFeed}
+        isAuthenticated={false}
+        onRequestLogin={onRequestLogin}
+      />,
+    );
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Not bookmarked story'));
+
+    expect(onRequestLogin).toHaveBeenCalledTimes(1);
+    expect(interactionService.bookmarkStory).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
   });
 
   it('updates search query filters after debounce', async () => {
