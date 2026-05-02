@@ -13,7 +13,7 @@ export async function createOrGetTag(name) {
 
 export async function getTagStories(slug, { page = 1, pageSize = 12 } = {}) {
   const response = await api.get("/stories/feed/", {
-    params: { tag: slug, page, page_size: pageSize },
+    params: { tags: [slug], page, page_size: pageSize },
   });
   return response.data;
 }

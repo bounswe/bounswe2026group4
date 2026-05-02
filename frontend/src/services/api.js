@@ -12,6 +12,19 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const api = axios.create({
   baseURL: API_URL,
+  paramsSerializer: {
+    serialize: (params) => {
+      const sp = new URLSearchParams();
+      for (const [key, val] of Object.entries(params)) {
+        if (Array.isArray(val)) {
+          val.forEach((v) => sp.append(key, String(v)));
+        } else if (val !== undefined && val !== null) {
+          sp.append(key, String(val));
+        }
+      }
+      return sp.toString();
+    },
+  },
 });
 
 /** Endpoints that should never trigger a token refresh. */

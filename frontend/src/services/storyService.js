@@ -22,7 +22,7 @@ export async function getStories({
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
-    if (tags.length > 0) params.tag = tags[0];
+    if (tags.length > 0) params.tags = tags;
     const response = await api.get("/stories/search/", { params });
     return response.data; // { count, next, previous, results }
   }
@@ -31,7 +31,7 @@ export async function getStories({
   if (yearFrom) params.year_from = yearFrom;
   if (yearTo) params.year_to = yearTo;
   if (location?.trim()) params.location = location.trim();
-  if (tags.length > 0) params.tag = tags[0];
+  if (tags.length > 0) params.tags = tags;
 
   const response = await api.get("/stories/feed/", { params });
   return response.data; // { count, next, previous, results }
@@ -78,7 +78,7 @@ export async function getMapStories({ q, yearFrom, yearTo, location, tags = [] }
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
-    if (tags.length > 0) params.tag = tags[0];
+    if (tags.length > 0) params.tags = tags;
     const response = await api.get("/stories/search/", { params });
     const features = response.data.results
       .filter((s) => s.location_lat != null && s.location_lng != null)
@@ -94,7 +94,7 @@ export async function getMapStories({ q, yearFrom, yearTo, location, tags = [] }
   if (yearFrom) params.year_from = yearFrom;
   if (yearTo) params.year_to = yearTo;
   if (location?.trim()) params.location = location.trim();
-  if (tags.length > 0) params.tags = tags.join(",");
+  if (tags.length > 0) params.tags = tags;
 
   const response = await api.get("/stories/map/", { params });
   const fc = response.data ?? EMPTY_FEATURE_COLLECTION;
