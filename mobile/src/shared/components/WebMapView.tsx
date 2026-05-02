@@ -134,14 +134,18 @@ const mapHtml = ({
       let markerInstances = [];
       let userLocationMarker = null;
 
-      const getZoomForRegion = (nextRegion) =>
-        Math.max(
-          2,
-          Math.min(
-            16,
-            Math.round(Math.log2(360 / Math.max(nextRegion.longitudeDelta, 0.0001)))
-          )
+      const getZoomForRegion = (nextRegion) => {
+        const requestedDelta = Math.max(
+          Math.abs(nextRegion.latitudeDelta || 0),
+          Math.abs(nextRegion.longitudeDelta || 0),
+          0.0001
         );
+
+        return Math.max(
+          2,
+          Math.min(16, Math.floor(Math.log2(360 / requestedDelta)))
+        );
+      };
 
       const map = new maplibregl.Map({
         container: 'map',

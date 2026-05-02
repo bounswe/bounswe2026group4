@@ -167,6 +167,17 @@ function getRenderedMapRegion() {
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return { promise, resolve, reject };
+}
+
 describe('MapScreen', () => {
   beforeEach(async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
@@ -377,6 +388,54 @@ describe('MapScreen', () => {
     expect(refreshedRegion.longitude).toBeCloseTo(29.8);
     expect(refreshedRegion.latitudeDelta).toBeCloseTo(0.02);
     expect(refreshedRegion.longitudeDelta).toBeCloseTo(0.02);
+  });
+
+  it('ignores stale marker responses after a newer filter request completes', async () => {
+    const initialMarkers = createDeferred<MapMarkerGroup[]>();
+    const filteredMarkers = createDeferred<MapMarkerGroup[]>();
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockImplementation(async (filters) => {
+      if (filters?.q === 'ridge') {
+        return filteredMarkers.promise;
+      }
+
+      return initialMarkers.promise;
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenCalled();
+    });
+    fireEvent.changeText(screen.getByLabelText('Search stories'), 'ridge');
+    await screen.findByLabelText('Clear search');
+    fireEvent.press(screen.getByLabelText('Apply search'));
+
+    await waitFor(() => {
+      expect(getMarkerGroups.mock.calls.some(([filters]) => filters?.q === 'ridge')).toBe(true);
+    });
+
+    await act(async () => {
+      filteredMarkers.resolve(refreshedMarkerGroups);
+    });
+
+    await waitFor(() => {
+      const region = getRenderedMapRegion();
+
+      expect(region.latitude).toBeCloseTo(41.32);
+      expect(region.longitude).toBeCloseTo(29.02);
+    });
+
+    await act(async () => {
+      initialMarkers.resolve(markerGroups);
+    });
+
+    await waitFor(() => {
+      expect(getMarkerGroups.mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+    const region = getRenderedMapRegion();
+
+    expect(region.latitude).toBeCloseTo(41.32);
+    expect(region.longitude).toBeCloseTo(29.02);
   });
 
   it('keeps unapplied location filters disabled when the place cannot be found', async () => {

@@ -59,6 +59,7 @@ export function MapScreen({
   const [hasInteractedWithArea, setHasInteractedWithArea] = useState(false);
   const [statusIndicatorMode, setStatusIndicatorMode] = useState<StatusIndicatorMode>('hidden');
   const lastAutoZoomContextKeyRef = useRef<string | null>(null);
+  const loadRequestIdRef = useRef(0);
   const previewOffsetRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -91,6 +92,9 @@ export function MapScreen({
   const autoZoomContextKey = useMemo(() => buildAutoZoomContextKey(activeFilters), [activeFilters]);
 
   const loadMarkers = React.useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+
     setState((current) => ({
       ...current,
       isLoading: true,
@@ -102,6 +106,10 @@ export function MapScreen({
       const markers = await getMarkerGroups(activeFilters);
       const selectedMarkerId = getPreferredMarkerId(markers, activeFilters);
       const nextAutoRegion = getAutoZoomRegion(markers, activeFilters);
+
+      if (requestId !== loadRequestIdRef.current) {
+        return;
+      }
 
       setState({
         isLoading: false,
@@ -116,6 +124,10 @@ export function MapScreen({
         setMapRegion(nextAutoRegion);
       }
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) {
+        return;
+      }
+
       setState({
         isLoading: false,
         error: error instanceof Error ? error.message || 'Unable to load stories' : 'Unable to load stories',
