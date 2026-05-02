@@ -93,6 +93,41 @@ const ownPublicProfileDetail = {
   published_story_count: 2,
 };
 
+const notificationResults = [
+  {
+    id: 501,
+    notification_type: 'new_like',
+    message: 'Aylin liked your story.',
+    actor: { id: 12, username: 'Aylin' },
+    story_id: 'story-001',
+    comment_id: null,
+    is_read: false,
+    created_at: '2026-04-30T12:00:00Z',
+  },
+  {
+    id: 502,
+    notification_type: 'badge_earned',
+    message: 'You earned a badge.',
+    actor: null,
+    story_id: null,
+    comment_id: null,
+    is_read: true,
+    created_at: '2026-04-29T12:00:00Z',
+  },
+];
+
+const notificationPreferences = {
+  notifications_muted: false,
+  preferences: {
+    new_comment: true,
+    new_like: true,
+    moderation_action: true,
+    story_removed: true,
+    report_resolved: true,
+    badge_earned: true,
+  },
+};
+
 function installAuthTransport() {
   setApiTransport(async (method, config) => {
     if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
@@ -157,6 +192,38 @@ function installAuthTransport() {
       return {
         status: 200,
         data: ownPublicProfileDetail as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url?.startsWith('/notifications/')) {
+      if (config.url === '/notifications/preferences/') {
+        return {
+          status: 200,
+          data: notificationPreferences as never,
+          config,
+        };
+      }
+
+      return {
+        status: 200,
+        data: { notifications: notificationResults } as never,
+        config,
+      };
+    }
+
+    if (method === 'PATCH' && config.url?.startsWith('/notifications/')) {
+      if (config.url === '/notifications/preferences/') {
+        return {
+          status: 200,
+          data: notificationPreferences as never,
+          config,
+        };
+      }
+
+      return {
+        status: 200,
+        data: { ...notificationResults[0], is_read: true } as never,
         config,
       };
     }
@@ -329,6 +396,26 @@ describe('RootNavigator auth flow', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Search stories')).toBeTruthy();
     });
+  });
+
+  it('shows notification entry point for authenticated users and opens notifications', async () => {
+    renderNavigator();
+
+    expect(screen.queryByLabelText(/Notifications/)).toBeNull();
+
+    fireEvent.press(await screen.findByLabelText('Login'));
+    expect(await screen.findByLabelText('Email address')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'traveler@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
+
+    expect(await screen.findByLabelText('Notifications, 1 unread')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Notifications, 1 unread'));
+
+    expect(await screen.findByText('Notifications')).toBeTruthy();
+    expect(await screen.findByText('Aylin liked your story.')).toBeTruthy();
+    expect(screen.getByText('1 unread')).toBeTruthy();
   });
 
   it('opens profile completion after registration and persists the session', async () => {

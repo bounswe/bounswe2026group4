@@ -1,6 +1,5 @@
-export interface NotificationPreference {
-  comments: boolean;
-  likes: boolean;
-  moderation: boolean;
-  badges: boolean;
-}
+export {
+  NotificationPreferences,
+  NotificationPreferencesEntity,
+  NotificationPreferencesInput,
+} from './index';

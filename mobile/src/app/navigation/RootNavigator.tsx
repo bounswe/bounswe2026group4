@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
-import { MapPin } from 'lucide-react-native';
+import { Bell, MapPin } from 'lucide-react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth, AuthScreen } from '../../features/auth';
@@ -16,6 +16,8 @@ import { StoryScreen } from '../../features/stories';
 import { StorySearchControls } from '../../features/search/presentation/components/StorySearchControls';
 import { useToast } from '../../shared/hooks/useToast';
 import { APP_NAME } from '../../core/constants/app';
+import { NotificationScreen, notificationService } from '../../features/notifications';
+import { NotificationEntity } from '../../features/notifications/domain/entities';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 interface RouteSnapshot {
@@ -24,7 +26,8 @@ interface RouteSnapshot {
   userId?: string | null;
 }
 
-const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION];
+const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION, ROUTES.NOTIFICATIONS];
+const NOTIFICATION_REFRESH_INTERVAL_MS = 45000;
 
 function BackButton({ onPress }: { onPress: () => void }) {
   const { colors, spacing, typography } = useAppTheme();
@@ -86,6 +89,60 @@ function TopIconButton({
       <Text style={{ color: filled ? colors.background : colors.text, fontSize: typography.caption + 1, fontWeight: '800' }}>
         {label}
       </Text>
+    </Pressable>
+  );
+}
+
+function NotificationBellButton({
+  unreadCount,
+  onPress,
+}: {
+  unreadCount: number;
+  onPress: () => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const visibleCount = unreadCount > 99 ? '99+' : String(unreadCount);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        width: 42,
+        height: 42,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.background,
+        opacity: pressed ? 0.82 : 1,
+      })}
+    >
+      <Bell color={colors.text} size={21} strokeWidth={2.25} />
+      {unreadCount > 0 ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: -3,
+            right: -5,
+            minWidth: 20,
+            height: 20,
+            paddingHorizontal: spacing.xs,
+            borderRadius: 999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.danger,
+            borderWidth: 2,
+            borderColor: colors.background,
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: typography.caption - 1, fontWeight: '800' }}>
+            {visibleCount}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -270,6 +327,7 @@ export function RootNavigator() {
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
   const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
   const pagerRef = useRef<ScrollView>(null);
@@ -480,6 +538,34 @@ export function RootNavigator() {
     restoreSnapshot(resolvedRedirectTarget);
   }, [currentRoute, isAuthenticated, resolvedRedirectTarget, restoreSnapshot]);
 
+  const syncNotificationBadge = useCallback(async () => {
+    if (!isAuthenticated) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    try {
+      const notifications = await notificationService.getNotifications(1);
+      setUnreadNotificationCount(notifications.filter((notification) => !notification.isRead).length);
+    } catch {
+      // Keep the last visible badge count; notification screen surfaces load failures directly.
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    void syncNotificationBadge();
+    const intervalId = setInterval(() => {
+      void syncNotificationBadge();
+    }, NOTIFICATION_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, syncNotificationBadge]);
+
   const handleLogout = async () => {
     await logout();
   };
@@ -487,6 +573,10 @@ export function RootNavigator() {
   const handleOpenStoryDetail = (storyId: string) => {
     navigateToSnapshot({ route: ROUTES.STORY_DETAIL, storyId });
   };
+
+  const handleNotificationsChanged = useCallback((notifications: NotificationEntity[]) => {
+    setUnreadNotificationCount(notifications.filter((notification) => !notification.isRead).length);
+  }, []);
 
   const handleStoryInteractionUpdated = useCallback(
     (update: { storyId: string } & FeedStoryInteractionUpdate) => {
@@ -581,6 +671,27 @@ export function RootNavigator() {
           description="Authenticated submission flow is ready for future form work."
         >
           <SubmissionScreen />
+        </ScreenShell>
+      </ProtectedScreen>
+    );
+  } else if (currentRoute === ROUTES.NOTIFICATIONS) {
+    content = (
+      <ProtectedScreen
+        title="Notifications require sign-in"
+        description="Sign in to view notifications."
+        onAuthenticated={handleLoginComplete}
+      >
+        <ScreenShell
+          title="Notifications"
+          description="Recent activity and account updates."
+          framed={false}
+          fillContent
+        >
+          <NotificationScreen
+            onOpenStory={handleOpenStoryDetail}
+            onOpenProfile={() => navigateToSnapshot({ route: ROUTES.PROFILE })}
+            onNotificationsChanged={handleNotificationsChanged}
+          />
         </ScreenShell>
       </ProtectedScreen>
     );
@@ -695,7 +806,13 @@ export function RootNavigator() {
             </View>
           )}
           {isAuthenticated ? (
-            <TopIconButton label={currentRoute === ROUTES.PROFILE ? 'You' : 'Profile'} onPress={() => handleNavigate(ROUTES.PROFILE)} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <NotificationBellButton
+                unreadCount={unreadNotificationCount}
+                onPress={() => handleNavigate(ROUTES.NOTIFICATIONS)}
+              />
+              <TopIconButton label={currentRoute === ROUTES.PROFILE ? 'You' : 'Profile'} onPress={() => handleNavigate(ROUTES.PROFILE)} />
+            </View>
           ) : (
             <TopIconButton label="Login" onPress={() => handleNavigate(ROUTES.AUTH)} />
           )}

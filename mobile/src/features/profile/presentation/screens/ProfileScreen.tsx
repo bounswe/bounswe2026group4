@@ -10,6 +10,7 @@ import { Button, EmptyState, ErrorState, Input, Loader, Skeleton } from '../../.
 import { useToast } from '../../../../shared/hooks/useToast';
 import { authService } from '../../../auth/application/services';
 import { useAuth } from '../../../auth';
+import { NotificationPreferencesSection } from '../../../notifications';
 import { interactionService } from '../../../interactions/application/services';
 import { FeedCard } from '../../../feed/presentation/components/FeedCard';
 import { FeedEntity, FeedPageEntity } from '../../../feed/domain/entities';
@@ -1788,6 +1789,7 @@ export function ProfileScreen({
               </>
             ) : (
               <>
+                <NotificationPreferencesSection />
                 <Button variant="outline" onPress={() => void logout()}>
                   Sign out
                 </Button>
