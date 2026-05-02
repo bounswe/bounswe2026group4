@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { MapScreen } from '../MapScreen';
 import { MapMarkerGroup } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
@@ -134,6 +134,39 @@ const markerGroups: MapMarkerGroup[] = [
   },
 ];
 
+const refreshedMarkerGroups: MapMarkerGroup[] = [
+  {
+    id: '41.32:29.02',
+    latitude: 41.32,
+    longitude: 29.02,
+    count: 1,
+    isCluster: false,
+    stories: [
+      {
+        id: 'story-004',
+        title: 'A Different Hilltop',
+        placeName: 'Uskudar Ridge',
+        timePeriod: '1970s',
+        previewText: 'Families watched the city lights arrive one by one.',
+        latitude: 41.32,
+        longitude: 29.02,
+      },
+    ],
+  },
+];
+
+function getRenderedMapRegion() {
+  const label = screen.getByTestId('map-region-props').props.accessibilityLabel as string;
+  const [, latitude, longitude, latitudeDelta, longitudeDelta] = label.split(':');
+
+  return {
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    latitudeDelta: Number(latitudeDelta),
+    longitudeDelta: Number(longitudeDelta),
+  };
+}
+
 describe('MapScreen', () => {
   beforeEach(async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
@@ -251,6 +284,99 @@ describe('MapScreen', () => {
       expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0192:28.96735:');
       expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain(':0.06');
     });
+  });
+
+  it('zooms to selected location bounds when a location filter returns stories', async () => {
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
+
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      const region = getRenderedMapRegion();
+
+      expect(region.latitude).toBeCloseTo(41.025);
+      expect(region.longitude).toBeCloseTo(28.965);
+      expect(region.latitudeDelta).toBeCloseTo(0.0575);
+      expect(region.longitudeDelta).toBeCloseTo(0.0575);
+    });
+  });
+
+  it('keeps the current map view when a location filter has no stories', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockImplementation(async (filters) =>
+      filters?.location ? [] : markerGroups,
+    );
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    await waitFor(() => {
+      const initialRegion = getRenderedMapRegion();
+
+      expect(initialRegion.latitude).toBeCloseTo(41.0192);
+      expect(initialRegion.longitude).toBeCloseTo(28.96735);
+    });
+
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    expect(await screen.findByText('No stories found in Golden Horn')).toBeTruthy();
+    const region = getRenderedMapRegion();
+
+    expect(region.latitude).toBeCloseTo(41.0192);
+    expect(region.longitude).toBeCloseTo(28.96735);
+    expect(region.latitudeDelta).toBeCloseTo(0.06);
+    expect(region.longitudeDelta).toBeCloseTo(0.06);
+  });
+
+  it('keeps a manually adjusted map view when markers refresh in the same context', async () => {
+    const getMarkerGroups = jest
+      .fn<Promise<MapMarkerGroup[]>, [any]>()
+      .mockResolvedValueOnce(markerGroups)
+      .mockResolvedValueOnce(refreshedMarkerGroups);
+    let refreshHandler: (() => Promise<void>) | null = null;
+
+    renderScreen(
+      <MapScreen
+        getMarkerGroups={getMarkerGroups}
+        onRegisterRefresh={(handler) => {
+          refreshHandler = handler;
+        }}
+      />,
+    );
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getByTestId('map-region-empty'));
+    await waitFor(() => {
+      const manualRegion = getRenderedMapRegion();
+
+      expect(manualRegion.latitude).toBeCloseTo(40.5);
+      expect(manualRegion.longitude).toBeCloseTo(29.8);
+      expect(manualRegion.latitudeDelta).toBeCloseTo(0.02);
+      expect(manualRegion.longitudeDelta).toBeCloseTo(0.02);
+    });
+
+    await act(async () => {
+      await refreshHandler?.();
+    });
+
+    await waitFor(() => {
+      expect(getMarkerGroups).toHaveBeenCalledTimes(2);
+    });
+    const refreshedRegion = getRenderedMapRegion();
+
+    expect(refreshedRegion.latitude).toBeCloseTo(40.5);
+    expect(refreshedRegion.longitude).toBeCloseTo(29.8);
+    expect(refreshedRegion.latitudeDelta).toBeCloseTo(0.02);
+    expect(refreshedRegion.longitudeDelta).toBeCloseTo(0.02);
   });
 
   it('keeps unapplied location filters disabled when the place cannot be found', async () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -41,10 +41,6 @@ export function MapCard({
   const { colors, spacing, typography } = useAppTheme();
   const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : undefined;
   const [currentRegion, setCurrentRegion] = useState(region);
-  const mapContentKey = useMemo(
-    () => (markers.length ? markers.map((marker) => `${marker.id}:${marker.latitude}:${marker.longitude}`).join('|') : 'empty'),
-    [markers],
-  );
 
   useEffect(() => {
     if (fitToMarkers) {
@@ -77,9 +73,9 @@ export function MapCard({
     >
       <View style={{ height: 420 }}>
         <WebMapView
-          key={mapContentKey}
           region={currentRegion}
           userLocation={userLocation}
+          transitionDurationMs={450}
           markers={markers.map((marker) => ({
             id: marker.id,
             latitude: marker.latitude,

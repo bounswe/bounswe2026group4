@@ -32,6 +32,11 @@ const ISTANBUL_REGION: Region = {
 
 const MIN_FIT_DELTA = 0.06;
 const FIT_PADDING_FACTOR = 2.6;
+const MIN_LOCATION_DELTA = 0.02;
+const LOCATION_BOUNDS_PADDING_FACTOR = 1.15;
+const PROXIMITY_PADDING_FACTOR = 2.4;
+const KILOMETERS_PER_LATITUDE_DEGREE = 111;
+const MAX_AUTO_REGION_DELTA = 20;
 type StatusIndicatorMode = 'hidden' | 'filters' | 'area';
 
 export function MapScreen({
@@ -48,10 +53,12 @@ export function MapScreen({
   const debouncedQuery = useDebounce(filters.query, 350);
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [state, setState] = useState<MapUiState>(() => createInitialMapUiState(initialFilters));
+  const [mapRegion, setMapRegion] = useState<Region>(ISTANBUL_REGION);
   const [mapCardTop, setMapCardTop] = useState(0);
   const [visibleRegion, setVisibleRegion] = useState<Region | undefined>();
   const [hasInteractedWithArea, setHasInteractedWithArea] = useState(false);
   const [statusIndicatorMode, setStatusIndicatorMode] = useState<StatusIndicatorMode>('hidden');
+  const lastAutoZoomContextKeyRef = useRef<string | null>(null);
   const previewOffsetRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -81,6 +88,7 @@ export function MapScreen({
       activeFilters.yearTo ||
       activeFilters.radiusKm,
   );
+  const autoZoomContextKey = useMemo(() => buildAutoZoomContextKey(activeFilters), [activeFilters]);
 
   const loadMarkers = React.useCallback(async () => {
     setState((current) => ({
@@ -93,6 +101,7 @@ export function MapScreen({
     try {
       const markers = await getMarkerGroups(activeFilters);
       const selectedMarkerId = getPreferredMarkerId(markers, activeFilters);
+      const nextAutoRegion = getAutoZoomRegion(markers, activeFilters);
 
       setState({
         isLoading: false,
@@ -101,6 +110,11 @@ export function MapScreen({
         markers,
         selectedMarkerId,
       });
+
+      if (nextAutoRegion && lastAutoZoomContextKeyRef.current !== autoZoomContextKey) {
+        lastAutoZoomContextKeyRef.current = autoZoomContextKey;
+        setMapRegion(nextAutoRegion);
+      }
     } catch (error) {
       setState({
         isLoading: false,
@@ -110,7 +124,7 @@ export function MapScreen({
         selectedMarkerId: undefined,
       });
     }
-  }, [activeFilters, getMarkerGroups]);
+  }, [activeFilters, autoZoomContextKey, getMarkerGroups]);
 
   useEffect(() => {
     if (!isHydrated) {
@@ -169,10 +183,6 @@ export function MapScreen({
     [state.markers],
   );
 
-  const mapRegion = useMemo(
-    () => getRegionForMarkers(state.markers, ISTANBUL_REGION),
-    [state.markers],
-  );
   const userLocation = filters.proximityRadiusKm && filters.proximityCoordinates ? filters.proximityCoordinates : undefined;
   const fitToMarkers = state.markers.length > 0 && (!state.selectedMarkerId || hasActiveFilters);
 
@@ -245,6 +255,7 @@ export function MapScreen({
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
           onMarkerPress={handleMarkerPreviewRequest}
           onRegionChangeComplete={(region) => {
+            setMapRegion(region);
             setVisibleRegion(region);
             setHasInteractedWithArea(true);
             setStatusIndicatorMode('area');
@@ -336,11 +347,43 @@ function formatStoryCount(count: number) {
   return `${count} ${count === 1 ? 'story' : 'stories'}`;
 }
 
-function getRegionForMarkers(markers: MapMarkerGroup[], fallbackRegion: Region): Region {
+function buildAutoZoomContextKey(filters: StoryFilters) {
+  return JSON.stringify({
+    q: filters.q ?? '',
+    location: filters.location ?? '',
+    locationBounds: filters.locationBounds
+      ? [
+          filters.locationBounds.latMin,
+          filters.locationBounds.latMax,
+          filters.locationBounds.lngMin,
+          filters.locationBounds.lngMax,
+        ]
+      : null,
+    yearFrom: filters.yearFrom ?? null,
+    yearTo: filters.yearTo ?? null,
+    latitude: filters.latitude ?? null,
+    longitude: filters.longitude ?? null,
+    radiusKm: filters.radiusKm ?? null,
+  });
+}
+
+function getAutoZoomRegion(markers: MapMarkerGroup[], filters: StoryFilters): Region | undefined {
   if (!markers.length) {
-    return fallbackRegion;
+    return undefined;
   }
 
+  if (filters.locationBounds) {
+    return getRegionForLocationBounds(filters.locationBounds);
+  }
+
+  if (filters.latitude !== undefined && filters.longitude !== undefined && filters.radiusKm !== undefined) {
+    return getRegionForProximityFilter(filters.latitude, filters.longitude, filters.radiusKm);
+  }
+
+  return getRegionForMarkers(markers);
+}
+
+function getRegionForMarkers(markers: MapMarkerGroup[]): Region {
   const latitudes = markers.map((marker) => marker.latitude);
   const longitudes = markers.map((marker) => marker.longitude);
   const minLatitude = Math.min(...latitudes);
@@ -354,4 +397,35 @@ function getRegionForMarkers(markers: MapMarkerGroup[], fallbackRegion: Region):
     latitudeDelta: Math.max((maxLatitude - minLatitude) * FIT_PADDING_FACTOR, MIN_FIT_DELTA),
     longitudeDelta: Math.max((maxLongitude - minLongitude) * FIT_PADDING_FACTOR, MIN_FIT_DELTA),
   };
+}
+
+function getRegionForLocationBounds(bounds: NonNullable<StoryFilters['locationBounds']>): Region {
+  const minLatitude = Math.min(bounds.latMin, bounds.latMax);
+  const maxLatitude = Math.max(bounds.latMin, bounds.latMax);
+  const minLongitude = Math.min(bounds.lngMin, bounds.lngMax);
+  const maxLongitude = Math.max(bounds.lngMin, bounds.lngMax);
+
+  return {
+    latitude: (minLatitude + maxLatitude) / 2,
+    longitude: (minLongitude + maxLongitude) / 2,
+    latitudeDelta: clampRegionDelta((maxLatitude - minLatitude) * LOCATION_BOUNDS_PADDING_FACTOR, MIN_LOCATION_DELTA),
+    longitudeDelta: clampRegionDelta((maxLongitude - minLongitude) * LOCATION_BOUNDS_PADDING_FACTOR, MIN_LOCATION_DELTA),
+  };
+}
+
+function getRegionForProximityFilter(latitude: number, longitude: number, radiusKm: number): Region {
+  const latitudeDelta = (radiusKm / KILOMETERS_PER_LATITUDE_DEGREE) * PROXIMITY_PADDING_FACTOR;
+  const longitudeDegreesPerKm = KILOMETERS_PER_LATITUDE_DEGREE * Math.max(Math.cos((latitude * Math.PI) / 180), 0.2);
+  const longitudeDelta = (radiusKm / longitudeDegreesPerKm) * PROXIMITY_PADDING_FACTOR;
+
+  return {
+    latitude,
+    longitude,
+    latitudeDelta: clampRegionDelta(latitudeDelta, MIN_LOCATION_DELTA),
+    longitudeDelta: clampRegionDelta(longitudeDelta, MIN_LOCATION_DELTA),
+  };
+}
+
+function clampRegionDelta(value: number, minimum: number) {
+  return Math.min(Math.max(value, minimum), MAX_AUTO_REGION_DELTA);
 }
