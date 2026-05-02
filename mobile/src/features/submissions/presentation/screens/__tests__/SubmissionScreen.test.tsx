@@ -284,6 +284,8 @@ describe('SubmissionScreen', () => {
     } finally {
       scrollToSpy.mockRestore();
     }
+  });
+
   it('submits specific date stories with optional time and EDTF temporal coverage', async () => {
     (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
     renderSubmissionScreen();

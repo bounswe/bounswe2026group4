@@ -35,6 +35,7 @@ function formatSubmittedAt(value: string) {
 export function FeedCard({
   story,
   onPress,
+  onTagPress,
   onBookmarkPress,
   isBookmarkPending = false,
   bookmarkAccessibilityLabel,
