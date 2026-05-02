@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+
 from rest_framework import serializers
 
 from apps.users.models import Follow, User
@@ -80,7 +82,7 @@ class CurrentUserProfileSerializer(serializers.Serializer):
     first_name = serializers.CharField(allow_blank=True)
     last_name = serializers.CharField(allow_blank=True)
     location = serializers.CharField(allow_blank=True)
-    birth_date = serializers.DateField()
+    birth_date = serializers.DateField(allow_null=True)
     bio = serializers.CharField(allow_blank=True)
     is_name_public = serializers.BooleanField()
     is_location_public = serializers.BooleanField()
@@ -275,3 +277,24 @@ class FollowedUserSerializer(serializers.Serializer):
                 return request.build_absolute_uri(profile.profile_photo.url)
             return profile.profile_photo.url
         return None
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    new_password = serializers.CharField(write_only=True)
+    new_password_confirmation = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password_confirmation']:
+            raise serializers.ValidationError(
+                {'new_password_confirmation': 'Passwords do not match.'}
+            )
+        return attrs
