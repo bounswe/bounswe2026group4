@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { MapScreen } from '../MapScreen';
 import { MapMarkerGroup } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
+import { storageKeys } from '../../../../../core/storage/keys';
 import { storage } from '../../../../../core/storage/storage';
 import { geocodeLocationQuery, searchLocationSuggestions } from '../../../../search/application/services';
 
@@ -21,6 +22,7 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
     WebMapView: ({
       region,
       markers = [],
+      userLocation,
       onMarkerPress,
       onRegionChangeComplete,
     }: {
@@ -31,6 +33,10 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
         longitudeDelta: number;
       };
       markers?: Array<{ id: string }>;
+      userLocation?: {
+        latitude: number;
+        longitude: number;
+      };
       onMarkerPress?: (markerId: string) => void;
       onRegionChangeComplete?: (region: {
         latitude: number;
@@ -44,6 +50,12 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
           testID="map-region-props"
           accessibilityLabel={`region:${region?.latitude}:${region?.longitude}:${region?.latitudeDelta}:${region?.longitudeDelta}`}
         />
+        {userLocation ? (
+          <View
+            testID="user-location-marker"
+            accessibilityLabel={`user-location:${userLocation.latitude}:${userLocation.longitude}`}
+          />
+        ) : null}
         <Pressable
           testID="map-region-change"
           onPress={() =>
@@ -308,6 +320,50 @@ describe('MapScreen', () => {
     fireEvent.press(screen.getByTestId('map-region-change'));
 
     expect(await screen.findByText('1 story found in this area')).toBeTruthy();
+  });
+
+  it('shows the user location marker when proximity filters are active', async () => {
+    await storage.set(storageKeys.mapSearchFilters, {
+      query: '',
+      location: '',
+      proximityRadiusKm: 10,
+      proximityCoordinates: {
+        latitude: 41.0082,
+        longitude: 28.9784,
+      },
+      timeFrom: '',
+      timeTo: '',
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-location-marker').props.accessibilityLabel).toBe('user-location:41.0082:28.9784');
+    });
+  });
+
+  it('hides the user location marker when proximity filter is anywhere even if old coordinates remain', async () => {
+    await storage.set(storageKeys.mapSearchFilters, {
+      query: '',
+      location: '',
+      proximityRadiusKm: undefined,
+      proximityCoordinates: {
+        latitude: 41.0082,
+        longitude: 28.9784,
+      },
+      timeFrom: '',
+      timeTo: '',
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('user-location-marker')).toBeNull();
+    });
   });
 
   it('refetches all markers when a chip filter is removed', async () => {
