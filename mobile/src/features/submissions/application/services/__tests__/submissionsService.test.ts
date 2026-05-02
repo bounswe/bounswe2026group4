@@ -103,8 +103,7 @@ describe('submissionsService', () => {
       placeName: 'Ankara',
       timeType: 'exact_date',
       dateValue: '1923-10-29',
-      timeValue: '09:30',
-      temporalCoverage: '1923-10-29T09:30',
+      timeValue: '9:30',
       tags: [],
       contributorVisible: true,
     });

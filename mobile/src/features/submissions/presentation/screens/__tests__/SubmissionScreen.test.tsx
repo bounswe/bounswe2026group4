@@ -225,7 +225,7 @@ describe('SubmissionScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Specific date day'), '29');
     fireEvent.changeText(screen.getByLabelText('Specific date month'), '10');
     fireEvent.changeText(screen.getByLabelText('Specific date year'), '1923');
-    fireEvent.changeText(screen.getByLabelText('Optional specific time'), '09:30');
+    fireEvent.changeText(screen.getByLabelText('Optional specific time'), '9:30');
 
     fireEvent.press(screen.getByText('Submit story'));
 

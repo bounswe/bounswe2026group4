@@ -1,6 +1,6 @@
 import { apiClient } from '../../../../core/api/client';
 import { endpoints } from '../../../../core/api/endpoints';
-import { buildEdtfTemporalCoverage, type StoryTimeType } from './temporal';
+import { buildEdtfTemporalCoverage, normalizeTimeValue, type StoryTimeType } from './temporal';
 
 export type { StoryTimeType } from './temporal';
 export { buildDateValueFromParts, buildEdtfTemporalCoverage, normalizeTimeValue } from './temporal';
@@ -50,6 +50,14 @@ interface StoryCreateResponse {
 
 function buildStoryFormData(input: CreateStoryInput) {
   const formData = new FormData();
+  const hasExactDateTimeValue = input.timeType === 'exact_date' && Boolean(input.timeValue?.trim());
+  const normalizedExactDateTimeValue = hasExactDateTimeValue
+    ? normalizeTimeValue(input.timeValue ?? '')
+    : undefined;
+
+  if (hasExactDateTimeValue && !normalizedExactDateTimeValue) {
+    throw new Error('timeValue must use HH:MM format.');
+  }
 
   formData.append('title', input.title.trim());
   formData.append('narrative', input.narrative.trim());
@@ -66,7 +74,7 @@ function buildStoryFormData(input: CreateStoryInput) {
         yearStart: input.yearStart,
         yearEnd: input.yearEnd,
         dateValue: input.dateValue,
-        timeValue: input.timeValue,
+        timeValue: normalizedExactDateTimeValue ?? input.timeValue,
       }),
   );
   formData.append('contributor_visible', input.contributorVisible ? 'true' : 'false');
@@ -75,8 +83,8 @@ function buildStoryFormData(input: CreateStoryInput) {
     if (input.dateValue) {
       formData.append('date_value', input.dateValue);
     }
-    if (input.timeValue) {
-      formData.append('time_value', input.timeValue);
+    if (normalizedExactDateTimeValue) {
+      formData.append('time_value', normalizedExactDateTimeValue);
     }
   } else if (input.timeType === 'year_range') {
     if (typeof input.yearStart === 'number') {

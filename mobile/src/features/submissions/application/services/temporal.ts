@@ -17,13 +17,37 @@ function padTwoDigits(value: string) {
   return value.trim().padStart(2, '0');
 }
 
+function parseTimeValue(value: string) {
+  const match = /^(\d{1,2}):([0-5]\d)$/.exec(value.trim());
+
+  if (!match) {
+    return undefined;
+  }
+
+  const hour = Number(match[1]);
+
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    return undefined;
+  }
+
+  return {
+    hour: String(hour).padStart(2, '0'),
+    minute: match[2],
+  };
+}
+
 export function isValidDateValue(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
   }
 
   const [year, month, day] = value.split('-').map((part) => Number(part));
+  if (year < 1) {
+    return false;
+  }
+
   const parsedDate = new Date(Date.UTC(year, month - 1, day, 12));
+  parsedDate.setUTCFullYear(year);
 
   return (
     Number.isFinite(parsedDate.getTime()) &&
@@ -34,7 +58,7 @@ export function isValidDateValue(value: string) {
 }
 
 export function isValidTimeValue(value: string) {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  return parseTimeValue(value) !== undefined;
 }
 
 export function buildDateValueFromParts(day: string, month: string, year: string) {
@@ -45,13 +69,13 @@ export function buildDateValueFromParts(day: string, month: string, year: string
 }
 
 export function normalizeTimeValue(value: string) {
-  const trimmedValue = value.trim();
+  const parsedTime = parseTimeValue(value);
 
-  if (!trimmedValue) {
+  if (!parsedTime) {
     return undefined;
   }
 
-  return isValidTimeValue(trimmedValue) ? trimmedValue : undefined;
+  return `${parsedTime.hour}:${parsedTime.minute}`;
 }
 
 export function buildEdtfTemporalCoverage(input: StoryTemporalCoverageInput) {
@@ -65,7 +89,7 @@ export function buildEdtfTemporalCoverage(input: StoryTemporalCoverageInput) {
       if (!isFiniteNumber(input.year)) {
         throw new Error('year is required for approximate_year.');
       }
-      return `~${input.year}`;
+      return `${input.year}~`;
     case 'decade':
       if (!isFiniteNumber(input.year)) {
         throw new Error('year is required for decade.');
@@ -81,10 +105,11 @@ export function buildEdtfTemporalCoverage(input: StoryTemporalCoverageInput) {
         throw new Error('dateValue is required for exact_date.');
       }
       if (input.timeValue) {
-        if (!isValidTimeValue(input.timeValue)) {
+        const normalizedTimeValue = normalizeTimeValue(input.timeValue);
+        if (!normalizedTimeValue) {
           throw new Error('timeValue must use HH:MM format.');
         }
-        return `${input.dateValue}T${input.timeValue}`;
+        return `${input.dateValue}T${normalizedTimeValue}`;
       }
       return input.dateValue;
     default:
