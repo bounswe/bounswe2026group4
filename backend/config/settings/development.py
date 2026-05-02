@@ -15,8 +15,8 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
 }
 
-# Print emails to the console instead of sending them
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Console backend by default in dev; override via EMAIL_BACKEND env var to test real delivery
+EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')  # noqa: F405
 
 # Allow the local Vite dev server to call the API
 CORS_ALLOWED_ORIGINS = [
