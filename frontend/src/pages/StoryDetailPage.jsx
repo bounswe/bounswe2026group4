@@ -324,7 +324,7 @@ function StoryDetailPage() {
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
                               <Music className="h-4 w-4 text-primary" aria-hidden="true" />
                             </div>
-                            <span className="text-sm font-medium">{story.title}</span>
+                            <span className="text-sm font-medium">{story.title} {idx + 1}</span>
                           </div>
                           <audio
                             src={aud.url}

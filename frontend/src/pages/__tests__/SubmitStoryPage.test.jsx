@@ -251,9 +251,9 @@ describe("SubmitStoryPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Remove image 1" }));
 
-    // After removing index 0, the remaining image re-indexes to Preview 1
+    // After removing index 0, the remaining image re-indexes to Preview 1 with the second file's blob URL
     expect(screen.getAllByAltText(/^Preview \d+$/).length).toBe(1);
-    expect(screen.getByAltText("Preview 1")).toBeInTheDocument();
+    expect(screen.getByAltText("Preview 1")).toHaveAttribute("src", "blob:fake-2");
 
     URL.createObjectURL.mockRestore();
     URL.revokeObjectURL.mockRestore();
