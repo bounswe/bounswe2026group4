@@ -18,6 +18,7 @@ describe('story mappers', () => {
       tags: ['Walls', 'Conquest'],
       like_count: 7,
       user_has_liked: true,
+      user_has_saved: true,
       media_items: [
         {
           id: 1,
@@ -46,9 +47,18 @@ describe('story mappers', () => {
       submittedAt: '2026-03-18T10:00:00Z',
       mediaUrl: 'https://example.com/photo.jpg',
       mediaAltText: 'Stone city walls at sunset',
+      mediaItems: [
+        {
+          id: '1',
+          type: 'image',
+          url: 'https://example.com/photo.jpg',
+          altText: 'Stone city walls at sunset',
+        },
+      ],
       tags: ['Walls', 'Conquest'],
       likeCount: 7,
       likedByViewer: true,
+      savedByViewer: true,
       comments: [],
     });
   });
@@ -72,7 +82,37 @@ describe('story mappers', () => {
     expect(result.contributorName).toBe('Anonymous');
     expect(result.isContributorAnonymous).toBe(false);
     expect(result.mediaUrl).toBeUndefined();
+    expect(result.mediaItems).toEqual([]);
     expect(result.tags).toEqual([]);
+  });
+
+  it('maps image, audio, and video media items in display order', () => {
+    const result = mapStory({
+      id: 55,
+      user: 7,
+      title: 'Mixed Media Memory',
+      narrative: 'A private contribution.',
+      status: 'published',
+      location_name: 'Kadikoy',
+      location_lat: '40.9903',
+      location_lng: '29.0290',
+      time_type: 'exact_year',
+      year: 1984,
+      contributor_name: 'Aylin',
+      submitted_at: '2026-03-18T10:00:00Z',
+      media_items: [
+        { id: 3, media_type: 'video', url: 'https://example.com/story.mp4', order: 2 },
+        { id: 1, media_type: 'image', url: 'https://example.com/story.jpg', alt_text: 'Story photo', order: 0 },
+        { id: 2, media_type: 'audio', url: 'https://example.com/story.mp3', order: 1 },
+      ],
+    });
+
+    expect(result.mediaItems).toEqual([
+      { id: '1', type: 'image', url: 'https://example.com/story.jpg', altText: 'Story photo' },
+      { id: '2', type: 'audio', url: 'https://example.com/story.mp3', altText: undefined },
+      { id: '3', type: 'video', url: 'https://example.com/story.mp4', altText: undefined },
+    ]);
+    expect(result.mediaUrl).toBe('https://example.com/story.jpg');
   });
 
   it('maps normalized anonymous stories with the anonymous contributor label', () => {
@@ -98,7 +138,30 @@ describe('story mappers', () => {
     expect(result.timePeriod).toBe('1980/1989');
     expect(result.temporalCoverageIso8601).toBe('1980/1989');
     expect(result.mediaUrl).toBeUndefined();
+    expect(result.mediaItems).toEqual([]);
     expect(result.tags).toEqual([]);
+  });
+
+  it('treats contributor visibility off as anonymous profile-hidden story', () => {
+    const result = mapStory({
+      id: 54,
+      user: 7,
+      title: 'Visibility Off',
+      narrative: 'A private contribution.',
+      status: 'published',
+      location_name: 'Kadikoy',
+      location_lat: '40.9903',
+      location_lng: '29.0290',
+      time_type: 'exact_year',
+      year: 1984,
+      contributor_visible: false,
+      contributor_name: null,
+      submitted_at: '2026-03-18T10:00:00Z',
+    });
+
+    expect(result.contributorName).toBe('Anonymous');
+    expect(result.isContributorAnonymous).toBe(true);
+    expect(result.contributorUserId).toBe('7');
   });
 
   it('maps backend comments into the mobile comment shape', () => {

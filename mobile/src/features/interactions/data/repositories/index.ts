@@ -25,4 +25,12 @@ export class InteractionRepositoryImpl implements InteractionRepository {
   async unlikeStory(storyId: string): Promise<void> {
     await interactionsRemoteSource.unlikeStory(storyId);
   }
+
+  async bookmarkStory(storyId: string): Promise<void> {
+    await interactionsRemoteSource.bookmarkStory(storyId);
+  }
+
+  async unbookmarkStory(storyId: string): Promise<void> {
+    await interactionsRemoteSource.unbookmarkStory(storyId);
+  }
 }

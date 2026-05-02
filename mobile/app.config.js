@@ -8,6 +8,11 @@ module.exports = () => {
 
   return {
     ...expoConfig,
+    plugins: [
+      ...(expoConfig.plugins ?? []),
+      'expo-video',
+      'expo-audio',
+    ],
     android: {
       ...androidConfig,
       config: {

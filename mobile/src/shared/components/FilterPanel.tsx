@@ -11,6 +11,19 @@ export const DEFAULT_TO_YEAR = '2026';
 export const MIN_YEAR = 1000;
 export const MAX_YEAR = 2030;
 export type ProximityRadiusOption = 1 | 10 | 100;
+export interface LocationFilterSuggestion {
+  id: string;
+  title: string;
+  subtitle?: string;
+  latitude: number;
+  longitude: number;
+  bounds?: {
+    latMin: number;
+    latMax: number;
+    lngMin: number;
+    lngMax: number;
+  };
+}
 
 const PROXIMITY_OPTIONS: Array<{ label: string; value?: ProximityRadiusOption }> = [
   { label: 'Anywhere' },
@@ -58,6 +71,8 @@ interface FilterPanelProps {
   tagOptions?: SearchTag[];
   isTagsLoading?: boolean;
   onLocationChange: (value: string) => void;
+  locationSuggestions?: LocationFilterSuggestion[];
+  onLocationSuggestionPress?: (suggestion: LocationFilterSuggestion) => void;
   onTimeFromChange: (value: string) => void;
   onTimeToChange: (value: string) => void;
   onTagQueryChange?: (value: string) => void;
@@ -85,6 +100,8 @@ export function FilterPanel({
   tagOptions = [],
   isTagsLoading = false,
   onLocationChange,
+  locationSuggestions = [],
+  onLocationSuggestionPress,
   onTimeFromChange,
   onTimeToChange,
   onTagQueryChange,
@@ -192,6 +209,41 @@ export function FilterPanel({
           >
             {locationStatusText}
           </Text>
+        ) : null}
+        {locationSuggestions.length ? (
+          <View
+            testID="location-filter-suggestions"
+            style={{
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.background,
+              overflow: 'hidden',
+            }}
+          >
+            {locationSuggestions.map((suggestion, index) => (
+              <Pressable
+                key={suggestion.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Select location ${suggestion.title}`}
+                onPress={() => onLocationSuggestionPress?.(suggestion)}
+                style={({ pressed }) => ({
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm + 2,
+                  borderTopWidth: index === 0 ? 0 : 1,
+                  borderTopColor: colors.border,
+                  backgroundColor: pressed ? colors.infoSurface : colors.background,
+                })}
+              >
+                <Text style={{ color: colors.text, fontWeight: '700' }}>{suggestion.title}</Text>
+                {suggestion.subtitle ? (
+                  <Text numberOfLines={2} style={{ marginTop: 2, color: colors.muted, fontSize: typography.caption }}>
+                    {suggestion.subtitle}
+                  </Text>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
         ) : null}
       </View>
 

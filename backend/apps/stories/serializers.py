@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from apps.media.models import MediaItem
+from apps.media.models import MediaItem, MediaType
 from apps.stories.models import Story
 from apps.stories.services import create_story, update_story
 from apps.stories.temporal import to_edtf, to_iso8601
@@ -254,6 +254,8 @@ class StoryFeedSerializer(serializers.ModelSerializer):
             'status',
             'contributor_name',
             'preview_text',
+            'like_count',
+            'save_count',
             'user_has_liked',
             'user_has_saved',
             'submitted_at',
@@ -328,6 +330,12 @@ class FeedQuerySerializer(serializers.Serializer):
     # Maximum of 500 km — uncapped radius would force a full table scan into memory.
     radius_km = serializers.FloatField(required=False, min_value=0.001, max_value=500.0)
 
+    # Bounding box filter — all four are independently optional
+    lat_min = serializers.FloatField(required=False, min_value=-90, max_value=90)
+    lat_max = serializers.FloatField(required=False, min_value=-90, max_value=90)
+    lng_min = serializers.FloatField(required=False, min_value=-180, max_value=180)
+    lng_max = serializers.FloatField(required=False, min_value=-180, max_value=180)
+
     def validate(self, data):
         year_from = data.get('year_from')
         year_to = data.get('year_to')
@@ -343,6 +351,18 @@ class FeedQuerySerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {f: 'Required when performing radius filtering.' for f in missing}
             )
+
+        if data.get('lat_min') is not None and data.get('lat_max') is not None:
+            if data['lat_min'] > data['lat_max']:
+                raise serializers.ValidationError(
+                    {'lat_max': 'lat_max must be greater than or equal to lat_min.'}
+                )
+
+        if data.get('lng_min') is not None and data.get('lng_max') is not None:
+            if data['lng_min'] > data['lng_max']:
+                raise serializers.ValidationError(
+                    {'lng_max': 'lng_max must be greater than or equal to lng_min.'}
+                )
 
         return data
 
@@ -392,3 +412,96 @@ class SearchQuerySerializer(FeedQuerySerializer):
 
     # strip_whitespace=True (default) means a whitespace-only value becomes '' and fails min_length
     q = serializers.CharField(required=True, min_length=1)
+
+
+class TimelineQuerySerializer(serializers.Serializer):
+    """
+    Validates query parameters for the story timeline endpoint.
+
+    All fields are optional. year_from/year_to use interval-overlap semantics so
+    decade and year_range stories are correctly included when their period intersects
+    the requested window (see get_story_timeline service for details).
+
+    lat_min/lat_max/lng_min/lng_max define a bounding box. All four must be
+    supplied together or not at all.
+
+    has_image=true restricts results to stories that have at least one image
+    media item attached; omitting it returns all stories regardless of media.
+    """
+
+    year_from = serializers.IntegerField(required=False)
+    year_to = serializers.IntegerField(required=False)
+    lat_min = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
+    lat_max = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
+    lng_min = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
+    lng_max = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
+    has_image = serializers.BooleanField(required=False, allow_null=True, default=None)
+
+    def validate(self, data):
+        year_from = data.get('year_from')
+        year_to = data.get('year_to')
+        if year_from is not None and year_to is not None and year_from > year_to:
+            raise serializers.ValidationError(
+                {'year_to': 'year_to must be greater than or equal to year_from.'}
+            )
+
+        bbox_fields = {'lat_min', 'lat_max', 'lng_min', 'lng_max'}
+        provided = {k for k in bbox_fields if data.get(k) is not None}
+        if provided and provided != bbox_fields:
+            missing = bbox_fields - provided
+            raise serializers.ValidationError(
+                {f: 'Required when performing bounding-box filtering.' for f in missing}
+            )
+
+        return data
+
+
+class StoryTimelineSerializer(serializers.ModelSerializer):
+    """
+    Minimal read-only serializer for timeline cards.
+
+    Returns only the fields needed to render a story on the timeline: identity,
+    title, all time fields (including EDTF temporal_coverage), coordinates, and
+    a representative photo URL. Feed-specific fields (preview_text,
+    contributor_name, like/save state, status, submitted_at) are intentionally
+    excluded.
+    """
+
+    photo_url = serializers.SerializerMethodField()
+    temporal_coverage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Story
+        fields = [
+            'id',
+            'title',
+            'time_type',
+            'year',
+            'year_start',
+            'year_end',
+            'date_value',
+            'time_value',
+            'temporal_coverage',
+            'location_lat',
+            'location_lng',
+            'photo_url',
+        ]
+        read_only_fields = fields
+
+    def get_temporal_coverage(self, obj):
+        """Return the EDTF string for this story's time information, or None on error."""
+        try:
+            return to_edtf(obj.time_type, obj.year, obj.year_start, obj.year_end,
+                           date_value=obj.date_value, time_value=obj.time_value)
+        except ValueError:
+            return None
+
+    def get_photo_url(self, obj):
+        """Return the URL of the first image MediaItem, or None if no image is attached."""
+        request = self.context.get('request')
+        for item in obj.media_items.all():
+            if item.media_type == MediaType.IMAGE:
+                if request:
+                    return request.build_absolute_uri(item.file.url)
+                return item.file.url
+        return None

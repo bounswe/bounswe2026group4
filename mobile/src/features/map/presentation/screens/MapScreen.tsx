@@ -209,7 +209,7 @@ export function MapScreen({
     }
 
     return 'No stories found with this criteria';
-  }, [activeFilters.location, state.error, state.isLoading, statusIndicatorMode, statusStoryCount]);
+  }, [activeFilters.location, activeFilters.locationBounds, state.error, state.isLoading, statusIndicatorMode, statusStoryCount]);
 
   function handlePreviewLayout(event: LayoutChangeEvent) {
     previewOffsetRef.current = event.nativeEvent.layout.y;

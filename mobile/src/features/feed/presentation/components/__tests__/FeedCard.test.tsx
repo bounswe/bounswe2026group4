@@ -29,6 +29,7 @@ describe('FeedCard', () => {
     expect(screen.getByText('Ottoman')).toBeTruthy();
     expect(screen.getByText(story.previewText)).toBeTruthy();
     expect(screen.getByLabelText('Has media')).toBeTruthy();
+    expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
   });
 
   it('navigates when the card is pressed', () => {
@@ -55,5 +56,12 @@ describe('FeedCard', () => {
     render(<FeedCard story={{ ...story, hasMedia: false }} />);
 
     expect(screen.queryByLabelText('Has media')).toBeNull();
+  });
+
+  it('renders the filled bookmark indicator for saved stories', () => {
+    render(<FeedCard story={{ ...story, savedByViewer: true }} />);
+
+    expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
+    expect(screen.queryByLabelText('Not bookmarked story')).toBeNull();
   });
 });

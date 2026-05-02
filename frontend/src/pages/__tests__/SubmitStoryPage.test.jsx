@@ -24,6 +24,12 @@ vi.mock("@/services/storyService", () => ({
   uploadStoryImage: vi.fn(),
 }));
 
+vi.mock("@/services/tagService", () => ({
+  searchTags: vi.fn().mockResolvedValue([]),
+  createOrGetTag: vi.fn(),
+  getTagStories: vi.fn(),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -213,11 +219,9 @@ describe("SubmitStoryPage", () => {
     });
   });
 
-  it("renders tag checkboxes", () => {
+  it("renders the Add tag button", () => {
     renderPage();
-    expect(screen.getByLabelText(/architecture/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/war/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/culture/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add tag/i })).toBeInTheDocument();
   });
 
   it("uploads image after story creation when image is selected", async () => {
@@ -298,14 +302,4 @@ describe("SubmitStoryPage", () => {
     expect(uploadStoryImage).not.toHaveBeenCalled();
   });
 
-  it("limits tag selection to 3", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(screen.getByLabelText(/architecture/i));
-    await user.click(screen.getByLabelText(/war/i));
-    await user.click(screen.getByLabelText(/culture/i));
-
-    expect(screen.getByLabelText(/trade/i)).toBeDisabled();
-  });
 });

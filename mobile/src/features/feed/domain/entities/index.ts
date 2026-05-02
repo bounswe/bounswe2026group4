@@ -1,4 +1,4 @@
-export type FeedSortOption = 'recent';
+export type FeedSortOption = 'recent' | 'popular';
 
 export interface FeedEntity {
   id: string;

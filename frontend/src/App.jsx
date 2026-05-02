@@ -14,6 +14,7 @@ import MapPage from "@/pages/MapPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SubmitStoryPage from "@/pages/SubmitStoryPage";
 import StoryDetailPage from "@/pages/StoryDetailPage";
+import TagPage from "@/pages/TagPage";
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
               />
               <Route path="/profile/:userId" element={<ProfilePage />} />
               <Route path="/stories/:id" element={<StoryDetailPage />} />
+              <Route path="/tags/:slug" element={<TagPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>

@@ -175,9 +175,17 @@ class TestStoryFeedView:
             'id', 'title', 'location_name', 'location_lat', 'location_lng',
             'time_type', 'year', 'year_start', 'year_end', 'date_value', 'time_value',
             'status', 'contributor_name', 'preview_text',
+            'like_count', 'save_count',
             'user_has_liked', 'user_has_saved', 'submitted_at',
         }
         assert expected_fields == set(card.keys())
+
+    def test_feed_result_contains_interaction_counts(self, client):
+        make_story(like_count=6, save_count=2)
+        response = client.get(FEED_URL)
+        card = response.data['results'][0]
+        assert card['like_count'] == 6
+        assert card['save_count'] == 2
 
     def test_returns_400_for_invalid_sort_by(self, client):
         response = client.get(FEED_URL + '?sort_by=invalid')
@@ -215,6 +223,54 @@ class TestStoryFeedView:
         response = client.get(FEED_URL + '?tag=folklore&location=Istanbul')
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Match'
+    
+    def test_feed_bbox_filtering(self, client):
+        make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
+        make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
+        make_story(title='Izmir Story', location_lat=38.4, location_lng=27.1)
+        params = {'lat_min': 40.0, 'lat_max': 42.0, 'lng_min': 28.0, 'lng_max': 29.0}
+        response = client.get(FEED_URL, params)
+        assert response.status_code == 200
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Story'
+
+    def test_bbox_non_numeric_lat_min_returns_400(self, client):
+        response = client.get(FEED_URL + '?lat_min=abc')
+        assert response.status_code == 400
+
+    def test_bbox_non_numeric_lng_max_returns_400(self, client):
+        response = client.get(FEED_URL + '?lng_max=xyz')
+        assert response.status_code == 400
+    
+    def test_bbox_lat_min_greater_than_lat_max_returns_400(self, client):
+        response = client.get(FEED_URL + '?lat_min=42&lat_max=40')
+        assert response.status_code == 400
+    
+    def test_bbox_lng_min_greater_than_lng_max_returns_400(self, client):
+        response = client.get(FEED_URL + '?lng_min=30&lng_max=20')
+        assert response.status_code == 400
+        
+    def test_bbox_only_lat_min_does_not_crash(self, client):
+        response = client.get(FEED_URL + '?lat_min=40')
+        assert response.status_code == 200
+        
+    def test_bbox_and_year_filter_combined(self, client):
+        make_story(title='Keep', location_lat=41, location_lng=28.9, year=2000)
+        make_story(title='Old', location_lat=41, location_lng=28.9, year=1800)
+        response = client.get(
+            FEED_URL +
+            '?lat_min=40&lat_max=42&lng_min=28&lng_max=29&year_from=1900'
+        )
+        assert response.data['count'] == 1
+        
+    def test_bbox_and_location_combined(self, client):
+        make_story(title='Match', location_name='Galata', location_lat=41, location_lng=28.9)
+        make_story(title='Nope', location_name='Ankara', location_lat=41, location_lng=28.9)
+        response = client.get(
+            FEED_URL +
+            '?location=galata&lat_min=40&lat_max=42&lng_min=28&lng_max=29'
+        )
+        assert response.data['count'] == 1
 
 
 # ── GET /stories/ ─────────────────────────────────────────────────────────────
@@ -430,6 +486,31 @@ class TestStorySearchView:
         response = client.get(SEARCH_URL + '?q=Istanbul&tag=folklore')
         assert response.data['count'] == 0
 
+    def test_search_bbox_filtering(self, client):
+        make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
+        make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
+        params = {'q': 'Story', 'lat_min': 40.0, 'lat_max': 42.0, 'lng_min': 28.0, 'lng_max': 29.0}
+        response = client.get(SEARCH_URL, params)
+        assert response.status_code == 200
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Istanbul Story'
+
+    def test_search_bbox_non_numeric_lat_min_returns_400(self, client):
+        response = client.get(SEARCH_URL + '?q=test&lat_min=abc')
+        assert response.status_code == 400
+
+    def test_search_bbox_lat_min_greater_than_lat_max_returns_400(self, client):
+        response = client.get(SEARCH_URL + '?q=test&lat_min=42&lat_max=40')
+        assert response.status_code == 400
+
+    def test_search_bbox_and_year_filter_combined(self, client):
+        make_story(title='Keep', location_lat=41, location_lng=28.9, year=2000)
+        make_story(title='Old', location_lat=41, location_lng=28.9, year=1800)
+        response = client.get(
+            SEARCH_URL + '?q=Keep&lat_min=40&lat_max=42&lng_min=28&lng_max=29&year_from=1900'
+        )
+        assert response.data['count'] == 1
+
 
 # ── GET /stories/map/ ─────────────────────────────────────────────────────────
 
@@ -532,6 +613,46 @@ class TestStoryMapView:
         make_story(title='Untagged')
         response = client.get(MAP_URL + '?tag=ottoman-era')
         assert len(response.data['features']) == 0
+        
+    def test_map_bbox_filtering(self, client):
+        make_story(title='Istanbul Story', location_lat=41.0, location_lng=28.9)
+        make_story(title='Ankara Story', location_lat=39.9, location_lng=32.9)
+        make_story(title='Izmir Story', location_lat=38.4, location_lng=27.1)
+        params = {'lat_min': 40.0, 'lat_max': 42.0, 'lng_min': 28.0, 'lng_max': 29.0}
+        response = client.get(MAP_URL, params)
+        assert response.status_code == 200
+        assert len(response.data['features']) == 1
+        assert response.data['features'][0]['properties']['title'] == 'Istanbul Story'
+        
+    def test_bbox_non_numeric_lat_min_returns_400(self, client):
+        response = client.get(MAP_URL + '?lat_min=abc')
+        assert response.status_code == 400
+        
+    def test_bbox_lat_min_greater_than_lat_max_returns_400(self, client):
+        response = client.get(MAP_URL + '?lat_min=42&lat_max=40')
+        assert response.status_code == 400
+        
+    def test_bbox_only_lng_max_does_not_crash(self, client):
+        response = client.get(MAP_URL + '?lng_max=30')
+        assert response.status_code == 200
+        
+    def test_bbox_and_year_filter_combined(self, client):
+        make_story(title='Keep', location_lat=41, location_lng=28.9, year=2000)
+        make_story(title='Old', location_lat=41, location_lng=28.9, year=1800)
+        response = client.get(
+            MAP_URL +
+            '?lat_min=40&lat_max=42&lng_min=28&lng_max=29&year_from=1900'
+        )
+        assert len(response.data['features']) == 1
+
+    def test_bbox_and_location_combined(self, client):
+        make_story(title='Match', location_name='Galata', location_lat=41, location_lng=28.9)
+        make_story(title='Nope', location_name='Ankara', location_lat=41, location_lng=28.9)
+        response = client.get(
+            MAP_URL +
+            '?location=galata&lat_min=40&lat_max=42&lng_min=28&lng_max=29'
+        )
+        assert len(response.data['features']) == 1
 
 
 # ── StoryDetailView — media_items ─────────────────────────────────────────────
@@ -930,3 +1051,251 @@ class TestStorySearchViewGeoFilter:
         response = client.get(f'{SEARCH_URL}?q=Ancient&{self._geo_params()}')
         assert response.status_code == status.HTTP_200_OK
         assert response.data['count'] == 0
+
+
+TIMELINE_URL = '/stories/timeline/'
+
+# Bounding box centred on Istanbul — used across bbox tests
+_BBOX_ISTANBUL = {'lat_min': 40.9, 'lat_max': 41.2, 'lng_min': 28.7, 'lng_max': 29.2}
+
+
+def make_timeline_media(story, media_type=MediaType.IMAGE, order=0):
+    """Create a MediaItem without writing a real file to disk."""
+    return MediaItem.objects.create(
+        story=story,
+        media_type=media_type,
+        file_size=1024,
+        original_filename='photo.jpg',
+        order=order,
+        file='stories/2024/01/photo.jpg',
+    )
+
+
+# ── GET /stories/timeline/ ───────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestStoryTimelineView:
+    def test_returns_200_for_unauthenticated_user(self, client):
+        response = client.get(TIMELINE_URL)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_200_for_authenticated_user(self, client, user):
+        client.force_authenticate(user=user)
+        response = client.get(TIMELINE_URL)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_paginated_response_shape(self, client):
+        response = client.get(TIMELINE_URL)
+        assert 'count' in response.data
+        assert 'next' in response.data
+        assert 'previous' in response.data
+        assert 'results' in response.data
+
+    def test_returns_only_published_stories(self, client):
+        make_story(title='Published', year=1900)
+        make_story(title='Draft', status=Story.STATUS_DRAFT, year=1910)
+        make_story(title='Removed', status=Story.STATUS_REMOVED, year=1920)
+        response = client.get(TIMELINE_URL)
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Published'
+
+    def test_default_order_is_oldest_first(self, client):
+        make_story(title='Newest', year=2000)
+        make_story(title='Middle', year=1900)
+        make_story(title='Oldest', year=1800)
+        response = client.get(TIMELINE_URL)
+        titles = [r['title'] for r in response.data['results']]
+        assert titles == ['Oldest', 'Middle', 'Newest']
+
+    def test_year_from_filter(self, client):
+        make_story(title='Before', year=1800)
+        make_story(title='After', year=1900)
+        response = client.get(TIMELINE_URL, {'year_from': 1850})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'After'
+
+    def test_year_to_filter(self, client):
+        make_story(title='Before', year=1800)
+        make_story(title='After', year=1900)
+        response = client.get(TIMELINE_URL, {'year_to': 1850})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Before'
+
+    def test_invalid_year_range_returns_400(self, client):
+        response = client.get(TIMELINE_URL, {'year_from': 1900, 'year_to': 1800})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_bbox_filter_includes_story_inside_box(self, client):
+        make_story(title='Inside', location_lat='41.0', location_lng='28.9', year=1900)
+        response = client.get(TIMELINE_URL, _BBOX_ISTANBUL)
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Inside'
+
+    def test_bbox_filter_excludes_story_outside_box(self, client):
+        make_story(title='Outside', location_lat='39.9', location_lng='32.8', year=1900)
+        response = client.get(TIMELINE_URL, _BBOX_ISTANBUL)
+        assert response.data['count'] == 0
+
+    def test_partial_bbox_returns_400(self, client):
+        response = client.get(TIMELINE_URL, {'lat_min': 40.9, 'lat_max': 41.2})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_response_card_has_minimal_timeline_fields(self, client):
+        make_story(title='Test Story', year=1900)
+        response = client.get(TIMELINE_URL)
+        card = response.data['results'][0]
+        for field in ('id', 'title', 'time_type', 'year', 'year_start', 'year_end',
+                      'date_value', 'time_value', 'temporal_coverage',
+                      'location_lat', 'location_lng', 'photo_url'):
+            assert field in card, f'Missing field: {field}'
+
+    def test_response_card_omits_feed_specific_fields(self, client):
+        make_story(title='Test Story', year=1900)
+        response = client.get(TIMELINE_URL)
+        card = response.data['results'][0]
+        for field in ('preview_text', 'contributor_name', 'user_has_liked',
+                      'user_has_saved', 'status', 'submitted_at'):
+            assert field not in card, f'Unexpected field: {field}'
+
+    def test_photo_url_is_null_when_no_image_attached(self, client):
+        make_story(title='No Image', year=1900)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['photo_url'] is None
+
+    def test_photo_url_is_url_string_when_image_attached(self, client):
+        story = make_story(title='Has Image', year=1900)
+        make_timeline_media(story)
+        response = client.get(TIMELINE_URL)
+        photo_url = response.data['results'][0]['photo_url']
+        assert photo_url is not None
+        assert photo_url.startswith('http')
+
+    def test_non_image_media_does_not_set_photo_url(self, client):
+        story = make_story(title='Audio Only', year=1900)
+        MediaItem.objects.create(
+            story=story, media_type=MediaType.AUDIO, file_size=1024,
+            original_filename='audio.mp3', order=0, file='stories/2024/01/audio.mp3',
+        )
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['photo_url'] is None
+
+    def test_has_image_true_returns_only_stories_with_image(self, client):
+        s_with = make_story(title='With Image', year=1900)
+        make_timeline_media(s_with)
+        make_story(title='No Image', year=1910)
+        response = client.get(TIMELINE_URL, {'has_image': 'true'})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'With Image'
+
+    def test_has_image_omitted_returns_all_stories(self, client):
+        s_with = make_story(title='With Image', year=1900)
+        make_timeline_media(s_with)
+        make_story(title='No Image', year=1910)
+        response = client.get(TIMELINE_URL)
+        assert response.data['count'] == 2
+
+    def test_pagination_returns_10_by_default(self, client):
+        for i in range(15):
+            make_story(title=f'Story {i}', year=1900 + i)
+        response = client.get(TIMELINE_URL)
+        assert response.data['count'] == 15
+        assert len(response.data['results']) == 10
+        assert response.data['next'] is not None
+
+    def test_exact_date_story_included_in_timeline(self, client):
+        import datetime
+        make_story(
+            title='Exact Date Story',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        response = client.get(TIMELINE_URL)
+        assert response.data['count'] == 1
+        card = response.data['results'][0]
+        assert card['title'] == 'Exact Date Story'
+        assert card['date_value'] == '1950-06-15'
+        assert card['time_value'] is None
+
+    def test_exact_date_story_temporal_coverage_is_edtf(self, client):
+        import datetime
+        make_story(
+            title='Exact Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1923, 10, 29),
+        )
+        response = client.get(TIMELINE_URL)
+        card = response.data['results'][0]
+        assert card['temporal_coverage'] == '1923-10-29'
+
+    def test_exact_date_with_time_value_temporal_coverage_includes_time(self, client):
+        import datetime
+        make_story(
+            title='Dated with Time',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1923, 10, 29),
+            time_value=datetime.time(9, 30),
+        )
+        response = client.get(TIMELINE_URL)
+        card = response.data['results'][0]
+        assert card['temporal_coverage'] == '1923-10-29T09:30'
+        assert card['time_value'] == '09:30:00'
+
+    def test_temporal_coverage_for_exact_year_story(self, client):
+        make_story(title='Exact Year', time_type=Story.TIME_EXACT, year=1950)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['temporal_coverage'] == '1950'
+
+    def test_temporal_coverage_for_decade_story(self, client):
+        make_story(title='Eighties', time_type=Story.TIME_DECADE, year=1980)
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['temporal_coverage'] == '198X'
+
+    def test_temporal_coverage_for_year_range_story(self, client):
+        make_story(
+            title='Range',
+            time_type=Story.TIME_RANGE,
+            year=None,
+            year_start=1940,
+            year_end=1960,
+        )
+        response = client.get(TIMELINE_URL)
+        assert response.data['results'][0]['temporal_coverage'] == '1940/1960'
+
+    def test_exact_date_year_from_filter(self, client):
+        import datetime
+        make_story(
+            title='Old Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1800, 1, 1),
+        )
+        make_story(
+            title='New Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        response = client.get(TIMELINE_URL, {'year_from': 1900})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'New Date'
+
+    def test_exact_date_year_to_filter(self, client):
+        import datetime
+        make_story(
+            title='Old Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1800, 1, 1),
+        )
+        make_story(
+            title='New Date',
+            time_type=Story.TIME_DATE,
+            year=None,
+            date_value=datetime.date(1950, 6, 15),
+        )
+        response = client.get(TIMELINE_URL, {'year_to': 1900})
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Old Date'

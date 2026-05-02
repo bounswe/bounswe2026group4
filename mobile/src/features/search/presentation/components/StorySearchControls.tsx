@@ -6,7 +6,7 @@ import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { FilterPanel, ProximityRadiusOption } from '../../../../shared/components/FilterPanel';
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
-import { geocodeLocationQuery, LocationBounds, searchTags, SearchTag } from '../../application/services';
+import { geocodeLocationQuery, LocationBounds, LocationSuggestion, searchLocationSuggestions, searchTags, SearchTag } from '../../application/services';
 import { SearchFilterScope, useSearchFilters } from '../context/SearchFiltersContext';
 
 function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): FilterChipItem[] {
@@ -53,8 +53,10 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const [draftLocation, setDraftLocation] = useState('');
   const [draftLocationBounds, setDraftLocationBounds] = useState<LocationBounds | undefined>();
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [isLocationResolving, setIsLocationResolving] = useState(false);
   const [locationStatusText, setLocationStatusText] = useState<string | undefined>();
+  const [isLocationError, setIsLocationError] = useState(false);
   const [draftProximityRadiusKm, setDraftProximityRadiusKm] = useState<ProximityRadiusOption | undefined>();
   const [draftProximityCoordinates, setDraftProximityCoordinates] = useState<DeviceCoordinates | undefined>();
   const [isProximityResolving, setIsProximityResolving] = useState(false);
@@ -69,6 +71,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const debouncedDraftLocation = useDebounce(draftLocation, 500);
   const debouncedDraftTagQuery = useDebounce(draftTagQuery, 300);
   const locationRequestIdRef = useRef(0);
+  const selectedLocationQueryRef = useRef<string | undefined>(undefined);
   const proximityRequestIdRef = useRef(0);
   const tagRequestIdRef = useRef(0);
 
@@ -79,7 +82,9 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     setIsTagPickerOpen(false);
     setDraftLocation(filters.location);
     setDraftLocationBounds(filters.locationBounds);
+    setLocationSuggestions([]);
     setLocationStatusText(undefined);
+    setIsLocationError(false);
     setIsLocationResolving(false);
     setDraftProximityRadiusKm(filters.proximityRadiusKm);
     setDraftProximityCoordinates(filters.proximityCoordinates);
@@ -107,8 +112,21 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const handleDraftLocationChange = (location: string) => {
     setDraftLocation(location);
     setDraftLocationBounds(undefined);
+    setLocationSuggestions([]);
     setLocationStatusText(undefined);
+    setIsLocationError(false);
+    selectedLocationQueryRef.current = undefined;
     setIsLocationResolving(location.trim().length > 0);
+  };
+
+  const handleLocationSuggestionPress = (suggestion: LocationSuggestion) => {
+    selectedLocationQueryRef.current = suggestion.title;
+    setDraftLocation(suggestion.title);
+    setDraftLocationBounds(suggestion.bounds ?? buildFallbackBounds(suggestion.latitude, suggestion.longitude));
+    setLocationSuggestions([]);
+    setIsLocationResolving(false);
+    setIsLocationError(false);
+    setLocationStatusText('Filtering by map area.');
   };
 
   const handleProximityRadiusChange = async (radiusKm?: ProximityRadiusOption) => {
@@ -206,24 +224,33 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
 
     if (!location) {
       setDraftLocationBounds(undefined);
+      setLocationSuggestions([]);
       setIsLocationResolving(false);
       setLocationStatusText(undefined);
+      setIsLocationError(false);
+      return;
+    }
+
+    if (selectedLocationQueryRef.current === location && draftLocationBounds) {
+      selectedLocationQueryRef.current = undefined;
+      setIsLocationResolving(false);
       return;
     }
 
     setIsLocationResolving(true);
     setLocationStatusText('Looking up this place...');
+    setIsLocationError(false);
 
-    geocodeLocationQuery(location)
-      .then((bounds) => {
+    Promise.all([geocodeLocationQuery(location), searchLocationSuggestions(location)])
+      .then(([bounds, suggestions]) => {
         if (locationRequestIdRef.current !== requestId) {
           return;
         }
 
         setDraftLocationBounds(bounds ?? undefined);
-        setLocationStatusText(
-          bounds ? 'Filtering by map area.' : 'No map match found. Apply will search story place names instead.',
-        );
+        setLocationSuggestions(suggestions);
+        setIsLocationError(!bounds);
+        setLocationStatusText(bounds ? 'Filtering by map area.' : 'Location not found. Choose a listed place before applying.');
       })
       .catch(() => {
         if (locationRequestIdRef.current !== requestId) {
@@ -231,7 +258,9 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
         }
 
         setDraftLocationBounds(undefined);
-        setLocationStatusText('Location lookup failed. Apply will search story place names instead.');
+        setLocationSuggestions([]);
+        setIsLocationError(true);
+        setLocationStatusText('Location lookup failed. Try again before applying.');
       })
       .finally(() => {
         if (locationRequestIdRef.current === requestId) {
@@ -303,6 +332,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
             >
               <FilterPanel
                 location={draftLocation}
+                locationSuggestions={locationSuggestions}
                 timeFrom={draftTimeFrom}
                 timeTo={draftTimeTo}
                 selectedTags={draftTags}
@@ -310,6 +340,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
                 tagOptions={tagOptions}
                 isTagsLoading={isTagsLoading}
                 onLocationChange={handleDraftLocationChange}
+                onLocationSuggestionPress={handleLocationSuggestionPress}
                 onTimeFromChange={setDraftTimeFrom}
                 onTimeToChange={setDraftTimeTo}
                 onTagQueryChange={setDraftTagQuery}
@@ -322,12 +353,20 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
                 isProximityError={isProximityError}
                 isLocationResolving={isLocationResolving}
                 locationStatusText={locationStatusText}
-                isApplyDisabled={isLocationResolving || isProximityResolving || Boolean(draftProximityRadiusKm && !draftProximityCoordinates)}
+                isApplyDisabled={
+                  isLocationResolving ||
+                  isLocationError ||
+                  Boolean(draftLocation.trim() && !draftLocationBounds) ||
+                  isProximityResolving ||
+                  Boolean(draftProximityRadiusKm && !draftProximityCoordinates)
+                }
                 onTagPickerOpenChange={setIsTagPickerOpen}
                 onClearAll={() => {
                   setDraftLocation('');
                   setDraftLocationBounds(undefined);
+                  setLocationSuggestions([]);
                   setLocationStatusText(undefined);
+                  setIsLocationError(false);
                   setDraftProximityRadiusKm(undefined);
                   setDraftProximityCoordinates(undefined);
                   setProximityStatusText(undefined);
@@ -374,4 +413,15 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       />
     </View>
   );
+}
+
+function buildFallbackBounds(latitude: number, longitude: number): LocationBounds {
+  const delta = 0.01;
+
+  return {
+    latMin: latitude - delta,
+    latMax: latitude + delta,
+    lngMin: longitude - delta,
+    lngMax: longitude + delta,
+  };
 }

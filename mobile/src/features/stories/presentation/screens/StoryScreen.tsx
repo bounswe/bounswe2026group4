@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
-import { Calendar, Clock, MapPin, Trash2 } from 'lucide-react-native';
+import Slider from '@react-native-community/slider';
+import { Bookmark, Calendar, Clock, MapPin, Pause, Play, Trash2, Volume2 } from 'lucide-react-native';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { roles } from '../../../../core/auth/roles';
 import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { interactionService } from '../../../interactions/application/services';
 import { StoryCommentEntity } from '../../../interactions/domain/entities';
 import { storyService } from '../../application/services';
-import { StoryEntity } from '../../domain/entities';
+import { StoryEntity, StoryMediaItem } from '../../domain/entities';
 import { ErrorState } from '../../../../shared/ui/ErrorState';
 import { Button } from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/Input';
@@ -25,6 +28,12 @@ interface StoryScreenProps {
   onRequestLogin?: () => void;
   onGoBack?: () => void;
   onStoryDeleted?: () => void;
+  onStoryInteractionUpdated?: (update: {
+    storyId: string;
+    likeCount: number;
+    likedByViewer: boolean;
+    savedByViewer: boolean;
+  }) => void;
   onOpenContributorProfile?: (userId: string) => void;
   onOpenTag?: (tag: string) => void;
   getStory?: typeof storyService.getStory;
@@ -265,6 +274,272 @@ function StoryNarrative({
   );
 }
 
+function formatPlaybackTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '0:00';
+  }
+
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function StoryAudioPreview({ item, title }: { item: StoryMediaItem; title: string }) {
+  const { colors, spacing, typography } = useAppTheme();
+  const player = useAudioPlayer({ uri: item.url }, { updateInterval: 250 });
+  const status = useAudioPlayerStatus(player);
+  const [scrubTime, setScrubTime] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [pendingSeekTime, setPendingSeekTime] = useState<number | null>(null);
+  const shouldResumeAfterScrubRef = useRef(false);
+  const duration = status.duration || 0;
+  const displayedTime = isScrubbing ? scrubTime : pendingSeekTime ?? status.currentTime;
+  const label = `${title} audio`;
+
+  useEffect(() => {
+    if (pendingSeekTime == null) {
+      return;
+    }
+
+    if (Math.abs(status.currentTime - pendingSeekTime) < 0.35) {
+      setPendingSeekTime(null);
+    }
+  }, [pendingSeekTime, status.currentTime]);
+
+  const togglePlayback = () => {
+    if (status.playing) {
+      player.pause();
+      return;
+    }
+
+    if (status.didJustFinish) {
+      void player.seekTo(0);
+    }
+    player.play();
+  };
+
+  return (
+    <View
+      accessibilityLabel={label}
+      style={{
+        minHeight: 150,
+        borderRadius: 18,
+        backgroundColor: '#111827',
+        padding: spacing.md,
+        justifyContent: 'space-between',
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={status.playing ? 'Pause story audio' : 'Play story audio'}
+          onPress={togglePlayback}
+          style={({ pressed }) => ({
+            width: 58,
+            height: 58,
+            borderRadius: 999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.background,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          {status.playing ? (
+            <Pause size={26} color="#111827" fill="#111827" />
+          ) : (
+            <Play size={26} color="#111827" fill="#111827" style={{ marginLeft: 2 }} />
+          )}
+        </Pressable>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Text style={{ color: colors.background, fontSize: typography.body, fontWeight: '800' }}>
+            Story audio
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <Volume2 size={16} color="#cbd5e1" />
+            <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '600' }}>
+              Oral history attachment
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={{ gap: spacing.xs }}>
+        <Slider
+          accessibilityLabel="Seek story audio"
+          disabled={duration <= 0}
+          minimumValue={0}
+          maximumValue={Math.max(duration, 0)}
+          value={Math.min(displayedTime, duration || displayedTime)}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor="#334155"
+          thumbTintColor={colors.background}
+          tapToSeek
+          onSlidingStart={(value) => {
+            setPendingSeekTime(null);
+            shouldResumeAfterScrubRef.current = status.playing;
+            if (status.playing) {
+              player.pause();
+            }
+            setIsScrubbing(true);
+            setScrubTime(value);
+          }}
+          onValueChange={(value) => {
+            setScrubTime(value);
+          }}
+          onSlidingComplete={(value) => {
+            setScrubTime(value);
+            setIsScrubbing(false);
+            if (duration > 0) {
+              setPendingSeekTime(value);
+              void player.seekTo(value).then(() => {
+                if (shouldResumeAfterScrubRef.current) {
+                  player.play();
+                }
+                shouldResumeAfterScrubRef.current = false;
+              });
+              return;
+            }
+            setPendingSeekTime(null);
+            shouldResumeAfterScrubRef.current = false;
+          }}
+          style={{
+            width: '100%',
+            height: 36,
+          }}
+        />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '700' }}>
+            {formatPlaybackTime(displayedTime)}
+          </Text>
+          <Text style={{ color: '#cbd5e1', fontSize: typography.caption, fontWeight: '700' }}>
+            {status.isLoaded && duration > 0 ? formatPlaybackTime(duration) : '--:--'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function StoryVideoPreview({ item, title }: { item: StoryMediaItem; title: string }) {
+  const player = useVideoPlayer({ uri: item.url });
+
+  return (
+    <VideoView
+      accessibilityLabel={`${title} video`}
+      player={player}
+      nativeControls
+      contentFit="contain"
+      allowsFullscreen
+      style={{
+        height: 280,
+        width: '100%',
+        borderRadius: 16,
+        backgroundColor: '#111827',
+      }}
+    />
+  );
+}
+
+function StoryAudioVideoPreview({ item, title }: { item: StoryMediaItem; title: string }) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        marginTop: spacing.md,
+        padding: spacing.sm,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        shadowColor: '#000000',
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 2,
+        gap: spacing.sm,
+      }}
+    >
+      <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '800', textTransform: 'uppercase' }}>
+        {item.type === 'audio' ? 'Audio' : 'Video'}
+      </Text>
+      {item.type === 'audio' ? <StoryAudioPreview item={item} title={title} /> : <StoryVideoPreview item={item} title={title} />}
+    </View>
+  );
+}
+
+function StoryMediaGallery({
+  story,
+  hasImageError,
+  onImageError,
+}: {
+  story: StoryEntity;
+  hasImageError: boolean;
+  onImageError: () => void;
+}) {
+  const { colors, spacing } = useAppTheme();
+  const mediaItems = story.mediaItems?.length
+    ? story.mediaItems
+    : story.mediaUrl
+      ? [{ id: 'primary-image', type: 'image' as const, url: story.mediaUrl, altText: story.mediaAltText }]
+      : [];
+
+  if (!mediaItems.length) {
+    return null;
+  }
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      {mediaItems.map((item) => {
+        if (item.type === 'image') {
+          if (hasImageError) {
+            return (
+              <View
+                key={item.id}
+                style={{
+                  width: '100%',
+                  height: 220,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: spacing.lg,
+                }}
+              >
+                <Text style={{ color: colors.text, fontWeight: '700' }}>Story image unavailable</Text>
+                <Text style={{ marginTop: spacing.sm, color: colors.muted, textAlign: 'center' }}>
+                  The image URL could not be loaded on this device.
+                </Text>
+              </View>
+            );
+          }
+
+          return (
+            <Image
+              key={item.id}
+              source={{ uri: item.url }}
+              style={{
+                width: '100%',
+                height: 220,
+                borderRadius: 20,
+                backgroundColor: colors.surface,
+              }}
+              resizeMode="cover"
+              accessibilityLabel={item.altText || `${story.title} media`}
+              onError={onImageError}
+            />
+          );
+        }
+
+        return <StoryAudioVideoPreview key={item.id} item={item} title={story.title} />;
+      })}
+    </View>
+  );
+}
+
 function StoryMiniMap({ story }: { story: StoryEntity }) {
   const { colors, spacing, typography } = useAppTheme();
 
@@ -498,6 +773,7 @@ export function StoryScreen({
   onRequestLogin,
   onGoBack,
   onStoryDeleted,
+  onStoryInteractionUpdated,
   onOpenContributorProfile,
   onOpenTag,
   getStory = storyService.getStory,
@@ -692,6 +968,12 @@ export function StoryScreen({
           }
         : current.story,
     }));
+    onStoryInteractionUpdated?.({
+      storyId: previousStory.id,
+      likedByViewer,
+      likeCount,
+      savedByViewer: previousStory.savedByViewer,
+    });
 
     try {
       if (likedByViewer) {
@@ -704,11 +986,79 @@ export function StoryScreen({
         ...current,
         story: previousStory,
       }));
+      onStoryInteractionUpdated?.({
+        storyId: previousStory.id,
+        likedByViewer: previousStory.likedByViewer,
+        likeCount: previousStory.likeCount,
+        savedByViewer: previousStory.savedByViewer,
+      });
       setInteractionError(extractInteractionError(error, 'Failed to update like. Please try again.'));
     } finally {
       setState((current) => ({
         ...current,
         isLikePending: false,
+      }));
+    }
+  };
+
+  const handleBookmarkPress = async () => {
+    if (!state.story || state.isBookmarkPending) {
+      return;
+    }
+
+    if (!state.isAuthenticated) {
+      setState((current) => ({
+        ...current,
+        loginPromptVisible: true,
+      }));
+      onRequestLogin?.();
+      return;
+    }
+
+    const previousStory = state.story;
+    const savedByViewer = !previousStory.savedByViewer;
+
+    setInteractionError(undefined);
+    setState((current) => ({
+      ...current,
+      isBookmarkPending: true,
+      loginPromptVisible: false,
+      story: current.story
+        ? {
+            ...current.story,
+            savedByViewer,
+          }
+        : current.story,
+    }));
+    onStoryInteractionUpdated?.({
+      storyId: previousStory.id,
+      likedByViewer: previousStory.likedByViewer,
+      likeCount: previousStory.likeCount,
+      savedByViewer,
+    });
+
+    try {
+      if (savedByViewer) {
+        await interactionService.bookmarkStory(previousStory.id);
+      } else {
+        await interactionService.unbookmarkStory(previousStory.id);
+      }
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        story: previousStory,
+      }));
+      onStoryInteractionUpdated?.({
+        storyId: previousStory.id,
+        likedByViewer: previousStory.likedByViewer,
+        likeCount: previousStory.likeCount,
+        savedByViewer: previousStory.savedByViewer,
+      });
+      setInteractionError(extractInteractionError(error, 'Failed to update bookmark. Please try again.'));
+    } finally {
+      setState((current) => ({
+        ...current,
+        isBookmarkPending: false,
       }));
     }
   };
@@ -915,43 +1265,11 @@ export function StoryScreen({
         </View>
       ) : null}
 
-      {story.mediaUrl ? (
-        hasImageError ? (
-          <View
-            style={{
-              marginTop: spacing.xl,
-              width: '100%',
-              height: 220,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: spacing.lg,
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: '700' }}>Story image unavailable</Text>
-            <Text style={{ marginTop: spacing.sm, color: colors.muted, textAlign: 'center' }}>
-              The image URL could not be loaded on this device.
-            </Text>
-          </View>
-        ) : (
-          <Image
-            source={{ uri: story.mediaUrl }}
-            style={{
-              marginTop: spacing.xl,
-              width: '100%',
-              height: 220,
-              borderRadius: 20,
-              backgroundColor: colors.surface,
-            }}
-            resizeMode="cover"
-            accessibilityLabel={story.mediaAltText || `${story.title} media`}
-            onError={() => setHasImageError(true)}
-          />
-        )
-      ) : null}
+      <StoryMediaGallery
+        story={story}
+        hasImageError={hasImageError}
+        onImageError={() => setHasImageError(true)}
+      />
 
       <StoryNarrative
         story={story}
@@ -960,39 +1278,78 @@ export function StoryScreen({
         onLayout={(event) => setNarrativeTop(event.nativeEvent.layout.y)}
       />
 
-      <Pressable
-        onPress={() => {
-          void handleLikePress();
-        }}
-        disabled={state.isLikePending}
-        style={{
-          marginTop: spacing.xl,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.lg,
-          borderRadius: 999,
-          alignSelf: 'flex-start',
-          backgroundColor: story.likedByViewer ? colors.primary : colors.surface,
-          borderWidth: 1,
-          borderColor: colors.primary,
-          opacity: state.isLikePending ? 0.7 : 1,
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={story.likedByViewer ? 'Unlike story' : 'Like story'}
-        accessibilityState={{ disabled: state.isLikePending, selected: story.likedByViewer }}
-      >
-        <Text
-          style={{
-            color: story.likedByViewer ? colors.background : colors.primary,
-            fontWeight: '700',
+      <View style={{ marginTop: spacing.xl, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Pressable
+          onPress={() => {
+            void handleLikePress();
           }}
+          disabled={state.isLikePending}
+          style={{
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.lg,
+            borderRadius: 999,
+            alignSelf: 'flex-start',
+            backgroundColor: story.likedByViewer ? colors.primary : colors.surface,
+            borderWidth: 1,
+            borderColor: colors.primary,
+            opacity: state.isLikePending ? 0.7 : 1,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={story.likedByViewer ? 'Unlike story' : 'Like story'}
+          accessibilityState={{ disabled: state.isLikePending, selected: story.likedByViewer }}
         >
-          {story.likedByViewer ? '♥' : '♡'} {story.likeCount}
-        </Text>
-      </Pressable>
+          <Text
+            style={{
+              color: story.likedByViewer ? colors.background : colors.primary,
+              fontWeight: '700',
+            }}
+          >
+            {story.likedByViewer ? '♥' : '♡'} {story.likeCount}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            void handleBookmarkPress();
+          }}
+          disabled={state.isBookmarkPending}
+          style={{
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.lg,
+            borderRadius: 999,
+            alignSelf: 'flex-start',
+            backgroundColor: story.savedByViewer ? colors.primary : colors.surface,
+            borderWidth: 1,
+            borderColor: colors.primary,
+            opacity: state.isBookmarkPending ? 0.7 : 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.xs,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={story.savedByViewer ? 'Remove bookmark' : 'Bookmark story'}
+          accessibilityState={{ disabled: state.isBookmarkPending, selected: story.savedByViewer }}
+        >
+          <Bookmark
+            size={18}
+            color={story.savedByViewer ? colors.background : colors.primary}
+            fill={story.savedByViewer ? colors.background : 'transparent'}
+            strokeWidth={2.2}
+          />
+          <Text
+            style={{
+              color: story.savedByViewer ? colors.background : colors.primary,
+              fontWeight: '700',
+            }}
+          >
+            {story.savedByViewer ? 'Saved' : 'Save'}
+          </Text>
+        </Pressable>
+      </View>
 
       {state.loginPromptVisible ? (
         <Text style={{ marginTop: spacing.sm, color: colors.muted }}>
-          Log in to like or comment on this story.
+          Log in to like, bookmark, or comment on this story.
         </Text>
       ) : null}
       {interactionError ? (

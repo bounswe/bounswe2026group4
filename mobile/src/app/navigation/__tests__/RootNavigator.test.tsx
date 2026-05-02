@@ -6,7 +6,7 @@ import { storageKeys } from '../../../core/storage/keys';
 import { interceptors } from '../../../core/api/interceptors';
 import { resetApiTransport, setApiTransport } from '../../../core/api/client';
 import { AppProviders } from '../../providers/AppProviders';
-import { geocodeLocationQuery } from '../../../features/search/application/services';
+import { geocodeLocationQuery, searchLocationSuggestions } from '../../../features/search/application/services';
 
 jest.mock('../../../features/search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
@@ -40,6 +40,8 @@ const feedResults = [
     user_has_liked: false,
   },
 ];
+
+const goldenHornBounds = { latMin: 41, latMax: 41.05, lngMin: 28.94, lngMax: 28.99 };
 
 const storyDetail = {
   id: 'story-001',
@@ -270,6 +272,7 @@ function installAuthTransport() {
 describe('RootNavigator auth flow', () => {
   beforeEach(async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
     await storage.clear();
     interceptors.clear();
     resetApiTransport();
@@ -540,6 +543,8 @@ describe('RootNavigator auth flow', () => {
   });
 
   it('persists search and filter state between feed and map views', async () => {
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
+
     renderNavigator();
 
     await screen.findByLabelText('Search stories');
@@ -549,7 +554,7 @@ describe('RootNavigator auth flow', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1990');
     fireEvent.changeText(screen.getByLabelText('End year'), '2000');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -612,6 +617,31 @@ describe('RootNavigator auth flow', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Search stories')).toBeTruthy();
       expect(screen.getByLabelText('Read story: Harbor Memory')).toBeTruthy();
+    });
+  });
+
+  it('keeps the selected feed sort after returning from story detail', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Sort by Most Popular');
+    fireEvent.press(screen.getByLabelText('Sort by Most Popular'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+    });
+
+    fireEvent.press(await screen.findByLabelText('Read story: Harbor Memory'));
+    expect(await screen.findByLabelText('Go back')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Go back'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Read story: Harbor Memory')).toBeTruthy();
+      expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('Sort by Most Recent').props.accessibilityState.selected).toBe(false);
     });
   });
 

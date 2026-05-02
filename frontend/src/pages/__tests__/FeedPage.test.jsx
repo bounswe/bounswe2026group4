@@ -231,11 +231,85 @@ describe("FeedPage", () => {
     });
   });
 
-  it("shows 'Most Recent' sort button", () => {
+  it("shows both sort options with 'Most Recent' active by default", () => {
     getStories.mockReturnValue(new Promise(() => {}));
     renderPage();
 
-    expect(screen.getByRole("button", { name: /sort: most recent/i })).toBeInTheDocument();
+    const recentBtn = screen.getByRole("button", { name: /sort by most recent/i });
+    const popularBtn = screen.getByRole("button", { name: /sort by most popular/i });
+    expect(recentBtn).toBeInTheDocument();
+    expect(popularBtn).toBeInTheDocument();
+    expect(recentBtn).toHaveAttribute("aria-pressed", "true");
+    expect(popularBtn).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clicking 'Most Popular' fetches with sort_by=popular", async () => {
+    const user = userEvent.setup();
+    getStories.mockResolvedValue(makeResponse());
+    renderPage();
+
+    await waitFor(() => expect(getStories).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: /sort by most popular/i }));
+
+    await waitFor(() => {
+      expect(getStories).toHaveBeenCalledWith(
+        expect.objectContaining({ sortBy: "popular" })
+      );
+    });
+  });
+
+  it("shows 'Most Popular' as active when sort_by=popular is in URL", () => {
+    getStories.mockReturnValue(new Promise(() => {}));
+    renderPage(["/?sort_by=popular"]);
+
+    expect(screen.getByRole("button", { name: /sort by most popular/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /sort by most recent/i })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("calls getStories with sort_by=popular from URL", async () => {
+    getStories.mockResolvedValue(makeResponse());
+    renderPage(["/?sort_by=popular"]);
+
+    await waitFor(() => {
+      expect(getStories).toHaveBeenCalledWith(
+        expect.objectContaining({ sortBy: "popular" })
+      );
+    });
+  });
+
+  it("clicking 'Most Recent' when on popular switches back and re-fetches", async () => {
+    const user = userEvent.setup();
+    getStories.mockResolvedValue(makeResponse());
+    renderPage(["/?sort_by=popular"]);
+
+    await waitFor(() => expect(getStories).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: /sort by most recent/i }));
+
+    await waitFor(() => {
+      expect(getStories).toHaveBeenCalledWith(
+        expect.objectContaining({ sortBy: "recent" })
+      );
+    });
+  });
+
+  it("switching sort resets page to 1", async () => {
+    const user = userEvent.setup();
+    getStories.mockResolvedValue(
+      makeResponse({ count: 25, next: "http://api/?page=2" })
+    );
+    renderPage(["/?page=2&sort_by=recent"]);
+
+    await waitFor(() => expect(getStories).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: /sort by most popular/i }));
+
+    await waitFor(() => {
+      expect(getStories).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1, sortBy: "popular" })
+      );
+    });
   });
 
   it("renders the page heading", async () => {

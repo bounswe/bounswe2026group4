@@ -6,6 +6,7 @@ export interface StoryDetailUiState {
   error?: 'not-found' | 'unknown';
   isAuthenticated: boolean;
   isLikePending: boolean;
+  isBookmarkPending: boolean;
   loginPromptVisible: boolean;
 }
 
@@ -14,6 +15,7 @@ export function createInitialStoryDetailUiState(isAuthenticated = false): StoryD
     isLoading: true,
     isAuthenticated,
     isLikePending: false,
+    isBookmarkPending: false,
     loginPromptVisible: false,
   };
 }

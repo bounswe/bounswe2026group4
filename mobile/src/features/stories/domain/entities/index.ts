@@ -13,6 +13,15 @@ export interface StoryLocation {
   longitude: number;
 }
 
+export type StoryMediaType = 'image' | 'audio' | 'video';
+
+export interface StoryMediaItem {
+  id: string;
+  type: StoryMediaType;
+  url: string;
+  altText?: string;
+}
+
 export interface StoryEntity {
   id: string;
   contributorUserId?: string;
@@ -27,9 +36,11 @@ export interface StoryEntity {
   submittedAt: string;
   mediaUrl?: string;
   mediaAltText?: string;
+  mediaItems?: StoryMediaItem[];
   tags?: string[];
   likeCount: number;
   likedByViewer: boolean;
+  savedByViewer: boolean;
   comments: StoryCommentPreview[];
 }
 

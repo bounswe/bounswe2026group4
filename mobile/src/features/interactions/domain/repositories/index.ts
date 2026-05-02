@@ -6,4 +6,6 @@ export interface InteractionRepository {
   deleteComment(commentId: string): Promise<void>;
   likeStory(storyId: string): Promise<void>;
   unlikeStory(storyId: string): Promise<void>;
+  bookmarkStory(storyId: string): Promise<void>;
+  unbookmarkStory(storyId: string): Promise<void>;
 }

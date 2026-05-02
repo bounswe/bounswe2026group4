@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { ScrollView, StyleSheet, ViewStyle } from 'react-native';
 import { lightColors } from '../../../../../app/theme/colors';
@@ -208,6 +209,7 @@ describe('SubmissionScreen', () => {
           year: 1453,
           tags: ['architecture'],
           location: { latitude: 41.0082, longitude: 28.9784 },
+          contributorVisible: true,
         }),
       );
     });
@@ -442,5 +444,135 @@ describe('SubmissionScreen', () => {
     fireEvent.press(screen.getByText('Choose image'));
 
     expect(await screen.findByText('Image must be smaller than 2MB.')).toBeTruthy();
+  });
+
+  it('accepts audio and video files with previews and submits them together', async () => {
+    (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///story.mp3',
+          name: 'story.mp3',
+          size: 4 * 1024 * 1024,
+          mimeType: 'audio/mpeg',
+        },
+      ],
+    });
+    jest.spyOn(ImagePicker, 'launchImageLibraryAsync').mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///story.mp4',
+          fileName: 'story.mp4',
+          fileSize: 12 * 1024 * 1024,
+          mimeType: 'video/mp4',
+          width: 100,
+          height: 100,
+          type: 'video',
+          assetId: 'asset-video',
+          duration: 30,
+          base64: null,
+          exif: null,
+          file: undefined,
+          pairedVideoAsset: undefined,
+        },
+      ],
+    } as ImagePicker.ImagePickerSuccessResult);
+    (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
+
+    renderSubmissionScreen();
+
+    fireEvent.press(screen.getByText('Choose audio'));
+    expect(await screen.findByText('story.mp3')).toBeTruthy();
+    expect(screen.getByLabelText('Selected story audio preview')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Choose video'));
+    expect(await screen.findByText('story.mp4')).toBeTruthy();
+    expect(screen.getByLabelText('Selected story video preview')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Mixed Media');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story with oral history and video.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 41.0082, longitude: 28.9784 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Old City');
+    fireEvent.changeText(screen.getByLabelText('Year'), '1453');
+    fireEvent.press(screen.getByText('Submit story'));
+
+    await waitFor(() => {
+      expect(submissionsService.createStory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          audio: expect.objectContaining({ name: 'story.mp3', type: 'audio/mpeg', mediaType: 'audio' }),
+          video: expect.objectContaining({ name: 'story.mp4', type: 'video/mp4', mediaType: 'video' }),
+        }),
+      );
+    });
+  });
+
+  it('shows inline validation errors for invalid audio and oversized video files', async () => {
+    (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///notes.txt',
+          name: 'notes.txt',
+          size: 100,
+          mimeType: 'text/plain',
+        },
+      ],
+    });
+    jest.spyOn(ImagePicker, 'launchImageLibraryAsync').mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///large.mp4',
+          fileName: 'large.mp4',
+          fileSize: 60 * 1024 * 1024,
+          mimeType: 'video/mp4',
+          width: 100,
+          height: 100,
+          type: 'video',
+          assetId: 'asset-video',
+          duration: 30,
+          base64: null,
+          exif: null,
+          file: undefined,
+          pairedVideoAsset: undefined,
+        },
+      ],
+    } as ImagePicker.ImagePickerSuccessResult);
+
+    renderSubmissionScreen();
+    fireEvent.press(screen.getByText('Choose audio'));
+    expect(await screen.findByText('Only MP3, WAV, and OGG audio files are allowed.')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Choose video'));
+    expect(await screen.findByText('Video must be smaller than 50MB.')).toBeTruthy();
+  });
+
+  it('lets the contributor visibility toggle submit anonymous stories', async () => {
+    (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
+    renderSubmissionScreen();
+
+    expect(screen.getByLabelText('Show my name on this story').props.accessibilityState.checked).toBe(true);
+    fireEvent.press(screen.getByLabelText('Show my name on this story'));
+    expect(screen.getByLabelText('Show my name on this story').props.accessibilityState.checked).toBe(false);
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Anonymous Memory');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story that should not link to a profile.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 41.0082, longitude: 28.9784 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Old City');
+    fireEvent.changeText(screen.getByLabelText('Year'), '1453');
+    fireEvent.press(screen.getByText('Submit story'));
+
+    await waitFor(() => {
+      expect(submissionsService.createStory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contributorVisible: false,
+        }),
+      );
+    });
   });
 });

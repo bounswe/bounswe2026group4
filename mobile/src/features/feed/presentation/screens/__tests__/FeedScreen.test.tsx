@@ -5,13 +5,15 @@ import { FeedScreen } from '../FeedScreen';
 import { FeedPageEntity } from '../../../domain/entities';
 import { SearchFiltersProvider } from '../../../../search/presentation/context/SearchFiltersContext';
 import { storage } from '../../../../../core/storage/storage';
-import { geocodeLocationQuery } from '../../../../search/application/services';
+import { geocodeLocationQuery, searchLocationSuggestions } from '../../../../search/application/services';
 
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
   searchTags: jest.fn(async () => []),
   searchLocationSuggestions: jest.fn(),
 }));
+
+const istanbulBounds = { latMin: 40.8, latMax: 41.2, lngMin: 28.7, lngMax: 29.2 };
 
 function makeStory(id: string, overrides: Partial<FeedPageEntity['items'][number]> = {}) {
   return {
@@ -43,6 +45,7 @@ function makeFeedPage(overrides: Partial<FeedPageEntity> = {}): FeedPageEntity {
 describe('FeedScreen', () => {
   beforeEach(async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
     jest.mocked(Location.requestForegroundPermissionsAsync).mockResolvedValue({ granted: true } as never);
     jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
     jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValue(null);
@@ -79,7 +82,10 @@ describe('FeedScreen', () => {
 
     expect(await screen.findByText('Story 1')).toBeTruthy();
     expect(screen.getByText('Story 2')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sort: Most Recent' })).toBeTruthy();
+    expect(screen.getByLabelText('Sort by Most Recent')).toBeTruthy();
+    expect(screen.getByLabelText('Sort by Most Popular')).toBeTruthy();
+    expect(screen.getByText('Recent')).toBeTruthy();
+    expect(screen.getByText('Popular')).toBeTruthy();
     expect(screen.getByText('Harbor')).toBeTruthy();
     expect(screen.getByLabelText('Search stories')).toBeTruthy();
     expect(screen.queryByText('Story feed')).toBeNull();
@@ -101,11 +107,12 @@ describe('FeedScreen', () => {
     expect(onOpenTag).toHaveBeenCalledWith('Harbor');
   });
 
-  it('hides top feed controls when search controls are disabled', async () => {
+  it('keeps sort controls visible when search controls are disabled', async () => {
     renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} showSearchControls={false} />);
 
     expect(await screen.findByText('Story 1')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Sort: Most Recent' })).toBeNull();
+    expect(screen.getByLabelText('Sort by Most Recent')).toBeTruthy();
+    expect(screen.getByLabelText('Sort by Most Popular')).toBeTruthy();
     expect(screen.queryByLabelText('Search stories')).toBeNull();
   });
 
@@ -166,6 +173,85 @@ describe('FeedScreen', () => {
     });
   });
 
+  it('uses the provided initial sort for the first feed request', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+
+    renderScreen(<FeedScreen getFeed={getFeed} initialSort="popular" />);
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenCalledWith({
+        page: 1,
+        sort: 'popular',
+        filters: {},
+      });
+    });
+    expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('switches to Most Popular and persists the selected sort in state', async () => {
+    const onSortChange = jest.fn();
+    const getFeed = jest
+      .fn<Promise<FeedPageEntity>, [any]>()
+      .mockResolvedValueOnce(makeFeedPage())
+      .mockResolvedValueOnce(
+        makeFeedPage({
+          items: [
+            makeStory('popular', { title: 'Popular Story', likeCount: 42 }),
+            makeStory('quiet', { title: 'Quiet Story', likeCount: 3 }),
+          ],
+        }),
+      );
+
+    renderScreen(<FeedScreen getFeed={getFeed} onSortChange={onSortChange} />);
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Sort by Most Popular'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'popular',
+        filters: {},
+      });
+    });
+
+    expect(await screen.findByText('Popular Story')).toBeTruthy();
+    expect(onSortChange).toHaveBeenCalledWith('popular');
+    expect(screen.getByLabelText('Sort by Most Popular').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Sort by Most Recent').props.accessibilityState.selected).toBe(false);
+  });
+
+  it('applies story interaction updates to visible feed cards', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(
+      makeFeedPage({
+        items: [makeStory('1', { likeCount: 0, savedByViewer: false })],
+        totalCount: 1,
+      }),
+    );
+    const { rerender } = render(
+      <SearchFiltersProvider>
+        <FeedScreen getFeed={getFeed} storyInteractionUpdates={{}} />
+      </SearchFiltersProvider>,
+    );
+
+    expect(await screen.findByText('♡ 0')).toBeTruthy();
+    expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
+
+    rerender(
+      <SearchFiltersProvider>
+        <FeedScreen
+          getFeed={getFeed}
+          storyInteractionUpdates={{ '1': { likeCount: 1, savedByViewer: true } }}
+        />
+      </SearchFiltersProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('♥ 1')).toBeTruthy();
+      expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
+    });
+  });
+
   it('updates search query filters after debounce', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
 
@@ -213,6 +299,10 @@ describe('FeedScreen', () => {
 
   it('updates advanced filters in feed requests', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(istanbulBounds);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValueOnce([
+      { id: 'istanbul', title: 'Istanbul', subtitle: 'Turkiye', latitude: 41.0082, longitude: 28.9784, bounds: istanbulBounds },
+    ]);
 
     renderScreen(<FeedScreen getFeed={getFeed} />);
 
@@ -221,7 +311,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -231,7 +321,7 @@ describe('FeedScreen', () => {
         filters: {
           q: undefined,
           location: 'Istanbul',
-          locationBounds: undefined,
+          locationBounds: istanbulBounds,
           yearFrom: 1900,
           yearTo: 1950,
         },
@@ -241,6 +331,48 @@ describe('FeedScreen', () => {
     expect(screen.getByLabelText('Remove Location: Istanbul')).toBeTruthy();
     expect(screen.getByLabelText('Remove From: 1900')).toBeTruthy();
     expect(screen.getByLabelText('Remove To: 1950')).toBeTruthy();
+  });
+
+  it('shows location suggestions and applies the selected place', async () => {
+    const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    const galataBounds = { latMin: 41.02, latMax: 41.04, lngMin: 28.96, lngMax: 28.99 };
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(null);
+    (searchLocationSuggestions as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'galata',
+        title: 'Galata',
+        subtitle: 'Beyoglu, Istanbul',
+        latitude: 41.0256,
+        longitude: 28.9742,
+        bounds: galataBounds,
+      },
+    ]);
+
+    renderScreen(<FeedScreen getFeed={getFeed} />);
+
+    await screen.findByText('Story 1');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Galat');
+
+    expect(await screen.findByTestId('location-filter-suggestions')).toBeTruthy();
+    expect(screen.getByText('Galata')).toBeTruthy();
+    expect(screen.getByText('Beyoglu, Istanbul')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Select location Galata'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(getFeed).toHaveBeenLastCalledWith({
+        page: 1,
+        sort: 'recent',
+        filters: {
+          q: undefined,
+          location: 'Galata',
+          locationBounds: galataBounds,
+          yearFrom: undefined,
+          yearTo: undefined,
+        },
+      });
+    });
   });
 
   it('does not apply placeholder year filters when submitted unchanged', async () => {
@@ -374,6 +506,7 @@ describe('FeedScreen', () => {
 
   it('resets only filter fields and preserves the search query', async () => {
     const getFeed = jest.fn<Promise<FeedPageEntity>, [any]>().mockResolvedValue(makeFeedPage());
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(istanbulBounds);
 
     renderScreen(<FeedScreen getFeed={getFeed} />);
 
@@ -383,7 +516,7 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
     fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
     fireEvent.changeText(screen.getByLabelText('End year'), '1950');
-    expect(await screen.findByText('No map match found. Apply will search story place names instead.')).toBeTruthy();
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByText('Reset filter form'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
