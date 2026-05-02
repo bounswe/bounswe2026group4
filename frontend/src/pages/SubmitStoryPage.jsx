@@ -4,19 +4,9 @@ import { Loader2 } from "lucide-react";
 
 import { Button, Input, Label } from "@/components/ui";
 import MapPicker from "@/components/MapPicker/MapPicker";
+import TagInput from "@/components/Tags/TagInput";
 import { createStory, uploadStoryImage } from "@/services/storyService";
 import { useToast } from "@/hooks/useToast";
-
-const TAGS = [
-  "Architecture",
-  "War",
-  "Culture",
-  "Trade",
-  "Religion",
-  "Daily Life",
-  "Art",
-  "Politics",
-];
 
 const TIME_TYPES = [
   { value: "exact_year", label: "Exact Year" },
@@ -114,16 +104,6 @@ function SubmitStoryPage() {
     setImagePreview(URL.createObjectURL(file));
   }
 
-  function handleTagToggle(tag) {
-    setSelectedTags((prev) => {
-      if (prev.includes(tag)) {
-        return prev.filter((t) => t !== tag);
-      }
-      if (prev.length >= MAX_TAGS) return prev;
-      return [...prev, tag];
-    });
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setApiError("");
@@ -150,7 +130,7 @@ function SubmitStoryPage() {
         if (year) formData.append("year", year);
       }
 
-      selectedTags.forEach((tag) => formData.append("tags", tag));
+      selectedTags.forEach(({ id }) => formData.append("tag_ids", id));
 
       const story = await createStory(formData);
 
@@ -351,33 +331,14 @@ function SubmitStoryPage() {
           )}
 
           {/* Tags */}
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium leading-none">
-              Tags (select up to {MAX_TAGS})
-            </legend>
-            <div className="flex flex-wrap gap-3">
-              {TAGS.map((tag) => {
-                const isSelected = selectedTags.includes(tag);
-                const isDisabled =
-                  !isSelected && selectedTags.length >= MAX_TAGS;
-                return (
-                  <label
-                    key={tag}
-                    className="flex items-center gap-1.5 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      disabled={isDisabled || isSubmitting}
-                      onChange={() => handleTagToggle(tag)}
-                      className="rounded border-input"
-                    />
-                    {tag}
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
+          <div className="space-y-2">
+            <Label>Tags (up to {MAX_TAGS})</Label>
+            <TagInput
+              value={selectedTags}
+              onChange={setSelectedTags}
+              disabled={isSubmitting}
+            />
+          </div>
 
           {/* Image upload */}
           <div className="space-y-2">

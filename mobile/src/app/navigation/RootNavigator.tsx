@@ -579,13 +579,13 @@ export function RootNavigator() {
   }, []);
 
   const handleStoryInteractionUpdated = useCallback(
-    (update: { storyId: string; likeCount: number; savedByViewer: boolean }) => {
+    (update: { storyId: string } & FeedStoryInteractionUpdate) => {
       setStoryInteractionUpdates((current) => ({
         ...current,
         [update.storyId]: {
           ...current[update.storyId],
-          likeCount: update.likeCount,
-          savedByViewer: update.savedByViewer,
+          likeCount: update.likeCount ?? current[update.storyId]?.likeCount,
+          savedByViewer: update.savedByViewer ?? current[update.storyId]?.savedByViewer,
         },
       }));
     },
@@ -636,7 +636,11 @@ export function RootNavigator() {
           framed={false}
           fillContent
         >
-          <ProfileScreen mode="self" />
+          <ProfileScreen
+            mode="self"
+            onOpenStory={handleOpenStoryDetail}
+            onStoryInteractionUpdated={handleStoryInteractionUpdated}
+          />
         </ScreenShell>
       </ProtectedScreen>
     );
@@ -765,6 +769,9 @@ export function RootNavigator() {
                 showSearchControls={false}
                 searchScope="main"
                 storyInteractionUpdates={storyInteractionUpdates}
+                onStoryInteractionUpdated={handleStoryInteractionUpdated}
+                isAuthenticated={Boolean(isAuthenticated)}
+                onRequestLogin={() => showAuthRequiredMessage('Please sign in to bookmark stories.')}
               />
             </ScreenShell>
           </View>

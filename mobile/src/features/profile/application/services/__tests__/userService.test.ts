@@ -197,6 +197,52 @@ describe('userService', () => {
     });
   });
 
+  it('loads saved stories from the profile bookmarks endpoint', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'GET' && config.url === '/users/7/bookmarks/?page=2&page_size=10') {
+        return {
+          status: 200,
+          data: {
+            count: 1,
+            next: null,
+            previous: 'previous-page',
+            results: [
+              {
+                id: 'story-1',
+                title: 'Saved Harbor',
+                location_name: 'Golden Horn',
+                time_type: 'exact_year',
+                year: 1978,
+                preview_text: 'A saved story.',
+                submitted_at: '2026-03-18T10:00:00Z',
+                like_count: 4,
+                user_has_saved: true,
+              },
+            ],
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.getSavedStories('7', 2)).resolves.toMatchObject({
+      page: 2,
+      totalCount: 1,
+      items: [
+        {
+          id: 'story-1',
+          title: 'Saved Harbor',
+          locationName: 'Golden Horn',
+          timePeriod: '1978',
+          likeCount: 4,
+          savedByViewer: true,
+        },
+      ],
+    });
+  });
+
   it('updates the authenticated profile via PATCH /users/me/', async () => {
     setApiTransport(async (method: any, config: any) => {
       if (method === 'PATCH' && config.url === '/users/me/') {

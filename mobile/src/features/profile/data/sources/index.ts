@@ -154,6 +154,17 @@ export const profileRemoteSource = {
       results: [],
     };
   },
+
+  async getSavedStories(userId: string, page = 1) {
+    return (await apiClient.get<Record<string, unknown>>(
+      `/users/${userId}/bookmarks/${buildQueryString({ page, page_size: 10 })}`,
+    )) ?? {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    };
+  },
 };
 
 export const profileLocalSource = {};

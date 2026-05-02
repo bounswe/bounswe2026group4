@@ -3,6 +3,7 @@ import io
 from decimal import Decimal
 
 import pytest
+from django.core import mail
 from django.core.files.storage import default_storage
 from django.utils import timezone
 from django.core.files.uploadedfile import InMemoryUploadedFile
@@ -21,6 +22,8 @@ from apps.users.services import (
     login_user,
     logout_user,
     register_user,
+    request_password_reset,
+    reset_password,
     unfollow_user,
     update_own_profile,
     upload_profile_photo,
@@ -734,3 +737,140 @@ class TestGetUserBookmarks:
     def test_non_owner_raises_permission_denied(self, user, second_user):
         with pytest.raises(PermissionDenied):
             get_user_bookmarks(user.pk, second_user)
+
+
+# ── register_user: sends verification email ──────────────────────────────────
+
+@pytest.mark.django_db
+class TestRegisterUserSendsEmail:
+    def test_sends_verification_email(self):
+        register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ['new@example.com']
+
+    def test_email_body_contains_verification_code(self):
+        register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
+        from apps.users.models import EmailVerificationCode
+        user = User.objects.get(email='new@example.com')
+        code = EmailVerificationCode.objects.get(user=user).code
+        assert code in mail.outbox[0].body
+
+    def test_email_failure_does_not_prevent_account_creation(self, monkeypatch):
+        monkeypatch.setattr(
+            'apps.users.services.send_verification_email',
+            lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
+        )
+        user = register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
+        assert User.objects.filter(email='new@example.com').exists()
+        assert user.pk is not None
+
+
+# ── request_password_reset ────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestRequestPasswordReset:
+    def test_sends_email_to_existing_user(self, user):
+        request_password_reset(user.email)
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == [user.email]
+
+    def test_creates_reset_token(self, user):
+        from apps.users.models import PasswordResetToken
+        request_password_reset(user.email)
+        assert PasswordResetToken.objects.filter(user=user).exists()
+
+    def test_email_contains_token_in_link(self, user):
+        from apps.users.models import PasswordResetToken
+        request_password_reset(user.email)
+        token = PasswordResetToken.objects.get(user=user)
+        assert str(token.token) in mail.outbox[0].body
+
+    def test_no_email_for_nonexistent_address(self):
+        request_password_reset('nobody@example.com')
+        assert len(mail.outbox) == 0
+
+    def test_no_token_for_nonexistent_address(self):
+        from apps.users.models import PasswordResetToken
+        request_password_reset('nobody@example.com')
+        assert PasswordResetToken.objects.count() == 0
+
+    def test_no_email_for_inactive_user(self, user):
+        user.is_active = False
+        user.save()
+        request_password_reset(user.email)
+        assert len(mail.outbox) == 0
+
+    def test_invalidates_old_tokens_before_creating_new(self, user):
+        from apps.users.models import PasswordResetToken
+        old_token = PasswordResetToken.objects.create(user=user)
+        request_password_reset(user.email)
+        old_token.refresh_from_db()
+        assert old_token.is_used is True
+        assert PasswordResetToken.objects.filter(user=user, is_used=False).count() == 1
+
+    def test_email_failure_does_not_prevent_token_creation(self, user, monkeypatch):
+        from apps.users.models import PasswordResetToken
+        monkeypatch.setattr(
+            'apps.users.services.send_password_reset_email',
+            lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
+        )
+        request_password_reset(user.email)
+        assert PasswordResetToken.objects.filter(user=user).exists()
+
+
+# ── reset_password ────────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestResetPassword:
+    def test_resets_password_with_valid_token(self, user):
+        from apps.users.models import PasswordResetToken
+        token = PasswordResetToken.objects.create(user=user)
+        reset_password(str(token.token), 'NewPassword1')
+        user.refresh_from_db()
+        assert user.check_password('NewPassword1')
+
+    def test_marks_token_as_used(self, user):
+        from apps.users.models import PasswordResetToken
+        token = PasswordResetToken.objects.create(user=user)
+        reset_password(str(token.token), 'NewPassword1')
+        token.refresh_from_db()
+        assert token.is_used is True
+
+    def test_invalid_token_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            reset_password('00000000-0000-0000-0000-000000000000', 'NewPassword1')
+
+    def test_already_used_token_raises_validation_error(self, user):
+        from apps.users.models import PasswordResetToken
+        token = PasswordResetToken.objects.create(user=user, is_used=True)
+        with pytest.raises(ValidationError):
+            reset_password(str(token.token), 'NewPassword1')
+
+    def test_expired_token_raises_validation_error(self, user):
+        from apps.users.models import PasswordResetToken
+        from datetime import timedelta
+        token = PasswordResetToken.objects.create(
+            user=user, expires_at=timezone.now() - timedelta(hours=1)
+        )
+        with pytest.raises(ValidationError):
+            reset_password(str(token.token), 'NewPassword1')
+
+    def test_used_token_cannot_be_reused(self, user):
+        from apps.users.models import PasswordResetToken
+        token = PasswordResetToken.objects.create(user=user)
+        reset_password(str(token.token), 'NewPassword1')
+        with pytest.raises(ValidationError):
+            reset_password(str(token.token), 'AnotherPassword1')
+
+    def test_blacklists_outstanding_jwt_tokens(self, user):
+        from apps.users.models import PasswordResetToken
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
+        refresh = RefreshToken.for_user(user)
+        outstanding = OutstandingToken.objects.get(jti=refresh['jti'])
+
+        token = PasswordResetToken.objects.create(user=user)
+        reset_password(str(token.token), 'NewPassword1')
+
+        assert BlacklistedToken.objects.filter(token=outstanding).exists()

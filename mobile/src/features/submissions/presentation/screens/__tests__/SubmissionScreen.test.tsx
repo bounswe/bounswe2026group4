@@ -112,6 +112,17 @@ describe('SubmissionScreen', () => {
     expect(submissionsService.createStory).not.toHaveBeenCalled();
   });
 
+  it('renders compact time type options without horizontal scrolling', () => {
+    renderSubmissionScreen();
+
+    expect(screen.getByTestId('submission-time-type-options')).toBeTruthy();
+    expect(screen.getByText('Exact')).toBeTruthy();
+    expect(screen.getByText('Approx')).toBeTruthy();
+    expect(screen.getByText('Decade')).toBeTruthy();
+    expect(screen.getByText('Range')).toBeTruthy();
+    expect(screen.getByText('Date')).toBeTruthy();
+  });
+
   it('marks blank required inputs with red outer borders', async () => {
     renderSubmissionScreen();
 
@@ -178,6 +189,23 @@ describe('SubmissionScreen', () => {
     }
   });
 
+  it('caps future year input values at 2026', () => {
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Year'), '8888');
+    expect(screen.getByLabelText('Year').props.value).toBe('2026');
+
+    fireEvent.press(screen.getByLabelText('Year Range'));
+    fireEvent.changeText(screen.getByLabelText('Start year'), '8888');
+    fireEvent.changeText(screen.getByLabelText('End year'), '8888');
+    expect(screen.getByLabelText('Start year').props.value).toBe('2026');
+    expect(screen.getByLabelText('End year').props.value).toBe('2026');
+
+    fireEvent.press(screen.getByLabelText('Specific Date'));
+    fireEvent.changeText(screen.getByLabelText('Specific date year'), '8888');
+    expect(screen.getByLabelText('Specific date year').props.value).toBe('2026');
+  });
+
   it('submits the story payload and returns the user to the feed on success', async () => {
     (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
     renderSubmissionScreen();
@@ -209,6 +237,82 @@ describe('SubmissionScreen', () => {
     });
 
     expect(navigationRef.navigate).toHaveBeenCalledWith(ROUTES.FEED);
+  });
+
+  it('submits specific date stories with optional time and EDTF temporal coverage', async () => {
+    (submissionsService.createStory as jest.Mock).mockResolvedValue({ id: 12 });
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Republic Day');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story tied to a specific day.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
+    fireEvent.press(screen.getByLabelText('Specific Date'));
+    fireEvent.changeText(screen.getByLabelText('Specific date day'), '29');
+    fireEvent.changeText(screen.getByLabelText('Specific date month'), '10');
+    fireEvent.changeText(screen.getByLabelText('Specific date year'), '1923');
+    fireEvent.changeText(screen.getByLabelText('Optional specific time'), '9:30');
+
+    fireEvent.press(screen.getByText('Submit story'));
+
+    await waitFor(() => {
+      expect(submissionsService.createStory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeType: 'exact_date',
+          dateValue: '1923-10-29',
+          timeValue: '09:30',
+          temporalCoverage: '1923-10-29T09:30',
+        }),
+      );
+    });
+  });
+
+  it('validates specific date and optional time inputs', async () => {
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Invalid Date');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story with invalid temporal input.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
+    fireEvent.press(screen.getByLabelText('Specific Date'));
+    fireEvent.changeText(screen.getByLabelText('Specific date day'), '31');
+    fireEvent.changeText(screen.getByLabelText('Specific date month'), '02');
+    fireEvent.changeText(screen.getByLabelText('Specific date year'), '1923');
+    fireEvent.changeText(screen.getByLabelText('Optional specific time'), '25:00');
+
+    fireEvent.press(screen.getByText('Submit story'));
+
+    expect(await screen.findByText('Enter a valid calendar date.')).toBeTruthy();
+    expect(screen.getByText('Time must use 24-hour HH:MM format.')).toBeTruthy();
+    expect(getInputShellStyle('Specific date day').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('Specific date month').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('Specific date year').borderColor).toBe(lightColors.danger);
+    expect(submissionsService.createStory).not.toHaveBeenCalled();
+  });
+
+  it('marks both year range inputs when start year is not earlier than end year', async () => {
+    renderSubmissionScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Story title'), 'Range Error');
+    fireEvent.changeText(screen.getByLabelText('Story narrative'), 'A story with an invalid range.');
+    fireEvent(screen.getByTestId('story-location-map'), 'press', {
+      nativeEvent: { coordinate: { latitude: 39.9334, longitude: 32.8597 } },
+    });
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Ankara');
+    fireEvent.press(screen.getByLabelText('Year Range'));
+    fireEvent.changeText(screen.getByLabelText('Start year'), '1923');
+    fireEvent.changeText(screen.getByLabelText('End year'), '1923');
+
+    fireEvent.press(screen.getByText('Submit story'));
+
+    expect(await screen.findByText('Start year must be earlier than end year.')).toBeTruthy();
+    expect(getInputShellStyle('Start year').borderColor).toBe(lightColors.danger);
+    expect(getInputShellStyle('End year').borderColor).toBe(lightColors.danger);
+    expect(submissionsService.createStory).not.toHaveBeenCalled();
   });
 
   it('debounces story location search API calls by 300ms', async () => {

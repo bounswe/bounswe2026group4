@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getStoryById, deleteStory } from "@/services/storyService";
 import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
+import TagChip from "@/components/Tags/TagChip";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import StoryDetailMap from "@/components/StoryDetailMap/StoryDetailMap";
@@ -234,6 +235,14 @@ function StoryDetailPage() {
                 </span>
               )}
             </div>
+
+            {story.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-6">
+                {story.tags.map((tag) => (
+                  <TagChip key={tag.id} tag={tag} />
+                ))}
+              </div>
+            )}
 
             {/* Images */}
             {images.length > 0 && (
