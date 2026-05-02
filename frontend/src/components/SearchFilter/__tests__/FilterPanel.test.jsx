@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import FilterPanel from "../FilterPanel";
+
+vi.mock("@/services/tagService", () => ({
+  searchTags: vi.fn().mockResolvedValue([
+    { id: 1, name: "ottoman", story_count: 5 },
+    { id: 2, name: "galata", story_count: 3 },
+  ]),
+}));
 
 function renderPanel(props = {}) {
   return render(
@@ -70,7 +77,7 @@ describe("FilterPanel", () => {
     await user.type(screen.getByLabelText("Location filter"), "Galata");
     await user.click(screen.getByRole("button", { name: /apply/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata" });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata", tags: [] });
   });
 
 
@@ -98,7 +105,60 @@ describe("FilterPanel", () => {
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.click(screen.getByRole("button", { name: /reset filters/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "" });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "", tags: [] });
+  });
+
+  it("shows tag section when panel is open", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+    expect(screen.getByRole("button", { name: /add tag filter/i })).toBeInTheDocument();
+  });
+
+  it("calls onApply with selected tags when Apply is clicked", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    renderPanel({ tags: ["ottoman"], onApply });
+
+    await user.click(screen.getByRole("button", { name: /^filters/i }));
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: ["ottoman"] })
+    );
+  });
+
+  it("opens tag dropdown and shows suggestions", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.click(screen.getByRole("button", { name: /add tag filter/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("listbox", { name: /tag suggestions/i })).toBeInTheDocument();
+    });
+  });
+
+  it("selecting a tag suggestion adds it to the local tags", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    renderPanel({ onApply });
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.click(screen.getByRole("button", { name: /add tag filter/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /ottoman/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("option", { name: /ottoman/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /remove tag ottoman/i })).toBeInTheDocument();
+    });
   });
 
   it("initialises form fields from props on mount", async () => {

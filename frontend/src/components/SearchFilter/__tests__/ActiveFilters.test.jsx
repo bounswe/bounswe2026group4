@@ -12,7 +12,9 @@ function renderFilters(props = {}) {
       yearFrom=""
       yearTo=""
       location=""
+      tags={[]}
       onRemove={vi.fn()}
+      onRemoveTag={vi.fn()}
       onClearAll={vi.fn()}
       {...props}
     />
@@ -114,5 +116,38 @@ describe("ActiveFilters", () => {
     await user.click(screen.getByRole("button", { name: /clear all filters/i }));
 
     expect(onClearAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders nothing when tags is empty and no other filters", () => {
+    const { container } = renderFilters({ tags: [] });
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("shows a chip for each selected tag", () => {
+    renderFilters({ tags: ["ottoman", "galata"] });
+    expect(screen.getByText("ottoman")).toBeInTheDocument();
+    expect(screen.getByText("galata")).toBeInTheDocument();
+  });
+
+  it("shows Clear all when only tags are active", () => {
+    renderFilters({ tags: ["ottoman"] });
+    expect(screen.getByRole("button", { name: /clear all filters/i })).toBeInTheDocument();
+  });
+
+  it("calls onRemoveTag with tag name when tag chip X is clicked", async () => {
+    const user = userEvent.setup();
+    const onRemoveTag = vi.fn();
+    renderFilters({ tags: ["ottoman", "galata"], onRemoveTag });
+
+    await user.click(screen.getByRole("button", { name: /remove tag filter: ottoman/i }));
+
+    expect(onRemoveTag).toHaveBeenCalledWith("ottoman");
+  });
+
+  it("shows both tag chips and regular filter chips simultaneously", () => {
+    renderFilters({ q: "bridge", tags: ["ottoman"], yearFrom: 1900 });
+    expect(screen.getByText(/"bridge"/)).toBeInTheDocument();
+    expect(screen.getByText("From 1900")).toBeInTheDocument();
+    expect(screen.getByText("ottoman")).toBeInTheDocument();
   });
 });
