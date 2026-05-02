@@ -67,10 +67,9 @@ class TestRegisterUser:
         user = register_user(self._data())
         assert EmailVerificationCode.objects.filter(user=user).exists()
 
-    def test_user_is_active_on_registration(self):
-        # Active by default — email verification is scaffolded but not yet enforced
+    def test_user_is_inactive_on_registration(self):
         user = register_user(self._data())
-        assert user.is_active is True
+        assert user.is_active is False
 
     def test_email_is_not_verified_on_registration(self):
         user = register_user(self._data())
