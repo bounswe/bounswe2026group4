@@ -236,6 +236,7 @@ class StoryFeedSerializer(serializers.ModelSerializer):
 
     user_has_liked = serializers.SerializerMethodField()
     user_has_saved = serializers.SerializerMethodField()
+    tags = TagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Story
@@ -259,6 +260,7 @@ class StoryFeedSerializer(serializers.ModelSerializer):
             'user_has_liked',
             'user_has_saved',
             'submitted_at',
+            'tags',
         ]
         read_only_fields = fields
 
