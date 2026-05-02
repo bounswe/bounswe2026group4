@@ -165,6 +165,8 @@ function formatTimePeriod(story: Record<string, unknown>) {
   const year = asNumericValue(story.year);
   const yearStart = asNumericValue(story.year_start) ?? asNumericValue(story.yearStart);
   const yearEnd = asNumericValue(story.year_end) ?? asNumericValue(story.yearEnd);
+  const dateValue = asString(story.date_value) || asString(story.dateValue);
+  const timeValue = asString(story.time_value) || asString(story.timeValue);
 
   if (timeType === 'year_range' && yearStart !== undefined && yearEnd !== undefined) {
     return `${yearStart}-${yearEnd}`;
@@ -172,6 +174,10 @@ function formatTimePeriod(story: Record<string, unknown>) {
 
   if (timeType === 'decade' && year !== undefined) {
     return `${year}s`;
+  }
+
+  if (timeType === 'exact_date' && dateValue) {
+    return `${dateValue}${timeValue ? ` ${timeValue.slice(0, 5)}` : ''}`;
   }
 
   if (year !== undefined) {
@@ -205,6 +211,8 @@ function formatTimePeriodFromRecord(story: StoryRecord | Record<string, unknown>
   const year = asNumber(story.year);
   const yearStart = asNumber(story.year_start);
   const yearEnd = asNumber(story.year_end);
+  const dateValue = asString((story as Record<string, unknown>).date_value) || asString((story as Record<string, unknown>).dateValue);
+  const timeValue = asString((story as Record<string, unknown>).time_value) || asString((story as Record<string, unknown>).timeValue);
   const explicit = asString((story as Record<string, unknown>).timePeriod) || asString((story as Record<string, unknown>).time_period);
 
   if (explicit) {
@@ -220,6 +228,8 @@ function formatTimePeriodFromRecord(story: StoryRecord | Record<string, unknown>
       return year !== undefined ? `${Math.floor(year / 10) * 10}s` : '';
     case 'year_range':
       return yearStart !== undefined && yearEnd !== undefined ? `${yearStart}-${yearEnd}` : '';
+    case 'exact_date':
+      return dateValue ? `${dateValue}${timeValue ? ` ${timeValue.slice(0, 5)}` : ''}` : '';
     default:
       return '';
   }
