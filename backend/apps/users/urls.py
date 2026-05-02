@@ -7,6 +7,7 @@ from apps.users.views import (
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
+    VerifyEmailView,
 )
 
 app_name = 'users'
@@ -18,4 +19,5 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('verify-email/', VerifyEmailView.as_view(), name='verify-email'),
 ]

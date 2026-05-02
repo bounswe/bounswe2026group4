@@ -15,6 +15,8 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Va
 from apps.users.email_service import send_password_reset_email, send_verification_email
 from apps.users.models import EmailVerificationCode, Follow, PasswordResetToken, User, UserProfile
 
+_INVALID_VERIFICATION_CODE = ValidationError({'code': 'Invalid or expired verification code.'})
+
 _MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
 _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
 
@@ -32,6 +34,7 @@ def register_user(validated_data: dict) -> User:
                 email=validated_data['email'],
                 username=validated_data['username'],
                 password=validated_data['password'],
+                is_active=False,
             )
             code = EmailVerificationCode.generate_code()
             EmailVerificationCode.objects.create(user=user, code=code)
@@ -43,6 +46,37 @@ def register_user(validated_data: dict) -> User:
     except Exception:
         logger.exception('Failed to send verification email to %s', user.email)
     return user
+
+
+def verify_email(email: str, code: str) -> None:
+    """
+    Validates the 6-digit code and activates the account.
+
+    Uses a unified error for unknown emails, wrong codes, and expired/used codes
+    so the response does not reveal whether a given email is registered.
+    The flag update and code invalidation are atomic — they cannot diverge.
+    """
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        raise _INVALID_VERIFICATION_CODE
+
+    verification = (
+        EmailVerificationCode.objects
+        .filter(user=user, code=code, is_used=False)
+        .order_by('-created_at')
+        .first()
+    )
+
+    if verification is None or verification.is_expired():
+        raise _INVALID_VERIFICATION_CODE
+
+    with transaction.atomic():
+        verification.is_used = True
+        verification.save(update_fields=['is_used'])
+        user.is_active = True
+        user.is_email_verified = True
+        user.save(update_fields=['is_active', 'is_email_verified'])
 
 
 def login_user(email: str, password: str) -> dict:

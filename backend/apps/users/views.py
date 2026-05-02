@@ -20,6 +20,7 @@ from apps.users.serializers import (
     RegisterSerializer,
     UpdateCurrentUserSerializer,
     UserResponseSerializer,
+    VerifyEmailSerializer,
 )
 from apps.users.services import (
     delete_account,
@@ -38,6 +39,7 @@ from apps.users.services import (
     unfollow_user,
     update_own_profile,
     upload_profile_photo,
+    verify_email,
 )
 from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
@@ -58,6 +60,19 @@ class RegisterView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = VerifyEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        verify_email(
+            serializer.validated_data['email'],
+            serializer.validated_data['code'],
+        )
+        return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
 
 
 class LoginView(APIView):
