@@ -225,7 +225,7 @@ describe("RegisterPage", () => {
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith("/verify-email", {
-        state: { email: VALID_EMAIL, from: null },
+        state: { email: VALID_EMAIL, password: VALID_PASSWORD, from: null },
         replace: true,
       });
     });
@@ -243,6 +243,7 @@ describe("RegisterPage", () => {
       expect(mockNavigate).toHaveBeenCalledWith("/verify-email", {
         state: {
           email: VALID_EMAIL,
+          password: VALID_PASSWORD,
           from: { pathname: "/submit-story", search: "", hash: "", state: null, key: "testkey" },
         },
         replace: true,
@@ -262,6 +263,7 @@ describe("RegisterPage", () => {
       expect(mockNavigate).toHaveBeenCalledWith("/verify-email", {
         state: {
           email: VALID_EMAIL,
+          password: VALID_PASSWORD,
           from: { pathname: "/map", search: "?q=castle&year_from=1900", hash: "", state: null, key: "testkey" },
         },
         replace: true,

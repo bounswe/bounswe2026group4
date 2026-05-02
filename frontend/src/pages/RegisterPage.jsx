@@ -149,8 +149,11 @@ function RegisterPage() {
     try {
       await register(username, email, password, confirmPassword);
       toast.info("Account created! Check your email for a verification code.");
+      // Forward the password (held in route state, not in the URL) so
+      // VerifyEmailPage can auto-login the user the moment verification
+      // succeeds and send them straight to profile completion.
       navigate("/verify-email", {
-        state: { email, from: location.state?.from || null },
+        state: { email, password, from: location.state?.from || null },
         replace: true,
       });
     } catch (error) {

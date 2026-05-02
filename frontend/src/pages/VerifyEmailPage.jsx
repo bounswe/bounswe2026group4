@@ -13,12 +13,13 @@ import {
   CardFooter,
 } from "@/components/ui";
 import { verifyEmail, resendVerificationCode } from "@/services/authService";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
-const EMPTY_DIGITS = Array(CODE_LENGTH).fill("");
+const INITIAL_DIGITS = Array(CODE_LENGTH).fill("");
 
 function extractApiError(error, fallback) {
   const data = error.response?.data;
@@ -43,12 +44,14 @@ function isExpiredCodeError(error) {
 function VerifyEmailPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
   const { toast } = useToast();
 
   const email = location.state?.email || "";
+  const password = location.state?.password || "";
   const fromAfterLogin = location.state?.from || null;
 
-  const [digits, setDigits] = useState(EMPTY_DIGITS);
+  const [digits, setDigits] = useState(INITIAL_DIGITS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [showResendOnError, setShowResendOnError] = useState(false);
@@ -147,6 +150,23 @@ function VerifyEmailPage() {
     setIsSubmitting(true);
     try {
       await verifyEmail(email, code);
+      // Auto-login with the credentials forwarded from RegisterPage so the
+      // newly-verified user lands directly on profile completion. If the
+      // password is missing (e.g., page reload lost route state) or the
+      // login call fails, fall back to the login page with the from state.
+      if (password) {
+        try {
+          await login(email, password);
+          toast.success("Account verified! Welcome!");
+          navigate("/complete-profile", {
+            state: { from: fromAfterLogin },
+            replace: true,
+          });
+          return;
+        } catch {
+          // Fall through to /login redirect below.
+        }
+      }
       toast.success("Account verified! You can now log in.");
       navigate("/login", { state: { from: fromAfterLogin }, replace: true });
     } catch (error) {
@@ -171,7 +191,7 @@ function VerifyEmailPage() {
     try {
       await resendVerificationCode(email);
       toast.success("A new code has been sent to your email.");
-      setDigits(EMPTY_DIGITS);
+      setDigits(INITIAL_DIGITS);
       inputsRef.current[0]?.focus();
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (error) {

@@ -12,6 +12,11 @@ vi.mock("@/services/authService", () => ({
   resendVerificationCode: vi.fn(),
 }));
 
+const mockLogin = vi.fn();
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ login: mockLogin }),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -21,6 +26,7 @@ vi.mock("react-router-dom", async () => {
 import { verifyEmail, resendVerificationCode } from "@/services/authService";
 
 const TEST_EMAIL = "test@example.com";
+const TEST_PASSWORD = "Password1";
 
 function renderPage({ state = { email: TEST_EMAIL } } = {}) {
   return render(
@@ -83,7 +89,7 @@ describe("VerifyEmailPage", () => {
     expect(inputs[1]).toHaveFocus();
   });
 
-  it("submits with email and code on success and navigates to /login", async () => {
+  it("submits with email and code", async () => {
     const user = userEvent.setup();
     verifyEmail.mockResolvedValue({ message: "ok" });
     renderPage();
@@ -92,38 +98,84 @@ describe("VerifyEmailPage", () => {
     await waitFor(() => {
       expect(verifyEmail).toHaveBeenCalledWith(TEST_EMAIL, "123456");
     });
+  });
+
+  it("auto-logs in and navigates to /complete-profile when password is in state", async () => {
+    const user = userEvent.setup();
+    verifyEmail.mockResolvedValue({ message: "ok" });
+    mockLogin.mockResolvedValue({ user: { id: 1 } });
+    renderPage({ state: { email: TEST_EMAIL, password: TEST_PASSWORD } });
+
+    await typeCode(user, "123456");
+    await user.click(screen.getByRole("button", { name: /verify email/i }));
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith(TEST_EMAIL, TEST_PASSWORD);
+    });
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
+        state: { from: null },
+        replace: true,
+      });
+    });
+    expect(
+      await screen.findByText(/account verified! welcome/i)
+    ).toBeInTheDocument();
+  });
+
+  it("forwards from-state to /complete-profile after auto-login", async () => {
+    const user = userEvent.setup();
+    verifyEmail.mockResolvedValue({ message: "ok" });
+    mockLogin.mockResolvedValue({ user: { id: 1 } });
+    const from = { pathname: "/submit-story", search: "", hash: "", state: null };
+    renderPage({ state: { email: TEST_EMAIL, password: TEST_PASSWORD, from } });
+
+    await typeCode(user, "123456");
+    await user.click(screen.getByRole("button", { name: /verify email/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
+        state: { from },
+        replace: true,
+      });
+    });
+  });
+
+  it("falls back to /login when auto-login fails", async () => {
+    const user = userEvent.setup();
+    verifyEmail.mockResolvedValue({ message: "ok" });
+    mockLogin.mockRejectedValue(new Error("auto-login failed"));
+    renderPage({ state: { email: TEST_EMAIL, password: TEST_PASSWORD } });
+
+    await typeCode(user, "123456");
+    await user.click(screen.getByRole("button", { name: /verify email/i }));
+
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith("/login", {
         state: { from: null },
         replace: true,
       });
     });
-  });
-
-  it("shows success toast on verification", async () => {
-    const user = userEvent.setup();
-    verifyEmail.mockResolvedValue({ message: "ok" });
-    renderPage();
-    await typeCode(user, "123456");
-    await user.click(screen.getByRole("button", { name: /verify email/i }));
     expect(
-      await screen.findByText(/account verified/i)
+      await screen.findByText(/account verified! you can now log in/i)
     ).toBeInTheDocument();
   });
 
-  it("forwards from-state to /login on success", async () => {
+  it("navigates to /login when password is missing from route state", async () => {
     const user = userEvent.setup();
     verifyEmail.mockResolvedValue({ message: "ok" });
-    const from = { pathname: "/submit-story", search: "", hash: "", state: null };
-    renderPage({ state: { email: TEST_EMAIL, from } });
+    renderPage({ state: { email: TEST_EMAIL } });
+
     await typeCode(user, "123456");
     await user.click(screen.getByRole("button", { name: /verify email/i }));
+
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith("/login", {
-        state: { from },
+        state: { from: null },
         replace: true,
       });
     });
+    expect(mockLogin).not.toHaveBeenCalled();
   });
 
   it("shows inline error for invalid code", async () => {
