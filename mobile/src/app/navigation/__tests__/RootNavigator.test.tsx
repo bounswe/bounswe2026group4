@@ -367,22 +367,19 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('disables parent scrolling while the map is being touched', async () => {
+  it('lets the map own pan gestures without disabling scroll APIs', async () => {
     renderNavigator();
 
     await screen.findByLabelText('Map');
     fireEvent.press(screen.getByLabelText('Map'));
 
     const mapView = await screen.findByTestId('web-map-view');
-    fireEvent(mapView, 'touchStart');
+    expect(mapView.props.onTouchStart).toBeUndefined();
 
-    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).toBe(false);
-    expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(false);
-
-    fireEvent(mapView, 'touchEnd');
-
-    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).toBe(true);
+    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).not.toBe(false);
+    expect(screen.getByTestId('main-route-pager').props.disableScrollViewPanResponder).toBe(true);
     expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
+    expect(screen.getByTestId('map-route-scroll').props.disableScrollViewPanResponder).toBe(true);
   });
 
   it('shows only the StoryMap brand in the main header', async () => {

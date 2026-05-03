@@ -13,12 +13,10 @@ interface MapCardProps {
   isLoading?: boolean;
   error?: string;
   statusBadgeText?: string;
-  fitToMarkers?: boolean;
   userLocation?: { latitude: number; longitude: number };
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
   onMarkerPress?: () => void;
-  onMapGestureActiveChange?: (active: boolean) => void;
   onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
 }
@@ -31,12 +29,10 @@ export function MapCard({
   isLoading = false,
   error,
   statusBadgeText,
-  fitToMarkers = false,
   userLocation,
   onSelectMarker,
   onOpenStory,
   onMarkerPress,
-  onMapGestureActiveChange,
   onRegionChangeComplete,
   onPreviewLayout,
 }: MapCardProps) {
@@ -45,23 +41,8 @@ export function MapCard({
   const [currentRegion, setCurrentRegion] = useState(region);
 
   useEffect(() => {
-    if (fitToMarkers) {
-      setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
-      return;
-    }
-
-    if (!selectedMarker) {
-      setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
-      return;
-    }
-
-    setCurrentRegion((current) => ({
-      latitude: selectedMarker.latitude,
-      longitude: selectedMarker.longitude,
-      latitudeDelta: current.latitudeDelta,
-      longitudeDelta: current.longitudeDelta,
-    }));
-  }, [fitToMarkers, region, selectedMarker]);
+    setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
+  }, [region]);
 
   return (
     <View
@@ -73,12 +54,7 @@ export function MapCard({
         backgroundColor: colors.surface,
       }}
     >
-      <View
-        style={{ height: 420 }}
-        onTouchStart={() => onMapGestureActiveChange?.(true)}
-        onTouchEnd={() => onMapGestureActiveChange?.(false)}
-        onTouchCancel={() => onMapGestureActiveChange?.(false)}
-      >
+      <View style={{ height: 420 }}>
         <WebMapView
           region={currentRegion}
           userLocation={userLocation}
@@ -94,7 +70,6 @@ export function MapCard({
             onSelectMarker(markerId);
             onMarkerPress?.();
           }}
-          onGestureActiveChange={onMapGestureActiveChange}
           onRegionChangeComplete={onRegionChangeComplete}
         />
 

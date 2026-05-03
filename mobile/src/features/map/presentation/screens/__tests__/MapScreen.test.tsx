@@ -216,6 +216,25 @@ describe('MapScreen', () => {
     expect(onOpenStory).toHaveBeenCalledWith('story-001');
   });
 
+  it('keeps manual map panning available after a marker is selected', async () => {
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    await screen.findByText('The Day the Harbor Fell Silent');
+
+    fireEvent.press(screen.getByTestId('map-region-empty'));
+
+    await waitFor(() => {
+      const manualRegion = getRenderedMapRegion();
+
+      expect(manualRegion.latitude).toBeCloseTo(40.5);
+      expect(manualRegion.longitude).toBeCloseTo(29.8);
+      expect(manualRegion.latitudeDelta).toBeCloseTo(0.02);
+      expect(manualRegion.longitudeDelta).toBeCloseTo(0.02);
+    });
+  });
+
   it('shows nearby stories when a clustered marker is pressed', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 

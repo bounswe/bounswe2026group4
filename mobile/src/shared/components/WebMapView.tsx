@@ -29,7 +29,6 @@ interface WebMapViewProps {
   interactive?: boolean;
   onMarkerPress?: (markerId: string) => void;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
-  onGestureActiveChange?: (active: boolean) => void;
   onRegionChangeComplete?: (region: RegionLike) => void;
   transitionDurationMs?: number;
 }
@@ -357,7 +356,6 @@ export function WebMapView({
   interactive = true,
   onMarkerPress,
   onMapPress,
-  onGestureActiveChange,
   onRegionChangeComplete,
   transitionDurationMs = 450,
 }: WebMapViewProps) {
@@ -385,13 +383,7 @@ export function WebMapView({
   }, [markers, region, transitionDurationMs, userLocation]);
 
   return (
-    <View
-      testID="web-map-view"
-      style={styles.container}
-      onTouchStart={() => onGestureActiveChange?.(true)}
-      onTouchEnd={() => onGestureActiveChange?.(false)}
-      onTouchCancel={() => onGestureActiveChange?.(false)}
-    >
+    <View testID="web-map-view" style={styles.container}>
       <WebView
         ref={(ref: unknown) => {
           webViewRef.current = ref as WebViewHandle | null;
@@ -405,9 +397,6 @@ export function WebMapView({
         nestedScrollEnabled
         androidLayerType="hardware"
         setSupportMultipleWindows={false}
-        onTouchStart={() => onGestureActiveChange?.(true)}
-        onTouchEnd={() => onGestureActiveChange?.(false)}
-        onTouchCancel={() => onGestureActiveChange?.(false)}
         onLoadEnd={() => {
           if (latestUpdatePayloadRef.current) {
             injectMapUpdate(webViewRef.current, latestUpdatePayloadRef.current);

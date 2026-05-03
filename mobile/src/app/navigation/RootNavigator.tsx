@@ -193,6 +193,7 @@ function ScreenShell({
   fillContent = false,
   hideHeader = false,
   active = false,
+  disableScrollViewPanResponder = false,
   scrollEnabled = true,
   testID,
   preservedScrollY = 0,
@@ -211,6 +212,7 @@ function ScreenShell({
   fillContent?: boolean;
   hideHeader?: boolean;
   active?: boolean;
+  disableScrollViewPanResponder?: boolean;
   scrollEnabled?: boolean;
   testID?: string;
   preservedScrollY?: number;
@@ -300,6 +302,7 @@ function ScreenShell({
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
         showsVerticalScrollIndicator={false}
+        disableScrollViewPanResponder={disableScrollViewPanResponder}
         scrollEnabled={scrollEnabled}
         scrollEventThrottle={16}
         refreshControl={
@@ -334,7 +337,6 @@ export function RootNavigator() {
   const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
   const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [isMapGestureActive, setIsMapGestureActive] = useState(false);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
   const pagerRef = useRef<ScrollView>(null);
@@ -725,7 +727,7 @@ export function RootNavigator() {
           testID="main-route-pager"
           horizontal
           pagingEnabled
-          scrollEnabled={!isMapGestureActive}
+          disableScrollViewPanResponder={currentRoute === ROUTES.MAP}
           contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
@@ -746,7 +748,7 @@ export function RootNavigator() {
               scrollable
               hideHeader
               active={currentRoute === ROUTES.MAP}
-              scrollEnabled={!isMapGestureActive}
+              disableScrollViewPanResponder={currentRoute === ROUTES.MAP}
               testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
               onScrollOffsetChange={(y) => {
@@ -757,7 +759,6 @@ export function RootNavigator() {
                 <MapScreen
                   onOpenStory={handleOpenStoryDetail}
                   onMarkerPreviewRequested={(targetY) => scrollTo(targetY)}
-                  onMapGestureActiveChange={setIsMapGestureActive}
                   showSearchControls={false}
                   onRegisterRefresh={registerRefreshHandler}
                   searchScope="main"

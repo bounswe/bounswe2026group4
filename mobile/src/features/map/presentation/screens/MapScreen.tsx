@@ -16,7 +16,6 @@ interface MapScreenProps {
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
   onMarkerPreviewRequested?: (targetY: number) => void;
-  onMapGestureActiveChange?: (active: boolean) => void;
   showSearchControls?: boolean;
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
   searchScope?: SearchFilterScope;
@@ -45,7 +44,6 @@ export function MapScreen({
   onOpenStory,
   getMarkerGroups = mapService.getMarkerGroups,
   onMarkerPreviewRequested,
-  onMapGestureActiveChange,
   showSearchControls = true,
   onRegisterRefresh,
   searchScope = 'map',
@@ -201,8 +199,6 @@ export function MapScreen({
   );
 
   const userLocation = filters.proximityRadiusKm && filters.proximityCoordinates ? filters.proximityCoordinates : undefined;
-  const fitToMarkers = state.markers.length > 0 && (!state.selectedMarkerId || hasActiveFilters);
-
   const statusStoryCount = useMemo(() => {
     if (statusIndicatorMode !== 'area' || !hasInteractedWithArea || !visibleRegion) {
       return totalStoryCount;
@@ -266,12 +262,10 @@ export function MapScreen({
           isLoading={state.isLoading}
           error={state.error}
           statusBadgeText={statusBadgeText}
-          fitToMarkers={fitToMarkers}
           userLocation={userLocation}
           onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
           onMarkerPress={handleMarkerPreviewRequest}
-          onMapGestureActiveChange={onMapGestureActiveChange}
           onRegionChangeComplete={(region) => {
             setMapRegion(region);
             setVisibleRegion(region);
