@@ -193,6 +193,8 @@ function ScreenShell({
   fillContent = false,
   hideHeader = false,
   active = false,
+  scrollEnabled = true,
+  testID,
   preservedScrollY = 0,
   onScrollOffsetChange,
 }: {
@@ -209,6 +211,8 @@ function ScreenShell({
   fillContent?: boolean;
   hideHeader?: boolean;
   active?: boolean;
+  scrollEnabled?: boolean;
+  testID?: string;
   preservedScrollY?: number;
   onScrollOffsetChange?: (y: number) => void;
 }) {
@@ -292,9 +296,11 @@ function ScreenShell({
     return (
       <ScrollView
         ref={scrollViewRef}
+        testID={testID}
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={scrollEnabled}
         scrollEventThrottle={16}
         refreshControl={
           refreshHandler ? (
@@ -328,6 +334,7 @@ export function RootNavigator() {
   const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
   const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isMapGestureActive, setIsMapGestureActive] = useState(false);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
   const pagerRef = useRef<ScrollView>(null);
@@ -718,6 +725,7 @@ export function RootNavigator() {
           testID="main-route-pager"
           horizontal
           pagingEnabled
+          scrollEnabled={!isMapGestureActive}
           contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
@@ -738,6 +746,8 @@ export function RootNavigator() {
               scrollable
               hideHeader
               active={currentRoute === ROUTES.MAP}
+              scrollEnabled={!isMapGestureActive}
+              testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
               onScrollOffsetChange={(y) => {
                 mapScrollOffsetRef.current = y;
@@ -747,6 +757,7 @@ export function RootNavigator() {
                 <MapScreen
                   onOpenStory={handleOpenStoryDetail}
                   onMarkerPreviewRequested={(targetY) => scrollTo(targetY)}
+                  onMapGestureActiveChange={setIsMapGestureActive}
                   showSearchControls={false}
                   onRegisterRefresh={registerRefreshHandler}
                   searchScope="main"

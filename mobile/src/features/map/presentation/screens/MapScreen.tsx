@@ -16,6 +16,7 @@ interface MapScreenProps {
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
   onMarkerPreviewRequested?: (targetY: number) => void;
+  onMapGestureActiveChange?: (active: boolean) => void;
   showSearchControls?: boolean;
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
   searchScope?: SearchFilterScope;
@@ -44,6 +45,7 @@ export function MapScreen({
   onOpenStory,
   getMarkerGroups = mapService.getMarkerGroups,
   onMarkerPreviewRequested,
+  onMapGestureActiveChange,
   showSearchControls = true,
   onRegisterRefresh,
   searchScope = 'map',
@@ -89,7 +91,10 @@ export function MapScreen({
       activeFilters.yearTo ||
       activeFilters.radiusKm,
   );
-  const autoZoomContextKey = useMemo(() => buildAutoZoomContextKey(activeFilters), [activeFilters]);
+  const autoZoomContextKey = useMemo(
+    () => `${buildAutoZoomContextKey(activeFilters)}:${refreshToken}`,
+    [activeFilters, refreshToken],
+  );
 
   const loadMarkers = React.useCallback(async () => {
     const requestId = loadRequestIdRef.current + 1;
@@ -266,6 +271,7 @@ export function MapScreen({
           onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
           onMarkerPress={handleMarkerPreviewRequest}
+          onMapGestureActiveChange={onMapGestureActiveChange}
           onRegionChangeComplete={(region) => {
             setMapRegion(region);
             setVisibleRegion(region);

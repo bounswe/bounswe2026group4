@@ -18,6 +18,7 @@ interface MapCardProps {
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
   onMarkerPress?: () => void;
+  onMapGestureActiveChange?: (active: boolean) => void;
   onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
 }
@@ -35,6 +36,7 @@ export function MapCard({
   onSelectMarker,
   onOpenStory,
   onMarkerPress,
+  onMapGestureActiveChange,
   onRegionChangeComplete,
   onPreviewLayout,
 }: MapCardProps) {
@@ -71,7 +73,12 @@ export function MapCard({
         backgroundColor: colors.surface,
       }}
     >
-      <View style={{ height: 420 }}>
+      <View
+        style={{ height: 420 }}
+        onTouchStart={() => onMapGestureActiveChange?.(true)}
+        onTouchEnd={() => onMapGestureActiveChange?.(false)}
+        onTouchCancel={() => onMapGestureActiveChange?.(false)}
+      >
         <WebMapView
           region={currentRegion}
           userLocation={userLocation}
@@ -87,6 +94,7 @@ export function MapCard({
             onSelectMarker(markerId);
             onMarkerPress?.();
           }}
+          onGestureActiveChange={onMapGestureActiveChange}
           onRegionChangeComplete={onRegionChangeComplete}
         />
 

@@ -168,9 +168,11 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       return;
     }
 
-    if (selectedLocationQueryRef.current === location && draftLocationBounds) {
+    if (draftLocationBounds) {
       selectedLocationQueryRef.current = undefined;
       setIsLocationResolving(false);
+      setIsLocationError(false);
+      setLocationStatusText('Filtering by map area.');
       return;
     }
 
@@ -204,7 +206,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
           setIsLocationResolving(false);
         }
       });
-  }, [debouncedDraftLocation, showFilters]);
+  }, [debouncedDraftLocation, draftLocationBounds, showFilters]);
 
   return (
     <View style={{ gap: spacing.md }}>

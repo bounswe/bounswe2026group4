@@ -348,6 +348,44 @@ describe('MapScreen', () => {
     expect(region.longitudeDelta).toBeCloseTo(0.0575);
   });
 
+  it('re-zooms to the selected location when the same location filter is applied again', async () => {
+    const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
+    (geocodeLocationQuery as jest.Mock).mockResolvedValue(goldenHornBounds);
+
+    renderScreen(<MapScreen getMarkerGroups={getMarkerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      const region = getRenderedMapRegion();
+
+      expect(region.latitude).toBeCloseTo(41.025);
+      expect(region.longitude).toBeCloseTo(28.965);
+    });
+
+    fireEvent.press(screen.getByTestId('map-region-empty'));
+    await waitFor(() => {
+      const manualRegion = getRenderedMapRegion();
+
+      expect(manualRegion.latitude).toBeCloseTo(40.5);
+      expect(manualRegion.longitude).toBeCloseTo(29.8);
+    });
+
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      const region = getRenderedMapRegion();
+
+      expect(region.latitude).toBeCloseTo(41.025);
+      expect(region.longitude).toBeCloseTo(28.965);
+    });
+  });
+
   it('keeps a manually adjusted map view when markers refresh in the same context', async () => {
     const getMarkerGroups = jest
       .fn<Promise<MapMarkerGroup[]>, [any]>()

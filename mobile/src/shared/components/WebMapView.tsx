@@ -29,6 +29,7 @@ interface WebMapViewProps {
   interactive?: boolean;
   onMarkerPress?: (markerId: string) => void;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
+  onGestureActiveChange?: (active: boolean) => void;
   onRegionChangeComplete?: (region: RegionLike) => void;
   transitionDurationMs?: number;
 }
@@ -129,9 +130,11 @@ const mapHtml = ({
       const interactive = ${interactive ? 'true' : 'false'};
       const defaultTransitionDurationMs = ${transitionDurationMs};
       let hasCompletedInitialMove = false;
+      let isMapReady = false;
       let isProgrammaticMove = false;
       let programmaticMoveTimer;
       let markerInstances = [];
+      let pendingUpdatePayload = null;
       let userLocationMarker = null;
 
       const getZoomForRegion = (nextRegion) => {
@@ -270,9 +273,7 @@ const mapHtml = ({
         map.jumpTo(camera);
       };
 
-      renderMarkers(markerData, userLocationData);
-
-      window.__storyMapUpdate = (payload = {}) => {
+      const applyMapUpdate = (payload = {}) => {
         if (Array.isArray(payload.markers) || Object.prototype.hasOwnProperty.call(payload, 'userLocation')) {
           const nextMarkers = Array.isArray(payload.markers) ? payload.markers : markerData;
           const nextUserLocation = Object.prototype.hasOwnProperty.call(payload, 'userLocation')
@@ -285,6 +286,20 @@ const mapHtml = ({
         if (payload.region) {
           moveToRegion(payload.region, payload.animated !== false, payload.transitionDurationMs);
         }
+      };
+
+      renderMarkers(markerData, userLocationData);
+
+      window.__storyMapUpdate = (payload = {}) => {
+        if (!isMapReady) {
+          pendingUpdatePayload = {
+            ...(pendingUpdatePayload ?? {}),
+            ...payload,
+          };
+          return;
+        }
+
+        applyMapUpdate(payload);
       };
 
       if (!interactive) {
@@ -322,6 +337,15 @@ const mapHtml = ({
 
         postCurrentRegion();
       });
+
+      map.on('load', () => {
+        isMapReady = true;
+
+        if (pendingUpdatePayload) {
+          applyMapUpdate(pendingUpdatePayload);
+          pendingUpdatePayload = null;
+        }
+      });
     </script>
   </body>
 </html>`;
@@ -333,6 +357,7 @@ export function WebMapView({
   interactive = true,
   onMarkerPress,
   onMapPress,
+  onGestureActiveChange,
   onRegionChangeComplete,
   transitionDurationMs = 450,
 }: WebMapViewProps) {
@@ -360,7 +385,13 @@ export function WebMapView({
   }, [markers, region, transitionDurationMs, userLocation]);
 
   return (
-    <View style={styles.container}>
+    <View
+      testID="web-map-view"
+      style={styles.container}
+      onTouchStart={() => onGestureActiveChange?.(true)}
+      onTouchEnd={() => onGestureActiveChange?.(false)}
+      onTouchCancel={() => onGestureActiveChange?.(false)}
+    >
       <WebView
         ref={(ref: unknown) => {
           webViewRef.current = ref as WebViewHandle | null;
@@ -374,6 +405,9 @@ export function WebMapView({
         nestedScrollEnabled
         androidLayerType="hardware"
         setSupportMultipleWindows={false}
+        onTouchStart={() => onGestureActiveChange?.(true)}
+        onTouchEnd={() => onGestureActiveChange?.(false)}
+        onTouchCancel={() => onGestureActiveChange?.(false)}
         onLoadEnd={() => {
           if (latestUpdatePayloadRef.current) {
             injectMapUpdate(webViewRef.current, latestUpdatePayloadRef.current);
