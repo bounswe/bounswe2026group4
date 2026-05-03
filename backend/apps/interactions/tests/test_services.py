@@ -15,6 +15,7 @@ from apps.interactions.services import (
     remove_like,
 )
 from apps.stories.models import Story
+from apps.users.models import User
 
 
 @pytest.mark.django_db
@@ -95,6 +96,28 @@ class TestCreateComment:
         create_comment(user, story.pk, 'Saved?')
         assert Comment.objects.filter(story=story, author=user).exists()
 
+    def test_create_comment_awards_points_to_story_author(self, story, second_user):
+        create_comment(second_user, story.pk, 'Nice!')
+        story.user.refresh_from_db()
+        assert story.user.total_points == 4
+
+    def test_create_comment_awards_points_to_commenter(self, story, second_user):
+        create_comment(second_user, story.pk, 'Nice!')
+        second_user.refresh_from_db()
+        assert second_user.total_points == 2
+
+    def test_create_comment_skips_points_when_story_has_no_author(self, story, second_user):
+        story.user = None
+        story.save()
+        create_comment(second_user, story.pk, 'Nice!')  # must not raise
+
+    def test_create_comment_commenter_still_gets_points_when_story_has_no_author(self, story, second_user):
+        story.user = None
+        story.save()
+        create_comment(second_user, story.pk, 'Nice!')
+        second_user.refresh_from_db()
+        assert second_user.total_points == 2
+
 
 @pytest.mark.django_db
 class TestDeleteComment:
@@ -103,6 +126,43 @@ class TestDeleteComment:
         pk = comment.pk
         delete_comment(comment)
         assert not Comment.objects.filter(pk=pk).exists()
+
+    def test_delete_comment_deducts_points_from_story_author(self, user, story):
+        comment = Comment.objects.create(story=story, author=user, text='Bye')
+        user.total_points = 4
+        user.save()
+        delete_comment(comment)
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+    def test_delete_comment_deducts_points_from_commenter(self, story, second_user):
+        comment = Comment.objects.create(story=story, author=second_user, text='Bye')
+        second_user.total_points = 2
+        second_user.save()
+        delete_comment(comment)
+        second_user.refresh_from_db()
+        assert second_user.total_points == 0
+
+    def test_delete_comment_skips_points_when_story_has_no_author(self, user, story):
+        story.user = None
+        story.save()
+        comment = Comment.objects.create(story=story, author=user, text='Bye')
+        delete_comment(comment)  # must not raise
+
+    def test_delete_comment_commenter_still_loses_points_when_story_has_no_author(self, story, second_user):
+        story.user = None
+        story.save()
+        comment = Comment.objects.create(story=story, author=second_user, text='Bye')
+        second_user.total_points = 2
+        second_user.save()
+        delete_comment(comment)
+        second_user.refresh_from_db()
+        assert second_user.total_points == 0
+
+    def test_delete_comment_skips_commenter_deduction_when_author_is_anonymous(self, user, story):
+        # comment.author is None when the commenter's account was deleted (SET_NULL)
+        comment = Comment.objects.create(story=story, author=None, text='Bye', is_anonymized=True)
+        delete_comment(comment)  # must not raise
 
 
 # ── add_like / remove_like ────────────────────────────────────────────────────
@@ -140,6 +200,28 @@ class TestAddLike:
         with pytest.raises(ValidationError):
             add_like(user, story.pk)
 
+    def test_add_like_awards_points_to_story_author(self, story, second_user):
+        add_like(second_user, story.pk)
+        story.user.refresh_from_db()
+        assert story.user.total_points == 2
+
+    def test_add_like_awards_points_to_liker(self, story, second_user):
+        add_like(second_user, story.pk)
+        second_user.refresh_from_db()
+        assert second_user.total_points == 1
+
+    def test_add_like_skips_points_when_story_has_no_author(self, story, second_user):
+        story.user = None
+        story.save()
+        add_like(second_user, story.pk)  # must not raise
+
+    def test_add_like_liker_still_gets_points_when_story_has_no_author(self, story, second_user):
+        story.user = None
+        story.save()
+        add_like(second_user, story.pk)
+        second_user.refresh_from_db()
+        assert second_user.total_points == 1
+
 
 @pytest.mark.django_db
 class TestRemoveLike:
@@ -161,6 +243,38 @@ class TestRemoveLike:
         story.save()
         with pytest.raises(Http404):
             remove_like(user, story.pk)
+
+    def test_remove_like_deducts_points_from_story_author(self, story, second_user):
+        Like.objects.create(user=second_user, story=story)
+        story.user.total_points = 10
+        story.user.save()
+        remove_like(second_user, story.pk)
+        story.user.refresh_from_db()
+        assert story.user.total_points == 8
+
+    def test_remove_like_deducts_points_from_liker(self, story, second_user):
+        Like.objects.create(user=second_user, story=story)
+        second_user.total_points = 5
+        second_user.save()
+        remove_like(second_user, story.pk)
+        second_user.refresh_from_db()
+        assert second_user.total_points == 4
+
+    def test_remove_like_skips_points_when_story_has_no_author(self, story, second_user):
+        Like.objects.create(user=second_user, story=story)
+        story.user = None
+        story.save()
+        remove_like(second_user, story.pk)  # must not raise
+
+    def test_remove_like_liker_still_loses_points_when_story_has_no_author(self, story, second_user):
+        Like.objects.create(user=second_user, story=story)
+        second_user.total_points = 5
+        second_user.save()
+        story.user = None
+        story.save()
+        remove_like(second_user, story.pk)
+        second_user.refresh_from_db()
+        assert second_user.total_points == 4
 
 
 # ── add_bookmark / remove_bookmark ───────────────────────────────────────────
@@ -218,6 +332,22 @@ class TestAddBookmark:
         with pytest.raises(Http404):
             add_bookmark(user, story.pk)
 
+    def test_add_bookmark_awards_points_to_story_author(self, story, second_user):
+        add_bookmark(second_user, story.pk)
+        story.user.refresh_from_db()
+        assert story.user.total_points == 3
+
+    def test_add_bookmark_duplicate_does_not_award_points_again(self, story, second_user):
+        add_bookmark(second_user, story.pk)
+        add_bookmark(second_user, story.pk)  # idempotent — no second award
+        story.user.refresh_from_db()
+        assert story.user.total_points == 3
+
+    def test_add_bookmark_skips_points_when_story_has_no_author(self, story, second_user):
+        story.user = None
+        story.save()
+        add_bookmark(second_user, story.pk)  # must not raise
+
 
 @pytest.mark.django_db
 class TestRemoveBookmark:
@@ -254,3 +384,24 @@ class TestRemoveBookmark:
         story.save()
         remove_bookmark(user, story.pk)  # must not raise
         assert not SavedStory.objects.filter(user=user, story=story).exists()
+
+    def test_remove_bookmark_deducts_points_from_story_author(self, story, second_user):
+        SavedStory.objects.create(user=second_user, story=story)
+        story.user.total_points = 10
+        story.user.save()
+        remove_bookmark(second_user, story.pk)
+        story.user.refresh_from_db()
+        assert story.user.total_points == 7
+
+    def test_remove_bookmark_does_not_deduct_when_not_bookmarked(self, story, second_user):
+        story.user.total_points = 10
+        story.user.save()
+        remove_bookmark(second_user, story.pk)  # nothing to delete
+        story.user.refresh_from_db()
+        assert story.user.total_points == 10
+
+    def test_remove_bookmark_skips_points_when_story_has_no_author(self, story, second_user):
+        SavedStory.objects.create(user=second_user, story=story)
+        story.user = None
+        story.save()
+        remove_bookmark(second_user, story.pk)  # must not raise

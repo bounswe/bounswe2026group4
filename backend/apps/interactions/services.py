@@ -3,6 +3,19 @@ from django.http import Http404
 
 from rest_framework.exceptions import ValidationError
 
+from apps.gamification.constants import (
+    STORY_COMMENT_REMOVED,
+    STORY_COMMENTED,
+    STORY_LIKE_REMOVED,
+    STORY_LIKED,
+    STORY_SAVE_REMOVED,
+    STORY_SAVED,
+    USER_COMMENT_REMOVED,
+    USER_COMMENTED,
+    USER_LIKE_REMOVED,
+    USER_LIKED,
+)
+from apps.gamification.services import award_points
 from apps.interactions.models import Comment, Like, SavedStory
 from apps.stories.models import Story
 
@@ -41,12 +54,22 @@ def create_comment(user, story_id, text):
     except Story.DoesNotExist:
         raise Http404
 
-    return Comment.objects.create(story=story, author=user, text=text)
+    comment = Comment.objects.create(story=story, author=user, text=text)
+    if story.user_id is not None:
+        award_points(story.user, STORY_COMMENTED, story=story)
+    award_points(user, USER_COMMENTED, story=story)
+    return comment
 
 
 def delete_comment(comment):
     """Delete a comment. Permission enforcement is the caller's responsibility."""
+    story = comment.story
+    author = comment.author  # capture before delete — author is SET_NULL on user deletion
     comment.delete()
+    if story.user_id is not None:
+        award_points(story.user, STORY_COMMENT_REMOVED, story=story)
+    if author is not None:
+        award_points(author, USER_COMMENT_REMOVED, story=story)
 
 
 def add_like(user, story_id):
@@ -65,9 +88,14 @@ def add_like(user, story_id):
         # transaction.atomic() creates a savepoint so an IntegrityError from the
         # unique constraint does not break the outer test/request transaction.
         with transaction.atomic():
-            return Like.objects.create(user=user, story=story)
+            like = Like.objects.create(user=user, story=story)
     except IntegrityError:
         raise ValidationError({'detail': 'You have already liked this story.'})
+
+    if story.user_id is not None:
+        award_points(story.user, STORY_LIKED, story=story)
+    award_points(user, USER_LIKED, story=story)
+    return like
 
 
 def remove_like(user, story_id):
@@ -88,6 +116,9 @@ def remove_like(user, story_id):
         raise Http404
 
     like.delete()
+    if story.user_id is not None:
+        award_points(story.user, STORY_LIKE_REMOVED, story=story)
+    award_points(user, USER_LIKE_REMOVED, story=story)
 
 
 def add_bookmark(user, story_id):
@@ -111,6 +142,8 @@ def add_bookmark(user, story_id):
         bookmark = SavedStory.objects.get(user=user, story=story)
         created = False
 
+    if created and story.user_id is not None:
+        award_points(story.user, STORY_SAVED, story=story)
     return bookmark, created
 
 
@@ -135,5 +168,7 @@ def remove_bookmark(user, story_id):
     try:
         bookmark = SavedStory.objects.get(user=user, story=story)
         bookmark.delete()
+        if story.user_id is not None:
+            award_points(story.user, STORY_SAVE_REMOVED, story=story)
     except SavedStory.DoesNotExist:
         pass

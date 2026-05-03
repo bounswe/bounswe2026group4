@@ -14,6 +14,12 @@ STORY_COMMENT_REMOVED = 'story_comment_removed'
 STORY_SAVED = 'story_saved'
 STORY_SAVE_REMOVED = 'story_save_removed'
 
+# Points awarded to the user who performs the interaction (not the story author)
+USER_LIKED = 'user_liked'
+USER_LIKE_REMOVED = 'user_like_removed'
+USER_COMMENTED = 'user_commented'
+USER_COMMENT_REMOVED = 'user_comment_removed'
+
 # ── Point values (req. 1.7.1) ─────────────────────────────────────────────────
 POINT_VALUES = {
     STORY_PUBLISHED: 50,
@@ -24,6 +30,10 @@ POINT_VALUES = {
     STORY_COMMENT_REMOVED: -4,
     STORY_SAVED: 3,
     STORY_SAVE_REMOVED: -3,
+    USER_LIKED: 1,
+    USER_LIKE_REMOVED: -1,
+    USER_COMMENTED: 2,
+    USER_COMMENT_REMOVED: -2,
 }
 
 # ── Badge criteria types ───────────────────────────────────────────────────────

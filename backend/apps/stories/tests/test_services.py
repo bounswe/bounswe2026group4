@@ -880,3 +880,90 @@ class TestGetStoryTimeline:
         assert results[0].id == s_before.id   # 1940
         assert results[1].id == s_date.id     # 1950
         assert results[2].id == s_after.id    # 1960
+
+
+# ── Gamification integration — create_story ───────────────────────────────────
+
+@pytest.mark.django_db
+class TestCreateStoryPoints:
+    def test_published_story_awards_50_points(self, user):
+        create_story(user=user, validated_data=make_story_data(status=Story.STATUS_PUBLISHED))
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_draft_story_does_not_award_points(self, user):
+        create_story(user=user, validated_data=make_story_data(status=Story.STATUS_DRAFT))
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+    def test_anonymous_story_does_not_award_points(self):
+        # user=None (anonymized author) — no user to credit
+        create_story(user=None, validated_data=make_story_data())  # must not raise
+
+
+# ── Gamification integration — delete_story ───────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteStoryPoints:
+    def test_deleting_published_story_deducts_50_points(self, user):
+        story = make_story(user=user, status=Story.STATUS_PUBLISHED)
+        user.total_points = 50
+        user.save()
+        delete_story(story)
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+    def test_deleting_draft_story_does_not_deduct_points(self, user):
+        story = make_story(user=user, status=Story.STATUS_DRAFT)
+        user.total_points = 50
+        user.save()
+        delete_story(story)
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_deleting_story_with_null_user_does_not_raise(self, user):
+        story = make_story(user=user, status=Story.STATUS_PUBLISHED)
+        story.user = None
+        story.save()
+        delete_story(story)  # must not raise
+
+    def test_points_floor_at_zero_when_deducting_on_delete(self, user):
+        # User has fewer points than the 50 deduction — must clamp at 0, not go negative
+        story = make_story(user=user, status=Story.STATUS_PUBLISHED)
+        user.total_points = 10
+        user.save()
+        delete_story(story)
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+
+# ── Gamification integration — update_story ───────────────────────────────────
+
+@pytest.mark.django_db
+class TestUpdateStoryPoints:
+    def test_status_change_to_removed_deducts_50_points(self, story, user):
+        user.total_points = 50
+        user.save()
+        update_story(story=story, validated_data={'status': Story.STATUS_REMOVED})
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+    def test_status_change_from_draft_to_removed_does_not_deduct(self, user):
+        draft = make_story(user=user, status=Story.STATUS_DRAFT)
+        user.total_points = 50
+        user.save()
+        update_story(story=draft, validated_data={'status': Story.STATUS_REMOVED})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_other_field_update_does_not_change_points(self, story, user):
+        user.total_points = 50
+        user.save()
+        update_story(story=story, validated_data={'title': 'New Title'})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_status_change_to_removed_with_null_user_does_not_raise(self, story):
+        story.user = None
+        story.save()
+        update_story(story=story, validated_data={'status': Story.STATUS_REMOVED})  # must not raise

@@ -11,6 +11,9 @@ from apps.gamification.constants import (
     STORY_LIKE_REMOVED,
     STORY_PUBLISHED,
     STORY_REMOVED,
+    USER_COMMENTED,
+    USER_LIKED,
+    USER_LIKE_REMOVED,
 )
 from apps.gamification.models import Badge, PointTransaction, UserBadge
 from apps.gamification.services import (

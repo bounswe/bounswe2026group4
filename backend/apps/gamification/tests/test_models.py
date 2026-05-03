@@ -194,6 +194,10 @@ class TestPointTransaction:
         assert POINT_VALUES['story_like_removed'] == -2
         assert POINT_VALUES['story_comment_removed'] == -4
         assert POINT_VALUES['story_save_removed'] == -3
+        assert POINT_VALUES['user_liked'] == 1
+        assert POINT_VALUES['user_like_removed'] == -1
+        assert POINT_VALUES['user_commented'] == 2
+        assert POINT_VALUES['user_comment_removed'] == -2
 
     def test_str_contains_sign_amount_and_event_type(self):
         tx = PointTransaction.objects.create(
