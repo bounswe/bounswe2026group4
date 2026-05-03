@@ -193,6 +193,74 @@ describe('feedRemoteSource', () => {
     );
   });
 
+  it('filters by the first selected tag when the backend ignores tag but returns tag fields', async () => {
+    jest.spyOn(apiClient, 'get').mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
+      results: [
+        { id: 1, title: 'Untagged story', tags: [] },
+        { id: 2, title: 'Tagged story', tags: [{ name: 'folklore' }] },
+      ],
+    });
+
+    const response = await feedRemoteSource.getFeed({
+      filters: { tags: ['folklore'] },
+    });
+
+    expect(response).toMatchObject({
+      count: 1,
+      next: null,
+      results: [{ id: 2, title: 'Tagged story' }],
+    });
+  });
+
+  it('fetches all feed pages before local tag filtering when the backend ignores paginated tag requests', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockImplementation(async (url) => {
+      if (url === '/stories/feed/?page=1&page_size=10&sort_by=recent&tag=architecture') {
+        return {
+          count: 3,
+          next: 'https://example.test/stories/feed/?page=2',
+          previous: null,
+          results: [{ id: 1, tags: [] }],
+        };
+      }
+
+      if (url === '/stories/feed/?page_size=100&sort_by=recent&tag=architecture&page=1') {
+        return {
+          next: 'https://example.test/stories/feed/?page=2',
+          results: [
+            { id: 1, tags: [] },
+            { id: 2, tags: [{ name: 'architecture' }] },
+          ],
+        };
+      }
+
+      if (url === '/stories/feed/?page_size=100&sort_by=recent&tag=architecture&page=2') {
+        return {
+          next: null,
+          results: [
+            { id: 3, tags: [{ name: 'art' }] },
+            { id: 4, tags: [{ name: 'architecture' }] },
+          ],
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const response = await feedRemoteSource.getFeed({
+      filters: { tags: ['architecture'] },
+    });
+
+    expect(getSpy).toHaveBeenCalledWith('/stories/feed/?page=1&page_size=10&sort_by=recent&tag=architecture');
+    expect(response).toMatchObject({
+      count: 2,
+      next: null,
+      results: [{ id: 2 }, { id: 4 }],
+    });
+  });
+
   it('does not drop tag-filtered feed results when the backend omits tag fields', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       count: 1,

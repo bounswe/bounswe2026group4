@@ -85,12 +85,16 @@ export const storiesRemoteSource = {
         },
       );
 
-      const featureCollection = filterFeatureCollectionByBounds(
+      let featureCollection = filterFeatureCollectionByBounds(
         normalizeMapFeatureCollection(response),
         filters,
       );
+      const tagFilterResult = filterFeatureCollectionByTagsWhenAvailable(featureCollection, filters);
+      featureCollection = tagFilterResult.featureCollection;
+      const needsPreviewText =
+        featureCollection.features.length > 0 && !featureCollectionHasPreviewText(featureCollection);
 
-      if (!featureCollection.features.length || featureCollectionHasPreviewText(featureCollection)) {
+      if (!featureCollection.features.length || (!tagFilterResult.needsStoryFallback && !needsPreviewText)) {
         return featureCollection;
       }
 
@@ -99,6 +103,14 @@ export const storiesRemoteSource = {
         sort_by: 'recent',
         ...normalizeStoryFilters(filters),
       });
+
+      if (tagFilterResult.needsStoryFallback) {
+        featureCollection = filterFeatureCollectionByTaggedStories(featureCollection, stories, filters);
+      }
+
+      if (!featureCollection.features.length || featureCollectionHasPreviewText(featureCollection)) {
+        return featureCollection;
+      }
 
       return attachPreviewTextToFeatureCollection(featureCollection, stories);
     }
@@ -213,6 +225,8 @@ async function fetchAllPages(
 }
 
 function filterRemoteStories(results: unknown[], filters: StoryFilters) {
+  const selectedTags = getSelectedTags(filters);
+
   return results.filter((value) => {
     if (!value || typeof value !== 'object') {
       return false;
@@ -231,12 +245,8 @@ function filterRemoteStories(results: unknown[], filters: StoryFilters) {
       }
     }
 
-    if (filters.tags && filters.tags.length > 1 && tags.length) {
-      const normalizedTags = tags.map((tag) => tag.toLowerCase());
-
-      if (!filters.tags.every((tag) => normalizedTags.includes(tag.toLowerCase()))) {
-        return false;
-      }
+    if (selectedTags.length && !storyHasTagsWhenAvailable(story, selectedTags)) {
+      return false;
     }
 
     if (filters.locationBounds) {
@@ -457,6 +467,60 @@ function filterFeatureCollectionByBounds(
   };
 }
 
+function filterFeatureCollectionByTagsWhenAvailable(
+  featureCollection: GeoJSONFeatureCollection,
+  filters: StoryFilters,
+): { featureCollection: GeoJSONFeatureCollection; needsStoryFallback: boolean } {
+  const selectedTags = getSelectedTags(filters);
+
+  if (!selectedTags.length || !featureCollection.features.length) {
+    return { featureCollection, needsStoryFallback: false };
+  }
+
+  const allFeaturesHaveTagFields = featureCollection.features.every(featureHasTagField);
+
+  if (!allFeaturesHaveTagFields) {
+    return { featureCollection, needsStoryFallback: true };
+  }
+
+  return {
+    featureCollection: {
+      type: 'FeatureCollection',
+      features: featureCollection.features.filter((feature) =>
+        featureHasTagsWhenAvailable(feature, selectedTags),
+      ),
+    },
+    needsStoryFallback: false,
+  };
+}
+
+function filterFeatureCollectionByTaggedStories(
+  featureCollection: GeoJSONFeatureCollection,
+  stories: unknown[],
+  filters: StoryFilters,
+): GeoJSONFeatureCollection {
+  const selectedTags = getSelectedTags(filters);
+
+  if (!selectedTags.length || !stories.some(recordHasTagField)) {
+    return featureCollection;
+  }
+
+  const taggedStoryIds = new Set(
+    filterRemoteStories(stories, filters)
+      .map(getRecordId)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  return {
+    type: 'FeatureCollection',
+    features: featureCollection.features.filter((feature) => {
+      const id = getFeatureId(feature);
+
+      return Boolean(id && taggedStoryIds.has(id));
+    }),
+  };
+}
+
 function normalizeStoryFilters(filters: StoryFilters) {
   const params: Record<string, string | number> = {};
 
@@ -482,7 +546,11 @@ function normalizeStoryFilters(filters: StoryFilters) {
   }
 
   if (filters.tags?.length) {
-    params.tag = filters.tags[0];
+    const firstTag = filters.tags.find((tag) => tag.trim().length > 0);
+
+    if (firstTag) {
+      params.tag = firstTag.trim();
+    }
   }
 
   const proximity = getProximityFilter(filters);
@@ -491,10 +559,6 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.latitude = proximity.latitude;
     params.longitude = proximity.longitude;
     params.radius_km = proximity.radiusKm;
-  }
-
-  if (filters.tags?.length) {
-    params.tag = filters.tags[0];
   }
 
   return params;
@@ -564,6 +628,74 @@ function getTagNames(story: StoryRecord) {
       return '';
     })
     .filter((tag): tag is string => Boolean(tag));
+}
+
+function getSelectedTags(filters: StoryFilters) {
+  return (filters.tags ?? [])
+    .map((tag) => tag.trim())
+    .filter((tag, index, tags): tag is string => tag.length > 0 && tags.indexOf(tag) === index);
+}
+
+function recordHasTagField(story: unknown) {
+  if (!story || typeof story !== 'object') {
+    return false;
+  }
+
+  const record = story as Record<string, unknown>;
+
+  return Array.isArray(record.tags) || Array.isArray(record.tag_names);
+}
+
+function storyHasTagsWhenAvailable(story: StoryRecord, selectedTags: string[]) {
+  if (!selectedTags.length || !recordHasTagField(story)) {
+    return true;
+  }
+
+  const tagNames = getTagNames(story).map((tag) => tag.toLowerCase());
+
+  return selectedTags.every((tag) => tagNames.includes(tag.toLowerCase()));
+}
+
+function getFeatureProperties(feature: unknown) {
+  if (!feature || typeof feature !== 'object') {
+    return undefined;
+  }
+
+  const properties = (feature as StoryMapFeatureRecord).properties;
+
+  return properties && typeof properties === 'object'
+    ? (properties as Record<string, unknown>)
+    : undefined;
+}
+
+function featureHasTagField(feature: unknown) {
+  return recordHasTagField(getFeatureProperties(feature));
+}
+
+function featureHasTagsWhenAvailable(feature: unknown, selectedTags: string[]) {
+  const properties = getFeatureProperties(feature);
+
+  return properties ? storyHasTagsWhenAvailable(properties, selectedTags) : true;
+}
+
+function getRecordId(story: unknown) {
+  if (!story || typeof story !== 'object') {
+    return undefined;
+  }
+
+  const id = (story as StoryRecord).id;
+
+  return typeof id === 'string' || typeof id === 'number' ? String(id) : undefined;
+}
+
+function getFeatureId(feature: unknown) {
+  if (!feature || typeof feature !== 'object') {
+    return undefined;
+  }
+
+  const id = (feature as StoryMapFeatureRecord).id;
+
+  return typeof id === 'string' || typeof id === 'number' ? String(id) : undefined;
 }
 
 function asString(value: unknown) {

@@ -178,6 +178,108 @@ describe('storiesRemoteSource', () => {
     );
   });
 
+  it('filters map features by their tag metadata when the map payload includes tags', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          id: 1,
+          geometry: {
+            type: 'Point',
+            coordinates: [28.9784, 41.0082],
+          },
+          properties: {
+            title: 'Untagged Story',
+            location_name: 'Istanbul',
+            preview_text: 'Untagged.',
+            tags: [],
+          },
+        },
+        {
+          type: 'Feature',
+          id: 2,
+          geometry: {
+            type: 'Point',
+            coordinates: [28.979, 41.009],
+          },
+          properties: {
+            title: 'Tagged Story',
+            location_name: 'Istanbul',
+            preview_text: 'Tagged.',
+            tags: [{ name: 'architecture' }],
+          },
+        },
+      ],
+    });
+
+    const result = await storiesRemoteSource.getMapFeatureCollectionFromApi({
+      tags: ['architecture'],
+    });
+
+    expect(getSpy).toHaveBeenCalledTimes(1);
+    expect(result.features).toHaveLength(1);
+    expect(result.features[0]).toMatchObject({ id: 2 });
+  });
+
+  it('uses feed tag metadata to filter map features when the map endpoint ignores tag filters', async () => {
+    const getSpy = jest.spyOn(apiClient, 'get').mockImplementation(async (url) => {
+      if (url === '/stories/map/?tag=architecture') {
+        return {
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              id: 1,
+              geometry: {
+                type: 'Point',
+                coordinates: [28.9784, 41.0082],
+              },
+              properties: {
+                title: 'Untagged Story',
+                location_name: 'Istanbul',
+                preview_text: 'Untagged.',
+              },
+            },
+            {
+              type: 'Feature',
+              id: 2,
+              geometry: {
+                type: 'Point',
+                coordinates: [28.979, 41.009],
+              },
+              properties: {
+                title: 'Tagged Story',
+                location_name: 'Istanbul',
+                preview_text: 'Tagged.',
+              },
+            },
+          ],
+        };
+      }
+
+      if (url === '/stories/feed/?page_size=100&sort_by=recent&tag=architecture&page=1') {
+        return {
+          next: null,
+          results: [
+            { id: 1, tags: [] },
+            { id: 2, tags: [{ name: 'architecture' }] },
+          ],
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await storiesRemoteSource.getMapFeatureCollectionFromApi({
+      tags: ['architecture'],
+    });
+
+    expect(getSpy).toHaveBeenCalledTimes(2);
+    expect(result.features).toHaveLength(1);
+    expect(result.features[0]).toMatchObject({ id: 2 });
+  });
+
   it('keeps text search results only when the query matches title or place', async () => {
     jest.spyOn(apiClient, 'get').mockResolvedValue({
       next: null,
