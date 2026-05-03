@@ -41,6 +41,22 @@ const feedResults = [
   },
 ];
 
+const timelineResults = feedResults.map((story) => ({
+  id: story.id,
+  title: story.title,
+  time_type: story.time_type,
+  year: story.year,
+  year_start: null,
+  year_end: null,
+  date_value: null,
+  time_value: null,
+  temporal_coverage: String(story.year),
+  location_name: story.location_name,
+  location_lat: story.location_lat,
+  location_lng: story.location_lng,
+  photo_url: null,
+}));
+
 const goldenHornBounds = { latMin: 41, latMax: 41.05, lngMin: 28.94, lngMax: 28.99 };
 
 const storyDetail = {
@@ -139,6 +155,19 @@ function installAuthTransport() {
           next: null,
           previous: null,
           results: feedResults,
+        } as never,
+        config,
+      };
+    }
+
+    if (method === 'GET' && config.url?.startsWith('/stories/timeline/')) {
+      return {
+        status: 200,
+        data: {
+          count: timelineResults.length,
+          next: null,
+          previous: null,
+          results: timelineResults,
         } as never,
         config,
       };
@@ -490,6 +519,19 @@ describe('RootNavigator auth flow', () => {
         };
       }
 
+      if (method === 'GET' && config.url?.startsWith('/stories/timeline/')) {
+        return {
+          status: 200,
+          data: {
+            count: timelineResults.length,
+            next: null,
+            previous: null,
+            results: timelineResults,
+          } as never,
+          config,
+        };
+      }
+
       if (method === 'GET' && config.url?.startsWith('/stories/map/')) {
         return {
           status: 200,
@@ -629,7 +671,7 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('persists search and filter state between feed and map views', async () => {
+  it('persists search and filter state between feed, timeline, and map views', async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
 
     renderNavigator();
@@ -657,10 +699,41 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('End year').props.value).toBe('2000');
     fireEvent.press(screen.getByLabelText('Close filters'));
 
+    fireEvent.press(screen.getByLabelText('Timeline'));
+
+    await screen.findByLabelText('Search stories');
+    expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
+    fireEvent.press(screen.getByText('Show filters'));
+    expect(screen.getByLabelText('Location filter').props.value).toBe('Golden Horn');
+    expect(screen.getByLabelText('Start year').props.value).toBe('1990');
+    expect(screen.getByLabelText('End year').props.value).toBe('2000');
+    fireEvent.press(screen.getByLabelText('Close filters'));
+
     fireEvent.press(screen.getByLabelText('Feed'));
 
     await screen.findByLabelText('Search stories');
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
+  });
+
+  it('opens a story from the timeline and returns to the timeline', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Timeline');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+    fireEvent.press(await screen.findByLabelText('Open timeline story: Harbor Memory'));
+
+    expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+    expect(screen.getByLabelText('Go back')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Go back'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Open timeline story: Harbor Memory')).toBeTruthy();
+    });
   });
 
   it('opens a protected screen after login and returns with the back button', async () => {
@@ -761,6 +834,19 @@ describe('RootNavigator auth flow', () => {
             next: null,
             previous: null,
             results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/timeline/')) {
+        return {
+          status: 200,
+          data: {
+            count: timelineResults.length,
+            next: null,
+            previous: null,
+            results: timelineResults,
           } as never,
           config,
         };

@@ -1,6 +1,7 @@
 import { storyService } from '..';
 import { StoryRepositoryImpl } from '../../../data/repositories';
 import { feedService } from '../../../../feed/application/services';
+import { timelineService } from '../../../../timeline/application/services';
 
 describe('storyService', () => {
   it('delegates getStories to the repository with filters', async () => {
@@ -51,5 +52,25 @@ describe('storyService', () => {
     });
 
     getFeedSpy.mockRestore();
+  });
+
+  it('delegates getTimeline to the timeline service', async () => {
+    const getTimelineSpy = jest.spyOn(timelineService, 'getTimeline').mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      totalCount: 0,
+      hasNextPage: false,
+    });
+
+    await storyService.getTimeline({ page: 2, decade: 1920, filters: { location: 'Istanbul' } });
+
+    expect(getTimelineSpy).toHaveBeenCalledWith({
+      page: 2,
+      decade: 1920,
+      filters: { location: 'Istanbul' },
+    });
+
+    getTimelineSpy.mockRestore();
   });
 });
