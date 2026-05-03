@@ -77,12 +77,8 @@ class TestRegisterUser:
         assert user.is_email_verified is False
 
     def test_register_user_awards_registration_badge_when_seeded(self):
-        from apps.gamification.constants import BADGE_CRITERIA_REGISTRATION
-        from apps.gamification.models import Badge, UserBadge
-        Badge.objects.create(
-            name='Pioneer', description='First badge.',
-            criteria_type=BADGE_CRITERIA_REGISTRATION, criteria_threshold=0,
-        )
+        from apps.gamification.models import UserBadge
+        # Pioneer badge is already seeded by the data migration — no creation needed.
         user = register_user(self._data())
         assert UserBadge.objects.filter(user=user).exists()
 

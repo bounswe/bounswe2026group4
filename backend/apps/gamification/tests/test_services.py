@@ -42,10 +42,17 @@ def _make_story(user, status=Story.STATUS_PUBLISHED):
 
 
 def _make_badge(name, criteria_type, threshold=0):
-    return Badge.objects.create(
-        name=name, description='desc',
-        criteria_type=criteria_type, criteria_threshold=threshold,
+    # get_or_create so tests are safe when the seed migration has already created
+    # badges with the same name in the test DB.
+    badge, _ = Badge.objects.get_or_create(
+        name=name,
+        defaults={
+            'description': 'desc',
+            'criteria_type': criteria_type,
+            'criteria_threshold': threshold,
+        },
     )
+    return badge
 
 
 # ── award_points ──────────────────────────────────────────────────────────────
@@ -117,9 +124,9 @@ class TestAwardPoints:
         assert UserBadge.objects.filter(user=self.user).exists()
 
     def test_award_points_does_not_award_badge_below_threshold(self):
-        _make_badge('Century', BADGE_CRITERIA_POINTS_TOTAL, threshold=100)
+        badge = _make_badge('Century', BADGE_CRITERIA_POINTS_TOTAL, threshold=100)
         award_points(self.user, STORY_PUBLISHED)  # only 50 points
-        assert not UserBadge.objects.filter(user=self.user).exists()
+        assert not UserBadge.objects.filter(user=self.user, badge=badge).exists()
 
     def test_unknown_event_type_raises_key_error(self):
         with pytest.raises(KeyError):
@@ -140,33 +147,36 @@ class TestCheckAndAwardBadges:
         assert UserBadge.objects.filter(user=self.user).count() == 1
 
     def test_does_not_award_stories_badge_below_threshold(self):
-        _make_badge('Three Stories', BADGE_CRITERIA_STORIES_PUBLISHED, threshold=3)
-        _make_story(self.user)  # only 1 story
+        badge = _make_badge('Three Stories', BADGE_CRITERIA_STORIES_PUBLISHED, threshold=3)
+        _make_story(self.user)  # only 1 story — below the 3-story threshold
         check_and_award_badges(self.user)
-        assert not UserBadge.objects.filter(user=self.user).exists()
+        assert not UserBadge.objects.filter(user=self.user, badge=badge).exists()
 
     def test_awards_points_badge_when_threshold_met(self):
-        _make_badge('Fifty Points', BADGE_CRITERIA_POINTS_TOTAL, threshold=50)
+        badge = _make_badge('Fifty Points', BADGE_CRITERIA_POINTS_TOTAL, threshold=50)
         self.user.total_points = 50
         self.user.save(update_fields=['total_points'])
         check_and_award_badges(self.user)
-        assert UserBadge.objects.filter(user=self.user).exists()
+        assert UserBadge.objects.filter(user=self.user, badge=badge).exists()
 
     def test_does_not_award_points_badge_below_threshold(self):
-        _make_badge('Hundred Points', BADGE_CRITERIA_POINTS_TOTAL, threshold=100)
+        badge = _make_badge('Hundred Points', BADGE_CRITERIA_POINTS_TOTAL, threshold=100)
         self.user.total_points = 99
         self.user.save(update_fields=['total_points'])
         check_and_award_badges(self.user)
-        assert not UserBadge.objects.filter(user=self.user).exists()
+        assert not UserBadge.objects.filter(user=self.user, badge=badge).exists()
 
     def test_awards_multiple_badges_in_one_check(self):
-        _make_badge('First Story', BADGE_CRITERIA_STORIES_PUBLISHED, threshold=1)
-        _make_badge('Fifty Points', BADGE_CRITERIA_POINTS_TOTAL, threshold=50)
+        # Verify that both specific badges are awarded — not asserting an exact
+        # total count because seeded badges may also be triggered.
+        first_story_badge = _make_badge('First Story', BADGE_CRITERIA_STORIES_PUBLISHED, threshold=1)
+        fifty_points_badge = _make_badge('Fifty Points', BADGE_CRITERIA_POINTS_TOTAL, threshold=50)
         _make_story(self.user)
         self.user.total_points = 50
         self.user.save(update_fields=['total_points'])
         check_and_award_badges(self.user)
-        assert UserBadge.objects.filter(user=self.user).count() == 2
+        assert UserBadge.objects.filter(user=self.user, badge=first_story_badge).exists()
+        assert UserBadge.objects.filter(user=self.user, badge=fifty_points_badge).exists()
 
     def test_idempotent_does_not_duplicate_badge(self):
         _make_badge('First Story', BADGE_CRITERIA_STORIES_PUBLISHED, threshold=1)
@@ -218,7 +228,9 @@ class TestAwardRegistrationBadge:
         assert UserBadge.objects.filter(user=self.user).count() == 1
 
     def test_no_error_when_registration_badge_not_seeded(self):
-        # Graceful no-op when the badge row does not exist yet.
+        # Graceful no-op when the badge row does not exist (e.g., before migration).
+        # Delete the seeded registration badge to simulate a pre-migration environment.
+        Badge.objects.filter(criteria_type=BADGE_CRITERIA_REGISTRATION).delete()
         award_registration_badge(self.user)  # must not raise
         assert UserBadge.objects.filter(user=self.user).count() == 0
 
