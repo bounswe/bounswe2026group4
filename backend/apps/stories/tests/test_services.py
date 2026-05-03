@@ -967,3 +967,20 @@ class TestUpdateStoryPoints:
         story.user = None
         story.save()
         update_story(story=story, validated_data={'status': Story.STATUS_REMOVED})  # must not raise
+
+    def test_draft_promoted_to_published_awards_50_points(self, user):
+        draft = make_story(user=user, status=Story.STATUS_DRAFT)
+        update_story(story=draft, validated_data={'status': Story.STATUS_PUBLISHED})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_published_to_published_does_not_double_award(self, story, user):
+        user.total_points = 50
+        user.save()
+        update_story(story=story, validated_data={'title': 'New Title'})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_draft_promoted_to_published_with_null_user_does_not_raise(self):
+        draft = make_story(user=None, status=Story.STATUS_DRAFT)
+        update_story(story=draft, validated_data={'status': Story.STATUS_PUBLISHED})  # must not raise

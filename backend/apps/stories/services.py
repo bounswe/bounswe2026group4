@@ -37,7 +37,7 @@ def create_story(user, validated_data: dict) -> Story:
 
 def update_story(story: Story, validated_data: dict) -> Story:
     """Apply partial updates to an existing story and persist the changes."""
-    from apps.gamification.constants import STORY_REMOVED
+    from apps.gamification.constants import STORY_PUBLISHED, STORY_REMOVED
     from apps.gamification.services import award_points
     from apps.tags.services import sync_story_tags
 
@@ -53,9 +53,12 @@ def update_story(story: Story, validated_data: dict) -> Story:
     if tag_ids is not None:
         sync_story_tags(story, tag_ids)
 
-    # Deduct points when a story is explicitly moved from published to removed.
-    if was_published and new_status == Story.STATUS_REMOVED and story.user_id is not None:
-        award_points(story.user, STORY_REMOVED, story=story)
+    if story.user_id is not None:
+        if was_published and new_status == Story.STATUS_REMOVED:
+            award_points(story.user, STORY_REMOVED, story=story)
+        elif not was_published and new_status == Story.STATUS_PUBLISHED:
+            # Draft or removed story promoted to published — award the creation bonus.
+            award_points(story.user, STORY_PUBLISHED, story=story)
 
     return story
 

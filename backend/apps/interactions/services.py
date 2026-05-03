@@ -100,13 +100,15 @@ def add_like(user, story_id):
 
 def remove_like(user, story_id):
     """
-    Delete the Like for a published story.
+    Delete the Like for a story.
 
-    Raises Http404 if the story does not exist, is not published,
-    or the user has not liked the story.
+    Status-agnostic by design: a user must be able to rescind their like even
+    after a story is removed or unpublished (mirrors remove_bookmark behaviour).
+
+    Raises Http404 if the story does not exist or the user has not liked it.
     """
     try:
-        story = Story.objects.get(pk=story_id, status=Story.STATUS_PUBLISHED)
+        story = Story.objects.get(pk=story_id)
     except Story.DoesNotExist:
         raise Http404
 

@@ -238,7 +238,14 @@ class TestRemoveLike:
         with pytest.raises(Http404):
             remove_like(user, 99999)
 
-    def test_removed_story_raises_404(self, user, story):
+    def test_removed_story_can_be_unliked(self, user, story):
+        Like.objects.create(user=user, story=story)
+        story.status = Story.STATUS_REMOVED
+        story.save()
+        remove_like(user, story.pk)  # must not raise
+        assert not Like.objects.filter(user=user, story=story).exists()
+
+    def test_removed_story_without_existing_like_raises_404(self, user, story):
         story.status = Story.STATUS_REMOVED
         story.save()
         with pytest.raises(Http404):

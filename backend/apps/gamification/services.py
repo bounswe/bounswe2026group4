@@ -1,4 +1,4 @@
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import F, Value
 from django.db.models.functions import Greatest
 
@@ -35,23 +35,33 @@ def award_points(user, event_type, story=None):
             total_points=Greatest(F('total_points') + delta, Value(0))
         )
         user.refresh_from_db(fields=['total_points'])
-        check_and_award_badges(user)
+
+    # Badge check runs after the transaction commits so it reads the final
+    # total_points and does not extend the point-recording lock duration.
+    check_and_award_badges(user)
 
 
 def check_and_award_badges(user):
     """
     Inspect all story-count and points-threshold badges and award any that the
-    user has newly crossed. Idempotent — the UserBadge unique constraint
-    ensures already-earned badges are silently skipped.
+    user has newly crossed. Idempotent — already-earned badges are skipped
+    via a pre-fetched ID set, avoiding redundant INSERT attempts.
 
     Registration badges are excluded here; use award_registration_badge()
     at account-activation time instead.
-    """
-    from apps.stories.models import Story
 
+    Query budget: 2 fixed SELECTs (all badges + earned IDs) + 1 INSERT per
+    newly earned badge (usually 0 or 1 per call).
+    """
     published_count = get_published_story_count(user)
 
-    for badge in Badge.objects.exclude(criteria_type=BADGE_CRITERIA_REGISTRATION):
+    all_badges = list(Badge.objects.exclude(criteria_type=BADGE_CRITERIA_REGISTRATION))
+    earned_ids = set(UserBadge.objects.filter(user=user).values_list('badge_id', flat=True))
+
+    for badge in all_badges:
+        if badge.pk in earned_ids:
+            continue
+
         if badge.criteria_type == BADGE_CRITERIA_STORIES_PUBLISHED:
             earned = published_count >= badge.criteria_threshold
         elif badge.criteria_type == BADGE_CRITERIA_POINTS_TOTAL:
@@ -80,9 +90,6 @@ def get_published_story_count(user):
 
 
 def _try_award_badge(user, badge):
-    """Create a UserBadge row. Silently no-ops if the badge was already awarded."""
-    try:
-        with transaction.atomic():
-            UserBadge.objects.create(user=user, badge=badge)
-    except IntegrityError:
-        pass
+    """Create a UserBadge row if not already awarded. The post_save signal fires
+    only on creation (created=True), so notifications are sent exactly once."""
+    UserBadge.objects.get_or_create(user=user, badge=badge)

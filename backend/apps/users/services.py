@@ -208,6 +208,12 @@ def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> No
         delete_profile_photo(user)
         for item in MediaItem.objects.filter(story__user=user).only('file'):
             item.file.delete(save=False)
+        # Intentional: hard-delete does NOT reverse other users' earned points.
+        # Points from likes/comments/saves on this user's stories, and from this
+        # user's interactions on others' stories, are kept as-is. This is a
+        # deliberate product decision — the activity happened and is not penalised.
+        # Note: queryset .delete() bypasses the delete_story/delete_comment services,
+        # so no point adjustment signals are triggered.
         Comment.objects.filter(author=user).delete()
         Story.objects.filter(user=user).delete()
         user.delete()
