@@ -11,6 +11,7 @@ import StructuredData from "@/components/StructuredData/StructuredData";
 import FollowButton from "@/components/Follow/FollowButton";
 import FollowListSheet from "@/components/Follow/FollowListSheet";
 import EditProfileForm from "@/components/Profile/EditProfileForm";
+import SavedStoriesTab from "@/components/Profile/SavedStoriesTab";
 
 function formatBirthDate(dateStr) {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -317,6 +318,14 @@ function ProfilePage() {
           <BookOpen className="h-5 w-5" aria-hidden="true" />
           <p>Story listing will be available soon.</p>
         </div>
+
+        {/* Saved Stories — only shown on own profile */}
+        {isOwnProfile && (
+          <div className="mt-8">
+            <h2 className="mb-4 text-xl font-semibold tracking-tight">Saved Stories</h2>
+            <SavedStoriesTab userId={profile.id} />
+          </div>
+        )}
 
         <FollowListSheet
           userId={profile.id}
