@@ -21,6 +21,7 @@ interface MapCardProps {
 }
 
 const PREVIEW_MAX_LENGTH = 140;
+const passivePreviewTextProps = { pointerEvents: 'none' as const };
 export function MapCard({
   region,
   markers,
@@ -151,12 +152,12 @@ export function MapCard({
       </View>
 
       <View testID="story-preview-panel" style={{ padding: spacing.lg, gap: spacing.md }} onLayout={onPreviewLayout}>
-        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+        <Text {...passivePreviewTextProps} style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
           {selectedMarker?.isCluster ? `${selectedMarker.count} nearby stories` : 'Story preview'}
         </Text>
 
         {!selectedMarker ? (
-          <Text style={{ color: colors.muted }}>
+          <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>
             {markers.length ? 'Select a story marker to preview.' : 'No stories match the current filters.'}
           </Text>
         ) : selectedMarker.isCluster ? (
@@ -179,21 +180,21 @@ export function MapCard({
                   borderColor: colors.border,
                 }}
               >
-                <Text style={{ color: colors.text, fontWeight: '700' }}>{story.title}</Text>
-                <Text style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
-                <Text style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
-                <Text style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
+                <Text {...passivePreviewTextProps} style={{ color: colors.text, fontWeight: '700' }}>{story.title}</Text>
+                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
+                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
+                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
               </Pressable>
             ))}
           </ScrollView>
         ) : (
           <>
-            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
+            <Text {...passivePreviewTextProps} style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
               {selectedMarker.stories[0].title}
             </Text>
-            <Text style={{ color: colors.muted }}>{selectedMarker.stories[0].placeName}</Text>
-            <Text style={{ color: colors.muted }}>{selectedMarker.stories[0].timePeriod}</Text>
-            <Text style={{ color: colors.text }}>{truncatePreview(selectedMarker.stories[0].previewText)}</Text>
+            <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].placeName}</Text>
+            <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].timePeriod}</Text>
+            <Text {...passivePreviewTextProps} style={{ color: colors.text }}>{truncatePreview(selectedMarker.stories[0].previewText)}</Text>
             <Button onPress={() => onOpenStory(selectedMarker.stories[0].id)}>Read full story</Button>
           </>
         )}

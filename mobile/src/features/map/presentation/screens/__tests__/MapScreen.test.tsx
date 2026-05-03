@@ -210,7 +210,9 @@ describe('MapScreen', () => {
 
     await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getAllByTestId('story-marker')[0]);
-    expect(await screen.findByText('The Day the Harbor Fell Silent')).toBeTruthy();
+    const selectedStoryTitle = await screen.findByText('The Day the Harbor Fell Silent');
+    expect(selectedStoryTitle).toBeTruthy();
+    expect(selectedStoryTitle.props.pointerEvents).toBe('none');
     fireEvent.press(screen.getByText('Read full story'));
 
     expect(onOpenStory).toHaveBeenCalledWith('story-001');
