@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { Lock, Eye, EyeOff, Loader2, MapPin, AlertCircle, Check, X } from "lucide-react";
 
 import {
@@ -43,9 +43,9 @@ function isInvalidTokenError(error) {
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { token: tokenParam } = useParams();
   const { toast } = useToast();
-  const token = searchParams.get("token") || "";
+  const token = tokenParam || "";
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -206,7 +206,7 @@ function ResetPasswordPage() {
                   className="pl-9 pr-9"
                   autoComplete="new-password"
                   aria-invalid={!!fieldErrors.password}
-                  aria-describedby="password-error"
+                  aria-describedby={fieldErrors.password ? "password-error" : undefined}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);

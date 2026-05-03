@@ -23,12 +23,13 @@ const TOKEN = "abc123-token";
 const VALID_PASSWORD = "Password1";
 
 function renderPage({ token = TOKEN } = {}) {
-  const path = token ? `/reset-password?token=${token}` : "/reset-password";
+  const path = token ? `/reset-password/${token}` : "/reset-password";
   return render(
     <ToastProvider>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         </Routes>
       </MemoryRouter>
       <Toaster />
@@ -41,7 +42,7 @@ describe("ResetPasswordPage", () => {
     vi.clearAllMocks();
   });
 
-  it("shows missing-token state when token query param is absent", () => {
+  it("shows missing-token state when token path param is absent", () => {
     renderPage({ token: "" });
     expect(screen.getByText(/invalid reset link/i)).toBeInTheDocument();
     expect(
