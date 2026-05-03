@@ -26,6 +26,8 @@ def register_user(validated_data: dict) -> User:
     Creates a new user, generates an email verification code, and sends the verification email.
     Email failures are caught and logged — they do not prevent account creation.
     """
+    from apps.gamification.services import award_registration_badge
+
     try:
         with transaction.atomic():
             user = User.objects.create_user(
@@ -42,6 +44,9 @@ def register_user(validated_data: dict) -> User:
         send_verification_email(user.email, code)
     except Exception:
         logger.exception('Failed to send verification email to %s', user.email)
+
+    # TODO: move to email verification handler when is_email_verified enforcement is added
+    award_registration_badge(user)
     return user
 
 
@@ -203,6 +208,12 @@ def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> No
         delete_profile_photo(user)
         for item in MediaItem.objects.filter(story__user=user).only('file'):
             item.file.delete(save=False)
+        # Intentional: hard-delete does NOT reverse other users' earned points.
+        # Points from likes/comments/saves on this user's stories, and from this
+        # user's interactions on others' stories, are kept as-is. This is a
+        # deliberate product decision — the activity happened and is not penalised.
+        # Note: queryset .delete() bypasses the delete_story/delete_comment services,
+        # so no point adjustment signals are triggered.
         Comment.objects.filter(author=user).delete()
         Story.objects.filter(user=user).delete()
         user.delete()

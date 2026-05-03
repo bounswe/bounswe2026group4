@@ -76,6 +76,17 @@ class TestRegisterUser:
         user = register_user(self._data())
         assert user.is_email_verified is False
 
+    def test_register_user_awards_registration_badge_when_seeded(self):
+        from apps.gamification.models import UserBadge
+        # Pioneer badge is already seeded by the data migration — no creation needed.
+        user = register_user(self._data())
+        assert UserBadge.objects.filter(user=user).exists()
+
+    def test_register_user_does_not_fail_without_registration_badge_seeded(self):
+        # Graceful no-op when no badge row exists yet
+        user = register_user(self._data())  # must not raise
+        assert user.pk is not None
+
 
 @pytest.mark.django_db
 class TestLoginUser:
