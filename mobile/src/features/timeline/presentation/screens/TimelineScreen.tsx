@@ -434,6 +434,7 @@ function toSearchState(filters: StoryFilters): SearchFiltersState {
         : undefined,
     timeFrom: filters.yearFrom ? String(filters.yearFrom) : '',
     timeTo: filters.yearTo ? String(filters.yearTo) : '',
+    tags: filters.tags ?? [],
   };
 }
 
@@ -444,7 +445,8 @@ function hasAnySearchFilters(filters: SearchFiltersState) {
       filters.locationBounds ||
       filters.proximityRadiusKm ||
       filters.timeFrom.trim() ||
-      filters.timeTo.trim(),
+      filters.timeTo.trim() ||
+      filters.tags.length,
   );
 }
 
@@ -456,6 +458,7 @@ function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersStat
     left.proximityRadiusKm === right.proximityRadiusKm &&
     JSON.stringify(left.proximityCoordinates) === JSON.stringify(right.proximityCoordinates) &&
     left.timeFrom === right.timeFrom &&
-    left.timeTo === right.timeTo
+    left.timeTo === right.timeTo &&
+    JSON.stringify(left.tags) === JSON.stringify(right.tags)
   );
 }
