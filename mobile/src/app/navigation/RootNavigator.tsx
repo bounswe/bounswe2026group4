@@ -197,6 +197,10 @@ function ScreenShell({
   hideHeader = false,
   flushBottom = false,
   active = false,
+  disableScrollViewPanResponder = false,
+  scrollEnabled = true,
+  canCancelContentTouches = true,
+  testID,
   preservedScrollY = 0,
   onScrollOffsetChange,
 }: {
@@ -214,6 +218,10 @@ function ScreenShell({
   hideHeader?: boolean;
   flushBottom?: boolean;
   active?: boolean;
+  disableScrollViewPanResponder?: boolean;
+  scrollEnabled?: boolean;
+  canCancelContentTouches?: boolean;
+  testID?: string;
   preservedScrollY?: number;
   onScrollOffsetChange?: (y: number) => void;
 }) {
@@ -297,9 +305,13 @@ function ScreenShell({
     return (
       <ScrollView
         ref={scrollViewRef}
+        testID={testID}
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: flushBottom ? 0 : spacing.xl }}
         showsVerticalScrollIndicator={false}
+        disableScrollViewPanResponder={disableScrollViewPanResponder}
+        scrollEnabled={scrollEnabled}
+        canCancelContentTouches={canCancelContentTouches}
         scrollEventThrottle={16}
         refreshControl={
           refreshHandler ? (
@@ -755,6 +767,7 @@ export function RootNavigator() {
           contentContainerStyle={{ flexGrow: 1 }}
           horizontal
           pagingEnabled
+          canCancelContentTouches={currentRoute !== ROUTES.MAP}
           directionalLockEnabled
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -780,6 +793,8 @@ export function RootNavigator() {
               scrollable
               hideHeader
               active={currentRoute === ROUTES.MAP}
+              canCancelContentTouches={false}
+              testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
               onScrollOffsetChange={(y) => {
                 mapScrollOffsetRef.current = y;

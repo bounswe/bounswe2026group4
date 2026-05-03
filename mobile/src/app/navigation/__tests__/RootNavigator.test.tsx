@@ -397,6 +397,22 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
+  it('keeps parent scrolling available while preserving map child touches', async () => {
+    renderNavigator();
+
+    await screen.findByLabelText('Map');
+    fireEvent.press(screen.getByLabelText('Map'));
+
+    const mapView = await screen.findByTestId('web-map-view');
+    expect(mapView.props.onTouchStart).toBeUndefined();
+
+    expect(screen.getByTestId('interactive-map-touch-area').props.onTouchStart).toBeUndefined();
+    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).not.toBe(false);
+    expect(screen.getByTestId('main-route-pager').props.canCancelContentTouches).toBe(false);
+    expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
+    expect(screen.getByTestId('map-route-scroll').props.canCancelContentTouches).toBe(false);
+  });
+
   it('shows only the StoryMap brand in the main header', async () => {
     renderNavigator();
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -13,16 +13,15 @@ interface MapCardProps {
   isLoading?: boolean;
   error?: string;
   statusBadgeText?: string;
-  fitToMarkers?: boolean;
   userLocation?: { latitude: number; longitude: number };
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
-  onMarkerPress?: () => void;
   onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
 }
 
 const PREVIEW_MAX_LENGTH = 140;
+const passivePreviewTextProps = { pointerEvents: 'none' as const };
 export function MapCard({
   region,
   markers,
@@ -30,40 +29,25 @@ export function MapCard({
   isLoading = false,
   error,
   statusBadgeText,
-  fitToMarkers = false,
   userLocation,
   onSelectMarker,
   onOpenStory,
-  onMarkerPress,
   onRegionChangeComplete,
   onPreviewLayout,
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
   const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : undefined;
-  const [currentRegion, setCurrentRegion] = useState(region);
-  const mapContentKey = useMemo(
-    () => (markers.length ? markers.map((marker) => `${marker.id}:${marker.latitude}:${marker.longitude}`).join('|') : 'empty'),
-    [markers],
+  const mapMarkers = useMemo(
+    () =>
+      markers.map((marker) => ({
+        id: marker.id,
+        latitude: marker.latitude,
+        longitude: marker.longitude,
+        selected: marker.id === selectedMarkerId,
+        label: marker.isCluster ? String(marker.count) : undefined,
+      })),
+    [markers, selectedMarkerId],
   );
-
-  useEffect(() => {
-    if (fitToMarkers) {
-      setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
-      return;
-    }
-
-    if (!selectedMarker) {
-      setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
-      return;
-    }
-
-    setCurrentRegion((current) => ({
-      latitude: selectedMarker.latitude,
-      longitude: selectedMarker.longitude,
-      latitudeDelta: current.latitudeDelta,
-      longitudeDelta: current.longitudeDelta,
-    }));
-  }, [fitToMarkers, region, selectedMarker]);
 
   return (
     <View
@@ -75,21 +59,17 @@ export function MapCard({
         backgroundColor: colors.surface,
       }}
     >
-      <View style={{ height: 420 }}>
+      <View
+        testID="interactive-map-touch-area"
+        style={{ height: 420 }}
+      >
         <WebMapView
-          key={mapContentKey}
-          region={currentRegion}
+          region={region}
           userLocation={userLocation}
-          markers={markers.map((marker) => ({
-            id: marker.id,
-            latitude: marker.latitude,
-            longitude: marker.longitude,
-            selected: marker.id === selectedMarkerId,
-            label: marker.isCluster ? String(marker.count) : undefined,
-          }))}
+          transitionDurationMs={450}
+          markers={mapMarkers}
           onMarkerPress={(markerId) => {
             onSelectMarker(markerId);
-            onMarkerPress?.();
           }}
           onRegionChangeComplete={onRegionChangeComplete}
         />
@@ -172,12 +152,12 @@ export function MapCard({
       </View>
 
       <View testID="story-preview-panel" style={{ padding: spacing.lg, gap: spacing.md }} onLayout={onPreviewLayout}>
-        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+        <Text {...passivePreviewTextProps} style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
           {selectedMarker?.isCluster ? `${selectedMarker.count} nearby stories` : 'Story preview'}
         </Text>
 
         {!selectedMarker ? (
-          <Text style={{ color: colors.muted }}>
+          <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>
             {markers.length ? 'Select a story marker to preview.' : 'No stories match the current filters.'}
           </Text>
         ) : selectedMarker.isCluster ? (
@@ -200,21 +180,21 @@ export function MapCard({
                   borderColor: colors.border,
                 }}
               >
-                <Text style={{ color: colors.text, fontWeight: '700' }}>{story.title}</Text>
-                <Text style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
-                <Text style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
-                <Text style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
+                <Text {...passivePreviewTextProps} style={{ color: colors.text, fontWeight: '700' }}>{story.title}</Text>
+                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
+                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
+                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
               </Pressable>
             ))}
           </ScrollView>
         ) : (
           <>
-            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
+            <Text {...passivePreviewTextProps} style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
               {selectedMarker.stories[0].title}
             </Text>
-            <Text style={{ color: colors.muted }}>{selectedMarker.stories[0].placeName}</Text>
-            <Text style={{ color: colors.muted }}>{selectedMarker.stories[0].timePeriod}</Text>
-            <Text style={{ color: colors.text }}>{truncatePreview(selectedMarker.stories[0].previewText)}</Text>
+            <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].placeName}</Text>
+            <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].timePeriod}</Text>
+            <Text {...passivePreviewTextProps} style={{ color: colors.text }}>{truncatePreview(selectedMarker.stories[0].previewText)}</Text>
             <Button onPress={() => onOpenStory(selectedMarker.stories[0].id)}>Read full story</Button>
           </>
         )}
@@ -229,13 +209,4 @@ function truncatePreview(value: string) {
   }
 
   return `${value.slice(0, PREVIEW_MAX_LENGTH - 1).trim()}...`;
-}
-
-function regionsEqual(left: Region, right: Region) {
-  return (
-    left.latitude === right.latitude &&
-    left.longitude === right.longitude &&
-    left.latitudeDelta === right.latitudeDelta &&
-    left.longitudeDelta === right.longitudeDelta
-  );
 }
