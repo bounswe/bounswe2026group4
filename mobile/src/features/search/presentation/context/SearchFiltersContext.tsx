@@ -20,6 +20,7 @@ export interface SearchFiltersState {
   proximityCoordinates?: ProximityCoordinates;
   timeFrom: string;
   timeTo: string;
+  tags: string[];
 }
 
 interface SearchFiltersContextValue {
@@ -41,6 +42,7 @@ const initialFilters: SearchFiltersState = {
   proximityCoordinates: undefined,
   timeFrom: '',
   timeTo: '',
+  tags: [],
 };
 
 const initialFiltersByScope: Record<SearchFilterScope, SearchFiltersState> = {
@@ -147,7 +149,7 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
           scope,
           (currentFilters) => ({
             ...currentFilters,
-            [key]: '',
+            [key]: key === 'tags' ? [] : '',
             ...(key === 'location' ? { locationBounds: undefined } : {}),
             ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
             ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
@@ -210,6 +212,7 @@ export function toSearchParams(filters: SearchFiltersState): StoryFilters {
     locationBounds: filters.locationBounds,
     yearFrom,
     yearTo,
+    tags: filters.tags.length ? filters.tags : undefined,
   };
 
   if (filters.proximityRadiusKm && filters.proximityCoordinates) {
@@ -230,7 +233,18 @@ function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): S
     proximityCoordinates: normalizeProximityCoordinates(filters?.proximityCoordinates),
     timeFrom: filters?.timeFrom ?? '',
     timeTo: filters?.timeTo ?? '',
+    tags: normalizeTags(filters?.tags),
   };
+}
+
+function normalizeTags(tags?: string[] | null): string[] {
+  if (!Array.isArray(tags)) {
+    return [];
+  }
+
+  return tags
+    .map((tag) => tag.trim())
+    .filter((tag, index, values): tag is string => tag.length > 0 && values.indexOf(tag) === index);
 }
 
 function normalizeProximityRadius(radius?: number | null): ProximityRadiusKm | undefined {

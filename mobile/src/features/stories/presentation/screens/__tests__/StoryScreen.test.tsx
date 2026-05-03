@@ -191,6 +191,23 @@ describe('StoryScreen', () => {
     expect(onOpenContributorProfile).toHaveBeenCalledWith('22');
   });
 
+  it('opens a tag from story detail', async () => {
+    const onOpenTag = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        getStory={async () => baseStory}
+        onOpenTag={onOpenTag}
+      />,
+    );
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Harbor'));
+
+    expect(onOpenTag).toHaveBeenCalledWith('Harbor');
+  });
+
   it('shows the contributor profile photo when public profile metadata includes one', async () => {
     render(
       <StoryScreen

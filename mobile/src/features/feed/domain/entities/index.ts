@@ -10,6 +10,7 @@ export interface FeedEntity {
   hasMedia: boolean;
   likeCount: number;
   savedByViewer: boolean;
+  tags?: string[];
 }
 
 export interface FeedPageEntity {

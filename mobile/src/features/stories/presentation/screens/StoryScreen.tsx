@@ -17,6 +17,7 @@ import { Input } from '../../../../shared/ui/Input';
 import { Loader } from '../../../../shared/ui/Loader';
 import { NotFoundPage } from '../../../../shared/ui/NotFoundPage';
 import { WebMapView } from '../../../../shared/components/WebMapView';
+import { TagChip } from '../../../../shared/components/TagChip';
 import { userService } from '../../../profile/application/services';
 import { createInitialStoryDetailUiState } from '../state/storiesUiState';
 import { loadStoryDetail } from '../state/storyDetailController';
@@ -34,6 +35,7 @@ interface StoryScreenProps {
     savedByViewer: boolean;
   }) => void;
   onOpenContributorProfile?: (userId: string) => void;
+  onOpenTag?: (tag: string) => void;
   getStory?: typeof storyService.getStory;
   deleteStory?: typeof storyService.deleteStory;
   getPublicProfile?: typeof userService.getPublicProfile;
@@ -773,6 +775,7 @@ export function StoryScreen({
   onStoryDeleted,
   onStoryInteractionUpdated,
   onOpenContributorProfile,
+  onOpenTag,
   getStory = storyService.getStory,
   deleteStory = storyService.deleteStory,
   getPublicProfile = userService.getPublicProfile,
@@ -1252,19 +1255,12 @@ export function StoryScreen({
       {tags.length > 0 ? (
         <View style={{ marginTop: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {tags.map((tag) => (
-            <View
+            <TagChip
               key={tag}
-              style={{
-                paddingVertical: spacing.xs,
-                paddingHorizontal: spacing.sm,
-                borderRadius: 999,
-                backgroundColor: colors.surface,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '700' }}>{tag}</Text>
-            </View>
+              label={tag}
+              value={tag}
+              onPress={onOpenTag ? () => onOpenTag(tag) : undefined}
+            />
           ))}
         </View>
       ) : null}

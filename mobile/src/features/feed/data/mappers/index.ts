@@ -22,6 +22,8 @@ interface FeedApiRecord {
   total_likes?: unknown;
   user_has_saved?: unknown;
   savedByViewer?: unknown;
+  tags?: unknown;
+  tag_names?: unknown;
 }
 
 function asString(value: unknown, fallback = '') {
@@ -78,6 +80,40 @@ function hasMedia(value: FeedApiRecord) {
   return false;
 }
 
+function getTags(value: FeedApiRecord) {
+  const rawTags = Array.isArray(value.tags)
+    ? value.tags
+    : Array.isArray(value.tag_names)
+      ? value.tag_names
+      : [];
+
+  return rawTags
+    .map((tag) => {
+      if (typeof tag === 'string') {
+        return tag.trim();
+      }
+
+      if (tag && typeof tag === 'object') {
+        const record = tag as Record<string, unknown>;
+
+        if (typeof record.name === 'string') {
+          return record.name.trim();
+        }
+
+        if (typeof record.label === 'string') {
+          return record.label.trim();
+        }
+
+        if (typeof record.slug === 'string') {
+          return record.slug.trim();
+        }
+      }
+
+      return '';
+    })
+    .filter((tag, index, tags): tag is string => tag.length > 0 && tags.indexOf(tag) === index);
+}
+
 function formatTimePeriod(record: FeedApiRecord) {
   const year = asInteger(record.year, NaN);
   const yearStart = asInteger(record.year_start, NaN);
@@ -128,6 +164,7 @@ export function mapFeedItem(value: unknown): FeedEntity {
       asNumber(record.total_likes) ??
       0,
     savedByViewer: asBoolean(record.savedByViewer, asBoolean(record.user_has_saved, false)),
+    tags: getTags(record),
   };
 }
 

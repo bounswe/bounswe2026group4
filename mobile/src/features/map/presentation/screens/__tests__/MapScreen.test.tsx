@@ -9,6 +9,7 @@ import { geocodeLocationQuery, searchLocationSuggestions } from '../../../../sea
 
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
+  searchTags: jest.fn(async () => []),
   searchLocationSuggestions: jest.fn(),
 }));
 

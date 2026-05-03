@@ -48,7 +48,11 @@ interface StoryCreateResponse {
   id: number;
 }
 
-function buildStoryFormData(input: CreateStoryInput) {
+interface TagCreateResponse {
+  id?: string | number;
+}
+
+function buildStoryFormData(input: CreateStoryInput, tagIds: string[] = []) {
   const formData = new FormData();
   const hasExactDateTimeValue = input.timeType === 'exact_date' && Boolean(input.timeValue?.trim());
   const normalizedExactDateTimeValue = hasExactDateTimeValue
@@ -97,7 +101,29 @@ function buildStoryFormData(input: CreateStoryInput) {
     formData.append('year', String(input.year));
   }
 
+  tagIds.forEach((tagId) => {
+    formData.append('tag_ids', tagId);
+  });
+
   return formData;
+}
+
+async function resolveTagIds(tags: string[]) {
+  const uniqueTags = Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
+
+  const createdTags = await Promise.all(
+    uniqueTags.map((tag) => apiClient.post<TagCreateResponse>('/tags/', { name: tag })),
+  );
+
+  return createdTags.map((tag) => {
+    const id = tag?.id;
+
+    if (typeof id === 'string' || typeof id === 'number') {
+      return String(id);
+    }
+
+    throw new Error('Tag creation returned an invalid response.');
+  });
 }
 
 function buildUploadFormData(file: SubmissionImageInput | SubmissionMediaInput) {
@@ -112,9 +138,10 @@ function buildUploadFormData(file: SubmissionImageInput | SubmissionMediaInput) 
 
 export const submissionsService = {
   async createStory(input: CreateStoryInput): Promise<StoryCreateResponse> {
+    const tagIds = await resolveTagIds(input.tags);
     const story = await apiClient.post<StoryCreateResponse>(
       `${endpoints.stories}/`,
-      buildStoryFormData(input),
+      buildStoryFormData(input, tagIds),
     );
 
     if (!story) {

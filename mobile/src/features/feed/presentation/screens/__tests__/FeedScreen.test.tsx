@@ -10,6 +10,7 @@ import { interactionService } from '../../../../interactions/application/service
 
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
+  searchTags: jest.fn(async () => []),
   searchLocationSuggestions: jest.fn(),
 }));
 
@@ -33,6 +34,7 @@ function makeStory(id: string, overrides: Partial<FeedPageEntity['items'][number
     hasMedia: false,
     likeCount: 0,
     savedByViewer: false,
+    tags: [],
     ...overrides,
   };
 }
@@ -81,7 +83,13 @@ describe('FeedScreen', () => {
   });
 
   it('renders story cards after a successful fetch', async () => {
-    renderScreen(<FeedScreen getFeed={async () => makeFeedPage()} />);
+    renderScreen(
+      <FeedScreen
+        getFeed={async () =>
+          makeFeedPage({ items: [makeStory('1', { tags: ['Harbor'] }), makeStory('2')] })
+        }
+      />,
+    );
 
     expect(await screen.findByText('Story 1')).toBeTruthy();
     expect(screen.getByText('Story 2')).toBeTruthy();
@@ -89,8 +97,25 @@ describe('FeedScreen', () => {
     expect(screen.getByLabelText('Sort by Most Popular')).toBeTruthy();
     expect(screen.getByText('Recent')).toBeTruthy();
     expect(screen.getByText('Popular')).toBeTruthy();
+    expect(screen.getByText('Harbor')).toBeTruthy();
     expect(screen.getByLabelText('Search stories')).toBeTruthy();
     expect(screen.queryByText('Story feed')).toBeNull();
+  });
+
+  it('opens a tag from a feed card', async () => {
+    const onOpenTag = jest.fn();
+
+    renderScreen(
+      <FeedScreen
+        getFeed={async () => makeFeedPage({ items: [makeStory('1', { tags: ['Harbor'] })] })}
+        onOpenTag={onOpenTag}
+      />,
+    );
+
+    expect(await screen.findByText('Story 1')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('feed-card-tag-Harbor'));
+
+    expect(onOpenTag).toHaveBeenCalledWith('Harbor');
   });
 
   it('keeps sort controls visible when search controls are disabled', async () => {
@@ -220,7 +245,7 @@ describe('FeedScreen', () => {
       </SearchFiltersProvider>,
     );
 
-    expect(await screen.findByText('♥ 0')).toBeTruthy();
+    expect(await screen.findByText('♡ 0')).toBeTruthy();
     expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
 
     rerender(

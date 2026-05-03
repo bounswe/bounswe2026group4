@@ -237,4 +237,41 @@ describe('FilterPanel', () => {
 
     expect(onClearAll).toHaveBeenCalledTimes(1);
   });
+
+  it('supports tag search, selection, and chip removal', () => {
+    const onTagQueryChange = jest.fn();
+    const onToggleTag = jest.fn();
+    const onRemoveTag = jest.fn();
+
+    render(
+      <FilterPanel
+        location=""
+        timeFrom=""
+        timeTo=""
+        selectedTags={['folklore']}
+        tagQuery=""
+        tagOptions={[
+          { id: 'folklore', name: 'folklore', storyCount: 2 },
+          { id: 'ottoman-era', name: 'ottoman-era', storyCount: 5 },
+        ]}
+        onLocationChange={jest.fn()}
+        onTimeFromChange={jest.fn()}
+        onTimeToChange={jest.fn()}
+        onTagQueryChange={onTagQueryChange}
+        onToggleTag={onToggleTag}
+        onRemoveTag={onRemoveTag}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Add tag filter'));
+    fireEvent.changeText(screen.getByLabelText('Tag filter search'), 'ottoman');
+    fireEvent.press(screen.getByLabelText('Select tag ottoman-era'));
+    fireEvent.press(screen.getByLabelText('Remove tag Folklore'));
+
+    expect(screen.getByText('5')).toBeTruthy();
+    expect(onTagQueryChange).toHaveBeenCalledWith('ottoman');
+    expect(onToggleTag).toHaveBeenCalledWith('ottoman-era');
+    expect(onRemoveTag).toHaveBeenCalledWith('folklore');
+  });
 });

@@ -24,6 +24,7 @@ describe('feed mappers', () => {
       hasMedia: false,
       likeCount: 7,
       savedByViewer: true,
+      tags: [],
     });
   });
 

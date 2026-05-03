@@ -5,6 +5,7 @@ export interface StoryFilters {
   yearFrom?: number;
   yearTo?: number;
   location?: string;
+  tags?: string[];
   locationBounds?: {
     latMin: number;
     latMax: number;
