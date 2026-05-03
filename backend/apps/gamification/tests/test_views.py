@@ -39,10 +39,11 @@ def _make_admin(email='admin@example.com', username='admin'):
 
 
 def _make_badge(name='Pioneer'):
-    return Badge.objects.create(
-        name=name, description='desc',
-        criteria_type=BADGE_CRITERIA_STORIES_PUBLISHED, criteria_threshold=1,
+    badge, _ = Badge.objects.get_or_create(
+        name=name,
+        defaults={'description': 'desc', 'criteria_type': BADGE_CRITERIA_STORIES_PUBLISHED, 'criteria_threshold': 1},
     )
+    return badge
 
 
 def _make_story(user):
@@ -207,33 +208,33 @@ class TestBadgeCatalogView:
         self.client = APIClient()
 
     def test_get_badge_catalog_returns_200_and_paginated_response(self):
-        _make_badge('A')
-        _make_badge('B')
-        _make_badge('C')
+        # Seed migration may pre-populate badges; verify HTTP 200 and paginated shape.
         response = self.client.get(BADGE_CATALOG_URL)
         assert response.status_code == 200
-        assert response.data['count'] == 3
+        assert 'count' in response.data
+        assert 'results' in response.data
 
     def test_get_badge_catalog_is_public_no_auth_required(self):
         response = self.client.get(BADGE_CATALOG_URL)
         assert response.status_code == 200
 
-    def test_get_badge_catalog_empty_when_no_badges(self):
+    def test_get_badge_catalog_adding_badge_increments_count(self):
+        baseline = self.client.get(BADGE_CATALOG_URL).data['count']
+        _make_badge('__test_unique_badge__')
         response = self.client.get(BADGE_CATALOG_URL)
-        assert response.status_code == 200
-        assert response.data['count'] == 0
-        assert response.data['results'] == []
+        assert response.data['count'] == baseline + 1
 
     def test_get_badge_catalog_response_item_shape(self):
-        _make_badge()
+        # At least one badge must exist (either seeded or created here).
+        _make_badge('__shape_test__')
         response = self.client.get(BADGE_CATALOG_URL)
         item = response.data['results'][0]
         assert set(item.keys()) == {'id', 'name', 'description', 'criteria_type', 'criteria_threshold'}
 
-    def test_get_badge_catalog_ordered_by_id(self):
-        b1 = _make_badge('A')
-        b2 = _make_badge('B')
-        response = self.client.get(BADGE_CATALOG_URL)
-        results = response.data['results']
-        assert results[0]['id'] == b1.pk
-        assert results[1]['id'] == b2.pk
+    def test_get_badge_catalog_new_badges_appear_at_end_ordered_by_id(self):
+        b1 = _make_badge('__ord_a__')
+        b2 = _make_badge('__ord_b__')
+        # Use large page_size so all badges (seed + new) fit on one page.
+        response = self.client.get(BADGE_CATALOG_URL, {'page_size': 100})
+        ids = [r['id'] for r in response.data['results']]
+        assert ids.index(b1.pk) < ids.index(b2.pk)

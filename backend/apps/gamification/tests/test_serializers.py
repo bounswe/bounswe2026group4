@@ -19,10 +19,11 @@ def _make_user(email='u@example.com', username='u'):
 
 
 def _make_badge(name='Pioneer'):
-    return Badge.objects.create(
-        name=name, description='First badge.',
-        criteria_type=BADGE_CRITERIA_STORIES_PUBLISHED, criteria_threshold=1,
+    badge, _ = Badge.objects.get_or_create(
+        name=name,
+        defaults={'description': 'First badge.', 'criteria_type': BADGE_CRITERIA_STORIES_PUBLISHED, 'criteria_threshold': 1},
     )
+    return badge
 
 
 def _make_story(user):
