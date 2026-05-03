@@ -170,7 +170,7 @@ def get_story_search(
         qs = qs.order_by('-submitted_at')
 
     elif sort_by == 'popular':
-        qs = qs.order_by('-like_count')
+        qs = qs.order_by('-like_count','-submitted_at')  # secondary sort by recent to break like_count ties
 
     return qs
 

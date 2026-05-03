@@ -326,6 +326,17 @@ class TestGetStorySearch:
         assert results[0] == s3
         assert results[1] == s2
         assert results[2] == s1
+        
+    def test_get_story_search_sorts_by_most_recent_with_same_number_of_likes_when_sorted_by_popularity(self):
+        # Create three stories with the same like_count values. We expect the queryset
+        # to be ordered by submitted_at DESC when sort_by='popular'.
+        s1 = make_story(title='Oldest Story', like_count=10)
+        s2 = make_story(title='Middle Story', like_count=10)
+        s3 = make_story(title='Newest Story', like_count=10)
+        results = list(get_story_search("Story", sort_by='popular'))
+        assert results[0] == s3
+        assert results[1] == s2
+        assert results[2] == s1
 
 
 # ── get_story_feed — tag filter ───────────────────────────────────────────────
