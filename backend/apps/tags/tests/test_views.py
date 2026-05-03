@@ -13,13 +13,13 @@ def tag_detail_url(pk):
 
 
 def make_user(email='viewuser@example.com', username='viewuser', role=RoleChoices.REGISTERED_USER):
-    return User.objects.create_user(email=email, username=username, password='Pass1234', role=role)
+    return User.objects.create_user(email=email, username=username, password='Pass1234', role=role, is_active=True)
 
 
 def make_admin(email='viewadmin@example.com', username='viewadmin'):
     return User.objects.create_user(
         email=email, username=username, password='Pass1234',
-        role=RoleChoices.ADMIN, is_staff=True,
+        role=RoleChoices.ADMIN, is_staff=True, is_active=True,
     )
 
 

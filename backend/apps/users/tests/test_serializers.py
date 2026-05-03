@@ -55,13 +55,13 @@ class TestRegisterSerializer:
         assert serializer.validated_data['email'] == 'user@example.com'
 
     def test_duplicate_email_fails(self):
-        User.objects.create_user(email='user@example.com', username='existing', password='Password1')
+        User.objects.create_user(email='user@example.com', username='existing', password='Password1', is_active=True)
         serializer = RegisterSerializer(data=self._valid_data())
         assert not serializer.is_valid()
         assert 'email' in serializer.errors
 
     def test_duplicate_username_fails(self):
-        User.objects.create_user(email='other@example.com', username='testuser', password='Password1')
+        User.objects.create_user(email='other@example.com', username='testuser', password='Password1', is_active=True)
         serializer = RegisterSerializer(data=self._valid_data())
         assert not serializer.is_valid()
         assert 'username' in serializer.errors
@@ -135,7 +135,7 @@ class TestLoginSerializer:
 @pytest.mark.django_db
 class TestPublicUserProfileSerializer:
     def _make_user(self, **kwargs):
-        defaults = dict(email='prof@example.com', username='profuser', password='Password1')
+        defaults = dict(email='prof@example.com', username='profuser', password='Password1', is_active=True)
         defaults.update(kwargs)
         return User.objects.create_user(**defaults)
 
@@ -275,7 +275,7 @@ class TestPublicUserProfileSerializer:
 @pytest.mark.django_db
 class TestCurrentUserSerializer:
     def _make_user(self, **kwargs):
-        defaults = dict(email='me@example.com', username='meuser', password='Password1')
+        defaults = dict(email='me@example.com', username='meuser', password='Password1', is_active=True)
         defaults.update(kwargs)
         return User.objects.create_user(**defaults)
 
@@ -350,7 +350,7 @@ class TestCurrentUserSerializer:
 @pytest.mark.django_db
 class TestUpdateCurrentUserSerializer:
     def _make_user(self, **kwargs):
-        defaults = dict(email='upd@example.com', username='upduser', password='Password1')
+        defaults = dict(email='upd@example.com', username='upduser', password='Password1', is_active=True)
         defaults.update(kwargs)
         return User.objects.create_user(**defaults)
 
@@ -376,7 +376,7 @@ class TestUpdateCurrentUserSerializer:
 
     def test_duplicate_username_from_other_user_fails(self):
         user = self._make_user()
-        User.objects.create_user(email='other@example.com', username='takenname', password='Password1')
+        User.objects.create_user(email='other@example.com', username='takenname', password='Password1', is_active=True)
         serializer = UpdateCurrentUserSerializer(
             data={'username': 'takenname'}, context={'request': self._make_request(user)}
         )
@@ -493,6 +493,7 @@ class TestDeleteAccountSerializer:
             email='del@example.com',
             username='deluser',
             password='Password1',
+            is_active=True,
         )
 
     def _make_request(self):

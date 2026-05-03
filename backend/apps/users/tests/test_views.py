@@ -514,7 +514,7 @@ class TestCurrentUserView:
 
     def test_patch_duplicate_username_returns_400(self, auth_client):
         User.objects.create_user(
-            email='other@example.com', username='takenname', password='Password1'
+            email='other@example.com', username='takenname', password='Password1', is_active=True,
         )
         response = auth_client.patch(self.url, {'username': 'takenname'}, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -1238,4 +1238,67 @@ class TestVerifyEmailView:
 
     def test_code_wrong_length_returns_400(self, client):
         response = client.post(self.url, {'email': 'verify@example.com', 'code': '12345'})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+class TestResendVerificationView:
+    url = '/auth/resend-verification/'
+
+    _REGISTER_PAYLOAD = {
+        'email': 'resend@example.com',
+        'username': 'resenduser',
+        'password': 'Password1',
+        'password_confirmation': 'Password1',
+    }
+
+    def _register(self, client):
+        client.post('/auth/register/', self._REGISTER_PAYLOAD)
+
+    def _code_count(self):
+        user = User.objects.get(email='resend@example.com')
+        return EmailVerificationCode.objects.filter(user=user, is_used=False).count()
+
+    def test_returns_200_for_unverified_email(self, client):
+        self._register(client)
+        response = client.post(self.url, {'email': 'resend@example.com'})
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_creates_new_verification_code(self, client):
+        self._register(client)
+        before = self._code_count()
+        client.post(self.url, {'email': 'resend@example.com'})
+        assert self._code_count() == before + 1
+
+    def test_sends_email(self, client):
+        self._register(client)
+        mail.outbox.clear()
+        client.post(self.url, {'email': 'resend@example.com'})
+        assert len(mail.outbox) == 1
+
+    def test_returns_200_for_unknown_email(self, client):
+        response = client.post(self.url, {'email': 'nobody@example.com'})
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_200_for_already_verified_email(self, client):
+        self._register(client)
+        user = User.objects.get(email='resend@example.com')
+        user.is_active = True
+        user.is_email_verified = True
+        user.save()
+        response = client.post(self.url, {'email': 'resend@example.com'})
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_does_not_create_code_for_already_verified_email(self, client):
+        self._register(client)
+        user = User.objects.get(email='resend@example.com')
+        user.is_active = True
+        user.is_email_verified = True
+        user.save()
+        before = EmailVerificationCode.objects.filter(user=user).count()
+        client.post(self.url, {'email': 'resend@example.com'})
+        assert EmailVerificationCode.objects.filter(user=user).count() == before
+
+    def test_missing_email_returns_400(self, client):
+        response = client.post(self.url, {})
         assert response.status_code == status.HTTP_400_BAD_REQUEST

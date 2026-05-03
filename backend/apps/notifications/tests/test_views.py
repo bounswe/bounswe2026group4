@@ -10,7 +10,7 @@ from apps.users.models import User
 
 
 def _make_user(email, username):
-    return User.objects.create_user(email=email, username=username, password='Password1')
+    return User.objects.create_user(email=email, username=username, password='Password1', is_active=True)
 
 
 def _make_story(user):

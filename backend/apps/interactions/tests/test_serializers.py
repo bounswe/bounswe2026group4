@@ -63,7 +63,7 @@ class TestCommentResponseSerializer:
     def test_response_serializer_hides_username_when_private(self, story):
         private_user = User.objects.create_user(
             email='private@example.com', username='privateuser', password='Password1',
-            is_username_public=False,
+            is_username_public=False, is_active=True,
         )
         comment = Comment.objects.create(story=story, author=private_user, text='Incognito')
         data = CommentResponseSerializer(comment).data
@@ -73,7 +73,7 @@ class TestCommentResponseSerializer:
     def test_response_serializer_shows_username_when_public(self, story):
         public_user = User.objects.create_user(
             email='public@example.com', username='publicuser', password='Password1',
-            is_username_public=True,
+            is_username_public=True, is_active=True,
         )
         comment = Comment.objects.create(story=story, author=public_user, text='Visible')
         data = CommentResponseSerializer(comment).data
@@ -86,7 +86,7 @@ class TestCommentResponseSerializer:
 class TestLikeResponseSerializer:
     def _make_like(self):
         user = User.objects.create_user(
-            email='likesr@example.com', username='likesr', password='Password1'
+            email='likesr@example.com', username='likesr', password='Password1', is_active=True,
         )
         story = Story.objects.create(
             user=user, title='T', narrative='N',

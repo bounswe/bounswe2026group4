@@ -14,7 +14,7 @@ from apps.users.models import User
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def make_user(email='author@example.com', username='author'):
-    return User.objects.create_user(email=email, username=username, password='Password1')
+    return User.objects.create_user(email=email, username=username, password='Password1', is_active=True)
 
 
 def make_story(user=None, **kwargs):

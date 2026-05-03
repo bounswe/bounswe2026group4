@@ -535,7 +535,7 @@ class TestGetStoryFeedGeoFilter:
         assert near_untagged not in qs
 
     def test_geo_filter_result_is_queryset_compatible_with_annotate(self):
-        user = User.objects.create_user(email='geo@example.com', username='geouser', password='Password1')
+        user = User.objects.create_user(email='geo@example.com', username='geouser', password='Password1', is_active=True)
         make_geo_story(NEAR_LAT, NEAR_LNG)
         qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
         annotated = annotate_user_interactions(qs, user)
@@ -588,7 +588,7 @@ class TestGetStorySearchGeoFilter:
         assert qs.count() == 2
 
     def test_geo_filter_result_is_queryset_compatible_with_annotate(self):
-        user = User.objects.create_user(email='geosearch@example.com', username='geosearch', password='Password1')
+        user = User.objects.create_user(email='geosearch@example.com', username='geosearch', password='Password1', is_active=True)
         make_geo_story(NEAR_LAT, NEAR_LNG, title='Ancient Tower')
         qs = get_story_search('Ancient', latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0)
         annotated = annotate_user_interactions(qs, user)
