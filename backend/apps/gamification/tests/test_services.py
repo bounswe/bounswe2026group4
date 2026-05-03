@@ -1,6 +1,21 @@
 from decimal import Decimal
 
 import pytest
+from django.http import Http404
+
+from apps.gamification.constants import BADGE_CRITERIA_STORIES_PUBLISHED, STORY_PUBLISHED
+from apps.gamification.models import Badge, PointTransaction, UserBadge
+from apps.gamification.services import (
+    get_badge_catalog,
+    get_user_badges,
+    get_user_point_history,
+    get_user_points,
+)
+from apps.stories.models import Story
+from apps.users.models import User
+from decimal import Decimal
+
+import pytest
 
 from apps.gamification.constants import (
     BADGE_CRITERIA_POINTS_TOTAL,
@@ -24,6 +39,151 @@ from apps.gamification.services import (
 )
 from apps.stories.models import Story
 from apps.users.models import User
+
+
+
+def _make_user(email='u@example.com', username='u', active=True):
+    return User.objects.create_user(
+        email=email, username=username, password='Password1', is_active=active,
+    )
+
+
+def _make_badge(name='Pioneer'):
+    return Badge.objects.create(
+        name=name, description='desc',
+        criteria_type=BADGE_CRITERIA_STORIES_PUBLISHED, criteria_threshold=1,
+    )
+
+
+def _make_story(user):
+    return Story.objects.create(
+        user=user, title='T', narrative='N',
+        status=Story.STATUS_PUBLISHED,
+        location_lat=Decimal('0'), location_lng=Decimal('0'),
+        location_name='P', time_type=Story.TIME_EXACT, year=2000,
+    )
+
+
+@pytest.mark.django_db
+class TestGetUserPoints:
+    def test_get_user_points_returns_user_id_and_total_points(self):
+        user = _make_user()
+        User.objects.filter(pk=user.pk).update(total_points=100)
+        result = get_user_points(user.pk)
+        assert result == {'user_id': user.pk, 'total_points': 100}
+
+    def test_get_user_points_returns_zero_when_no_points(self):
+        user = _make_user()
+        result = get_user_points(user.pk)
+        assert result['total_points'] == 0
+
+    def test_get_user_points_nonexistent_user_raises_404(self):
+        with pytest.raises(Http404):
+            get_user_points(99999)
+
+    def test_get_user_points_inactive_user_raises_404(self):
+        user = _make_user(active=False)
+        with pytest.raises(Http404):
+            get_user_points(user.pk)
+
+
+@pytest.mark.django_db
+class TestGetUserBadges:
+    def setup_method(self):
+        self.user = _make_user()
+
+    def test_get_user_badges_returns_empty_queryset_when_none_earned(self):
+        qs = get_user_badges(self.user.pk)
+        assert qs.count() == 0
+
+    def test_get_user_badges_returns_all_earned_badges(self):
+        badge1 = _make_badge('First')
+        badge2 = _make_badge('Second')
+        UserBadge.objects.create(user=self.user, badge=badge1)
+        UserBadge.objects.create(user=self.user, badge=badge2)
+        assert get_user_badges(self.user.pk).count() == 2
+
+    def test_get_user_badges_ordered_by_awarded_at_ascending(self):
+        badge1 = _make_badge('First')
+        badge2 = _make_badge('Second')
+        ub1 = UserBadge.objects.create(user=self.user, badge=badge1)
+        ub2 = UserBadge.objects.create(user=self.user, badge=badge2)
+        results = list(get_user_badges(self.user.pk))
+        assert results[0].pk == ub1.pk
+        assert results[1].pk == ub2.pk
+
+    def test_get_user_badges_does_not_return_other_users_badges(self):
+        other = _make_user('other@example.com', 'other')
+        badge = _make_badge()
+        UserBadge.objects.create(user=other, badge=badge)
+        assert get_user_badges(self.user.pk).count() == 0
+
+    def test_get_user_badges_nonexistent_user_raises_404(self):
+        with pytest.raises(Http404):
+            get_user_badges(99999)
+
+    def test_get_user_badges_inactive_user_raises_404(self):
+        inactive = _make_user('inactive@example.com', 'inactive', active=False)
+        with pytest.raises(Http404):
+            get_user_badges(inactive.pk)
+
+
+@pytest.mark.django_db
+class TestGetUserPointHistory:
+    def setup_method(self):
+        self.user = _make_user()
+
+    def test_get_user_point_history_returns_empty_when_none(self):
+        qs = get_user_point_history(self.user.pk)
+        assert qs.count() == 0
+
+    def test_get_user_point_history_returns_all_transactions(self):
+        PointTransaction.objects.create(user=self.user, amount=50, event_type=STORY_PUBLISHED)
+        PointTransaction.objects.create(user=self.user, amount=2, event_type='story_liked')
+        assert get_user_point_history(self.user.pk).count() == 2
+
+    def test_get_user_point_history_ordered_newest_first(self):
+        tx1 = PointTransaction.objects.create(user=self.user, amount=50, event_type=STORY_PUBLISHED)
+        tx2 = PointTransaction.objects.create(user=self.user, amount=2, event_type='story_liked')
+        results = list(get_user_point_history(self.user.pk))
+        # tx2 was created after tx1, so it should appear first
+        assert results[0].pk == tx2.pk
+        assert results[1].pk == tx1.pk
+
+    def test_get_user_point_history_does_not_return_other_users_transactions(self):
+        other = _make_user('other@example.com', 'other')
+        PointTransaction.objects.create(user=other, amount=50, event_type=STORY_PUBLISHED)
+        assert get_user_point_history(self.user.pk).count() == 0
+
+    def test_get_user_point_history_nonexistent_user_raises_404(self):
+        with pytest.raises(Http404):
+            get_user_point_history(99999)
+
+    def test_get_user_point_history_inactive_user_raises_404(self):
+        inactive = _make_user('inactive@example.com', 'inactive', active=False)
+        with pytest.raises(Http404):
+            get_user_point_history(inactive.pk)
+
+
+@pytest.mark.django_db
+class TestGetBadgeCatalog:
+    def test_get_badge_catalog_returns_empty_when_no_badges(self):
+        assert get_badge_catalog().count() == 0
+
+    def test_get_badge_catalog_returns_all_badges(self):
+        _make_badge('A')
+        _make_badge('B')
+        _make_badge('C')
+        assert get_badge_catalog().count() == 3
+
+    def test_get_badge_catalog_ordered_by_id_ascending(self):
+        b1 = _make_badge('A')
+        b2 = _make_badge('B')
+        b3 = _make_badge('C')
+        results = list(get_badge_catalog())
+        assert results[0].pk == b1.pk
+        assert results[1].pk == b2.pk
+        assert results[2].pk == b3.pk
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
