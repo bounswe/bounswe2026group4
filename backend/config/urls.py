@@ -9,6 +9,7 @@ urlpatterns = [
     path('users/', include('apps.users.profile_urls')),
     path('', include('apps.interactions.urls', namespace='interactions')),
     path('', include('apps.notifications.urls', namespace='notifications')),
+    path('', include('apps.gamification.urls', namespace='gamification')),
     path('', include('apps.media.urls', namespace='media')),
     path('stories/', include('apps.stories.urls', namespace='stories')),
     path('tags/', include('apps.tags.urls', namespace='tags')),

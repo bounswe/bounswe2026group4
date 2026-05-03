@@ -1,3 +1,7 @@
+from django.http import Http404
+
+from apps.gamification.models import Badge, PointTransaction, UserBadge
+from apps.users.models import User
 from django.db import transaction
 from django.db.models import F, Value
 from django.db.models.functions import Greatest
@@ -9,6 +13,46 @@ from apps.gamification.constants import (
     POINT_VALUES,
 )
 from apps.gamification.models import Badge, PointTransaction, UserBadge
+
+
+def _get_active_user(user_id):
+    """Return the active User for user_id, or raise Http404 if absent or inactive."""
+    try:
+        return User.objects.get(pk=user_id, is_active=True)
+    except User.DoesNotExist:
+        raise Http404
+
+
+def get_user_points(user_id):
+    """Return a dict with the user's total point balance."""
+    user = _get_active_user(user_id)
+    return {'user_id': user.pk, 'total_points': user.total_points}
+
+
+def get_user_badges(user_id):
+    """Return all badges earned by the user, ordered by award date ascending."""
+    _get_active_user(user_id)
+    return (
+        UserBadge.objects
+        .filter(user_id=user_id)
+        .select_related('badge')
+        .order_by('awarded_at')
+    )
+
+
+def get_user_point_history(user_id):
+    """Return the user's point transactions, ordered newest first."""
+    _get_active_user(user_id)
+    return (
+        PointTransaction.objects
+        .filter(user_id=user_id)
+        .order_by('-created_at')
+    )
+
+
+def get_badge_catalog():
+    """Return all available badges ordered by id."""
+    return Badge.objects.all().order_by('id')
 
 
 def award_points(user, event_type, story=None):
