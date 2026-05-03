@@ -768,7 +768,6 @@ export function RootNavigator() {
           horizontal
           pagingEnabled
           canCancelContentTouches={currentRoute !== ROUTES.MAP}
-          contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
           directionalLockEnabled
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"

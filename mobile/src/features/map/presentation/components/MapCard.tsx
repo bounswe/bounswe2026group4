@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -37,11 +37,17 @@ export function MapCard({
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
   const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : undefined;
-  const [currentRegion, setCurrentRegion] = useState(region);
-
-  useEffect(() => {
-    setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
-  }, [region]);
+  const mapMarkers = useMemo(
+    () =>
+      markers.map((marker) => ({
+        id: marker.id,
+        latitude: marker.latitude,
+        longitude: marker.longitude,
+        selected: marker.id === selectedMarkerId,
+        label: marker.isCluster ? String(marker.count) : undefined,
+      })),
+    [markers, selectedMarkerId],
+  );
 
   return (
     <View
@@ -58,16 +64,10 @@ export function MapCard({
         style={{ height: 420 }}
       >
         <WebMapView
-          region={currentRegion}
+          region={region}
           userLocation={userLocation}
           transitionDurationMs={450}
-          markers={markers.map((marker) => ({
-            id: marker.id,
-            latitude: marker.latitude,
-            longitude: marker.longitude,
-            selected: marker.id === selectedMarkerId,
-            label: marker.isCluster ? String(marker.count) : undefined,
-          }))}
+          markers={mapMarkers}
           onMarkerPress={(markerId) => {
             onSelectMarker(markerId);
           }}
@@ -209,13 +209,4 @@ function truncatePreview(value: string) {
   }
 
   return `${value.slice(0, PREVIEW_MAX_LENGTH - 1).trim()}...`;
-}
-
-function regionsEqual(left: Region, right: Region) {
-  return (
-    left.latitude === right.latitude &&
-    left.longitude === right.longitude &&
-    left.latitudeDelta === right.latitudeDelta &&
-    left.longitudeDelta === right.longitudeDelta
-  );
 }

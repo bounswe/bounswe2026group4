@@ -38,11 +38,11 @@ type WebViewHandle = {
 };
 
 type MapUpdatePayload = {
-  region: RegionLike;
-  markers: MarkerItem[];
-  userLocation: UserLocationLike | null;
-  animated: boolean;
-  transitionDurationMs: number;
+  region?: RegionLike;
+  markers?: MarkerItem[];
+  userLocation?: UserLocationLike | null;
+  animated?: boolean;
+  transitionDurationMs?: number;
 };
 
 const mapHtml = ({
@@ -339,6 +339,7 @@ const mapHtml = ({
 
       map.on('load', () => {
         isMapReady = true;
+        hasCompletedInitialMove = true;
 
         if (pendingUpdatePayload) {
           applyMapUpdate(pendingUpdatePayload);
@@ -362,6 +363,9 @@ export function WebMapView({
   const webViewRef = useRef<WebViewHandle | null>(null);
   const sourceRef = useRef<{ html: string } | null>(null);
   const latestUpdatePayloadRef = useRef<MapUpdatePayload | null>(null);
+  const lastSentRegionRef = useRef<RegionLike | null>(null);
+  const lastSentMarkersRef = useRef<MarkerItem[] | null>(null);
+  const lastSentUserLocationRef = useRef<UserLocationLike | null | undefined>(undefined);
 
   if (sourceRef.current === null) {
     sourceRef.current = {
@@ -369,17 +373,42 @@ export function WebMapView({
     };
   }
 
-  const updatePayload = {
+  const fullUpdatePayload = {
     region,
     markers,
     userLocation: userLocation ?? null,
     animated: true,
     transitionDurationMs,
   };
-  latestUpdatePayloadRef.current = updatePayload;
+  latestUpdatePayloadRef.current = fullUpdatePayload;
 
   useEffect(() => {
-    injectMapUpdate(webViewRef.current, updatePayload);
+    const updatePayload: MapUpdatePayload = {};
+    const nextUserLocation = userLocation ?? null;
+
+    if (!lastSentRegionRef.current || !regionsEqual(lastSentRegionRef.current, region)) {
+      updatePayload.region = region;
+      updatePayload.animated = true;
+      updatePayload.transitionDurationMs = transitionDurationMs;
+      lastSentRegionRef.current = region;
+    }
+
+    if (!lastSentMarkersRef.current || !markersEqual(lastSentMarkersRef.current, markers)) {
+      updatePayload.markers = markers;
+      lastSentMarkersRef.current = markers;
+    }
+
+    if (
+      lastSentUserLocationRef.current === undefined ||
+      !userLocationsEqual(lastSentUserLocationRef.current, nextUserLocation)
+    ) {
+      updatePayload.userLocation = nextUserLocation;
+      lastSentUserLocationRef.current = nextUserLocation;
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      injectMapUpdate(webViewRef.current, updatePayload);
+    }
   }, [markers, region, transitionDurationMs, userLocation]);
 
   return (
@@ -458,6 +487,41 @@ function injectMapUpdate(webView: WebViewHandle | null, payload: MapUpdatePayloa
   webView?.injectJavaScript(
     `window.__storyMapUpdate && window.__storyMapUpdate(${escapeInjectedJson(payload)}); true;`,
   );
+}
+
+function regionsEqual(left: RegionLike, right: RegionLike) {
+  return (
+    left.latitude === right.latitude &&
+    left.longitude === right.longitude &&
+    left.latitudeDelta === right.latitudeDelta &&
+    left.longitudeDelta === right.longitudeDelta
+  );
+}
+
+function userLocationsEqual(left: UserLocationLike | null, right: UserLocationLike | null) {
+  if (left === null || right === null) {
+    return left === right;
+  }
+
+  return left.latitude === right.latitude && left.longitude === right.longitude;
+}
+
+function markersEqual(left: MarkerItem[], right: MarkerItem[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((marker, index) => {
+    const nextMarker = right[index];
+
+    return (
+      marker.id === nextMarker.id &&
+      marker.latitude === nextMarker.latitude &&
+      marker.longitude === nextMarker.longitude &&
+      marker.selected === nextMarker.selected &&
+      marker.label === nextMarker.label
+    );
+  });
 }
 
 function escapeInjectedJson(value: unknown) {
