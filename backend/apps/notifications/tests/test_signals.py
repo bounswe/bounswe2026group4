@@ -158,6 +158,14 @@ class TestBadgeEarnedSignal:
         notif = Notification.objects.get(recipient=self.user, notification_type=NotificationType.BADGE_EARNED)
         assert notif.actor is None
 
+    def test_resaving_user_badge_does_not_duplicate_notification(self):
+        # Covers the `if not created: return` guard in on_badge_earned
+        ub = UserBadge.objects.create(user=self.user, badge=self.badge)
+        ub.save()
+        assert Notification.objects.filter(
+            recipient=self.user, notification_type=NotificationType.BADGE_EARNED,
+        ).count() == 1
+
 
 @pytest.mark.django_db
 class TestNewStoryPublishedSignal:
