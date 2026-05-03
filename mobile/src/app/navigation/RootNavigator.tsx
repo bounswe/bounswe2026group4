@@ -725,7 +725,7 @@ export function RootNavigator() {
           testID="main-route-pager"
           horizontal
           pagingEnabled
-          scrollEnabled={currentRoute !== ROUTES.MAP && !isMapGestureActive}
+          scrollEnabled={!isMapGestureActive}
           contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
@@ -746,7 +746,7 @@ export function RootNavigator() {
               scrollable
               hideHeader
               active={currentRoute === ROUTES.MAP}
-              scrollEnabled={false}
+              scrollEnabled={!isMapGestureActive}
               testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
               onScrollOffsetChange={(y) => {
