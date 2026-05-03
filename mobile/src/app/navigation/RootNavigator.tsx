@@ -195,7 +195,7 @@ function ScreenShell({
   active = false,
   disableScrollViewPanResponder = false,
   scrollEnabled = true,
-  externalScrollViewRef,
+  canCancelContentTouches = true,
   testID,
   preservedScrollY = 0,
   onScrollOffsetChange,
@@ -215,14 +215,13 @@ function ScreenShell({
   active?: boolean;
   disableScrollViewPanResponder?: boolean;
   scrollEnabled?: boolean;
-  externalScrollViewRef?: React.MutableRefObject<ScrollView | null>;
+  canCancelContentTouches?: boolean;
   testID?: string;
   preservedScrollY?: number;
   onScrollOffsetChange?: (y: number) => void;
 }) {
   const { colors, spacing, typography } = useAppTheme();
-  const internalScrollViewRef = useRef<ScrollView | null>(null);
-  const scrollViewRef = externalScrollViewRef ?? internalScrollViewRef;
+  const scrollViewRef = useRef<ScrollView>(null);
   const [refreshHandler, setRefreshHandler] = useState<(() => Promise<void>) | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const scrollTo = useCallback(
@@ -307,6 +306,7 @@ function ScreenShell({
         showsVerticalScrollIndicator={false}
         disableScrollViewPanResponder={disableScrollViewPanResponder}
         scrollEnabled={scrollEnabled}
+        canCancelContentTouches={canCancelContentTouches}
         scrollEventThrottle={16}
         refreshControl={
           refreshHandler ? (
@@ -340,11 +340,9 @@ export function RootNavigator() {
   const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
   const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [isMapGestureActive, setIsMapGestureActive] = useState(false);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
-  const pagerRef = useRef<ScrollView | null>(null);
-  const mapRouteScrollRef = useRef<ScrollView>(null);
+  const pagerRef = useRef<ScrollView>(null);
   const mapScrollOffsetRef = useRef(0);
 
   const currentSnapshot = useMemo<RouteSnapshot>(
@@ -419,25 +417,6 @@ export function RootNavigator() {
     },
     [currentSnapshot, restoreSnapshot],
   );
-
-  const setMapParentScrollEnabled = useCallback((enabled: boolean) => {
-    pagerRef.current?.setNativeProps({ scrollEnabled: enabled });
-    mapRouteScrollRef.current?.setNativeProps({ scrollEnabled: enabled });
-  }, []);
-
-  const handleMapGestureActiveChange = useCallback(
-    (active: boolean) => {
-      setMapParentScrollEnabled(!active);
-      setIsMapGestureActive(active);
-    },
-    [setMapParentScrollEnabled],
-  );
-
-  useEffect(() => {
-    if (currentRoute !== ROUTES.MAP) {
-      handleMapGestureActiveChange(false);
-    }
-  }, [currentRoute, handleMapGestureActiveChange]);
 
   const handleBack = useCallback(() => {
     setBackStack((current) => {
@@ -751,8 +730,7 @@ export function RootNavigator() {
           testID="main-route-pager"
           horizontal
           pagingEnabled
-          disableScrollViewPanResponder={isMapGestureActive}
-          scrollEnabled={!isMapGestureActive}
+          canCancelContentTouches={currentRoute !== ROUTES.MAP}
           contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
@@ -773,9 +751,7 @@ export function RootNavigator() {
               scrollable
               hideHeader
               active={currentRoute === ROUTES.MAP}
-              disableScrollViewPanResponder={isMapGestureActive}
-              scrollEnabled={!isMapGestureActive}
-              externalScrollViewRef={mapRouteScrollRef}
+              canCancelContentTouches={false}
               testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
               onScrollOffsetChange={(y) => {
@@ -786,7 +762,6 @@ export function RootNavigator() {
                 <MapScreen
                   onOpenStory={handleOpenStoryDetail}
                   onMarkerPreviewRequested={(targetY) => scrollTo(targetY)}
-                  onMapGestureActiveChange={handleMapGestureActiveChange}
                   showSearchControls={false}
                   onRegisterRefresh={registerRefreshHandler}
                   searchScope="main"

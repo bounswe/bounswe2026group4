@@ -367,7 +367,7 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('prevents parent scroll views from stealing touches only while the map is touched', async () => {
+  it('keeps parent scrolling available while preserving map child touches', async () => {
     renderNavigator();
 
     await screen.findByLabelText('Map');
@@ -376,28 +376,11 @@ describe('RootNavigator auth flow', () => {
     const mapView = await screen.findByTestId('web-map-view');
     expect(mapView.props.onTouchStart).toBeUndefined();
 
-    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).toBe(true);
+    expect(screen.getByTestId('interactive-map-touch-area').props.onTouchStart).toBeUndefined();
+    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).not.toBe(false);
+    expect(screen.getByTestId('main-route-pager').props.canCancelContentTouches).toBe(false);
     expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
-
-    fireEvent(screen.getByTestId('interactive-map-touch-area'), 'touchStart', {
-      nativeEvent: { touches: [{}] },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('main-route-pager').props.scrollEnabled).toBe(false);
-      expect(screen.getByTestId('main-route-pager').props.disableScrollViewPanResponder).toBe(true);
-      expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(false);
-      expect(screen.getByTestId('map-route-scroll').props.disableScrollViewPanResponder).toBe(true);
-    });
-
-    fireEvent(screen.getByTestId('interactive-map-touch-area'), 'touchEnd', {
-      nativeEvent: { touches: [] },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('main-route-pager').props.scrollEnabled).toBe(true);
-      expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
-    });
+    expect(screen.getByTestId('map-route-scroll').props.canCancelContentTouches).toBe(false);
   });
 
   it('shows only the StoryMap brand in the main header', async () => {
