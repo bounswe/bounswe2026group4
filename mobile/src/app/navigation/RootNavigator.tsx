@@ -13,6 +13,7 @@ import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
 import { MapScreen } from '../../features/map';
 import { StoryScreen } from '../../features/stories';
+import { TimelineScreen } from '../../features/timeline';
 import { StorySearchControls } from '../../features/search/presentation/components/StorySearchControls';
 import { useToast } from '../../shared/hooks/useToast';
 import { APP_NAME } from '../../core/constants/app';
@@ -28,6 +29,7 @@ interface RouteSnapshot {
 
 const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION, ROUTES.NOTIFICATIONS];
 const NOTIFICATION_REFRESH_INTERVAL_MS = 45000;
+const MAIN_PAGER_ROUTES: AppRoute[] = [ROUTES.MAP, ROUTES.TIMELINE, ROUTES.FEED];
 
 function BackButton({ onPress }: { onPress: () => void }) {
   const { colors, spacing, typography } = useAppTheme();
@@ -343,7 +345,7 @@ export function RootNavigator() {
   );
   const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
   const canGoBack = backStack.length > 0;
-  const isMainRoute = currentRoute === ROUTES.FEED || currentRoute === ROUTES.MAP;
+  const isMainRoute = MAIN_PAGER_ROUTES.includes(currentRoute);
   const isProfileCompletionRoute = currentRoute === ROUTES.PROFILE_COMPLETION;
   const resolvedRedirectTarget = useMemo<RouteSnapshot>(() => {
     if (redirectTarget.route === ROUTES.AUTH || redirectTarget.route === ROUTES.PROFILE_COMPLETION) {
@@ -468,7 +470,7 @@ export function RootNavigator() {
   }, [canGoBack, handleBack]);
 
   const handleNavigate = (route: AppRoute) => {
-    if (route === ROUTES.FEED || route === ROUTES.MAP) {
+    if (MAIN_PAGER_ROUTES.includes(route)) {
       navigateToSnapshot({ route }, { resetStack: true, preserveCurrent: false });
       return;
     }
@@ -496,7 +498,7 @@ export function RootNavigator() {
       return;
     }
 
-    const pageIndex = currentRoute === ROUTES.MAP ? 0 : 1;
+    const pageIndex = Math.max(MAIN_PAGER_ROUTES.indexOf(currentRoute), 0);
     pagerRef.current?.scrollTo({ x: pageIndex * width, animated: false });
   }, [currentRoute, isMainRoute, width]);
 
@@ -718,12 +720,13 @@ export function RootNavigator() {
           testID="main-route-pager"
           horizontal
           pagingEnabled
-          contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
+          contentOffset={{ x: Math.max(MAIN_PAGER_ROUTES.indexOf(currentRoute), 0) * width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
           onMomentumScrollEnd={(event) => {
             const offsetX = event.nativeEvent.contentOffset.x;
-            const nextRoute = offsetX < width / 2 ? ROUTES.MAP : ROUTES.FEED;
+            const pageIndex = Math.max(0, Math.min(MAIN_PAGER_ROUTES.length - 1, Math.round(offsetX / width)));
+            const nextRoute = MAIN_PAGER_ROUTES[pageIndex];
 
             if (nextRoute !== currentRoute) {
               setCurrentRoute(nextRoute);
@@ -752,6 +755,21 @@ export function RootNavigator() {
                   searchScope="main"
                 />
               )}
+            </ScreenShell>
+          </View>
+          <View style={{ width, flex: 1 }}>
+            <ScreenShell
+              title="Timeline"
+              description="Explore stories by time."
+              framed={false}
+              fillContent
+              hideHeader
+            >
+              <TimelineScreen
+                onOpenStory={handleOpenStoryDetail}
+                showSearchControls={false}
+                searchScope="main"
+              />
             </ScreenShell>
           </View>
           <View style={{ width, flex: 1 }}>
@@ -834,6 +852,7 @@ export function RootNavigator() {
           }}
         >
           <BottomNavButton label="Map" active={currentRoute === ROUTES.MAP} onPress={() => handleNavigate(ROUTES.MAP)} />
+          <BottomNavButton label="Timeline" active={currentRoute === ROUTES.TIMELINE} onPress={() => handleNavigate(ROUTES.TIMELINE)} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Submission"

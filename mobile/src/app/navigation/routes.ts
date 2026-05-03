@@ -33,6 +33,12 @@ export const MAIN_NAV_ROUTES: AppRouteDefinition[] = [
     requiresAuth: false,
   },
   {
+    key: ROUTES.TIMELINE,
+    label: 'Timeline',
+    tabLabel: 'Timeline',
+    requiresAuth: false,
+  },
+  {
     key: ROUTES.FEED,
     label: 'Feed',
     tabLabel: 'Feed',
