@@ -11,6 +11,7 @@ import { interactionService } from '../../../../interactions/application/service
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
   searchLocationSuggestions: jest.fn(),
+  searchTags: jest.fn(),
 }));
 
 jest.mock('../../../../interactions/application/services', () => ({

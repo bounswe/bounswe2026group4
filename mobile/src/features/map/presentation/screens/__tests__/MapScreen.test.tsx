@@ -10,6 +10,7 @@ import { geocodeLocationQuery, searchLocationSuggestions } from '../../../../sea
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
   searchLocationSuggestions: jest.fn(),
+  searchTags: jest.fn(),
 }));
 
 const goldenHornBounds = { latMin: 41, latMax: 41.05, lngMin: 28.94, lngMax: 28.99 };
