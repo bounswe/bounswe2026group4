@@ -21,7 +21,14 @@ function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): Fi
   }
 
   if (filters.proximityRadiusKm && filters.proximityCoordinates) {
-    chips.push({ key: 'proximityRadiusKm', label: `Distance: ${filters.proximityRadiusKm} km` });
+    const isMapPinFilter = filters.proximitySource === 'map_pin';
+
+    chips.push({
+      key: 'proximityRadiusKm',
+      label: `Distance: ${formatDistance(filters.proximityRadiusKm)} from`,
+      visual: isMapPinFilter ? 'redPin' : 'bluePin',
+      visualAccessibilityLabel: isMapPinFilter ? 'red location pin' : 'current location blue pin',
+    });
   }
 
   if (filters.timeFrom.trim()) {
@@ -157,7 +164,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     if (result.status === 'granted') {
       setDraftProximityCoordinates(result.coordinates);
       setProximityStatusText(
-        `Filtering within ${radiusKm} km of ${result.coordinates.latitude.toFixed(4)}, ${result.coordinates.longitude.toFixed(4)}.`,
+        `Filtering within ${formatDistance(radiusKm)} of ${result.coordinates.latitude.toFixed(4)}, ${result.coordinates.longitude.toFixed(4)}.`,
       );
       return;
     }
@@ -385,6 +392,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
                     locationBounds: draftLocation.trim() ? draftLocationBounds : undefined,
                     proximityRadiusKm: draftProximityRadiusKm,
                     proximityCoordinates: draftProximityRadiusKm ? draftProximityCoordinates : undefined,
+                    proximitySource: draftProximityRadiusKm ? 'current_location' : undefined,
                     timeFrom: draftTimeFrom,
                     timeTo: draftTimeTo,
                     tags: draftTags,
@@ -415,6 +423,10 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       />
     </View>
   );
+}
+
+function formatDistance(radiusKm: number) {
+  return radiusKm <= 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
 }
 
 function buildFallbackBounds(latitude: number, longitude: number): LocationBounds {

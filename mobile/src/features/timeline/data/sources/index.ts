@@ -218,6 +218,14 @@ function normalizeFallbackFilters(filters: StoryFilters, yearFrom?: number, year
     params.location = filters.location.trim();
   }
 
+  const proximity = getProximityFilter(filters);
+
+  if (proximity) {
+    params.latitude = proximity.latitude;
+    params.longitude = proximity.longitude;
+    params.radius_km = proximity.radiusKm;
+  }
+
   return params;
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { RootNavigator } from '../RootNavigator';
 import { storage } from '../../../core/storage/storage';
 import { storageKeys } from '../../../core/storage/keys';
@@ -13,6 +13,21 @@ jest.mock('../../../features/search/application/services', () => ({
   searchTags: jest.fn(async () => []),
   searchLocationSuggestions: jest.fn(),
 }));
+
+jest.mock('../../../shared/components/WebMapView', () => {
+  const React = require('react');
+  const { Pressable, View } = require('react-native');
+
+  return {
+    WebMapView: ({ markers = [], onMarkerPress }: { markers?: Array<{ id: string }>; onMarkerPress?: (markerId: string) => void }) => (
+      <View testID="web-map-view">
+        {markers.map((marker) => (
+          <Pressable key={marker.id} testID="story-marker" onPress={() => onMarkerPress?.(marker.id)} />
+        ))}
+      </View>
+    ),
+  };
+});
 
 function renderNavigator() {
   return render(
@@ -58,6 +73,8 @@ const timelineResults = feedResults.map((story) => ({
 }));
 
 const goldenHornBounds = { latMin: 41, latMax: 41.05, lngMin: 28.94, lngMax: 28.99 };
+const apiRequests: string[] = [];
+let nearbyTimelineFeedResults: typeof feedResults | undefined;
 
 const storyDetail = {
   id: 'story-001',
@@ -147,6 +164,27 @@ const notificationPreferences = {
 
 function installAuthTransport() {
   setApiTransport(async (method, config) => {
+    apiRequests.push(`${method} ${config.url ?? ''}`);
+
+    if (
+      method === 'GET' &&
+      (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/')) &&
+      config.url.includes('radius_km=0.5')
+    ) {
+      const results = nearbyTimelineFeedResults ?? feedResults;
+
+      return {
+        status: 200,
+        data: {
+          count: results.length,
+          next: null,
+          previous: null,
+          results,
+        } as never,
+        config,
+      };
+    }
+
     if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
       return {
         status: 200,
@@ -370,6 +408,8 @@ describe('RootNavigator auth flow', () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
     (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
     await storage.clear();
+    apiRequests.length = 0;
+    nearbyTimelineFeedResults = undefined;
     interceptors.clear();
     resetApiTransport();
     installAuthTransport();
@@ -397,7 +437,7 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('keeps parent scrolling available while preserving map child touches', async () => {
+  it('keeps pull-to-refresh available away from the map and suppresses it during map gestures', async () => {
     renderNavigator();
 
     await screen.findByLabelText('Map');
@@ -406,11 +446,34 @@ describe('RootNavigator auth flow', () => {
     const mapView = await screen.findByTestId('web-map-view');
     expect(mapView.props.onTouchStart).toBeUndefined();
 
-    expect(screen.getByTestId('interactive-map-touch-area').props.onTouchStart).toBeUndefined();
+    const mapTouchArea = screen.getByTestId('interactive-map-touch-area');
+    expect(mapTouchArea.props.onTouchStart).toEqual(expect.any(Function));
+    expect(mapTouchArea.props.onStartShouldSetResponderCapture).toEqual(expect.any(Function));
     expect(screen.getByTestId('main-route-pager').props.scrollEnabled).not.toBe(false);
     expect(screen.getByTestId('main-route-pager').props.canCancelContentTouches).toBe(false);
     expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
     expect(screen.getByTestId('map-route-scroll').props.canCancelContentTouches).toBe(false);
+    await waitFor(() => {
+      expect(screen.getByTestId('map-route-scroll').props.refreshControl).toBeTruthy();
+      expect(screen.getByTestId('map-route-scroll').props.refreshControl.props.enabled).toBe(true);
+      expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
+    });
+
+    fireEvent(mapTouchArea, 'startShouldSetResponderCapture');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('map-route-scroll').props.refreshControl).toBeTruthy();
+      expect(screen.getByTestId('map-route-scroll').props.refreshControl.props.enabled).toBe(false);
+      expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(false);
+    });
+
+    fireEvent(mapTouchArea, 'touchEnd');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('map-route-scroll').props.refreshControl).toBeTruthy();
+      expect(screen.getByTestId('map-route-scroll').props.refreshControl.props.enabled).toBe(true);
+      expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
+    });
   });
 
   it('shows only the StoryMap brand in the main header', async () => {
@@ -731,6 +794,73 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
   });
 
+  it('keeps the timeline tab active when filters are applied there', async () => {
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
+
+    renderNavigator();
+
+    await screen.findByLabelText('Timeline');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Remove Location: Golden Horn')).toBeTruthy();
+    });
+
+    fireEvent(screen.getByTestId('main-route-pager'), 'momentumScrollEnd', {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 0 },
+      },
+    });
+
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
+  });
+
+  it('keeps the timeline tab active when an existing filter is removed after a stale pager drag', async () => {
+    (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
+
+    renderNavigator();
+
+    await screen.findByLabelText('Timeline');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
+    expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Remove Location: Golden Horn')).toBeTruthy();
+    });
+
+    jest.useFakeTimers();
+    fireEvent(screen.getByTestId('main-route-pager'), 'scrollBeginDrag');
+    fireEvent(screen.getByTestId('main-route-pager'), 'scrollEndDrag');
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    jest.useRealTimers();
+
+    fireEvent.press(screen.getByLabelText('Remove Location: Golden Horn'));
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Remove Location: Golden Horn')).toBeNull();
+    });
+    fireEvent(screen.getByTestId('main-route-pager'), 'momentumScrollEnd', {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 0 },
+      },
+    });
+
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
+  });
+
   it('opens a story from the timeline and returns to the timeline', async () => {
     render(
       <AppProviders>
@@ -750,6 +880,44 @@ describe('RootNavigator auth flow', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Open timeline story: Harbor Memory')).toBeTruthy();
     });
+  });
+
+  it('opens a 500 m nearby timeline from a map pin and navigates to story detail', async () => {
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Map'));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker').length).toBeGreaterThan(0);
+    });
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    fireEvent.press(await screen.findByLabelText('View timeline near Harbor Memory'));
+
+    await waitFor(() => {
+      expect(apiRequests).toContain(
+        'GET /stories/feed/?page_size=100&sort_by=recent&latitude=41.02&longitude=28.96&radius_km=0.5&page=1',
+      );
+    });
+    expect(screen.getByLabelText('Remove Distance: 500 m from red location pin')).toBeTruthy();
+
+    fireEvent.press(await screen.findByLabelText('Open timeline story: Harbor Memory'));
+
+    expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+  });
+
+  it('shows an empty state for a map pin nearby timeline with no stories', async () => {
+    nearbyTimelineFeedResults = [];
+
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Map'));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker').length).toBeGreaterThan(0);
+    });
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    fireEvent.press(await screen.findByLabelText('View timeline near Harbor Memory'));
+
+    expect(await screen.findByText('No stories on this timeline')).toBeTruthy();
+    expect(screen.getByText('Try a wider year range, a different period, or removing a place or distance filter.')).toBeTruthy();
   });
 
   it('opens a protected screen after login and returns with the back button', async () => {

@@ -1,11 +1,15 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { MapPin } from 'lucide-react-native';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { formatTagLabel, TagChip } from './TagChip';
 
 export interface FilterChipItem {
   key: string;
   label: string;
+  visual?: 'redPin' | 'bluePin';
+  visualAccessibilityLabel?: string;
+  showRemoveGlyph?: boolean;
 }
 
 interface FilterChipsProps {
@@ -39,9 +43,12 @@ export function FilterChips({ chips, onRemove, onClearAll }: FilterChipsProps) {
             <Pressable
               key={chip.key}
               accessibilityRole="button"
-              accessibilityLabel={`Remove ${chip.label}`}
+              accessibilityLabel={`Remove ${chip.label}${chip.visualAccessibilityLabel ? ` ${chip.visualAccessibilityLabel}` : ''}`}
               onPress={() => onRemove(chip.key)}
               style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.xs,
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
                 borderRadius: 999,
@@ -52,8 +59,17 @@ export function FilterChips({ chips, onRemove, onClearAll }: FilterChipsProps) {
               })}
             >
               <Text style={{ color: colors.text, fontSize: typography.caption + 1, fontWeight: '600' }}>
-                {chip.label} x
+                {chip.label}
               </Text>
+              {chip.visual === 'redPin' ? (
+                <MapPin color="#dc2626" fill="#dc2626" size={16} strokeWidth={2.2} />
+              ) : null}
+              {chip.visual === 'bluePin' ? (
+                <MapPin color="#1d4ed8" fill="#1d4ed8" size={16} strokeWidth={2.2} />
+              ) : null}
+              {chip.showRemoveGlyph === false ? null : (
+                <Text style={{ color: colors.text, fontSize: typography.caption + 1, fontWeight: '600' }}>x</Text>
+              )}
             </Pressable>
           )
         ))}

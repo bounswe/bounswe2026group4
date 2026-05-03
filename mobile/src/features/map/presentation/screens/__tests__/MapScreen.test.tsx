@@ -33,7 +33,7 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
         latitudeDelta: number;
         longitudeDelta: number;
       };
-      markers?: Array<{ id: string }>;
+      markers?: Array<{ id: string; selected?: boolean }>;
       userLocation?: {
         latitude: number;
         longitude: number;
@@ -80,7 +80,12 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
           }
         />
         {markers.map((marker) => (
-          <Pressable key={marker.id} onPress={() => onMarkerPress?.(marker.id)} testID="story-marker" />
+          <Pressable
+            key={marker.id}
+            onPress={() => onMarkerPress?.(marker.id)}
+            testID="story-marker"
+            accessibilityState={{ selected: Boolean(marker.selected) }}
+          />
         ))}
       </View>
     ),
@@ -219,6 +224,44 @@ describe('MapScreen', () => {
     expect(onOpenStory).toHaveBeenCalledWith('story-001');
   });
 
+  it('offers a timeline action for a selected marker', async () => {
+    const onViewTimeline = jest.fn();
+
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} onViewTimeline={onViewTimeline} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    fireEvent.press(await screen.findByLabelText('View timeline near The Day the Harbor Fell Silent'));
+
+    expect(onViewTimeline).toHaveBeenCalledWith({
+      latitude: 41.0284,
+      longitude: 28.9647,
+    });
+  });
+
+  it('highlights the active map pin distance filter until the filter is removed', async () => {
+    await storage.set(storageKeys.mapSearchFilters, {
+      proximityRadiusKm: 0.5,
+      proximityCoordinates: {
+        latitude: 41.0284,
+        longitude: 28.9647,
+      },
+      proximitySource: 'map_pin',
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker')[0].props.accessibilityState.selected).toBe(true);
+    });
+
+    fireEvent.press(screen.getByLabelText('Remove Distance: 500 m from red location pin'));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker')[0].props.accessibilityState.selected).toBe(false);
+    });
+  });
+
   it('hides the selected marker preview when the same marker is pressed again', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
@@ -264,6 +307,21 @@ describe('MapScreen', () => {
     });
     expect(screen.getByText('Lanterns Above the Hill Market')).toBeTruthy();
     expect(screen.getByText('Voices of the Ferry Pier')).toBeTruthy();
+  });
+
+  it('offers a timeline action for a clustered marker', async () => {
+    const onViewTimeline = jest.fn();
+
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} onViewTimeline={onViewTimeline} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getAllByTestId('story-marker')[1]);
+    fireEvent.press(await screen.findByLabelText('View timeline near 2 nearby stories'));
+
+    expect(onViewTimeline).toHaveBeenCalledWith({
+      latitude: 41.01,
+      longitude: 28.97,
+    });
   });
 
   it('requests scrolling to the preview when a marker is pressed', async () => {
@@ -625,6 +683,30 @@ describe('MapScreen', () => {
       expect(screen.queryByTestId('user-location-marker')).toBeNull();
     });
   });
+
+  it('does not show the blue current-location marker for map-pin proximity filters', async () => {
+    await storage.set(storageKeys.mapSearchFilters, {
+      query: '',
+      location: '',
+      proximityRadiusKm: 0.5,
+      proximityCoordinates: {
+        latitude: 41.0284,
+        longitude: 28.9647,
+      },
+      proximitySource: 'map_pin',
+      timeFrom: '',
+      timeTo: '',
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('user-location-marker')).toBeNull();
+    });
+  });
+
 
   it('refetches all markers when a chip filter is removed', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockResolvedValue(markerGroups);
