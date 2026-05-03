@@ -18,6 +18,7 @@ from apps.users.serializers import (
     ProfilePhotoSerializer,
     PublicUserProfileSerializer,
     RegisterSerializer,
+    ResendVerificationSerializer,
     UpdateCurrentUserSerializer,
     UserResponseSerializer,
     VerifyEmailSerializer,
@@ -35,6 +36,7 @@ from apps.users.services import (
     logout_user,
     register_user,
     request_password_reset,
+    resend_verification,
     reset_password,
     unfollow_user,
     update_own_profile,
@@ -64,6 +66,8 @@ class RegisterView(APIView):
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'verify_email'
 
     def post(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
@@ -73,6 +77,23 @@ class VerifyEmailView(APIView):
             serializer.validated_data['code'],
         )
         return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
+
+
+class ResendVerificationView(APIView):
+    """POST /auth/resend-verification/ — send a new verification code to an unverified account."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'verify_email'
+
+    def post(self, request):
+        serializer = ResendVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        resend_verification(serializer.validated_data['email'])
+        return Response(
+            {'message': 'If that email is pending verification, a new code has been sent.'},
+            status=status.HTTP_200_OK,
+        )
 
 
 class LoginView(APIView):

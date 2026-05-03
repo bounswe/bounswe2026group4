@@ -47,7 +47,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_username_public = models.BooleanField(default=True)
     # Cached total points; updated atomically alongside PointTransaction inserts (req. 1.7.1.4)
     total_points = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     # Tracks 6-digit email verification separately from is_active to distinguish "unverified" vs "banned"
     is_email_verified = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)

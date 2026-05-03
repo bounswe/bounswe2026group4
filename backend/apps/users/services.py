@@ -15,7 +15,8 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Va
 from apps.users.email_service import send_password_reset_email, send_verification_email
 from apps.users.models import EmailVerificationCode, Follow, PasswordResetToken, User, UserProfile
 
-_INVALID_VERIFICATION_CODE = ValidationError({'code': 'Invalid or expired verification code.'})
+def _invalid_verification_code():
+    return ValidationError({'code': 'Invalid or expired verification code.'})
 
 _MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
 _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
@@ -59,7 +60,7 @@ def verify_email(email: str, code: str) -> None:
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        raise _INVALID_VERIFICATION_CODE
+        raise _invalid_verification_code()
 
     verification = (
         EmailVerificationCode.objects
@@ -69,7 +70,7 @@ def verify_email(email: str, code: str) -> None:
     )
 
     if verification is None or verification.is_expired():
-        raise _INVALID_VERIFICATION_CODE
+        raise _invalid_verification_code()
 
     with transaction.atomic():
         verification.is_used = True
@@ -77,6 +78,26 @@ def verify_email(email: str, code: str) -> None:
         user.is_active = True
         user.is_email_verified = True
         user.save(update_fields=['is_active', 'is_email_verified'])
+
+
+def resend_verification(email: str) -> None:
+    """
+    Generates a new verification code and emails it to unverified accounts.
+
+    Silent for unknown/active/already-verified emails to prevent enumeration.
+    Email failures are caught and logged — they do not surface to the caller.
+    """
+    try:
+        user = User.objects.get(email=email, is_active=False, is_email_verified=False)
+    except User.DoesNotExist:
+        return
+
+    code = EmailVerificationCode.generate_code()
+    EmailVerificationCode.objects.create(user=user, code=code)
+    try:
+        send_verification_email(user.email, code)
+    except Exception:
+        logger.exception('Failed to resend verification email to %s', user.email)
 
 
 def login_user(email: str, password: str) -> dict:
@@ -415,8 +436,10 @@ def request_password_reset(email: str) -> None:
     except User.DoesNotExist:
         return
 
-    PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
-    token = PasswordResetToken.objects.create(user=user)
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=user.pk)
+        PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
+        token = PasswordResetToken.objects.create(user=user)
     reset_link = f"{settings.FRONTEND_URL}/reset-password/{token.token}"
     try:
         send_password_reset_email(user.email, reset_link)
