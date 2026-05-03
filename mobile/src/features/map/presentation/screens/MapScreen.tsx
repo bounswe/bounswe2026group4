@@ -79,7 +79,8 @@ export function MapScreen({
       activeFilters.location ||
       activeFilters.yearFrom ||
       activeFilters.yearTo ||
-      activeFilters.radiusKm,
+      activeFilters.radiusKm ||
+      activeFilters.tags?.length,
   );
 
   const loadMarkers = React.useCallback(async () => {
@@ -159,6 +160,9 @@ export function MapScreen({
           : '';
 
       parts.push(`Distance: ${state.filters.radiusKm} km${coordinates}`);
+    }
+    if (state.filters.tags?.length) {
+      parts.push(`Tag: ${state.filters.tags.join(', ')}`);
     }
 
     return parts;
@@ -283,7 +287,6 @@ function getMarkerScore(marker: MapMarkerGroup, searchTerm?: string, locationTer
     let score = 0;
     const normalizedTitle = story.title.toLowerCase();
     const normalizedPlace = story.placeName.toLowerCase();
-    const normalizedPreview = story.previewText.toLowerCase();
 
     if (searchTerm) {
       if (normalizedTitle === searchTerm) {
@@ -296,10 +299,6 @@ function getMarkerScore(marker: MapMarkerGroup, searchTerm?: string, locationTer
         score += 8;
       } else if (normalizedPlace.includes(searchTerm)) {
         score += 5;
-      }
-
-      if (normalizedPreview.includes(searchTerm)) {
-        score += 2;
       }
     }
 

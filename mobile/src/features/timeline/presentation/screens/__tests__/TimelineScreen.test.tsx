@@ -9,7 +9,7 @@ import { TimelineScreen } from '../TimelineScreen';
 jest.mock('../../../../search/application/services', () => ({
   geocodeLocationQuery: jest.fn(),
   searchLocationSuggestions: jest.fn(),
-  searchTags: jest.fn(),
+  searchTags: jest.fn(async () => []),
 }));
 
 const istanbulBounds = { latMin: 40.8, latMax: 41.2, lngMin: 28.7, lngMax: 29.2 };

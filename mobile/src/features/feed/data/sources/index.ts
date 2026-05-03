@@ -3,6 +3,14 @@ import { StoryFilters } from '../../../stories/domain/repositories';
 import { FeedSortOption } from '../../domain/entities';
 
 const DEFAULT_PAGE_SIZE = 10;
+const TAG_FALLBACK_PAGE_SIZE = 100;
+
+type FeedPageResponse = {
+  count?: number;
+  next?: string | null;
+  previous?: string | null;
+  results?: unknown[];
+};
 
 export const feedRemoteSource = {
   async getFeed({
@@ -15,19 +23,16 @@ export const feedRemoteSource = {
     filters?: StoryFilters;
   }) {
     const hasSearch = Boolean(filters.q?.trim());
+    const endpoint = hasSearch ? '/stories/search/' : '/stories/feed/';
+    const normalizedFilters = normalizeStoryFilters(filters);
     const params = buildQueryString({
       page,
       page_size: DEFAULT_PAGE_SIZE,
       sort_by: sort,
-      ...normalizeStoryFilters(filters),
+      ...normalizedFilters,
     });
 
-    const response = (await apiClient.get<{
-      count?: number;
-      next?: string | null;
-      previous?: string | null;
-      results?: unknown[];
-    }>(`${hasSearch ? '/stories/search/' : '/stories/feed/'}${params}`)) ?? {
+    const response = (await apiClient.get<FeedPageResponse>(`${endpoint}${params}`)) ?? {
       count: 0,
       next: null,
       previous: null,
@@ -37,27 +42,46 @@ export const feedRemoteSource = {
     const proximity = getProximityFilter(filters);
     const bounds = filters.locationBounds;
     const responseResults = response.results ?? [];
+    const selectedTags = getSelectedTags(filters);
+    const canFilterTagsLocally = selectedTags.length > 0 && responseResults.some(recordHasTagField);
+    const needsCompleteTagSet =
+      canFilterTagsLocally &&
+      (Boolean(response.next) || (response.count ?? 0) > responseResults.length);
 
-    if (!bounds && !proximity) {
+    const resultsToFilter = needsCompleteTagSet
+      ? await fetchAllFeedResults(endpoint, {
+          page_size: TAG_FALLBACK_PAGE_SIZE,
+          sort_by: sort,
+          ...normalizedFilters,
+        })
+      : responseResults;
+
+    if (!bounds && !proximity && !canFilterTagsLocally) {
       return {
         ...response,
         results: await hydrateMissingInteractionMetadata(responseResults),
       };
     }
 
-    const filtered = responseResults.filter((story) => {
+    const filtered = resultsToFilter.filter((story) => {
+      if (canFilterTagsLocally && !storyHasTagsWhenAvailable(story, selectedTags)) {
+        return false;
+      }
       if (proximity && !isStoryWithinRadius(story, proximity)) {
         return false;
       }
 
       return bounds ? isStoryWithinBounds(story, bounds) : true;
     });
-    const hydratedResults = await hydrateMissingInteractionMetadata(filtered);
+    const pageResults = needsCompleteTagSet
+      ? filtered.slice((page - 1) * DEFAULT_PAGE_SIZE, page * DEFAULT_PAGE_SIZE)
+      : filtered;
+    const hydratedResults = await hydrateMissingInteractionMetadata(pageResults);
 
     return {
       ...response,
-      count: hydratedResults.length,
-      next: null,
+      count: filtered.length,
+      next: needsCompleteTagSet && page * DEFAULT_PAGE_SIZE < filtered.length ? 'local-tag-filter' : null,
       results: hydratedResults,
     };
   },
@@ -91,6 +115,14 @@ function normalizeStoryFilters(filters: StoryFilters) {
     params.location = filters.location.trim();
   }
 
+  if (filters.tags?.length) {
+    const firstTag = filters.tags.find((tag) => tag.trim().length > 0);
+
+    if (firstTag) {
+      params.tag = firstTag.trim();
+    }
+  }
+
   const proximity = getProximityFilter(filters);
 
   if (proximity) {
@@ -114,6 +146,28 @@ function buildQueryString(params: Record<string, string | number | undefined>) {
   const query = searchParams.toString();
 
   return query ? `?${query}` : '';
+}
+
+async function fetchAllFeedResults(
+  path: string,
+  params: Record<string, string | number | undefined>,
+) {
+  const results: unknown[] = [];
+  let page = 1;
+  let hasNext = true;
+
+  while (hasNext) {
+    const response =
+      (await apiClient.get<FeedPageResponse>(
+        `${path}${buildQueryString({ ...params, page })}`,
+      )) ?? {};
+
+    results.push(...(response.results ?? []));
+    hasNext = Boolean(response.next);
+    page += 1;
+  }
+
+  return results;
 }
 
 function isStoryWithinBounds(
@@ -201,6 +255,63 @@ function asNumber(value: unknown) {
   }
 
   return undefined;
+}
+
+function getSelectedTags(filters: StoryFilters) {
+  return (filters.tags ?? [])
+    .map((tag) => tag.trim())
+    .filter((tag, index, tags): tag is string => tag.length > 0 && tags.indexOf(tag) === index);
+}
+
+function recordHasTagField(story: unknown) {
+  if (!story || typeof story !== 'object') {
+    return false;
+  }
+
+  const record = story as Record<string, unknown>;
+
+  return Array.isArray(record.tags) || Array.isArray(record.tag_names);
+}
+
+function storyHasTagsWhenAvailable(story: unknown, selectedTags: string[]) {
+  if (!selectedTags.length) {
+    return true;
+  }
+
+  if (!recordHasTagField(story)) {
+    return true;
+  }
+
+  const record = story as Record<string, unknown>;
+  const rawTags = Array.isArray(record.tags)
+    ? record.tags
+    : Array.isArray(record.tag_names)
+      ? record.tag_names
+      : [];
+
+  const tagNames = rawTags
+    .map((tag) => {
+      if (typeof tag === 'string') {
+        return tag;
+      }
+
+      if (tag && typeof tag === 'object') {
+        const tagRecord = tag as Record<string, unknown>;
+        return typeof tagRecord.name === 'string'
+          ? tagRecord.name
+          : typeof tagRecord.label === 'string'
+            ? tagRecord.label
+            : typeof tagRecord.slug === 'string'
+              ? tagRecord.slug
+              : '';
+      }
+
+      return '';
+    })
+    .filter(Boolean)
+    .map((tag) => tag.toLowerCase());
+
+  return selectedTags.every((tag) => tagNames.includes(tag.toLowerCase()));
 }
 
 function hasProximityFilter(filters: StoryFilters) {

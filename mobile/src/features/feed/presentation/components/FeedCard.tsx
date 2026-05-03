@@ -2,11 +2,13 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Bookmark } from 'lucide-react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
+import { TagChip } from '../../../../shared/components/TagChip';
 import { FeedEntity } from '../../domain/entities';
 
 interface FeedCardProps {
   story: FeedEntity;
   onPress?: (storyId: string) => void;
+  onTagPress?: (tag: string) => void;
   onBookmarkPress?: (storyId: string) => void;
   isBookmarkPending?: boolean;
   bookmarkAccessibilityLabel?: string;
@@ -33,11 +35,13 @@ function formatSubmittedAt(value: string) {
 export function FeedCard({
   story,
   onPress,
+  onTagPress,
   onBookmarkPress,
   isBookmarkPending = false,
   bookmarkAccessibilityLabel,
 }: FeedCardProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const tags = story.tags ?? [];
   const bookmarkIndicatorStyle = {
     width: 30,
     height: 30,
@@ -134,17 +138,44 @@ export function FeedCard({
         <Text style={{ color: colors.muted, fontSize: typography.body }}>{story.locationName}</Text>
       ) : null}
 
+      {tags.length > 0 ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {tags.map((tag) => (
+            <TagChip
+              key={tag}
+              label={tag}
+              value={tag}
+              testID={`feed-card-tag-${tag}`}
+              onPress={
+                onTagPress
+                  ? (event) => {
+                      event?.stopPropagation?.();
+                      onTagPress(tag);
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </View>
+      ) : null}
+
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         <View
           style={{
             paddingHorizontal: spacing.sm,
             paddingVertical: spacing.xs,
             borderRadius: 999,
-            backgroundColor: colors.background,
+            backgroundColor: story.savedByViewer ? colors.primary : colors.background,
           }}
         >
-          <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '600' }}>
-            ♥ {story.likeCount}
+          <Text
+            style={{
+              color: story.savedByViewer ? colors.background : colors.text,
+              fontSize: typography.caption,
+              fontWeight: '700',
+            }}
+          >
+            {story.savedByViewer ? '♥' : '♡'} {story.likeCount}
           </Text>
         </View>
         {story.timePeriod ? (

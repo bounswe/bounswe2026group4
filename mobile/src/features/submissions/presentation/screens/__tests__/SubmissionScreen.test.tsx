@@ -8,7 +8,7 @@ import { ToastProvider } from '../../../../../shared/toast/ToastProvider';
 import { ROUTES } from '../../../../../app/navigation/routes';
 import { navigationRef } from '../../../../../app/navigation/navigationRef';
 import { submissionsService } from '../../../application/services';
-import { searchLocationSuggestions } from '../../../../search/application/services';
+import { searchLocationSuggestions, searchTags } from '../../../../search/application/services';
 import { SubmissionScreen } from '../SubmissionScreen';
 
 jest.mock('../../../../../shared/components/WebMapView', () => {
@@ -43,6 +43,7 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
 
 jest.mock('../../../../search/application/services', () => ({
   searchLocationSuggestions: jest.fn(),
+  searchTags: jest.fn(),
 }));
 
 jest.mock('../../../application/services', () => ({
@@ -97,6 +98,10 @@ describe('SubmissionScreen', () => {
     jest.clearAllMocks();
     navigationRef.navigate = jest.fn();
     (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
+    (searchTags as jest.Mock).mockResolvedValue([
+      { id: 'tag-architecture', name: 'architecture', storyCount: 3 },
+      { id: 'tag-daily-life', name: 'daily-life', storyCount: 1 },
+    ]);
   });
 
   it('shows inline validation errors when required fields are missing', async () => {
@@ -217,7 +222,8 @@ describe('SubmissionScreen', () => {
     });
     fireEvent.changeText(screen.getByLabelText('Place name'), 'Old City');
     fireEvent.changeText(screen.getByLabelText('Year'), '1453');
-    fireEvent.press(screen.getByText('Architecture'));
+    fireEvent.press(screen.getByLabelText('Add tag'));
+    fireEvent.press(await screen.findByLabelText('Select tag architecture'));
 
     fireEvent.press(screen.getByText('Submit story'));
 
@@ -237,6 +243,47 @@ describe('SubmissionScreen', () => {
     });
 
     expect(navigationRef.navigate).toHaveBeenCalledWith(ROUTES.FEED);
+  });
+
+  it('opens a searchable tag picker and selects suggested tags', async () => {
+    renderSubmissionScreen();
+
+    fireEvent.press(screen.getByLabelText('Add tag'));
+
+    expect(await screen.findByLabelText('Tag search input')).toBeTruthy();
+    fireEvent.press(await screen.findByLabelText('Select tag architecture'));
+
+    expect(screen.getByLabelText('Remove tag Architecture')).toBeTruthy();
+    expect(screen.queryByLabelText('Select tag architecture')).toBeNull();
+  });
+
+  it('offers to create a slugged tag from the tag picker search', async () => {
+    (searchTags as jest.Mock).mockResolvedValue([]);
+    renderSubmissionScreen();
+
+    fireEvent.press(screen.getByLabelText('Add tag'));
+    fireEvent.changeText(await screen.findByLabelText('Tag search input'), 'My New Tag');
+    fireEvent.press(await screen.findByLabelText('Create tag my-new-tag'));
+
+    expect(screen.getByLabelText('Remove tag My New Tag')).toBeTruthy();
+  });
+
+  it('scrolls the tag picker into view when the search input is focused', async () => {
+    const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+
+    try {
+      renderSubmissionScreen();
+
+      fireEvent(screen.getByTestId('submission-field-tags'), 'layout', {
+        nativeEvent: { layout: { y: 640 } },
+      });
+      fireEvent.press(screen.getByLabelText('Add tag'));
+      fireEvent(screen.getByLabelText('Tag search input'), 'focus');
+
+      expect(scrollToSpy).toHaveBeenCalledWith({ y: 624, animated: true });
+    } finally {
+      scrollToSpy.mockRestore();
+    }
   });
 
   it('submits specific date stories with optional time and EDTF temporal coverage', async () => {
