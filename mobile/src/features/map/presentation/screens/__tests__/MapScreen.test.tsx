@@ -216,6 +216,21 @@ describe('MapScreen', () => {
     expect(onOpenStory).toHaveBeenCalledWith('story-001');
   });
 
+  it('hides the selected marker preview when the same marker is pressed again', async () => {
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    expect(await screen.findByText('The Day the Harbor Fell Silent')).toBeTruthy();
+
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+
+    await waitFor(() => {
+      expect(screen.queryByText('The Day the Harbor Fell Silent')).toBeNull();
+      expect(screen.getByText('Select a story marker to preview.')).toBeTruthy();
+    });
+  });
+
   it('keeps manual map panning available after a marker is selected', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 

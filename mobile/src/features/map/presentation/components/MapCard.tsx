@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, GestureResponderEvent, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
@@ -16,7 +16,7 @@ interface MapCardProps {
   userLocation?: { latitude: number; longitude: number };
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
-  onMarkerPress?: () => void;
+  onMapGestureActiveChange?: (active: boolean) => void;
   onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
 }
@@ -32,7 +32,7 @@ export function MapCard({
   userLocation,
   onSelectMarker,
   onOpenStory,
-  onMarkerPress,
+  onMapGestureActiveChange,
   onRegionChangeComplete,
   onPreviewLayout,
 }: MapCardProps) {
@@ -44,6 +44,23 @@ export function MapCard({
     setCurrentRegion((current) => (regionsEqual(current, region) ? current : region));
   }, [region]);
 
+  function handleMapTouchStart() {
+    onMapGestureActiveChange?.(true);
+  }
+
+  function handleMapTouchEnd(event?: GestureResponderEvent) {
+    const remainingTouches = event?.nativeEvent.touches?.length ?? 0;
+
+    if (remainingTouches === 0) {
+      onMapGestureActiveChange?.(false);
+    }
+  }
+
+  function handleMapResponderCapture() {
+    handleMapTouchStart();
+    return false;
+  }
+
   return (
     <View
       style={{
@@ -54,7 +71,15 @@ export function MapCard({
         backgroundColor: colors.surface,
       }}
     >
-      <View style={{ height: 420 }}>
+      <View
+        testID="interactive-map-touch-area"
+        style={{ height: 420 }}
+        onStartShouldSetResponderCapture={handleMapResponderCapture}
+        onMoveShouldSetResponderCapture={handleMapResponderCapture}
+        onTouchStart={handleMapTouchStart}
+        onTouchEnd={handleMapTouchEnd}
+        onTouchCancel={() => handleMapTouchEnd()}
+      >
         <WebMapView
           region={currentRegion}
           userLocation={userLocation}
@@ -68,7 +93,6 @@ export function MapCard({
           }))}
           onMarkerPress={(markerId) => {
             onSelectMarker(markerId);
-            onMarkerPress?.();
           }}
           onRegionChangeComplete={onRegionChangeComplete}
         />

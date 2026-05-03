@@ -16,6 +16,7 @@ interface MapScreenProps {
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
   onMarkerPreviewRequested?: (targetY: number) => void;
+  onMapGestureActiveChange?: (active: boolean) => void;
   showSearchControls?: boolean;
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
   searchScope?: SearchFilterScope;
@@ -44,6 +45,7 @@ export function MapScreen({
   onOpenStory,
   getMarkerGroups = mapService.getMarkerGroups,
   onMarkerPreviewRequested,
+  onMapGestureActiveChange,
   showSearchControls = true,
   onRegisterRefresh,
   searchScope = 'map',
@@ -263,9 +265,20 @@ export function MapScreen({
           error={state.error}
           statusBadgeText={statusBadgeText}
           userLocation={userLocation}
-          onSelectMarker={(markerId) => setState((current) => ({ ...current, selectedMarkerId: markerId }))}
+          onSelectMarker={(markerId) => {
+            const shouldOpenPreview = state.selectedMarkerId !== markerId;
+
+            setState((current) => ({
+              ...current,
+              selectedMarkerId: current.selectedMarkerId === markerId ? undefined : markerId,
+            }));
+
+            if (shouldOpenPreview) {
+              handleMarkerPreviewRequest();
+            }
+          }}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
-          onMarkerPress={handleMarkerPreviewRequest}
+          onMapGestureActiveChange={onMapGestureActiveChange}
           onRegionChangeComplete={(region) => {
             setMapRegion(region);
             setVisibleRegion(region);
