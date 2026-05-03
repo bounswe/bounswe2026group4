@@ -115,6 +115,7 @@ function emptyTimelineResponse(): PaginatedTimelineResponse {
 function hasUnsupportedTimelineFilters(filters: StoryFilters) {
   return Boolean(
     filters.q?.trim() ||
+      getSelectedTags(filters).length ||
       (filters.location?.trim() && !filters.locationBounds) ||
       getProximityFilter(filters),
   );
@@ -197,6 +198,12 @@ function normalizeTimelineFilters(filters: StoryFilters, yearFrom?: number, year
     params.lng_max = filters.locationBounds.lngMax;
   }
 
+  const firstTag = getSelectedTags(filters)[0];
+
+  if (firstTag) {
+    params.tag = firstTag;
+  }
+
   return params;
 }
 
@@ -239,6 +246,11 @@ function storyMatchesFallbackFilters(
   }
 
   const record = story as Record<string, unknown>;
+  const selectedTags = getSelectedTags(filters);
+
+  if (selectedTags.length && !storyHasTagsWhenAvailable(record, selectedTags)) {
+    return false;
+  }
 
   if (filters.q?.trim()) {
     const query = filters.q.trim().toLowerCase();
@@ -280,6 +292,66 @@ function storyMatchesFallbackFilters(
   }
 
   return isRecordWithinYearWindow(record, yearFrom, yearTo);
+}
+
+function getSelectedTags(filters: StoryFilters) {
+  return (filters.tags ?? [])
+    .map((tag) => tag.trim())
+    .filter((tag, index, tags): tag is string => tag.length > 0 && tags.indexOf(tag) === index);
+}
+
+function recordHasTagField(story: unknown) {
+  if (!story || typeof story !== 'object') {
+    return false;
+  }
+
+  const record = story as Record<string, unknown>;
+
+  return Array.isArray(record.tags) || Array.isArray(record.tag_names);
+}
+
+function getTagNames(story: Record<string, unknown>) {
+  const rawTags = Array.isArray(story.tags)
+    ? story.tags
+    : Array.isArray(story.tag_names)
+      ? story.tag_names
+      : [];
+
+  return rawTags
+    .map((tag) => {
+      if (typeof tag === 'string') {
+        return tag.trim();
+      }
+
+      if (tag && typeof tag === 'object') {
+        const tagRecord = tag as Record<string, unknown>;
+
+        if (typeof tagRecord.name === 'string') {
+          return tagRecord.name.trim();
+        }
+
+        if (typeof tagRecord.label === 'string') {
+          return tagRecord.label.trim();
+        }
+
+        if (typeof tagRecord.slug === 'string') {
+          return tagRecord.slug.trim();
+        }
+      }
+
+      return '';
+    })
+    .filter((tag): tag is string => Boolean(tag));
+}
+
+function storyHasTagsWhenAvailable(story: Record<string, unknown>, selectedTags: string[]) {
+  if (!selectedTags.length || !recordHasTagField(story)) {
+    return true;
+  }
+
+  const tagNames = getTagNames(story).map((tag) => tag.toLowerCase());
+
+  return selectedTags.every((tag) => tagNames.includes(tag.toLowerCase()));
 }
 
 function isRecordWithinYearWindow(record: Record<string, unknown>, yearFrom?: number, yearTo?: number) {

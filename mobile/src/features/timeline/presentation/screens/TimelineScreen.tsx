@@ -94,9 +94,11 @@ export function TimelineScreen({
   const hasActiveFilters = Boolean(
     activeFilters.q ||
       activeFilters.location ||
-      activeFilters.yearFrom ||
-      activeFilters.yearTo ||
+      activeFilters.locationBounds ||
+      activeFilters.yearFrom !== undefined ||
+      activeFilters.yearTo !== undefined ||
       activeFilters.radiusKm ||
+      activeFilters.tags?.length ||
       (periodSelection.mode !== 'all' && periodDescriptor.isReady),
   );
 

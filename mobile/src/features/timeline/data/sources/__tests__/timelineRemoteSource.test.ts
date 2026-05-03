@@ -85,4 +85,135 @@ describe('timelineRemoteSource', () => {
     expect(response.next).toBe('client-next-page');
     expect(response.results?.[0]).toMatchObject({ title: 'Harbor Old' });
   });
+
+  it('falls back to feed for tag filters and sends the first selected tag parameter', async () => {
+    const requests: string[] = [];
+
+    setApiTransport(async (_method, config) => {
+      requests.push(config.url ?? '');
+
+      return {
+        status: 200,
+        data: {
+          count: 2,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: 2,
+              title: 'Architecture New',
+              time_type: 'exact_year',
+              year: 1950,
+              tags: [{ name: 'architecture' }],
+            },
+            {
+              id: 1,
+              title: 'Architecture Old',
+              time_type: 'exact_year',
+              year: 1900,
+              tags: [{ name: 'architecture' }, { name: 'ottoman-era' }],
+            },
+          ],
+        } as never,
+        config,
+      };
+    });
+
+    const response = await timelineRemoteSource.getTimeline({
+      page: 1,
+      pageSize: 10,
+      filters: { tags: ['architecture'] },
+    });
+
+    expect(requests[0]).toBe('/stories/feed/?page_size=100&sort_by=recent&tag=architecture&page=1');
+    expect(response.count).toBe(2);
+    expect(response.results?.map((story) => (story as { id: number }).id)).toEqual([1, 2]);
+  });
+
+  it('refines additional selected tags when fallback results include tag metadata', async () => {
+    setApiTransport(async (_method, config) => ({
+      status: 200,
+      data: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            title: 'Full match',
+            time_type: 'exact_year',
+            year: 1900,
+            tags: [{ name: 'architecture' }, { name: 'ottoman-era' }],
+          },
+          {
+            id: 2,
+            title: 'Partial match',
+            time_type: 'exact_year',
+            year: 1910,
+            tags: [{ name: 'architecture' }],
+          },
+        ],
+      } as never,
+      config,
+    }));
+
+    const response = await timelineRemoteSource.getTimeline({
+      filters: { tags: ['architecture', 'ottoman-era'] },
+    });
+
+    expect(response).toMatchObject({
+      count: 1,
+      results: [{ id: 1, title: 'Full match' }],
+    });
+  });
+
+  it('does not drop tag-filtered timeline results when fallback results omit tag fields', async () => {
+    setApiTransport(async (_method, config) => ({
+      status: 200,
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [{ id: 1, title: 'Tagged story', time_type: 'exact_year', year: 1900 }],
+      } as never,
+      config,
+    }));
+
+    const response = await timelineRemoteSource.getTimeline({
+      filters: { tags: ['architecture', 'ottoman-era'] },
+    });
+
+    expect(response).toMatchObject({
+      count: 1,
+      results: [{ id: 1, title: 'Tagged story' }],
+    });
+  });
+
+  it('combines search, period, and tag filters in timeline fallback requests', async () => {
+    const requests: string[] = [];
+
+    setApiTransport(async (_method, config) => {
+      requests.push(config.url ?? '');
+
+      return {
+        status: 200,
+        data: {
+          count: 0,
+          next: null,
+          previous: null,
+          results: [],
+        } as never,
+        config,
+      };
+    });
+
+    await timelineRemoteSource.getTimeline({
+      filters: { q: 'harbor', tags: ['architecture'] },
+      yearRange: { from: 1900, to: 1950 },
+    });
+
+    expect(requests[0]).toBe(
+      '/stories/search/?page_size=100&year_from=1900&year_to=1950&tag=architecture&q=harbor&page=1',
+    );
+  });
 });
