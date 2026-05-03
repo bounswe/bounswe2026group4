@@ -18,8 +18,10 @@ from apps.users.serializers import (
     ProfilePhotoSerializer,
     PublicUserProfileSerializer,
     RegisterSerializer,
+    ResendVerificationSerializer,
     UpdateCurrentUserSerializer,
     UserResponseSerializer,
+    VerifyEmailSerializer,
 )
 from apps.users.services import (
     delete_account,
@@ -34,10 +36,12 @@ from apps.users.services import (
     logout_user,
     register_user,
     request_password_reset,
+    resend_verification,
     reset_password,
     unfollow_user,
     update_own_profile,
     upload_profile_photo,
+    verify_email,
 )
 from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
@@ -57,6 +61,38 @@ class RegisterView(APIView):
                 'user': UserResponseSerializer(user).data,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'verify_email'
+
+    def post(self, request):
+        serializer = VerifyEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        verify_email(
+            serializer.validated_data['email'],
+            serializer.validated_data['code'],
+        )
+        return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
+
+
+class ResendVerificationView(APIView):
+    """POST /auth/resend-verification/ — send a new verification code to an unverified account."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'verify_email'
+
+    def post(self, request):
+        serializer = ResendVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        resend_verification(serializer.validated_data['email'])
+        return Response(
+            {'message': 'If that email is pending verification, a new code has been sent.'},
+            status=status.HTTP_200_OK,
         )
 
 

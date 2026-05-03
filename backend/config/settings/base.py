@@ -168,6 +168,7 @@ REST_FRAMEWORK = {
         'user': '300/minute',
         'login': '10/minute',
         'password_reset': '5/minute',
+        'verify_email': '10/minute',
     },
 }
 
