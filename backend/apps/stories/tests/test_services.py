@@ -304,6 +304,40 @@ class TestGetStorySearch:
         qs = get_story_search('Tower', year_from=1800, year_to=1950, location='Galata')
         assert qs.count() == 1
         assert qs.first().title == 'Tower in Galata'
+        
+        
+    def test_get_story_search_sorts_by_most_recent(self):
+        # Create three stories — Django ordering by submitted_at DESC means newest first.
+        # We verify the queryset order matches submission order in reverse.
+        s1 = make_story(title='Oldest Town')
+        s2 = make_story(title='Middle Town')
+        s3 = make_story(title='Newest Town')
+        results = list(get_story_search("Town",sort_by='recent'))
+        assert results[0] == s3
+        assert results[1] == s2
+        assert results[2] == s1
+        
+    def test_get_story_search_sorts_by_most_popular(self):
+        # Create three stories with different like_count values. We expect the queryset
+        # to be ordered by like_count DESC when sort_by='popular'.
+        s1 = make_story(title='Least Popular', like_count=5)
+        s2 = make_story(title='Medium Popular', like_count=10)
+        s3 = make_story(title='Most Popular', like_count=20)
+        results = list(get_story_search("Popular",sort_by='popular'))
+        assert results[0] == s3
+        assert results[1] == s2
+        assert results[2] == s1
+        
+    def test_get_story_search_sorts_by_most_recent_with_same_number_of_likes_when_sorted_by_popularity(self):
+        # Create three stories with the same like_count values. We expect the queryset
+        # to be ordered by submitted_at DESC when sort_by='popular'.
+        s1 = make_story(title='Oldest Story', like_count=10)
+        s2 = make_story(title='Middle Story', like_count=10)
+        s3 = make_story(title='Newest Story', like_count=10)
+        results = list(get_story_search("Story", sort_by='popular'))
+        assert results[0] == s3
+        assert results[1] == s2
+        assert results[2] == s1
 
 
 # ── get_story_feed — tag filter ───────────────────────────────────────────────
@@ -315,7 +349,7 @@ class TestGetStoryFeedTagFilter:
         make_story(title='Untagged Story')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        qs = get_story_feed(tag='folklore')
+        qs = get_story_feed(tags=['folklore'])
         assert qs.count() == 1
         assert qs.first().title == 'Tagged Story'
 
@@ -323,14 +357,14 @@ class TestGetStoryFeedTagFilter:
         story = make_story()
         tag = Tag.objects.create(name='ottoman-era')
         StoryTag.objects.create(story=story, tag=tag)
-        assert get_story_feed(tag='folklore').count() == 0
+        assert get_story_feed(tags=['folklore']).count() == 0
 
     def test_feed_tag_filter_is_case_insensitive(self):
         story = make_story()
         tag = Tag.objects.create(name='ottoman-era')
         StoryTag.objects.create(story=story, tag=tag)
-        assert get_story_feed(tag='Ottoman-Era').count() == 1
-        assert get_story_feed(tag='OTTOMAN-ERA').count() == 1
+        assert get_story_feed(tags=['Ottoman-Era']).count() == 1
+        assert get_story_feed(tags=['OTTOMAN-ERA']).count() == 1
 
     def test_feed_tag_filter_combined_with_year_filter(self):
         match = make_story(title='Match', year=1950)
@@ -338,7 +372,7 @@ class TestGetStoryFeedTagFilter:
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=match, tag=tag)
         StoryTag.objects.create(story=no_match, tag=tag)
-        qs = get_story_feed(tag='folklore', year_from=1900)
+        qs = get_story_feed(tags=['folklore'], year_from=1900)
         assert qs.count() == 1
         assert qs.first().title == 'Match'
 
@@ -348,7 +382,7 @@ class TestGetStoryFeedTagFilter:
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=match, tag=tag)
         StoryTag.objects.create(story=no_match, tag=tag)
-        qs = get_story_feed(tag='folklore', location='Istanbul')
+        qs = get_story_feed(tags=['folklore'], location='Istanbul')
         assert qs.count() == 1
         assert qs.first().title == 'Match'
 
@@ -359,7 +393,32 @@ class TestGetStoryFeedTagFilter:
         StoryTag.objects.create(story=story, tag=tag1)
         StoryTag.objects.create(story=story, tag=tag2)
         # Filtering by one tag on a story that has multiple tags must not produce duplicates
-        assert get_story_feed(tag='folklore').count() == 1
+        assert get_story_feed(tags=['folklore']).count() == 1
+
+    def test_feed_multi_tag_and_returns_only_stories_with_all_tags(self):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        both = make_story(title='Both Tags')
+        only_first = make_story(title='Only Folklore')
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        StoryTag.objects.create(story=only_first, tag=tag1)
+        qs = get_story_feed(tags=['folklore', 'ottoman-era'])
+        assert qs.count() == 1
+        assert qs.first().title == 'Both Tags'
+
+    def test_feed_multi_tag_and_empty_when_no_story_has_all_tags(self):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        story = make_story()
+        StoryTag.objects.create(story=story, tag=tag1)
+        # story only has tag1, not tag2
+        assert get_story_feed(tags=['folklore', 'ottoman-era']).count() == 0
+
+    def test_feed_no_tags_param_returns_all_stories(self):
+        make_story(title='Story A')
+        make_story(title='Story B')
+        assert get_story_feed(tags=None).count() == 2
 
 
 # ── get_story_search — tag filter ────────────────────────────────────────────
@@ -371,20 +430,32 @@ class TestGetStorySearchTagFilter:
         make_story(title='Istanbul Lore')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        qs = get_story_search('Istanbul', tag='folklore')
+        qs = get_story_search('Istanbul', tags=['folklore'])
         assert qs.count() == 1
         assert qs.first().title == 'Istanbul Tale'
 
     def test_search_tag_param_excludes_untagged(self):
         make_story(title='Istanbul Tale')
-        assert get_story_search('Istanbul', tag='folklore').count() == 0
+        assert get_story_search('Istanbul', tags=['folklore']).count() == 0
 
     def test_search_tag_and_q_both_must_match(self):
         # Story matches tag but neither title nor location_name matches q — should not appear
         tagged = make_story(title='Ankara Chronicle', location_name='Ankara')
         tag = Tag.objects.create(name='folklore')
         StoryTag.objects.create(story=tagged, tag=tag)
-        assert get_story_search('Istanbul', tag='folklore').count() == 0
+        assert get_story_search('Istanbul', tags=['folklore']).count() == 0
+
+    def test_search_multi_tag_and_returns_only_stories_with_all_tags(self):
+        tag1 = Tag.objects.create(name='folklore')
+        tag2 = Tag.objects.create(name='ottoman-era')
+        both = make_story(title='Istanbul Both')
+        only_first = make_story(title='Istanbul Folklore Only')
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        StoryTag.objects.create(story=only_first, tag=tag1)
+        qs = get_story_search('Istanbul', tags=['folklore', 'ottoman-era'])
+        assert qs.count() == 1
+        assert qs.first().title == 'Istanbul Both'
 
 
 # ── delete_story ──────────────────────────────────────────────────────────────
@@ -531,7 +602,7 @@ class TestGetStoryFeedGeoFilter:
         near_tagged = make_geo_story(NEAR_LAT, NEAR_LNG, title='NearTagged')
         StoryTag.objects.create(story=near_tagged, tag=tag)
         near_untagged = make_geo_story(NEAR_LAT, NEAR_LNG, title='NearUntagged')
-        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0, tag='geo-svc-tag')
+        qs = get_story_feed(latitude=CENTER_LAT, longitude=CENTER_LNG, radius_km=1.0, tags=['geo-svc-tag'])
         assert near_tagged in qs
         assert near_untagged not in qs
 
@@ -809,3 +880,107 @@ class TestGetStoryTimeline:
         assert results[0].id == s_before.id   # 1940
         assert results[1].id == s_date.id     # 1950
         assert results[2].id == s_after.id    # 1960
+
+
+# ── Gamification integration — create_story ───────────────────────────────────
+
+@pytest.mark.django_db
+class TestCreateStoryPoints:
+    def test_published_story_awards_50_points(self, user):
+        create_story(user=user, validated_data=make_story_data(status=Story.STATUS_PUBLISHED))
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_draft_story_does_not_award_points(self, user):
+        create_story(user=user, validated_data=make_story_data(status=Story.STATUS_DRAFT))
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+    def test_anonymous_story_does_not_award_points(self):
+        # user=None (anonymized author) — no user to credit
+        create_story(user=None, validated_data=make_story_data())  # must not raise
+
+
+# ── Gamification integration — delete_story ───────────────────────────────────
+
+@pytest.mark.django_db
+class TestDeleteStoryPoints:
+    def test_deleting_published_story_deducts_50_points(self, user):
+        story = make_story(user=user, status=Story.STATUS_PUBLISHED)
+        user.total_points = 50
+        user.save()
+        delete_story(story)
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+    def test_deleting_draft_story_does_not_deduct_points(self, user):
+        story = make_story(user=user, status=Story.STATUS_DRAFT)
+        user.total_points = 50
+        user.save()
+        delete_story(story)
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_deleting_story_with_null_user_does_not_raise(self, user):
+        story = make_story(user=user, status=Story.STATUS_PUBLISHED)
+        story.user = None
+        story.save()
+        delete_story(story)  # must not raise
+
+    def test_points_floor_at_zero_when_deducting_on_delete(self, user):
+        # User has fewer points than the 50 deduction — must clamp at 0, not go negative
+        story = make_story(user=user, status=Story.STATUS_PUBLISHED)
+        user.total_points = 10
+        user.save()
+        delete_story(story)
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+
+# ── Gamification integration — update_story ───────────────────────────────────
+
+@pytest.mark.django_db
+class TestUpdateStoryPoints:
+    def test_status_change_to_removed_deducts_50_points(self, story, user):
+        user.total_points = 50
+        user.save()
+        update_story(story=story, validated_data={'status': Story.STATUS_REMOVED})
+        user.refresh_from_db()
+        assert user.total_points == 0
+
+    def test_status_change_from_draft_to_removed_does_not_deduct(self, user):
+        draft = make_story(user=user, status=Story.STATUS_DRAFT)
+        user.total_points = 50
+        user.save()
+        update_story(story=draft, validated_data={'status': Story.STATUS_REMOVED})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_other_field_update_does_not_change_points(self, story, user):
+        user.total_points = 50
+        user.save()
+        update_story(story=story, validated_data={'title': 'New Title'})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_status_change_to_removed_with_null_user_does_not_raise(self, story):
+        story.user = None
+        story.save()
+        update_story(story=story, validated_data={'status': Story.STATUS_REMOVED})  # must not raise
+
+    def test_draft_promoted_to_published_awards_50_points(self, user):
+        draft = make_story(user=user, status=Story.STATUS_DRAFT)
+        update_story(story=draft, validated_data={'status': Story.STATUS_PUBLISHED})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_published_to_published_does_not_double_award(self, story, user):
+        user.total_points = 50
+        user.save()
+        update_story(story=story, validated_data={'title': 'New Title'})
+        user.refresh_from_db()
+        assert user.total_points == 50
+
+    def test_draft_promoted_to_published_with_null_user_does_not_raise(self):
+        draft = make_story(user=None, status=Story.STATUS_DRAFT)
+        update_story(story=draft, validated_data={'status': Story.STATUS_PUBLISHED})  # must not raise

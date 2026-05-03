@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
+import { formatTagLabel, TagChip } from './TagChip';
 
 export interface FilterChipItem {
   key: string;
@@ -24,25 +25,37 @@ export function FilterChips({ chips, onRemove, onClearAll }: FilterChipsProps) {
     <View style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {chips.map((chip) => (
-          <Pressable
-            key={chip.key}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${chip.label}`}
-            onPress={() => onRemove(chip.key)}
-            style={({ pressed }) => ({
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-              opacity: pressed ? 0.8 : 1,
-            })}
-          >
-            <Text style={{ color: colors.text, fontSize: typography.caption + 1, fontWeight: '600' }}>
-              {chip.label} x
-            </Text>
-          </Pressable>
+          chip.key.startsWith('tag:') ? (
+            <TagChip
+              key={chip.key}
+              label={formatTagLabel(chip.key.slice(4))}
+              value={chip.key.slice(4)}
+              removable
+              selected
+              accessibilityLabel={`Remove ${chip.label}`}
+              onPress={() => onRemove(chip.key)}
+            />
+          ) : (
+            <Pressable
+              key={chip.key}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${chip.label}`}
+              onPress={() => onRemove(chip.key)}
+              style={({ pressed }) => ({
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text style={{ color: colors.text, fontSize: typography.caption + 1, fontWeight: '600' }}>
+                {chip.label} x
+              </Text>
+            </Pressable>
+          )
         ))}
       </View>
       {onClearAll ? (

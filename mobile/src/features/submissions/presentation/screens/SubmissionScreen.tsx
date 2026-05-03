@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   LayoutChangeEvent,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -19,7 +22,11 @@ import { navigationRef } from '../../../../app/navigation/navigationRef';
 import { limits } from '../../../../core/constants/limits';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button, Input } from '../../../../shared';
+import { Plus, Search, X } from 'lucide-react-native';
+import { formatTagLabel, TagChip } from '../../../../shared/components/TagChip';
+import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { useToast } from '../../../../shared/hooks/useToast';
+import { searchTags, SearchTag } from '../../../search/application/services';
 import {
   CreateStoryInput,
   StoryTimeType,
@@ -29,6 +36,21 @@ import {
 } from '../../application/services';
 import { buildDateValueFromParts, buildEdtfTemporalCoverage, normalizeTimeValue } from '../../application/services/temporal';
 import { StoryLocationPicker } from '../components/StoryLocationPicker';
+
+const MAX_STORY_YEAR = 2026;
+
+const TIME_TYPES: Array<{
+  value: StoryTimeType;
+  label: string;
+  accessibilityLabel: string;
+  helper: string;
+}> = [
+  { value: 'exact_year', label: 'Exact', accessibilityLabel: 'Exact Year', helper: 'Use a specific known year.' },
+  { value: 'approximate_year', label: 'Approx', accessibilityLabel: 'Approximate Year', helper: 'For estimated years like circa 1450.' },
+  { value: 'decade', label: 'Decade', accessibilityLabel: 'Decade', helper: 'Enter the decade base year like 1980.' },
+  { value: 'year_range', label: 'Range', accessibilityLabel: 'Year Range', helper: 'Capture stories that span multiple years.' },
+  { value: 'exact_date', label: 'Date', accessibilityLabel: 'Specific Date', helper: 'Use a day, month, and year. Time is optional.' },
+];
 
 const TAG_OPTIONS = [
   { label: 'Architecture', value: 'architecture' },
@@ -41,15 +63,6 @@ const TAG_OPTIONS = [
   { label: 'Politics', value: 'politics' },
 ] as const;
 
-const MAX_STORY_YEAR = 2026;
-
-const TIME_TYPES: Array<{ value: StoryTimeType; label: string; accessibilityLabel: string; helper: string }> = [
-  { value: 'exact_year', label: 'Exact', accessibilityLabel: 'Exact Year', helper: 'Use a specific known year.' },
-  { value: 'approximate_year', label: 'Approx', accessibilityLabel: 'Approximate Year', helper: 'For estimated years like circa 1450.' },
-  { value: 'decade', label: 'Decade', accessibilityLabel: 'Decade', helper: 'Enter the decade base year like 1980.' },
-  { value: 'year_range', label: 'Range', accessibilityLabel: 'Year Range', helper: 'Capture stories that span multiple years.' },
-  { value: 'exact_date', label: 'Date', accessibilityLabel: 'Specific Date', helper: 'Use a day, month, and year. Time is optional.' },
-];
 
 type FieldName =
   | 'title'
@@ -382,15 +395,71 @@ export function SubmissionScreen() {
   const { toast } = useToast();
   const scrollViewRef = useRef<ScrollView>(null);
   const fieldPositionsRef = useRef<Partial<Record<LayoutTargetName, { y: number; parent?: LayoutTargetName }>>>({});
+  const tagRequestIdRef = useRef(0);
   const [state, setState] = useState<SubmissionFormState>(initialState);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
+  const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
+  const [tagSuggestions, setTagSuggestions] = useState<SearchTag[]>([]);
+  const [isTagsLoading, setIsTagsLoading] = useState(false);
+  const debouncedTagQuery = useDebounce(state.customTag, 300);
 
   const selectedTimeType = useMemo(
     () => TIME_TYPES.find((timeType) => timeType.value === state.timeType) ?? TIME_TYPES[0],
     [state.timeType],
   );
-  const sharedDateError = fieldErrors.dateDay || fieldErrors.dateMonth || fieldErrors.dateYear;
-  const sharedYearRangeError = fieldErrors.yearStart || fieldErrors.yearEnd;
+ const selectedTagNames = useMemo(() => new Set(state.selectedTags), [state.selectedTags]);
+
+const visibleTagSuggestions = useMemo(
+  () => tagSuggestions.filter((tag) => !selectedTagNames.has(tag.name)),
+  [selectedTagNames, tagSuggestions],
+);
+
+const normalizedTagQuery = normalizeTagName(state.customTag);
+const hasExactTagSuggestion = tagSuggestions.some((tag) => tag.name === normalizedTagQuery);
+const canCreateTag =
+  Boolean(normalizedTagQuery) &&
+  !selectedTagNames.has(normalizedTagQuery) &&
+  !hasExactTagSuggestion &&
+  !isTagsLoading;
+
+useEffect(() => {
+  if (!isTagPickerOpen) {
+    updateField('customTag', '');
+    setTagSuggestions([]);
+    setIsTagsLoading(false);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isTagPickerOpen]);
+
+useEffect(() => {
+  if (!isTagPickerOpen) {
+    return;
+  }
+
+  const requestId = tagRequestIdRef.current + 1;
+  tagRequestIdRef.current = requestId;
+  setIsTagsLoading(true);
+
+  searchTags(debouncedTagQuery)
+    .then((tags) => {
+      if (tagRequestIdRef.current === requestId) {
+        setTagSuggestions(tags);
+      }
+    })
+    .catch(() => {
+      if (tagRequestIdRef.current === requestId) {
+        setTagSuggestions([]);
+      }
+    })
+    .finally(() => {
+      if (tagRequestIdRef.current === requestId) {
+        setIsTagsLoading(false);
+      }
+    });
+}, [debouncedTagQuery, isTagPickerOpen]);
+
+const sharedDateError = fieldErrors.dateDay || fieldErrors.dateMonth || fieldErrors.dateYear;
+const sharedYearRangeError = fieldErrors.yearStart || fieldErrors.yearEnd;
 
   const updateField = <K extends keyof SubmissionFormState>(field: K, value: SubmissionFormState[K]) => {
     setState((current) => ({ ...current, [field]: value, apiError: undefined }));
@@ -426,6 +495,27 @@ export function SubmissionScreen() {
 
     let fieldY = 0;
     let layoutTarget: LayoutTargetName | undefined = firstInvalidField;
+
+    while (layoutTarget) {
+      const position: { y: number; parent?: LayoutTargetName } | undefined = fieldPositionsRef.current[layoutTarget];
+
+      if (!position) {
+        break;
+      }
+
+      fieldY += position.y;
+      layoutTarget = position.parent;
+    }
+
+    scrollViewRef.current?.scrollTo({
+      y: Math.max(fieldY - spacing.md, 0),
+      animated: true,
+    });
+  };
+
+  const scrollToField = (field: LayoutTargetName) => {
+    let fieldY = 0;
+    let layoutTarget: LayoutTargetName | undefined = field;
 
     while (layoutTarget) {
       const position: { y: number; parent?: LayoutTargetName } | undefined = fieldPositionsRef.current[layoutTarget];
@@ -555,17 +645,11 @@ export function SubmissionScreen() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const addTag = () => {
-    const normalizedTag = normalizeTagName(state.customTag);
+  const addTag = (tag: string) => {
+    const normalizedTag = normalizeTagName(tag);
 
-    if (!normalizedTag) {
-      setFieldErrors((current) => ({ ...current, tags: 'Enter a tag name first.' }));
-      return;
-    }
-
-    if (state.selectedTags.includes(normalizedTag)) {
+    if (!normalizedTag || selectedTagNames.has(normalizedTag)) {
       updateField('customTag', '');
-      clearFieldError('tags');
       return;
     }
 
@@ -574,35 +658,25 @@ export function SubmissionScreen() {
         ...current,
         tags: `You can choose up to ${limits.maxTagsPerStory} tags.`,
       }));
+      setIsTagPickerOpen(false);
       return;
     }
 
-    updateField('selectedTags', [...state.selectedTags, normalizedTag]);
+    const nextTags = [...state.selectedTags, normalizedTag];
+    updateField('selectedTags', nextTags);
     updateField('customTag', '');
     clearFieldError('tags');
+
+    if (nextTags.length >= limits.maxTagsPerStory) {
+      setIsTagPickerOpen(false);
+    }
   };
 
-  const toggleTag = (tag: string) => {
-    const isSelected = state.selectedTags.includes(tag);
-
-    if (isSelected) {
-      updateField(
-        'selectedTags',
-        state.selectedTags.filter((selectedTag) => selectedTag !== tag),
-      );
-      clearFieldError('tags');
-      return;
-    }
-
-    if (state.selectedTags.length >= limits.maxTagsPerStory) {
-      setFieldErrors((current) => ({
-        ...current,
-        tags: `You can choose up to ${limits.maxTagsPerStory} tags.`,
-      }));
-      return;
-    }
-
-    updateField('selectedTags', [...state.selectedTags, tag]);
+  const removeTag = (tag: string) => {
+    updateField(
+      'selectedTags',
+      state.selectedTags.filter((selectedTag) => selectedTag !== tag),
+    );
     clearFieldError('tags');
   };
 
@@ -833,12 +907,19 @@ export function SubmissionScreen() {
   };
 
   return (
-    <View style={{ width: '100%' }}>
+    <KeyboardAvoidingView
+      style={{ width: '100%', backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={spacing.md}
+    >
       <ScrollView
         ref={scrollViewRef}
         testID="submission-scroll-view"
         style={{ width: '100%' }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="always"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}
       >
@@ -1141,67 +1222,178 @@ export function SubmissionScreen() {
           )}
         </View>
 
-        <View testID="submission-field-tags" onLayout={registerFieldLayout('tags')} style={{ gap: spacing.sm }}>
+        <View
+          testID="submission-field-tags"
+          onLayout={registerFieldLayout('tags')}
+          style={{ gap: spacing.sm }}
+        >
           <Text style={{ color: colors.text, fontWeight: '700' }}>
             Tags (up to {limits.maxTagsPerStory})
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            {TAG_OPTIONS.map((tag) => {
-              const active = state.selectedTags.includes(tag.value);
-              return (
-                <Pressable
-                  key={tag.value}
-                  onPress={() => toggleTag(tag.value)}
-                  style={{
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.sm,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: active ? colors.primary : colors.border,
-                    backgroundColor: active ? colors.infoSurface : colors.surface,
-                  }}
-                >
-                  <Text style={{ color: colors.text, fontWeight: active ? '700' : '500' }}>{tag.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
-            <View style={{ flex: 1 }}>
-              <Input
-                value={state.customTag}
-                onChangeText={(value) => {
-                  updateField('customTag', value);
-                  clearFieldError('tags');
-                }}
-                placeholder="Create a new tag"
-                editable={!state.isSubmitting}
-                autoCapitalize="none"
-                accessibilityLabel="Custom tag"
+            {state.selectedTags.map((tag) => (
+              <TagChip
+                key={tag}
+                label={formatTagLabel(tag)}
+                value={tag}
+                selected
+                removable
+                disabled={state.isSubmitting}
+                accessibilityLabel={`Remove tag ${formatTagLabel(tag)}`}
+                onPress={() => removeTag(tag)}
               />
-            </View>
-            <Button onPress={addTag} disabled={state.isSubmitting}>
-              Add tag
-            </Button>
+            ))}
+            {state.selectedTags.length < limits.maxTagsPerStory && !state.isSubmitting ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add tag"
+                accessibilityState={{ expanded: isTagPickerOpen }}
+                onTouchStart={(event) => event.stopPropagation()}
+                onPress={() => setIsTagPickerOpen((current) => !current)}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  paddingHorizontal: spacing.sm + spacing.xs,
+                  paddingVertical: spacing.xs,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderStyle: 'dashed',
+                  borderColor: colors.muted,
+                  backgroundColor: colors.background,
+                  opacity: pressed ? 0.72 : 1,
+                })}
+              >
+                <Plus size={13} color={colors.muted} strokeWidth={2.4} />
+                <Text style={{ color: colors.muted, fontSize: typography.caption + 1, fontWeight: '700' }}>
+                  Add tag
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
-          {state.selectedTags.length ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              {state.selectedTags.map((tag) => (
-                <Pressable
-                  key={tag}
-                  onPress={() => toggleTag(tag)}
-                  style={{
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.sm,
-                    borderRadius: 999,
-                    backgroundColor: colors.primary,
+
+          {isTagPickerOpen && !state.isSubmitting ? (
+            <View
+              onTouchStart={(event) => event.stopPropagation()}
+              style={{
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                backgroundColor: colors.background,
+                overflow: 'hidden',
+              }}
+            >
+              <View
+                onTouchStart={(event) => event.stopPropagation()}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border,
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.xs,
+                }}
+              >
+                <Search size={16} color={colors.muted} strokeWidth={2.2} />
+                <TextInput
+                  value={state.customTag}
+                  onChangeText={(value) => {
+                    updateField('customTag', value);
+                    clearFieldError('tags');
                   }}
+                  onFocus={() => scrollToField('tags')}
+                  placeholder="Search tags..."
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="none"
+                  accessibilityLabel="Tag search input"
+                  style={{
+                    flex: 1,
+                    minHeight: 40,
+                    color: colors.text,
+                    fontSize: typography.body,
+                  }}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close tag picker"
+                  onPress={() => setIsTagPickerOpen(false)}
+                  style={({ pressed }) => ({
+                    padding: spacing.xs,
+                    borderRadius: 999,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
                 >
-                  <Text style={{ color: colors.background, fontWeight: '700' }}>
-                    {buildFieldLabel(tag)} x
-                  </Text>
+                  <X size={14} color={colors.muted} strokeWidth={2.4} />
                 </Pressable>
-              ))}
+              </View>
+
+              <ScrollView
+                style={{ maxHeight: 220 }}
+                contentContainerStyle={{ padding: spacing.xs, gap: spacing.xs }}
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                onTouchStart={(event) => event.stopPropagation()}
+              >
+                {isTagsLoading ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={{ color: colors.muted }}>Loading...</Text>
+                  </View>
+                ) : (
+                  <>
+                    {visibleTagSuggestions.map((tag) => (
+                      <Pressable
+                        key={tag.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Select tag ${tag.name}`}
+                        onPress={() => addTag(tag.name)}
+                        style={({ pressed }) => ({
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: spacing.sm,
+                          paddingHorizontal: spacing.sm,
+                          paddingVertical: spacing.xs,
+                          borderRadius: 8,
+                          backgroundColor: pressed ? colors.infoSurface : colors.background,
+                        })}
+                      >
+                        <TagChip label={tag.name} value={tag.name} />
+                        {tag.storyCount !== undefined ? (
+                          <Text style={{ color: colors.muted, fontSize: typography.caption }}>
+                            {tag.storyCount}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    ))}
+
+                    {!visibleTagSuggestions.length && !canCreateTag ? (
+                      <Text style={{ color: colors.muted, padding: spacing.sm }}>No tags found</Text>
+                    ) : null}
+
+                    {canCreateTag ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Create tag ${normalizedTagQuery}`}
+                        testID="create-tag-option"
+                        onPress={() => addTag(normalizedTagQuery)}
+                        style={({ pressed }) => ({
+                          paddingHorizontal: spacing.sm,
+                          paddingVertical: spacing.sm,
+                          borderRadius: 8,
+                          backgroundColor: pressed ? colors.infoSurface : colors.background,
+                        })}
+                      >
+                        <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                          Create "{normalizedTagQuery}"
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                )}
+              </ScrollView>
             </View>
           ) : null}
           {fieldErrors.tags ? <Text style={{ color: colors.danger }}>{fieldErrors.tags}</Text> : null}
@@ -1373,6 +1565,6 @@ export function SubmissionScreen() {
           {state.isSubmitting ? 'Submitting story...' : 'Submit story'}
         </Button>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

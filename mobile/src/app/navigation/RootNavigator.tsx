@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
-import { Bell, MapPin } from 'lucide-react-native';
+import { Bell, MapPin, Plus } from 'lucide-react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth, AuthScreen } from '../../features/auth';
@@ -13,7 +13,9 @@ import { SubmissionScreen } from '../../features/submissions';
 import { navigationRef } from './navigationRef';
 import { MapScreen } from '../../features/map';
 import { StoryScreen } from '../../features/stories';
+import { TimelineScreen } from '../../features/timeline';
 import { StorySearchControls } from '../../features/search/presentation/components/StorySearchControls';
+import { useSearchFilters } from '../../features/search/presentation/context/SearchFiltersContext';
 import { useToast } from '../../shared/hooks/useToast';
 import { APP_NAME } from '../../core/constants/app';
 import { NotificationScreen, notificationService } from '../../features/notifications';
@@ -28,6 +30,7 @@ interface RouteSnapshot {
 
 const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION, ROUTES.NOTIFICATIONS];
 const NOTIFICATION_REFRESH_INTERVAL_MS = 45000;
+const MAIN_PAGER_ROUTES: AppRoute[] = [ROUTES.MAP, ROUTES.TIMELINE, ROUTES.FEED];
 
 function BackButton({ onPress }: { onPress: () => void }) {
   const { colors, spacing, typography } = useAppTheme();
@@ -192,6 +195,7 @@ function ScreenShell({
   scrollable = false,
   fillContent = false,
   hideHeader = false,
+  flushBottom = false,
   active = false,
   disableScrollViewPanResponder = false,
   scrollEnabled = true,
@@ -212,6 +216,7 @@ function ScreenShell({
   scrollable?: boolean;
   fillContent?: boolean;
   hideHeader?: boolean;
+  flushBottom?: boolean;
   active?: boolean;
   disableScrollViewPanResponder?: boolean;
   scrollEnabled?: boolean;
@@ -302,7 +307,7 @@ function ScreenShell({
         ref={scrollViewRef}
         testID={testID}
         style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: flushBottom ? 0 : spacing.xl }}
         showsVerticalScrollIndicator={false}
         disableScrollViewPanResponder={disableScrollViewPanResponder}
         scrollEnabled={scrollEnabled}
@@ -323,7 +328,15 @@ function ScreenShell({
   }
 
   return (
-    <View style={{ flex: 1, padding: spacing.lg, backgroundColor: colors.background }}>
+    <View
+      style={{
+        flex: 1,
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.lg,
+        paddingBottom: flushBottom ? 0 : spacing.lg,
+        backgroundColor: colors.background,
+      }}
+    >
       {innerContent}
     </View>
   );
@@ -333,6 +346,7 @@ export function RootNavigator() {
   const { isAuthenticated, loading, logout, user } = useAuth();
   const { colors, spacing } = useAppTheme();
   const { toast } = useToast();
+  const { updateFilters } = useSearchFilters('main');
   const { width } = useWindowDimensions();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
@@ -355,7 +369,7 @@ export function RootNavigator() {
   );
   const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
   const canGoBack = backStack.length > 0;
-  const isMainRoute = currentRoute === ROUTES.FEED || currentRoute === ROUTES.MAP;
+  const isMainRoute = MAIN_PAGER_ROUTES.includes(currentRoute);
   const isProfileCompletionRoute = currentRoute === ROUTES.PROFILE_COMPLETION;
   const resolvedRedirectTarget = useMemo<RouteSnapshot>(() => {
     if (redirectTarget.route === ROUTES.AUTH || redirectTarget.route === ROUTES.PROFILE_COMPLETION) {
@@ -480,7 +494,7 @@ export function RootNavigator() {
   }, [canGoBack, handleBack]);
 
   const handleNavigate = (route: AppRoute) => {
-    if (route === ROUTES.FEED || route === ROUTES.MAP) {
+    if (MAIN_PAGER_ROUTES.includes(route)) {
       navigateToSnapshot({ route }, { resetStack: true, preserveCurrent: false });
       return;
     }
@@ -508,7 +522,7 @@ export function RootNavigator() {
       return;
     }
 
-    const pageIndex = currentRoute === ROUTES.MAP ? 0 : 1;
+    const pageIndex = Math.max(MAIN_PAGER_ROUTES.indexOf(currentRoute), 0);
     pagerRef.current?.scrollTo({ x: pageIndex * width, animated: false });
   }, [currentRoute, isMainRoute, width]);
 
@@ -612,6 +626,26 @@ export function RootNavigator() {
 
     navigateToSnapshot({ route: ROUTES.USER_PROFILE, userId });
   };
+
+  const handleOpenTag = useCallback(
+    (tag: string) => {
+      updateFilters(
+        {
+          query: '',
+          location: '',
+          locationBounds: undefined,
+          proximityRadiusKm: undefined,
+          proximityCoordinates: undefined,
+          timeFrom: '',
+          timeTo: '',
+          tags: [tag],
+        },
+        { refresh: true },
+      );
+      navigateToSnapshot({ route: ROUTES.FEED }, { resetStack: true, preserveCurrent: false });
+    },
+    [navigateToSnapshot, updateFilters],
+  );
 
   if (!hasResolvedInitialSession && loading) {
     return (
@@ -720,6 +754,7 @@ export function RootNavigator() {
         }}
         onStoryInteractionUpdated={handleStoryInteractionUpdated}
         onOpenContributorProfile={handleOpenUserProfile}
+        onOpenTag={handleOpenTag}
       />
     );
   } else {
@@ -728,15 +763,23 @@ export function RootNavigator() {
         <ScrollView
           ref={pagerRef}
           testID="main-route-pager"
+          style={{ flex: 1, backgroundColor: colors.background }}
+          contentContainerStyle={{ flexGrow: 1 }}
           horizontal
           pagingEnabled
           canCancelContentTouches={currentRoute !== ROUTES.MAP}
           contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
+          directionalLockEnabled
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          contentOffset={{ x: Math.max(MAIN_PAGER_ROUTES.indexOf(currentRoute), 0) * width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
           onMomentumScrollEnd={(event) => {
             const offsetX = event.nativeEvent.contentOffset.x;
-            const nextRoute = offsetX < width / 2 ? ROUTES.MAP : ROUTES.FEED;
+            const pageIndex = Math.max(0, Math.min(MAIN_PAGER_ROUTES.length - 1, Math.round(offsetX / width)));
+            const nextRoute = MAIN_PAGER_ROUTES[pageIndex];
 
             if (nextRoute !== currentRoute) {
               setCurrentRoute(nextRoute);
@@ -771,14 +814,32 @@ export function RootNavigator() {
           </View>
           <View style={{ width, flex: 1 }}>
             <ScreenShell
+              title="Timeline"
+              description="Explore stories by time."
+              framed={false}
+              fillContent
+              hideHeader
+              flushBottom
+            >
+              <TimelineScreen
+                onOpenStory={handleOpenStoryDetail}
+                showSearchControls={false}
+                searchScope="main"
+              />
+            </ScreenShell>
+          </View>
+          <View style={{ width, flex: 1 }}>
+            <ScreenShell
               title="Story feed"
               description="Explore local history stories."
               framed={false}
               fillContent
               hideHeader
+              flushBottom
             >
               <FeedScreen
                 onOpenStory={handleOpenStoryDetail}
+                onOpenTag={handleOpenTag}
                 initialSort={feedSort}
                 onSortChange={setFeedSort}
                 showSearchControls={false}
@@ -849,31 +910,35 @@ export function RootNavigator() {
           }}
         >
           <BottomNavButton label="Map" active={currentRoute === ROUTES.MAP} onPress={() => handleNavigate(ROUTES.MAP)} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Submission"
-            onPress={() => handleNavigate(ROUTES.SUBMISSION)}
-            style={({ pressed }) => ({
-              width: 58,
-              height: 58,
-              borderRadius: 999,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.primary,
-              marginHorizontal: spacing.md,
-              transform: [{ translateY: -18 }],
-              shadowColor: '#000000',
-              shadowOpacity: 0.14,
-              shadowRadius: 14,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 4,
-              opacity: pressed ? 0.88 : 1,
-            })}
-          >
-            <Text style={{ color: colors.background, fontSize: 28, fontWeight: '400', marginTop: -2 }}>+</Text>
-          </Pressable>
+          <BottomNavButton label="Timeline" active={currentRoute === ROUTES.TIMELINE} onPress={() => handleNavigate(ROUTES.TIMELINE)} />
           <BottomNavButton label="Feed" active={currentRoute === ROUTES.FEED} onPress={() => handleNavigate(ROUTES.FEED)} />
         </View>
+      ) : null}
+      {isMainRoute ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Submission"
+          onPress={() => handleNavigate(ROUTES.SUBMISSION)}
+          style={({ pressed }) => ({
+            position: 'absolute',
+            right: spacing.lg,
+            bottom: spacing.lg + 62,
+            width: 56,
+            height: 56,
+            borderRadius: 999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.primary,
+            shadowColor: '#000000',
+            shadowOpacity: 0.16,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: 4,
+            opacity: pressed ? 0.88 : 1,
+          })}
+        >
+          <Plus color={colors.background} size={27} strokeWidth={2.5} />
+        </Pressable>
       ) : null}
     </Screen>
   );

@@ -22,6 +22,7 @@ interface FeedScreenProps {
   initialSort?: FeedSortOption;
   onSortChange?: (sort: FeedSortOption) => void;
   onOpenStory?: (storyId: string) => void;
+  onOpenTag?: (tag: string) => void;
   getFeed?: typeof storyService.getFeed;
   bookmarkStory?: typeof interactionService.bookmarkStory;
   unbookmarkStory?: typeof interactionService.unbookmarkStory;
@@ -50,6 +51,7 @@ export function FeedScreen({
   initialSort = 'recent',
   onSortChange,
   onOpenStory,
+  onOpenTag,
   getFeed = storyService.getFeed,
   bookmarkStory = interactionService.bookmarkStory,
   unbookmarkStory = interactionService.unbookmarkStory,
@@ -111,7 +113,8 @@ export function FeedScreen({
       activeFilters.location ||
       activeFilters.yearFrom ||
       activeFilters.yearTo ||
-      activeFilters.radiusKm,
+      activeFilters.radiusKm ||
+      activeFilters.tags?.length,
   );
 
   const loadPage = useCallback(
@@ -372,15 +375,16 @@ export function FeedScreen({
         data={state.items}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <FeedCard
-            story={item}
-            onPress={onOpenStory}
-            onBookmarkPress={(storyId) => {
-              void handleBookmarkPress(storyId);
-            }}
-            isBookmarkPending={Boolean(pendingBookmarkIds[item.id])}
-          />
-        )}
+    <FeedCard
+      story={item}
+      onPress={onOpenStory}
+      onTagPress={onOpenTag}
+      onBookmarkPress={(storyId) => {
+        void handleBookmarkPress(storyId);
+      }}
+      isBookmarkPending={Boolean(pendingBookmarkIds[item.id])}
+    />
+  )}
         contentContainerStyle={{
           paddingHorizontal: spacing.lg,
           paddingBottom: spacing.xl,
@@ -444,6 +448,7 @@ function toSearchState(filters: StoryFilters): SearchFiltersState {
         : undefined,
     timeFrom: filters.yearFrom ? String(filters.yearFrom) : '',
     timeTo: filters.yearTo ? String(filters.yearTo) : '',
+    tags: filters.tags ?? [],
   };
 }
 
@@ -454,7 +459,8 @@ function hasAnySearchFilters(filters: SearchFiltersState) {
       filters.locationBounds ||
       filters.proximityRadiusKm ||
       filters.timeFrom.trim() ||
-      filters.timeTo.trim(),
+      filters.timeTo.trim() ||
+      filters.tags.length,
   );
 }
 
@@ -466,7 +472,8 @@ function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersStat
     left.proximityRadiusKm === right.proximityRadiusKm &&
     JSON.stringify(left.proximityCoordinates) === JSON.stringify(right.proximityCoordinates) &&
     left.timeFrom === right.timeFrom &&
-    left.timeTo === right.timeTo
+    left.timeTo === right.timeTo &&
+    JSON.stringify(left.tags) === JSON.stringify(right.tags)
   );
 }
 
