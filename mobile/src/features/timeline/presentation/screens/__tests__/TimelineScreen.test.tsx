@@ -125,6 +125,40 @@ describe('TimelineScreen', () => {
     expect(await screen.findByText('Timeline Story 3')).toBeTruthy();
   });
 
+  it('does not render duplicate timeline stories when pages repeat an id', async () => {
+    const getTimeline = jest
+      .fn<Promise<TimelinePageEntity>, [any]>()
+      .mockResolvedValueOnce(
+        makeTimelinePage({
+          items: [
+            makeStory('38', { title: 'Repeated Story' }),
+            makeStory('38', { title: 'Repeated Story' }),
+          ],
+          totalCount: 2,
+          hasNextPage: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeTimelinePage({
+          items: [
+            makeStory('38', { title: 'Repeated Story' }),
+            makeStory('39', { title: 'Fresh Story' }),
+          ],
+          page: 2,
+          totalCount: 3,
+          hasNextPage: false,
+        }),
+      );
+
+    renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
+
+    expect(await screen.findAllByText('Repeated Story')).toHaveLength(1);
+    fireEvent(screen.getByTestId('timeline-list'), 'onEndReached');
+
+    expect(await screen.findByText('Fresh Story')).toBeTruthy();
+    expect(screen.getAllByText('Repeated Story')).toHaveLength(1);
+  });
+
   it('updates shared location filters in timeline requests', async () => {
     const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
     (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(istanbulBounds);

@@ -378,9 +378,13 @@ function mergeTimelinePage(
   response: TimelinePageEntity,
   mode: 'initial' | 'refresh' | 'append',
 ): TimelineUiState {
+  const items = mode === 'append'
+    ? mergeUniqueTimelineItems(current.items, response.items)
+    : dedupeTimelineItems(response.items);
+
   return {
     ...current,
-    items: mode === 'append' ? [...current.items, ...response.items] : response.items,
+    items,
     isLoading: false,
     isRefreshing: false,
     isLoadingMore: false,
@@ -390,6 +394,36 @@ function mergeTimelinePage(
     totalCount: response.totalCount,
     hasNextPage: response.hasNextPage,
   };
+}
+
+function dedupeTimelineItems(items: TimelinePageEntity['items']) {
+  const seenIds = new Set<string>();
+
+  return items.filter((item) => {
+    if (seenIds.has(item.id)) {
+      return false;
+    }
+
+    seenIds.add(item.id);
+    return true;
+  });
+}
+
+function mergeUniqueTimelineItems(
+  currentItems: TimelinePageEntity['items'],
+  nextItems: TimelinePageEntity['items'],
+) {
+  const seenIds = new Set(currentItems.map((item) => item.id));
+  const uniqueNextItems = nextItems.filter((item) => {
+    if (seenIds.has(item.id)) {
+      return false;
+    }
+
+    seenIds.add(item.id);
+    return true;
+  });
+
+  return [...currentItems, ...uniqueNextItems];
 }
 
 function toSearchState(filters: StoryFilters): SearchFiltersState {
