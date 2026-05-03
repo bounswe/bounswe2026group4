@@ -1255,20 +1255,21 @@ class TestResendVerificationView:
     def _register(self, client):
         client.post('/auth/register/', self._REGISTER_PAYLOAD)
 
-    def _code_count(self):
-        user = User.objects.get(email='resend@example.com')
-        return EmailVerificationCode.objects.filter(user=user, is_used=False).count()
+    def _user(self):
+        return User.objects.get(email='resend@example.com')
 
     def test_returns_200_for_unverified_email(self, client):
         self._register(client)
         response = client.post(self.url, {'email': 'resend@example.com'})
         assert response.status_code == status.HTTP_200_OK
 
-    def test_creates_new_verification_code(self, client):
+    def test_creates_new_verification_code_and_invalidates_old(self, client):
         self._register(client)
-        before = self._code_count()
+        user = self._user()
         client.post(self.url, {'email': 'resend@example.com'})
-        assert self._code_count() == before + 1
+        # Old code should now be marked used; exactly one fresh unused code remains.
+        assert EmailVerificationCode.objects.filter(user=user, is_used=False).count() == 1
+        assert EmailVerificationCode.objects.filter(user=user, is_used=True).count() == 1
 
     def test_sends_email(self, client):
         self._register(client)

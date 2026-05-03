@@ -20,6 +20,9 @@ class UserManager(BaseUserManager):
             raise ValueError('Email is required.')
         if not username:
             raise ValueError('Username is required.')
+        # New users must verify their email before they can log in.
+        # Callers that need an already-active user (tests, create_superuser) pass is_active=True explicitly.
+        extra_fields.setdefault('is_active', False)
         email = self.normalize_email(email)
         user = self.model(email=email, username=username, **extra_fields)
         user.set_password(password)  # hashes the password — never store plaintext

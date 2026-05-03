@@ -92,6 +92,7 @@ def resend_verification(email: str) -> None:
     except User.DoesNotExist:
         return
 
+    EmailVerificationCode.objects.filter(user=user, is_used=False).update(is_used=True)
     code = EmailVerificationCode.generate_code()
     EmailVerificationCode.objects.create(user=user, code=code)
     try:
