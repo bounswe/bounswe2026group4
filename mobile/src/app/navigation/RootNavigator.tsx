@@ -728,6 +728,7 @@ export function RootNavigator() {
           horizontal
           pagingEnabled
           disableScrollViewPanResponder={currentRoute === ROUTES.MAP}
+          scrollEnabled={currentRoute !== ROUTES.MAP}
           contentOffset={{ x: currentRoute === ROUTES.MAP ? 0 : width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
@@ -749,6 +750,7 @@ export function RootNavigator() {
               hideHeader
               active={currentRoute === ROUTES.MAP}
               disableScrollViewPanResponder={currentRoute === ROUTES.MAP}
+              scrollEnabled={currentRoute !== ROUTES.MAP}
               testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
               onScrollOffsetChange={(y) => {

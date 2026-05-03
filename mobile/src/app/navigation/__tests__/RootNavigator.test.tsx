@@ -367,7 +367,7 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('lets the map own pan gestures without disabling scroll APIs', async () => {
+  it('prevents parent scroll views from stealing map gestures', async () => {
     renderNavigator();
 
     await screen.findByLabelText('Map');
@@ -376,9 +376,9 @@ describe('RootNavigator auth flow', () => {
     const mapView = await screen.findByTestId('web-map-view');
     expect(mapView.props.onTouchStart).toBeUndefined();
 
-    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).not.toBe(false);
+    expect(screen.getByTestId('main-route-pager').props.scrollEnabled).toBe(false);
     expect(screen.getByTestId('main-route-pager').props.disableScrollViewPanResponder).toBe(true);
-    expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
+    expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(false);
     expect(screen.getByTestId('map-route-scroll').props.disableScrollViewPanResponder).toBe(true);
   });
 
