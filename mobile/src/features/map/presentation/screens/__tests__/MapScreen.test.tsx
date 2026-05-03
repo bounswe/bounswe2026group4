@@ -318,7 +318,7 @@ describe('MapScreen', () => {
     });
   });
 
-  it('keeps the current map view when a location filter has no stories', async () => {
+  it('zooms to selected location bounds when a location filter has no stories', async () => {
     const getMarkerGroups = jest.fn<Promise<MapMarkerGroup[]>, [any]>().mockImplementation(async (filters) =>
       filters?.location ? [] : markerGroups,
     );
@@ -342,10 +342,10 @@ describe('MapScreen', () => {
     expect(await screen.findByText('No stories found in Golden Horn')).toBeTruthy();
     const region = getRenderedMapRegion();
 
-    expect(region.latitude).toBeCloseTo(41.0192);
-    expect(region.longitude).toBeCloseTo(28.96735);
-    expect(region.latitudeDelta).toBeCloseTo(0.06);
-    expect(region.longitudeDelta).toBeCloseTo(0.06);
+    expect(region.latitude).toBeCloseTo(41.025);
+    expect(region.longitude).toBeCloseTo(28.965);
+    expect(region.latitudeDelta).toBeCloseTo(0.0575);
+    expect(region.longitudeDelta).toBeCloseTo(0.0575);
   });
 
   it('keeps a manually adjusted map view when markers refresh in the same context', async () => {

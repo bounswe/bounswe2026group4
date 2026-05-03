@@ -380,16 +380,16 @@ function buildAutoZoomContextKey(filters: StoryFilters) {
 }
 
 function getAutoZoomRegion(markers: MapMarkerGroup[], filters: StoryFilters): Region | undefined {
-  if (!markers.length) {
-    return undefined;
-  }
-
   if (filters.locationBounds) {
     return getRegionForLocationBounds(filters.locationBounds);
   }
 
   if (filters.latitude !== undefined && filters.longitude !== undefined && filters.radiusKm !== undefined) {
     return getRegionForProximityFilter(filters.latitude, filters.longitude, filters.radiusKm);
+  }
+
+  if (!markers.length) {
+    return undefined;
   }
 
   return getRegionForMarkers(markers);
