@@ -72,19 +72,51 @@ describe('TimelineScreen', () => {
     );
 
     expect(await screen.findByText('Timeline Story 1')).toBeTruthy();
+    expect(screen.getByText('Location 1')).toBeTruthy();
     expect(screen.getByText('Choose a time window')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Open timeline story: Timeline Story 1'));
 
     expect(onOpenStory).toHaveBeenCalledWith('1');
   });
 
-  it('applies quick decade selection to timeline requests', async () => {
+  it('shows one time chip when timeline coverage has an alternate notation', async () => {
+    renderScreen(
+      <TimelineScreen
+        getTimeline={async () =>
+          makeTimelinePage({
+            items: [
+              makeStory('decade', {
+                timeType: 'decade',
+                timePeriod: '1900s',
+                temporalCoverage: '190X',
+                historicalYear: 1905,
+              }),
+            ],
+          })
+        }
+        showSearchControls={false}
+      />,
+    );
+
+    expect(await screen.findByText('1900s')).toBeTruthy();
+    expect(screen.queryByText('190X')).toBeNull();
+  });
+
+  it('applies decade selection to timeline requests after a complete year is entered', async () => {
     const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
 
     renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
 
     await screen.findByText('Timeline Story 1');
-    fireEvent.press(screen.getByLabelText('Select period 1920s'));
+    const callCountAfterInitialLoad = getTimeline.mock.calls.length;
+
+    fireEvent.press(screen.getByLabelText('Timeline mode Decade'));
+    fireEvent.changeText(screen.getByLabelText('Timeline decade'), '19');
+
+    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterInitialLoad);
+    expect(screen.queryByText('Enter a valid decade base year.')).toBeNull();
+
+    fireEvent.changeText(screen.getByLabelText('Timeline decade'), '1920');
 
     await waitFor(() => {
       expect(getTimeline).toHaveBeenLastCalledWith(
@@ -95,6 +127,32 @@ describe('TimelineScreen', () => {
       );
     });
     expect(screen.getAllByText('1920s').length).toBeGreaterThan(0);
+  });
+
+  it('keeps range typing local until both years are complete', async () => {
+    const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
+
+    renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
+
+    await screen.findByText('Timeline Story 1');
+    const callCountAfterInitialLoad = getTimeline.mock.calls.length;
+
+    fireEvent.press(screen.getByLabelText('Timeline mode Range'));
+    fireEvent.changeText(screen.getByLabelText('Timeline start year'), '191');
+    fireEvent.changeText(screen.getByLabelText('Timeline end year'), '1918');
+
+    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterInitialLoad);
+
+    fireEvent.changeText(screen.getByLabelText('Timeline start year'), '1914');
+
+    await waitFor(() => {
+      expect(getTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          yearRange: { from: 1914, to: 1918 },
+        }),
+      );
+    });
   });
 
   it('loads the next timeline page when the list reaches the end', async () => {

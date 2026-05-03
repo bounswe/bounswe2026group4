@@ -34,6 +34,7 @@ interface PeriodDescriptor {
   request: TimelineRequest;
   label: string;
   key: string;
+  isReady: boolean;
   error?: string;
 }
 
@@ -96,7 +97,7 @@ export function TimelineScreen({
       activeFilters.yearFrom ||
       activeFilters.yearTo ||
       activeFilters.radiusKm ||
-      periodSelection.mode !== 'all',
+      (periodSelection.mode !== 'all' && periodDescriptor.isReady),
   );
 
   const loadPage = useCallback(
@@ -149,7 +150,7 @@ export function TimelineScreen({
   );
 
   useEffect(() => {
-    if (!isHydrated || periodDescriptor.error) {
+    if (!isHydrated || periodDescriptor.error || !periodDescriptor.isReady) {
       return;
     }
 
@@ -157,7 +158,7 @@ export function TimelineScreen({
       filters: activeFilters,
       periodRequest: periodDescriptor.request,
     });
-  }, [activeFilters, isHydrated, loadPage, periodDescriptor.error, periodDescriptor.key, periodDescriptor.request]);
+  }, [activeFilters, isHydrated, loadPage, periodDescriptor.error, periodDescriptor.isReady, periodDescriptor.key, periodDescriptor.request]);
 
   const handleEndReached = () => {
     if (hasRequestedNextPage.current || !state.hasNextPage || state.isLoading || state.isLoadingMore) {
@@ -169,7 +170,7 @@ export function TimelineScreen({
   };
 
   const handleRefresh = () => {
-    if (periodDescriptor.error) {
+    if (periodDescriptor.error || !periodDescriptor.isReady) {
       return;
     }
 
@@ -180,7 +181,7 @@ export function TimelineScreen({
   };
 
   const handleRetry = () => {
-    if (periodDescriptor.error) {
+    if (periodDescriptor.error || !periodDescriptor.isReady) {
       return;
     }
 
@@ -190,14 +191,11 @@ export function TimelineScreen({
     });
   };
 
-  const renderControls = () => (
+  const controls = (
     <View style={{ gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md }}>
-      <View style={{ gap: spacing.xs }}>
+      <View>
         <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '900' }}>
           Timeline
-        </Text>
-        <Text style={{ color: colors.muted, fontSize: typography.body, lineHeight: 22 }}>
-          Move through local history chronologically, then narrow the view by place or search.
         </Text>
       </View>
 
@@ -234,7 +232,7 @@ export function TimelineScreen({
   if (state.isLoading && !state.items.length) {
     return (
       <View accessibilityLabel="Loading timeline stories" style={{ flex: 1, gap: spacing.md }}>
-        {renderControls()}
+        {controls}
         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing.lg }}>
           {Array.from({ length: 4 }).map((_, index) => (
             <SkeletonCard key={index} showMedia={index % 2 === 0} />
@@ -247,7 +245,7 @@ export function TimelineScreen({
   if (state.error && !state.items.length) {
     return (
       <View style={{ flex: 1 }}>
-        {renderControls()}
+        {controls}
         <ErrorState
           title="Timeline unavailable"
           message={state.error}
@@ -261,7 +259,7 @@ export function TimelineScreen({
   if (!state.items.length) {
     return (
       <View style={{ flex: 1 }}>
-        {renderControls()}
+        {controls}
         <EmptyState
           title={hasActiveFilters ? 'No stories on this timeline' : 'Timeline is empty'}
           message={
@@ -286,7 +284,7 @@ export function TimelineScreen({
           <TimelineCard story={item} onPress={onOpenStory} />
         </View>
       )}
-      ListHeaderComponent={renderControls}
+      ListHeaderComponent={controls}
       contentContainerStyle={{
         paddingBottom: spacing.xl,
       }}
@@ -295,6 +293,9 @@ export function TimelineScreen({
       onEndReachedThreshold={0.35}
       onRefresh={handleRefresh}
       refreshing={state.isRefreshing}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
       ListFooterComponent={
         state.isLoadingMore ? <Loader message="Loading more timeline stories..." size="small" /> : <View />
       }
@@ -304,8 +305,8 @@ export function TimelineScreen({
   );
 }
 
-function parseYear(value: string) {
-  if (!/^\d{1,4}$/.test(value.trim())) {
+function parseCompleteYear(value: string) {
+  if (!/^\d{4}$/.test(value.trim())) {
     return undefined;
   }
 
@@ -317,59 +318,54 @@ function parseYear(value: string) {
 function describePeriodSelection(selection: TimelinePeriodSelection): PeriodDescriptor {
   switch (selection.mode) {
     case 'all':
-      return { request: {}, label: 'All time periods', key: 'all' };
+      return { request: {}, label: 'All time periods', key: 'all', isReady: true };
     case 'year': {
-      const year = parseYear(selection.year);
+      const year = parseCompleteYear(selection.year);
 
       if (year === undefined) {
-        return { request: {}, label: 'Specific year', key: 'year-invalid', error: 'Enter a valid year.' };
+        return { request: {}, label: 'Enter a 4-digit year', key: `year-draft-${selection.year}`, isReady: false };
       }
 
-      return { request: { year }, label: `Year ${year}`, key: `year-${year}` };
+      return { request: { year }, label: `Year ${year}`, key: `year-${year}`, isReady: true };
     }
     case 'range': {
-      const from = parseYear(selection.rangeFrom);
-      const to = parseYear(selection.rangeTo);
+      const from = parseCompleteYear(selection.rangeFrom);
+      const to = parseCompleteYear(selection.rangeTo);
 
       if (from === undefined || to === undefined) {
-        return { request: {}, label: 'Year range', key: 'range-invalid', error: 'Enter both start and end years.' };
+        return {
+          request: {},
+          label: 'Enter start and end years',
+          key: `range-draft-${selection.rangeFrom}-${selection.rangeTo}`,
+          isReady: false,
+        };
       }
 
       if (from > to) {
-        return { request: {}, label: 'Year range', key: 'range-reversed', error: 'Start year cannot be later than end year.' };
+        return {
+          request: {},
+          label: 'Year range',
+          key: 'range-reversed',
+          isReady: false,
+          error: 'Start year cannot be later than end year.',
+        };
       }
 
-      return { request: { yearRange: { from, to } }, label: `${from}-${to}`, key: `range-${from}-${to}` };
+      return { request: { yearRange: { from, to } }, label: `${from}-${to}`, key: `range-${from}-${to}`, isReady: true };
     }
     case 'decade': {
-      const decadeYear = parseYear(selection.decade);
+      const decadeYear = parseCompleteYear(selection.decade);
 
       if (decadeYear === undefined) {
-        return { request: {}, label: 'Decade', key: 'decade-invalid', error: 'Enter a valid decade base year.' };
+        return { request: {}, label: 'Enter a 4-digit decade year', key: `decade-draft-${selection.decade}`, isReady: false };
       }
 
       const decade = Math.floor(decadeYear / 10) * 10;
 
-      return { request: { decade }, label: `${decade}s`, key: `decade-${decade}` };
-    }
-    case 'period': {
-      const centuryYear = parseYear(selection.century);
-
-      if (centuryYear === undefined) {
-        return { request: {}, label: 'Approximate period', key: 'period-invalid', error: 'Enter a valid century base year.' };
-      }
-
-      const century = Math.floor(centuryYear / 100) * 100;
-      const positionLabel = selection.position === 'mid' ? 'Mid' : selection.position === 'late' ? 'Late' : 'Early';
-
-      return {
-        request: { approximatePeriod: { century, position: selection.position } },
-        label: `${positionLabel} ${century}s`,
-        key: `period-${selection.position}-${century}`,
-      };
+      return { request: { decade }, label: `${decade}s`, key: `decade-${decade}`, isReady: true };
     }
     default:
-      return { request: {}, label: 'All time periods', key: 'all' };
+      return { request: {}, label: 'All time periods', key: 'all', isReady: true };
   }
 }
 

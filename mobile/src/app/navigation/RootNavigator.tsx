@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
-import { Bell, MapPin } from 'lucide-react-native';
+import { Bell, MapPin, Plus } from 'lucide-react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
 import { useAuth, AuthScreen } from '../../features/auth';
@@ -194,6 +194,7 @@ function ScreenShell({
   scrollable = false,
   fillContent = false,
   hideHeader = false,
+  flushBottom = false,
   active = false,
   preservedScrollY = 0,
   onScrollOffsetChange,
@@ -210,6 +211,7 @@ function ScreenShell({
   scrollable?: boolean;
   fillContent?: boolean;
   hideHeader?: boolean;
+  flushBottom?: boolean;
   active?: boolean;
   preservedScrollY?: number;
   onScrollOffsetChange?: (y: number) => void;
@@ -295,7 +297,7 @@ function ScreenShell({
       <ScrollView
         ref={scrollViewRef}
         style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: flushBottom ? 0 : spacing.xl }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         refreshControl={
@@ -313,7 +315,15 @@ function ScreenShell({
   }
 
   return (
-    <View style={{ flex: 1, padding: spacing.lg, backgroundColor: colors.background }}>
+    <View
+      style={{
+        flex: 1,
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.lg,
+        paddingBottom: flushBottom ? 0 : spacing.lg,
+        backgroundColor: colors.background,
+      }}
+    >
       {innerContent}
     </View>
   );
@@ -718,8 +728,14 @@ export function RootNavigator() {
         <ScrollView
           ref={pagerRef}
           testID="main-route-pager"
+          style={{ flex: 1, backgroundColor: colors.background }}
+          contentContainerStyle={{ flexGrow: 1 }}
           horizontal
           pagingEnabled
+          directionalLockEnabled
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
           contentOffset={{ x: Math.max(MAIN_PAGER_ROUTES.indexOf(currentRoute), 0) * width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
@@ -764,6 +780,7 @@ export function RootNavigator() {
               framed={false}
               fillContent
               hideHeader
+              flushBottom
             >
               <TimelineScreen
                 onOpenStory={handleOpenStoryDetail}
@@ -779,6 +796,7 @@ export function RootNavigator() {
               framed={false}
               fillContent
               hideHeader
+              flushBottom
             >
               <FeedScreen
                 onOpenStory={handleOpenStoryDetail}
@@ -853,31 +871,34 @@ export function RootNavigator() {
         >
           <BottomNavButton label="Map" active={currentRoute === ROUTES.MAP} onPress={() => handleNavigate(ROUTES.MAP)} />
           <BottomNavButton label="Timeline" active={currentRoute === ROUTES.TIMELINE} onPress={() => handleNavigate(ROUTES.TIMELINE)} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Submission"
-            onPress={() => handleNavigate(ROUTES.SUBMISSION)}
-            style={({ pressed }) => ({
-              width: 58,
-              height: 58,
-              borderRadius: 999,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.primary,
-              marginHorizontal: spacing.md,
-              transform: [{ translateY: -18 }],
-              shadowColor: '#000000',
-              shadowOpacity: 0.14,
-              shadowRadius: 14,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 4,
-              opacity: pressed ? 0.88 : 1,
-            })}
-          >
-            <Text style={{ color: colors.background, fontSize: 28, fontWeight: '400', marginTop: -2 }}>+</Text>
-          </Pressable>
           <BottomNavButton label="Feed" active={currentRoute === ROUTES.FEED} onPress={() => handleNavigate(ROUTES.FEED)} />
         </View>
+      ) : null}
+      {isMainRoute ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Submission"
+          onPress={() => handleNavigate(ROUTES.SUBMISSION)}
+          style={({ pressed }) => ({
+            position: 'absolute',
+            right: spacing.lg,
+            bottom: spacing.lg + 62,
+            width: 56,
+            height: 56,
+            borderRadius: 999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.primary,
+            shadowColor: '#000000',
+            shadowOpacity: 0.16,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: 4,
+            opacity: pressed ? 0.88 : 1,
+          })}
+        >
+          <Plus color={colors.background} size={27} strokeWidth={2.5} />
+        </Pressable>
       ) : null}
     </Screen>
   );

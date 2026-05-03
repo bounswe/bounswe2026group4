@@ -8,14 +8,6 @@ interface TimelineCardProps {
   onPress?: (storyId: string) => void;
 }
 
-function formatCoordinates(latitude?: number, longitude?: number) {
-  if (latitude === undefined || longitude === undefined) {
-    return '';
-  }
-
-  return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-}
-
 function getBadgeLabel(story: TimelineEntity) {
   if (story.historicalYear !== undefined) {
     return String(story.historicalYear);
@@ -26,7 +18,6 @@ function getBadgeLabel(story: TimelineEntity) {
 
 export function TimelineCard({ story, onPress }: TimelineCardProps) {
   const { colors, spacing, typography } = useAppTheme();
-  const locationText = story.locationName || formatCoordinates(story.latitude, story.longitude);
 
   return (
     <Pressable
@@ -102,30 +93,18 @@ export function TimelineCard({ story, onPress }: TimelineCardProps) {
                 </Text>
               </View>
             ) : null}
-            {story.temporalCoverage && story.temporalCoverage !== story.timePeriod ? (
-              <View
-                style={{
-                  alignSelf: 'flex-start',
-                  paddingHorizontal: spacing.sm,
-                  paddingVertical: spacing.xs,
-                  borderRadius: 999,
-                  backgroundColor: colors.infoSurface,
-                }}
-              >
-                <Text style={{ color: colors.muted, fontSize: typography.caption, fontWeight: '700' }}>
-                  {story.temporalCoverage}
-                </Text>
-              </View>
-            ) : null}
           </View>
 
           <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800', lineHeight: 24 }}>
             {story.title}
           </Text>
 
-          {locationText ? (
-            <Text style={{ color: colors.muted, fontSize: typography.body }}>
-              {story.locationName ? locationText : `Mapped at ${locationText}`}
+          {story.locationName ? (
+            <Text
+              numberOfLines={2}
+              style={{ color: colors.muted, fontSize: typography.body, lineHeight: 21 }}
+            >
+              {story.locationName}
             </Text>
           ) : null}
         </View>
