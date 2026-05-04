@@ -17,8 +17,7 @@ function countActiveFilters({ yearFrom, yearTo, location }) {
  * Must be rendered inside a React Router context.
  */
 function SearchFilter({ className }) {
-  const { q, yearFrom, yearTo, location, setFilters, removeFilter, clearAll } =
-    useFilterState();
+  const { q, yearFrom, yearTo, location, setFilters, removeFilter, clearAll } = useFilterState();
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -27,14 +26,23 @@ function SearchFilter({ className }) {
     [setFilters]
   );
 
-  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc }) {
-    setFilters({ year_from: yf, year_to: yt, location: loc }, { replace: true });
+  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc, latMin, latMax, lngMin, lngMax }) {
+    setFilters({
+      year_from: yf,
+      year_to: yt,
+      location: loc,
+      lat_min: latMin ?? "",
+      lat_max: latMax ?? "",
+      lng_min: lngMin ?? "",
+      lng_max: lngMax ?? "",
+    }, { replace: true });
   }
 
   function handleRemoveFilter(key) {
     if (key === "year_range") {
-      // Remove both year params atomically
       setFilters({ year_from: "", year_to: "" }, { replace: true });
+    } else if (key === "location") {
+      setFilters({ location: "", lat_min: "", lat_max: "", lng_min: "", lng_max: "" }, { replace: true });
     } else {
       removeFilter(key);
     }
