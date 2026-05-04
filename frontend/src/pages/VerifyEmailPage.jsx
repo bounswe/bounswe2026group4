@@ -34,13 +34,6 @@ function extractApiError(error, fallback) {
   return data.message || data.detail || fallback;
 }
 
-function isExpiredCodeError(error) {
-  const message = extractApiError(error, "");
-  if (!message) return false;
-  const lower = String(message).toLowerCase();
-  return lower.includes("expired") || error.response?.status === 410;
-}
-
 function VerifyEmailPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,7 +47,6 @@ function VerifyEmailPage() {
   const [digits, setDigits] = useState(INITIAL_DIGITS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [showResendOnError, setShowResendOnError] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const inputsRef = useRef([]);
@@ -90,7 +82,6 @@ function VerifyEmailPage() {
     const value = raw.replace(/\D/g, "");
     if (apiError) {
       setApiError("");
-      setShowResendOnError(false);
     }
     if (value.length === 0) {
       setDigitAt(index, "");
@@ -146,7 +137,6 @@ function VerifyEmailPage() {
     e.preventDefault();
     if (!isCodeComplete || isSubmitting) return;
     setApiError("");
-    setShowResendOnError(false);
     setIsSubmitting(true);
     try {
       await verifyEmail(email, code);
@@ -172,12 +162,14 @@ function VerifyEmailPage() {
     } catch (error) {
       if (error.response?.status === 429) {
         setApiError("Too many attempts. Please wait a moment and try again.");
-      } else if (isExpiredCodeError(error)) {
-        setApiError("Code has expired. Click resend to get a new code.");
-        setShowResendOnError(true);
       } else {
         setApiError(extractApiError(error, "Invalid verification code. Please try again."));
       }
+      // Backend returns a unified error for wrong/expired/unknown codes (to
+      // prevent enumeration), so we can't reliably distinguish expired codes.
+      // Clear the inputs and refocus so the user can re-enter or click resend.
+      setDigits(INITIAL_DIGITS);
+      inputsRef.current[0]?.focus();
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +178,6 @@ function VerifyEmailPage() {
   async function handleResend() {
     if (cooldown > 0 || isResending) return;
     setApiError("");
-    setShowResendOnError(false);
     setIsResending(true);
     try {
       await resendVerificationCode(email);
@@ -231,16 +222,18 @@ function VerifyEmailPage() {
               className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
             >
               <p>{apiError}</p>
-              {showResendOnError && (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={cooldown > 0 || isResending}
-                  className="mt-2 font-medium underline-offset-4 hover:underline disabled:opacity-50"
-                >
-                  {isResending ? "Resending..." : "Resend code"}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={cooldown > 0 || isResending}
+                className="mt-2 font-medium underline-offset-4 hover:underline disabled:opacity-50"
+              >
+                {isResending
+                  ? "Resending..."
+                  : cooldown > 0
+                    ? `Resend in ${cooldown}s`
+                    : "Resend code"}
+              </button>
             </div>
           )}
 
