@@ -4,12 +4,24 @@ const NOMINATIM_HEADERS = {
   "Accept-Language": "en",
 };
 
+const geocodeCache = new Map();
+const suggestionsCache = new Map();
+
+/** Clear in-memory caches — used in tests. */
+export function clearCache() {
+  geocodeCache.clear();
+  suggestionsCache.clear();
+}
+
 /**
  * Geocode a place name to a bounding box using the Nominatim API.
  * Returns { latMin, latMax, lngMin, lngMax } or null if no result.
  */
 export async function geocodeLocation(query) {
   if (!query?.trim()) return null;
+
+  const key = query.trim().toLowerCase();
+  if (geocodeCache.has(key)) return geocodeCache.get(key);
 
   const url = `${NOMINATIM_BASE}?${new URLSearchParams({
     q: query.trim(),
@@ -22,14 +34,22 @@ export async function geocodeLocation(query) {
   if (!response.ok) throw new Error(`Nominatim request failed: ${response.status}`);
 
   const results = await response.json();
-  if (!results.length) return null;
+  if (!results.length) {
+    geocodeCache.set(key, null);
+    return null;
+  }
 
   const { boundingbox } = results[0];
-  if (!boundingbox?.length) return null;
+  if (!boundingbox?.length) {
+    geocodeCache.set(key, null);
+    return null;
+  }
 
   // Nominatim boundingbox order: [lat_min, lat_max, lng_min, lng_max] (strings)
   const [latMin, latMax, lngMin, lngMax] = boundingbox.map(Number);
-  return { latMin, latMax, lngMin, lngMax };
+  const bbox = { latMin, latMax, lngMin, lngMax };
+  geocodeCache.set(key, bbox);
+  return bbox;
 }
 
 function parseBbox(boundingbox) {
@@ -47,6 +67,9 @@ export async function searchLocationSuggestions(query) {
   const normalized = query?.trim();
   if (!normalized || normalized.length < 3) return [];
 
+  const key = normalized.toLowerCase();
+  if (suggestionsCache.has(key)) return suggestionsCache.get(key);
+
   const url = `${NOMINATIM_BASE}?${new URLSearchParams({
     q: normalized,
     format: "json",
@@ -61,7 +84,7 @@ export async function searchLocationSuggestions(query) {
   const results = await response.json();
   if (!Array.isArray(results)) return [];
 
-  return results
+  const suggestions = results
     .map((r) => {
       const lat = Number(r.lat);
       const lng = Number(r.lon);
@@ -79,4 +102,7 @@ export async function searchLocationSuggestions(query) {
       };
     })
     .filter(Boolean);
+
+  suggestionsCache.set(key, suggestions);
+  return suggestions;
 }

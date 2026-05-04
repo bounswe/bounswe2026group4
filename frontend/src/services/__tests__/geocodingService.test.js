@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { geocodeLocation, searchLocationSuggestions } from "../geocodingService";
+import { geocodeLocation, searchLocationSuggestions, clearCache } from "../geocodingService";
 
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
 
@@ -14,6 +14,7 @@ function mockFetch(data, { ok = true, status = 200 } = {}) {
 describe("geocodeLocation", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    clearCache();
   });
 
   it("returns null for empty query", async () => {
@@ -81,6 +82,7 @@ describe("geocodeLocation", () => {
 describe("searchLocationSuggestions", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    clearCache();
   });
 
   it("returns empty array for queries shorter than 3 characters", async () => {

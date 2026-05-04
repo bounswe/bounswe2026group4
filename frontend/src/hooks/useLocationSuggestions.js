@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { searchLocationSuggestions } from "@/services/geocodingService";
 
-const DEBOUNCE_MS = 400;
+const DEBOUNCE_MS = 250;
 const MIN_CHARS = 3;
 
 /**

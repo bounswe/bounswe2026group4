@@ -31,7 +31,7 @@ describe("useLocationSuggestions", () => {
     searchLocationSuggestions.mockResolvedValue([ISTANBUL]);
     renderHook(() => useLocationSuggestions("Is"));
 
-    act(() => { vi.advanceTimersByTime(400); });
+    act(() => { vi.advanceTimersByTime(250); });
 
     expect(searchLocationSuggestions).not.toHaveBeenCalled();
   });
@@ -46,7 +46,7 @@ describe("useLocationSuggestions", () => {
     searchLocationSuggestions.mockResolvedValue([ISTANBUL, GALATA]);
     const { result } = renderHook(() => useLocationSuggestions("Istanbul"));
 
-    await act(async () => { vi.advanceTimersByTime(400); });
+    await act(async () => { vi.advanceTimersByTime(250); });
 
     expect(searchLocationSuggestions).toHaveBeenCalledWith("Istanbul");
     expect(result.current.isLoading).toBe(false);
@@ -57,7 +57,7 @@ describe("useLocationSuggestions", () => {
     searchLocationSuggestions.mockResolvedValue([]);
     const { result } = renderHook(() => useLocationSuggestions("xyzunknown"));
 
-    await act(async () => { vi.advanceTimersByTime(400); });
+    await act(async () => { vi.advanceTimersByTime(250); });
 
     expect(result.current.suggestions).toEqual([]);
     expect(result.current.isLoading).toBe(false);
@@ -67,7 +67,7 @@ describe("useLocationSuggestions", () => {
     searchLocationSuggestions.mockRejectedValue(new Error("Network error"));
     const { result } = renderHook(() => useLocationSuggestions("Istanbul"));
 
-    await act(async () => { vi.advanceTimersByTime(400); });
+    await act(async () => { vi.advanceTimersByTime(250); });
 
     expect(result.current.suggestions).toEqual([]);
     expect(result.current.isLoading).toBe(false);
@@ -102,7 +102,7 @@ describe("useLocationSuggestions", () => {
     searchLocationSuggestions.mockResolvedValue([ISTANBUL]);
     const { result } = renderHook(() => useLocationSuggestions("Istanbul"));
 
-    await act(async () => { vi.advanceTimersByTime(400); });
+    await act(async () => { vi.advanceTimersByTime(250); });
     expect(result.current.suggestions).toHaveLength(1);
 
     act(() => { result.current.clearSuggestions(); });
