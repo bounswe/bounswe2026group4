@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLocationSuggestions } from "@/hooks/useLocationSuggestions";
 
 const YEAR_MIN = 1000;
 const YEAR_MAX = 2030;
@@ -21,13 +22,30 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
   const [localLocation, setLocalLocation] = useState(location);
+  const [suggestionsQuery, setSuggestionsQuery] = useState("");
   const [yearError, setYearError] = useState("");
+  const [lockedBbox, setLockedBbox] = useState(null);
+
+  const { suggestions, isLoading: isSuggestionsLoading, clearSuggestions } = useLocationSuggestions(suggestionsQuery);
 
   function clampYear(value) {
     if (value === "") return value;
     const num = Number(value);
     if (isNaN(num)) return value;
     return num > YEAR_MAX ? YEAR_MAX : num;
+  }
+
+  function handleLocationChange(value) {
+    setLocalLocation(value);
+    setSuggestionsQuery(value);
+    setLockedBbox(null);
+  }
+
+  function handleSuggestionSelect(suggestion) {
+    setLocalLocation(suggestion.title);
+    setSuggestionsQuery(""); // prevent hook from refiring on the selected title
+    setLockedBbox(suggestion.bbox ?? null);
+    clearSuggestions();
   }
 
   function handleApply() {
@@ -42,8 +60,21 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
       setYearError("'From' year must not exceed 'To' year.");
       return;
     }
+
+    // Prefer explicitly locked bbox (suggestion click), then first suggestion's bbox, then null fallback
+    const effectiveBbox = lockedBbox ?? suggestions[0]?.bbox ?? null;
+
     setYearError("");
-    onApply({ yearFrom: from, yearTo: to, location: localLocation.trim() });
+    clearSuggestions();
+    onApply({
+      yearFrom: from,
+      yearTo: to,
+      location: localLocation.trim(),
+      latMin: effectiveBbox?.latMin ?? null,
+      latMax: effectiveBbox?.latMax ?? null,
+      lngMin: effectiveBbox?.lngMin ?? null,
+      lngMax: effectiveBbox?.lngMax ?? null,
+    });
     setOpen(false);
   }
 
@@ -51,8 +82,11 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
     setLocalYearFrom("");
     setLocalYearTo("");
     setLocalLocation("");
+    setSuggestionsQuery("");
+    setLockedBbox(null);
     setYearError("");
-    onApply({ yearFrom: "", yearTo: "", location: "" });
+    clearSuggestions();
+    onApply({ yearFrom: "", yearTo: "", location: "", latMin: null, latMax: null, lngMin: null, lngMax: null });
     setOpen(false);
   }
 
@@ -173,14 +207,52 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
               >
                 Location
               </Label>
-              <Input
-                id="location-filter"
-                type="text"
-                placeholder="Neighbourhood, district, city…"
-                value={localLocation}
-                onChange={(e) => setLocalLocation(e.target.value)}
-                aria-label="Location filter"
-              />
+              <div className="relative">
+                <Input
+                  id="location-filter"
+                  type="text"
+                  placeholder="Neighbourhood, district, city…"
+                  value={localLocation}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  aria-label="Location filter"
+                  aria-autocomplete="list"
+                  aria-expanded={suggestions.length > 0}
+                  autoComplete="off"
+                  className={isSuggestionsLoading ? "pr-8" : ""}
+                />
+                {isSuggestionsLoading && (
+                  <Loader2
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                )}
+                {suggestions.length > 0 && (
+                  <ul
+                    role="listbox"
+                    aria-label="Location suggestions"
+                    className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-y-auto rounded-md border bg-background shadow-md"
+                  >
+                    {suggestions.map((s) => (
+                      <li key={s.id} role="option">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            // mousedown fires before blur; prevent input from losing focus first
+                            e.preventDefault();
+                            handleSuggestionSelect(s);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                        >
+                          <div className="text-sm font-medium truncate">{s.title}</div>
+                          {s.subtitle && (
+                            <div className="text-xs text-muted-foreground truncate">{s.subtitle}</div>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
             {/* Actions */}

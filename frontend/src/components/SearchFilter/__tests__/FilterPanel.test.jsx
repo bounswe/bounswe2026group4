@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("@/hooks/useLocationSuggestions", () => ({
+  useLocationSuggestions: vi.fn(() => ({ suggestions: [], isLoading: false, clearSuggestions: vi.fn() })),
+}));
+
 import FilterPanel from "../FilterPanel";
 
 function renderPanel(props = {}) {
@@ -70,7 +74,7 @@ describe("FilterPanel", () => {
     await user.type(screen.getByLabelText("Location filter"), "Galata");
     await user.click(screen.getByRole("button", { name: /apply/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata" });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata", latMin: null, latMax: null, lngMin: null, lngMax: null });
   });
 
 
@@ -98,7 +102,7 @@ describe("FilterPanel", () => {
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.click(screen.getByRole("button", { name: /reset filters/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "" });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "", latMin: null, latMax: null, lngMin: null, lngMax: null });
   });
 
   it("initialises form fields from props on mount", async () => {
