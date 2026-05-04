@@ -4,7 +4,7 @@ import { geocodeLocation, searchLocationSuggestions } from "../geocodingService"
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
 
 function mockFetch(data, { ok = true, status = 200 } = {}) {
-  global.fetch = vi.fn().mockResolvedValue({
+  globalThis.fetch = vi.fn().mockResolvedValue({
     ok,
     status,
     json: () => Promise.resolve(data),
@@ -17,18 +17,18 @@ describe("geocodeLocation", () => {
   });
 
   it("returns null for empty query", async () => {
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
     expect(await geocodeLocation("")).toBeNull();
     expect(await geocodeLocation("   ")).toBeNull();
     expect(await geocodeLocation(null)).toBeNull();
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("calls Nominatim with correct params", async () => {
     mockFetch([]);
     await geocodeLocation("Istanbul");
-    expect(global.fetch).toHaveBeenCalledOnce();
-    const [url] = global.fetch.mock.calls[0];
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    const [url] = globalThis.fetch.mock.calls[0];
     expect(url).toContain(NOMINATIM_BASE);
     expect(url).toContain("q=Istanbul");
     expect(url).toContain("format=json");
@@ -72,7 +72,7 @@ describe("geocodeLocation", () => {
   it("trims whitespace from query before sending", async () => {
     mockFetch([]);
     await geocodeLocation("  Paris  ");
-    const [url] = global.fetch.mock.calls[0];
+    const [url] = globalThis.fetch.mock.calls[0];
     expect(url).toContain("q=Paris");
     expect(url).not.toContain("q=++Paris");
   });
@@ -84,17 +84,17 @@ describe("searchLocationSuggestions", () => {
   });
 
   it("returns empty array for queries shorter than 3 characters", async () => {
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
     expect(await searchLocationSuggestions("")).toEqual([]);
     expect(await searchLocationSuggestions("Is")).toEqual([]);
     expect(await searchLocationSuggestions(null)).toEqual([]);
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("calls Nominatim with limit=5 and addressdetails=1", async () => {
     mockFetch([]);
     await searchLocationSuggestions("Istanbul");
-    const [url] = global.fetch.mock.calls[0];
+    const [url] = globalThis.fetch.mock.calls[0];
     expect(url).toContain("limit=5");
     expect(url).toContain("addressdetails=1");
     expect(url).toContain("q=Istanbul");
