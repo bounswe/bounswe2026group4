@@ -83,6 +83,13 @@ def delete_story(story: Story) -> None:
         award_points(story_user, STORY_REMOVED, story=None)
 
 
+def remove_story(story: Story, moderation_reason: str) -> None:
+    """Soft-delete a story by setting its status to REMOVED and recording the moderation reason."""
+    story.status = Story.STATUS_REMOVED
+    story.moderation_reason = moderation_reason
+    story.save(update_fields=['status', 'moderation_reason'])
+
+
 def get_story_feed(
     sort_by='recent',
     year_from=None,
