@@ -37,6 +37,17 @@ vi.mock("@/components/Interactions/LikeButton", () => ({
   ),
 }));
 
+vi.mock("@/components/Interactions/BookmarkButton", () => ({
+  default: ({ storyId, initialBookmarked }) => (
+    <button
+      data-testid="bookmark-button"
+      data-story-id={storyId}
+      aria-label={initialBookmarked ? "Remove bookmark" : "Save story"}
+      aria-pressed={String(initialBookmarked)}
+    />
+  ),
+}));
+
 function MockCommentSection({ storyId, onCountChange, onUserCommentedChange }) {
   useEffect(() => {
     onCountChange?.(3);
