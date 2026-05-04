@@ -31,3 +31,17 @@ export async function logout() {
     clear();
   }
 }
+
+export async function forgotPassword(email) {
+  const response = await axios.post(`${API_URL}/auth/password-reset/`, { email });
+  return response.data;
+}
+
+export async function resetPassword(token, newPassword, newPasswordConfirmation) {
+  const response = await axios.post(`${API_URL}/auth/password-reset/confirm/`, {
+    token,
+    new_password: newPassword,
+    new_password_confirmation: newPasswordConfirmation,
+  });
+  return response.data;
+}

@@ -10,7 +10,7 @@ vi.mock("../tokenStore", () => ({
   clear: vi.fn(),
 }));
 
-import { login, register, logout } from "../authService";
+import { login, register, logout, forgotPassword, resetPassword } from "../authService";
 import { setAccessToken, setRefreshToken, getRefreshToken, clear } from "../tokenStore";
 
 describe("authService", () => {
@@ -96,6 +96,38 @@ describe("authService", () => {
       await logout();
 
       expect(clear).toHaveBeenCalled();
+    });
+  });
+
+  describe("forgotPassword", () => {
+    it("posts email to /auth/password-reset/", async () => {
+      axios.post.mockResolvedValue({ data: { message: "ok" } });
+
+      const result = await forgotPassword("test@example.com");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/password-reset/"),
+        { email: "test@example.com" }
+      );
+      expect(result).toEqual({ message: "ok" });
+    });
+  });
+
+  describe("resetPassword", () => {
+    it("posts token and new_password fields to /auth/password-reset/confirm/", async () => {
+      axios.post.mockResolvedValue({ data: { message: "ok" } });
+
+      const result = await resetPassword("token-uuid", "Password1", "Password1");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/password-reset/confirm/"),
+        {
+          token: "token-uuid",
+          new_password: "Password1",
+          new_password_confirmation: "Password1",
+        }
+      );
+      expect(result).toEqual({ message: "ok" });
     });
   });
 });

@@ -163,6 +163,14 @@ function LoginPage() {
                   {fieldErrors.password}
                 </p>
               )}
+              <div className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
