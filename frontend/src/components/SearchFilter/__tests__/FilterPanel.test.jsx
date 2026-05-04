@@ -116,6 +116,21 @@ describe("FilterPanel", () => {
     expect(screen.getByLabelText("Location filter")).toHaveValue("Galata");
   });
 
+  it("preserves bbox props in onApply when user only changes year without re-typing location", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    const bbox = { latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 };
+    renderPanel({ location: "Istanbul", ...bbox, onApply });
+
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.type(screen.getByLabelText("From year"), "1900");
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ location: "Istanbul", latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 })
+    );
+  });
+
   it("year fields are empty on first open (placeholder visible)", async () => {
     const user = userEvent.setup();
     renderPanel();

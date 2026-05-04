@@ -18,20 +18,21 @@ export function useGeocoding(query) {
       return;
     }
 
+    let cancelled = false;
     setIsLoading(true);
 
     const timer = setTimeout(async () => {
       try {
         const result = await geocodeLocation(query);
-        setBbox(result);
+        if (!cancelled) setBbox(result);
       } catch {
-        setBbox(null);
+        if (!cancelled) setBbox(null);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }, DEBOUNCE_MS);
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [query]);
 
   return { bbox, isLoading };

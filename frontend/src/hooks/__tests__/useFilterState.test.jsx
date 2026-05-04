@@ -121,4 +121,24 @@ describe("useFilterState", () => {
 
     expect(result.current.hasActiveFilters).toBe(true);
   });
+
+  it("parses bbox query params as numbers", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?lat_min=40.9&lat_max=41.1&lng_min=28.9&lng_max=29.1"]),
+    });
+
+    expect(result.current.latMin).toBe(40.9);
+    expect(result.current.latMax).toBe(41.1);
+    expect(result.current.lngMin).toBe(28.9);
+    expect(result.current.lngMax).toBe(29.1);
+  });
+
+  it("returns null for bbox params when absent from URL", () => {
+    const { result } = renderHook(() => useFilterState(), { wrapper: makeWrapper() });
+
+    expect(result.current.latMin).toBeNull();
+    expect(result.current.latMax).toBeNull();
+    expect(result.current.lngMin).toBeNull();
+    expect(result.current.lngMax).toBeNull();
+  });
 });

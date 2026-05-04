@@ -17,7 +17,7 @@ function countActiveFilters({ yearFrom, yearTo, location }) {
  * Must be rendered inside a React Router context.
  */
 function SearchFilter({ className }) {
-  const { q, yearFrom, yearTo, location, setFilters, removeFilter, clearAll } = useFilterState();
+  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, setFilters, removeFilter, clearAll } = useFilterState();
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -60,10 +60,14 @@ function SearchFilter({ className }) {
           />
         </div>
         <FilterPanel
-          key={`${yearFrom}-${yearTo}-${location}`}
+          key={`${yearFrom}-${yearTo}-${location}-${latMin}-${latMax}-${lngMin}-${lngMax}`}
           yearFrom={yearFrom}
           yearTo={yearTo}
           location={location}
+          latMin={latMin}
+          latMax={latMax}
+          lngMin={lngMin}
+          lngMax={lngMax}
           onApply={handleFilterApply}
           activeCount={activeFilterCount}
         />

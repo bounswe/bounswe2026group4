@@ -20,20 +20,21 @@ export function useLocationSuggestions(query) {
       return;
     }
 
+    let cancelled = false;
     setIsLoading(true);
 
     const timer = setTimeout(async () => {
       try {
         const results = await searchLocationSuggestions(query);
-        setSuggestions(results);
+        if (!cancelled) setSuggestions(results);
       } catch {
-        setSuggestions([]);
+        if (!cancelled) setSuggestions([]);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }, DEBOUNCE_MS);
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [query]);
 
   const clearSuggestions = useCallback(() => setSuggestions([]), []);

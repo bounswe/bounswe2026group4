@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { SlidersHorizontal, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { useLocationSuggestions } from "@/hooks/useLocationSuggestions";
 
 const YEAR_MIN = 1000;
@@ -17,16 +18,35 @@ const YEAR_SPINNER_TO = new Date().getFullYear();
  * The parent should pass a `key` tied to the current filter values so that
  * the component resets its local form whenever filters are cleared externally.
  */
-function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activeCount = 0 }) {
+function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, onApply, activeCount = 0 }) {
   const [open, setOpen] = useState(false);
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
   const [localLocation, setLocalLocation] = useState(location);
   const [suggestionsQuery, setSuggestionsQuery] = useState("");
   const [yearError, setYearError] = useState("");
-  const [lockedBbox, setLockedBbox] = useState(null);
+  const [lockedBbox, setLockedBbox] = useState(
+    () => latMin != null && latMax != null && lngMin != null && lngMax != null
+      ? { latMin, latMax, lngMin, lngMax }
+      : null
+  );
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  const locationRef = useRef(null);
 
   const { suggestions, isLoading: isSuggestionsLoading, clearSuggestions } = useLocationSuggestions(suggestionsQuery);
+
+  // Dismiss suggestions when clicking outside the location field.
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (locationRef.current && !locationRef.current.contains(e.target)) {
+        clearSuggestions();
+        setActiveIndex(-1);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [clearSuggestions]);
 
   function clampYear(value) {
     if (value === "") return value;
@@ -39,6 +59,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
     setLocalLocation(value);
     setSuggestionsQuery(value);
     setLockedBbox(null);
+    setActiveIndex(-1);
   }
 
   function handleSuggestionSelect(suggestion) {
@@ -46,6 +67,25 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
     setSuggestionsQuery(""); // prevent hook from refiring on the selected title
     setLockedBbox(suggestion.bbox ?? null);
     clearSuggestions();
+    setActiveIndex(-1);
+  }
+
+  function handleLocationKeyDown(e) {
+    if (suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      e.preventDefault();
+      handleSuggestionSelect(suggestions[activeIndex]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      clearSuggestions();
+      setActiveIndex(-1);
+    }
   }
 
   function handleApply() {
@@ -61,8 +101,8 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
       return;
     }
 
-    // Prefer explicitly locked bbox (suggestion click), then first suggestion's bbox, then null fallback
-    const effectiveBbox = lockedBbox ?? suggestions[0]?.bbox ?? null;
+    // Only use a bbox if the user explicitly selected a suggestion.
+    const effectiveBbox = lockedBbox;
 
     setYearError("");
     clearSuggestions();
@@ -207,16 +247,18 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
               >
                 Location
               </Label>
-              <div className="relative">
+              <div className="relative" ref={locationRef}>
                 <Input
                   id="location-filter"
                   type="text"
                   placeholder="Neighbourhood, district, city…"
                   value={localLocation}
                   onChange={(e) => handleLocationChange(e.target.value)}
+                  onKeyDown={handleLocationKeyDown}
                   aria-label="Location filter"
                   aria-autocomplete="list"
                   aria-expanded={suggestions.length > 0}
+                  aria-activedescendant={activeIndex >= 0 ? `suggestion-${suggestions[activeIndex]?.id}` : undefined}
                   autoComplete="off"
                   className={isSuggestionsLoading ? "pr-8" : ""}
                 />
@@ -232,8 +274,8 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
                     aria-label="Location suggestions"
                     className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-y-auto rounded-md border bg-background shadow-md"
                   >
-                    {suggestions.map((s) => (
-                      <li key={s.id} role="option">
+                    {suggestions.map((s, i) => (
+                      <li key={s.id} id={`suggestion-${s.id}`} role="option" aria-selected={i === activeIndex}>
                         <button
                           type="button"
                           onMouseDown={(e) => {
@@ -241,7 +283,10 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
                             e.preventDefault();
                             handleSuggestionSelect(s);
                           }}
-                          className="w-full px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                          className={cn(
+                            "w-full px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none",
+                            i === activeIndex && "bg-accent"
+                          )}
                         >
                           <div className="text-sm font-medium truncate">{s.title}</div>
                           {s.subtitle && (

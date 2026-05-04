@@ -1,7 +1,7 @@
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
+// User-Agent is a forbidden header name in browsers and is silently dropped by fetch.
 const NOMINATIM_HEADERS = {
   "Accept-Language": "en",
-  "User-Agent": "LocalHistoryStoryMap/1.0",
 };
 
 /**
