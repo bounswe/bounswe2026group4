@@ -1147,6 +1147,67 @@ class TestPasswordResetConfirmView:
         })
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_common_but_complex_password_is_accepted(self, client, user):
+        # Regression for #532: password reset must use the same validator as
+        # registration — CommonPasswordValidator must NOT be applied here.
+        token = self._make_token(user)
+        response = client.post(self.url, {
+            'token': str(token.token),
+            'new_password': '123456Aa',
+            'new_password_confirmation': '123456Aa',
+        })
+        assert response.status_code == status.HTTP_200_OK
+
+
+# ── Password validation consistency (issue #532) ─────────────────────────────
+
+@pytest.mark.django_db
+class TestPasswordValidationConsistency:
+    """Both registration and password reset must enforce identical password rules."""
+
+    REGISTER_URL = '/auth/register/'
+    RESET_URL = '/auth/password-reset/confirm/'
+
+    def _make_token(self, user):
+        from apps.users.models import PasswordResetToken
+        return PasswordResetToken.objects.create(user=user)
+
+    def test_common_password_accepted_by_both_flows(self, client, user):
+        # '123456Aa' meets complexity rules but is in Django's common-password list.
+        # Registration must accept it, and so must password reset.
+        reg_response = client.post(self.REGISTER_URL, {
+            'email': 'consistency@example.com',
+            'username': 'consistencyuser',
+            'password': '123456Aa',
+            'password_confirmation': '123456Aa',
+        })
+        assert reg_response.status_code == status.HTTP_201_CREATED
+
+        token = self._make_token(user)
+        reset_response = client.post(self.RESET_URL, {
+            'token': str(token.token),
+            'new_password': '123456Aa',
+            'new_password_confirmation': '123456Aa',
+        })
+        assert reset_response.status_code == status.HTTP_200_OK
+
+    def test_weak_password_rejected_by_both_flows(self, client, user):
+        reg_response = client.post(self.REGISTER_URL, {
+            'email': 'consistency2@example.com',
+            'username': 'consistencyuser2',
+            'password': 'weak',
+            'password_confirmation': 'weak',
+        })
+        assert reg_response.status_code == status.HTTP_400_BAD_REQUEST
+
+        token = self._make_token(user)
+        reset_response = client.post(self.RESET_URL, {
+            'token': str(token.token),
+            'new_password': 'weak',
+            'new_password_confirmation': 'weak',
+        })
+        assert reset_response.status_code == status.HTTP_400_BAD_REQUEST
+
 
 # ── POST /auth/verify-email/ ─────────────────────────────────────────────────
 
