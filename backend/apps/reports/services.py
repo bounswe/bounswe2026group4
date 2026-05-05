@@ -30,7 +30,5 @@ def submit_report(reporter, target_type: str, target_id: int, reason: str, descr
                 reason=reason,
                 description=description,
             )
-    except IntegrityError as exc:
-        if 'Duplicate entry' not in str(exc):
-            raise
+    except IntegrityError:
         raise ValidationError({'non_field_errors': ['You have already reported this content.']})
