@@ -128,21 +128,21 @@ class TestAdminReportResolveView:
     def test_unauthenticated_returns_401(self, client, story):
         reporter = _make_user('rep@example.com', 'rep')
         report = Report.objects.create(reporter=reporter, story=story, reason=ReportReason.SPAM)
-        response = client.patch(resolve_url(report.pk), {}, content_type='application/json')
+        response = client.patch(resolve_url(report.pk), {}, format='json')
         assert response.status_code == 401
 
     def test_regular_user_returns_403(self, client, regular_user, story):
         reporter = _make_user('rep@example.com', 'rep')
         report = Report.objects.create(reporter=reporter, story=story, reason=ReportReason.SPAM)
         client.force_authenticate(user=regular_user)
-        response = client.patch(resolve_url(report.pk), {}, content_type='application/json')
+        response = client.patch(resolve_url(report.pk), {}, format='json')
         assert response.status_code == 403
 
     def test_admin_resolves_report_and_returns_200(self, client, admin, story):
         reporter = _make_user('rep@example.com', 'rep')
         report = Report.objects.create(reporter=reporter, story=story, reason=ReportReason.SPAM)
         client.force_authenticate(user=admin)
-        response = client.patch(resolve_url(report.pk), {}, content_type='application/json')
+        response = client.patch(resolve_url(report.pk), {}, format='json')
         assert response.status_code == 200
         assert response.data['status'] == ReportStatus.RESOLVED
         assert response.data['resolved_by']['email'] == admin.email
@@ -154,7 +154,7 @@ class TestAdminReportResolveView:
         response = client.patch(
             resolve_url(report.pk),
             {'resolution_note': 'Verified spam.'},
-            content_type='application/json',
+            format='json',
         )
         assert response.status_code == 200
         assert response.data['resolution_outcome'] == 'Verified spam.'
@@ -163,11 +163,11 @@ class TestAdminReportResolveView:
         reporter = _make_user('rep@example.com', 'rep')
         report = Report.objects.create(reporter=reporter, story=story, reason=ReportReason.SPAM)
         client.force_authenticate(user=admin)
-        response = client.patch(resolve_url(report.pk), {}, content_type='application/json')
+        response = client.patch(resolve_url(report.pk), {}, format='json')
         assert response.status_code == 200
         assert response.data['resolution_outcome'] == ''
 
     def test_nonexistent_report_returns_404(self, client, admin):
         client.force_authenticate(user=admin)
-        response = client.patch(resolve_url(99999), {}, content_type='application/json')
+        response = client.patch(resolve_url(99999), {}, format='json')
         assert response.status_code == 404

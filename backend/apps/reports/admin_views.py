@@ -3,6 +3,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.pagination import StoryPagination
 from common.permissions import IsAdminUser
 from apps.reports.models import ReportStatus
 from apps.reports.serializers import ReportListSerializer, ReportResolveSerializer
@@ -16,6 +17,7 @@ class AdminReportListView(ListAPIView):
 
     permission_classes = [IsAdminUser]
     serializer_class = ReportListSerializer
+    pagination_class = StoryPagination
 
     def get_queryset(self):
         status_param = self.request.query_params.get('status')
