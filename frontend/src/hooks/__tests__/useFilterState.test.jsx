@@ -19,6 +19,7 @@ describe("useFilterState", () => {
     expect(result.current.yearTo).toBe("");
     expect(result.current.location).toBe("");
     expect(result.current.page).toBe(1);
+    expect(result.current.tags).toEqual([]);
     expect(result.current.hasActiveFilters).toBe(false);
   });
 
@@ -33,6 +34,71 @@ describe("useFilterState", () => {
     expect(result.current.location).toBe("Pera");
     expect(result.current.page).toBe(3);
     expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it("parses tags from URL as an array", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?tags=galata,ottoman"]),
+    });
+
+    expect(result.current.tags).toEqual(["galata", "ottoman"]);
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it("hasActiveFilters is true when only tags are set", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?tags=history"]),
+    });
+
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it("setFilters with tags array joins them as comma-separated in URL", () => {
+    const { result } = renderHook(() => useFilterState(), { wrapper: makeWrapper() });
+
+    act(() => {
+      result.current.setFilters({ tags: ["galata", "ottoman"] });
+    });
+
+    expect(result.current.tags).toEqual(["galata", "ottoman"]);
+  });
+
+  it("setFilters with empty tags array removes the param", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?tags=galata"]),
+    });
+
+    act(() => {
+      result.current.setFilters({ tags: [] });
+    });
+
+    expect(result.current.tags).toEqual([]);
+  });
+
+  it("removeTag removes a single tag and keeps others", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?tags=galata,ottoman&page=2"]),
+    });
+
+    act(() => {
+      result.current.removeTag("galata");
+    });
+
+    expect(result.current.tags).toEqual(["ottoman"]);
+    expect(result.current.page).toBe(1);
+  });
+
+  it("removeTag deletes the tags param when the last tag is removed", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?tags=galata"]),
+    });
+
+    act(() => {
+      result.current.removeTag("galata");
+    });
+
+    expect(result.current.tags).toEqual([]);
+    expect(result.current.hasActiveFilters).toBe(false);
   });
 
   it("setFilters updates URL params", () => {
@@ -86,9 +152,9 @@ describe("useFilterState", () => {
     expect(result.current.page).toBe(1);
   });
 
-  it("clearAll removes all params", () => {
+  it("clearAll removes all params including tags", () => {
     const { result } = renderHook(() => useFilterState(), {
-      wrapper: makeWrapper(["/?q=galata&year_from=1900&location=Pera&page=3"]),
+      wrapper: makeWrapper(["/?q=galata&year_from=1900&location=Pera&tags=ottoman&page=3"]),
     });
 
     act(() => {
@@ -98,6 +164,7 @@ describe("useFilterState", () => {
     expect(result.current.q).toBe("");
     expect(result.current.yearFrom).toBe("");
     expect(result.current.location).toBe("");
+    expect(result.current.tags).toEqual([]);
     expect(result.current.page).toBe(1);
     expect(result.current.hasActiveFilters).toBe(false);
   });

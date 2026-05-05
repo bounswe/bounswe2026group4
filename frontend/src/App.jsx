@@ -7,6 +7,9 @@ import { ToastProvider } from "@/context/ToastContext";
 import { Toaster } from "@/components/ui/toaster";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import FeedPage from "@/pages/FeedPage";
@@ -27,6 +30,9 @@ function App() {
               <Route path="/map" element={<MapPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route
                 path="/complete-profile"
                 element={(

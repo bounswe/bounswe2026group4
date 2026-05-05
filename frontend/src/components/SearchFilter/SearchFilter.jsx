@@ -6,9 +6,9 @@ import ActiveFilters from "./ActiveFilters";
 import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
 
-/** Count how many non-search filters (year + location) are active. */
-function countActiveFilters({ yearFrom, yearTo, location }) {
-  return [yearFrom, yearTo, location].filter(Boolean).length;
+/** Count how many non-search filters (year, location, tags) are active. */
+function countActiveFilters({ yearFrom, yearTo, location, tags }) {
+  return [yearFrom, yearTo, location].filter(Boolean).length + tags.length;
 }
 
 /**
@@ -17,7 +17,7 @@ function countActiveFilters({ yearFrom, yearTo, location }) {
  * Must be rendered inside a React Router context.
  */
 function SearchFilter({ className }) {
-  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, setFilters, removeFilter, clearAll } = useFilterState();
+  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags, setFilters, removeFilter, removeTag, clearAll } = useFilterState();
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -26,7 +26,7 @@ function SearchFilter({ className }) {
     [setFilters]
   );
 
-  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc, latMin, latMax, lngMin, lngMax }) {
+  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc, latMin, latMax, lngMin, lngMax, tags: tgs}) {
     setFilters({
       year_from: yf,
       year_to: yt,
@@ -35,6 +35,7 @@ function SearchFilter({ className }) {
       lat_max: latMax ?? "",
       lng_min: lngMin ?? "",
       lng_max: lngMax ?? "",
+      tags: tgs
     }, { replace: true });
   }
 
@@ -48,7 +49,7 @@ function SearchFilter({ className }) {
     }
   }
 
-  const activeFilterCount = countActiveFilters({ yearFrom, yearTo, location });
+  const activeFilterCount = countActiveFilters({ yearFrom, yearTo, location, tags });
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -60,7 +61,7 @@ function SearchFilter({ className }) {
           />
         </div>
         <FilterPanel
-          key={`${yearFrom}-${yearTo}-${location}-${latMin}-${latMax}-${lngMin}-${lngMax}`}
+          key={`${yearFrom}-${yearTo}-${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${tags.join(",")}`}
           yearFrom={yearFrom}
           yearTo={yearTo}
           location={location}
@@ -68,6 +69,7 @@ function SearchFilter({ className }) {
           latMax={latMax}
           lngMin={lngMin}
           lngMax={lngMax}
+          tags={tags}
           onApply={handleFilterApply}
           activeCount={activeFilterCount}
         />
@@ -77,7 +79,9 @@ function SearchFilter({ className }) {
         yearFrom={yearFrom}
         yearTo={yearTo}
         location={location}
+        tags={tags}
         onRemove={handleRemoveFilter}
+        onRemoveTag={removeTag}
         onClearAll={clearAll}
       />
     </div>

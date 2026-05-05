@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useLocationSuggestions } from "@/hooks/useLocationSuggestions";
+import TagFilterInput from "./TagFilterInput";
 
 const YEAR_MIN = 1000;
 const YEAR_MAX = 2030;
@@ -13,17 +14,18 @@ const YEAR_SPINNER_FROM = 1980;
 const YEAR_SPINNER_TO = new Date().getFullYear();
 
 /**
- * Collapsible filter panel for year range and location.
+ * Collapsible filter panel for year range, location, and tags.
  * Maintains local form state; commits to URL only on "Apply".
  * The parent should pass a `key` tied to the current filter values so that
  * the component resets its local form whenever filters are cleared externally.
  */
-function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, onApply, activeCount = 0 }) {
+function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, tags = [], onApply, activeCount = 0 }) {
   const [open, setOpen] = useState(false);
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
   const [localLocation, setLocalLocation] = useState(location);
   const [suggestionsQuery, setSuggestionsQuery] = useState("");
+  const [localTags, setLocalTags] = useState(tags);
   const [yearError, setYearError] = useState("");
   const [lockedBbox, setLockedBbox] = useState(
     () => latMin != null && latMax != null && lngMin != null && lngMax != null
@@ -114,6 +116,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
       latMax: effectiveBbox?.latMax ?? null,
       lngMin: effectiveBbox?.lngMin ?? null,
       lngMax: effectiveBbox?.lngMax ?? null,
+      tags: localTags
     });
     setOpen(false);
   }
@@ -124,9 +127,10 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     setLocalLocation("");
     setSuggestionsQuery("");
     setLockedBbox(null);
+    setLocalTags([]);
     setYearError("");
     clearSuggestions();
-    onApply({ yearFrom: "", yearTo: "", location: "", latMin: null, latMax: null, lngMin: null, lngMax: null });
+    onApply({ yearFrom: "", yearTo: "", location: "", latMin: null, latMax: null, lngMin: null, lngMax: null, tags: [] });
     setOpen(false);
   }
 
@@ -299,6 +303,9 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                 )}
               </div>
             </div>
+
+            {/* Tags */}
+            <TagFilterInput value={localTags} onChange={setLocalTags} />
 
             {/* Actions */}
             <div className="flex items-center justify-between gap-2 pt-1">

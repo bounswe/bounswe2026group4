@@ -10,7 +10,15 @@ vi.mock("../tokenStore", () => ({
   clear: vi.fn(),
 }));
 
-import { login, register, logout } from "../authService";
+import {
+  login,
+  register,
+  logout,
+  forgotPassword,
+  resetPassword,
+  verifyEmail,
+  resendVerificationCode,
+} from "../authService";
 import { setAccessToken, setRefreshToken, getRefreshToken, clear } from "../tokenStore";
 
 describe("authService", () => {
@@ -66,6 +74,66 @@ describe("authService", () => {
     });
   });
 
+  describe("verifyEmail", () => {
+    it("posts to /auth/verify-email/ with email and code", async () => {
+      axios.post.mockResolvedValue({ data: { message: "verified" } });
+
+      const result = await verifyEmail("test@example.com", "123456");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/verify-email/"),
+        { email: "test@example.com", code: "123456" }
+      );
+      expect(result).toEqual({ message: "verified" });
+    });
+
+    it("propagates network errors", async () => {
+      axios.post.mockRejectedValue(new Error("Network error"));
+      await expect(verifyEmail("test@example.com", "123456")).rejects.toThrow(
+        "Network error"
+      );
+    });
+
+    it("propagates server errors with response", async () => {
+      const err = new Error("server");
+      err.response = { status: 500, data: { detail: "Server error" } };
+      axios.post.mockRejectedValue(err);
+      await expect(verifyEmail("test@example.com", "123456")).rejects.toMatchObject({
+        response: { status: 500 },
+      });
+    });
+  });
+
+  describe("resendVerificationCode", () => {
+    it("posts to /auth/resend-verification/ with email", async () => {
+      axios.post.mockResolvedValue({ data: { message: "sent" } });
+
+      const result = await resendVerificationCode("test@example.com");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/resend-verification/"),
+        { email: "test@example.com" }
+      );
+      expect(result).toEqual({ message: "sent" });
+    });
+
+    it("propagates network errors", async () => {
+      axios.post.mockRejectedValue(new Error("Network error"));
+      await expect(resendVerificationCode("test@example.com")).rejects.toThrow(
+        "Network error"
+      );
+    });
+
+    it("propagates server errors with response", async () => {
+      const err = new Error("server");
+      err.response = { status: 500, data: { detail: "Server error" } };
+      axios.post.mockRejectedValue(err);
+      await expect(resendVerificationCode("test@example.com")).rejects.toMatchObject({
+        response: { status: 500 },
+      });
+    });
+  });
+
   describe("logout", () => {
     it("calls API with refresh token and clears tokenStore", async () => {
       getRefreshToken.mockReturnValue("refresh-token");
@@ -96,6 +164,38 @@ describe("authService", () => {
       await logout();
 
       expect(clear).toHaveBeenCalled();
+    });
+  });
+
+  describe("forgotPassword", () => {
+    it("posts email to /auth/password-reset/", async () => {
+      axios.post.mockResolvedValue({ data: { message: "ok" } });
+
+      const result = await forgotPassword("test@example.com");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/password-reset/"),
+        { email: "test@example.com" }
+      );
+      expect(result).toEqual({ message: "ok" });
+    });
+  });
+
+  describe("resetPassword", () => {
+    it("posts token and new_password fields to /auth/password-reset/confirm/", async () => {
+      axios.post.mockResolvedValue({ data: { message: "ok" } });
+
+      const result = await resetPassword("token-uuid", "Password1", "Password1");
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.stringContaining("/auth/password-reset/confirm/"),
+        {
+          token: "token-uuid",
+          new_password: "Password1",
+          new_password_confirmation: "Password1",
+        }
+      );
+      expect(result).toEqual({ message: "ok" });
     });
   });
 });
