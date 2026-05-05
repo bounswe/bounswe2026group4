@@ -5,6 +5,10 @@ import { MemoryRouter } from "react-router-dom";
 
 import SearchFilter from "../SearchFilter";
 
+vi.mock("@/services/tagService", () => ({
+  searchTags: vi.fn().mockResolvedValue([]),
+}));
+
 function renderSearchFilter(initialEntries = ["/"]) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
@@ -105,6 +109,51 @@ describe("SearchFilter", () => {
     renderSearchFilter(["/?year_from=1900&year_to=2000"]);
     // 2 active non-q filters
     expect(screen.getByRole("button", { name: /filters \(2 active\)/i })).toBeInTheDocument();
+  });
+
+  it("shows tag chip from URL tags param", () => {
+    renderSearchFilter(["/?tags=ottoman"]);
+    expect(screen.getByText("ottoman")).toBeInTheDocument();
+  });
+
+  it("shows multiple tag chips from URL tags param", () => {
+    renderSearchFilter(["/?tags=ottoman,galata"]);
+    expect(screen.getByText("ottoman")).toBeInTheDocument();
+    expect(screen.getByText("galata")).toBeInTheDocument();
+  });
+
+  it("includes tag count in filter badge", () => {
+    renderSearchFilter(["/?tags=ottoman,galata"]);
+    expect(screen.getByRole("button", { name: /filters \(2 active\)/i })).toBeInTheDocument();
+  });
+
+  it("removing a tag chip removes it from active filters", async () => {
+    const user = userEvent.setup();
+    renderSearchFilter(["/?tags=ottoman,galata"]);
+
+    expect(screen.getByText("ottoman")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /remove tag filter: ottoman/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("ottoman")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("galata")).toBeInTheDocument();
+  });
+
+  it("Clear all also clears tag chips", async () => {
+    const user = userEvent.setup();
+    renderSearchFilter(["/?tags=ottoman&year_from=1900"]);
+
+    expect(screen.getByText("ottoman")).toBeInTheDocument();
+    expect(screen.getByText("From 1900")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /clear all filters/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("ottoman")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText("From 1900")).not.toBeInTheDocument();
   });
 
   it("removing the year range chip removes it and clears search input value updates", async () => {

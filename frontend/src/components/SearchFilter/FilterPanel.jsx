@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import TagFilterInput from "./TagFilterInput";
 
 const YEAR_MIN = 1000;
 const YEAR_MAX = 2030;
@@ -11,16 +12,17 @@ const YEAR_SPINNER_FROM = 1980;
 const YEAR_SPINNER_TO = new Date().getFullYear();
 
 /**
- * Collapsible filter panel for year range and location.
+ * Collapsible filter panel for year range, location, and tags.
  * Maintains local form state; commits to URL only on "Apply".
  * The parent should pass a `key` tied to the current filter values so that
  * the component resets its local form whenever filters are cleared externally.
  */
-function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activeCount = 0 }) {
+function FilterPanel({ yearFrom = "", yearTo = "", location = "", tags = [], onApply, activeCount = 0 }) {
   const [open, setOpen] = useState(false);
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
   const [localLocation, setLocalLocation] = useState(location);
+  const [localTags, setLocalTags] = useState(tags);
   const [yearError, setYearError] = useState("");
 
   function clampYear(value) {
@@ -43,7 +45,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
       return;
     }
     setYearError("");
-    onApply({ yearFrom: from, yearTo: to, location: localLocation.trim() });
+    onApply({ yearFrom: from, yearTo: to, location: localLocation.trim(), tags: localTags });
     setOpen(false);
   }
 
@@ -51,8 +53,9 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
     setLocalYearFrom("");
     setLocalYearTo("");
     setLocalLocation("");
+    setLocalTags([]);
     setYearError("");
-    onApply({ yearFrom: "", yearTo: "", location: "" });
+    onApply({ yearFrom: "", yearTo: "", location: "", tags: [] });
     setOpen(false);
   }
 
@@ -182,6 +185,9 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", onApply, activ
                 aria-label="Location filter"
               />
             </div>
+
+            {/* Tags */}
+            <TagFilterInput value={localTags} onChange={setLocalTags} />
 
             {/* Actions */}
             <div className="flex items-center justify-between gap-2 pt-1">
