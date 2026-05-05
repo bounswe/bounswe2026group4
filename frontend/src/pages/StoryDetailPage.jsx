@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import StoryDetailMap from "@/components/StoryDetailMap/StoryDetailMap";
 import LikeButton from "@/components/Interactions/LikeButton";
+import BookmarkButton from "@/components/Interactions/BookmarkButton";
 import CommentSection from "@/components/Interactions/CommentSection";
 import StructuredData from "@/components/StructuredData/StructuredData";
 
@@ -376,6 +377,13 @@ function StoryDetailPage() {
                 />
                 {commentCount}
               </span>
+              <BookmarkButton
+                storyId={story.id}
+                initialBookmarked={story.user_has_saved ?? false}
+                onToggle={(newBookmarked) => {
+                  toast.success(newBookmarked ? "Story saved." : "Story removed from saved.");
+                }}
+              />
             </div>
 
             <CommentSection

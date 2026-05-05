@@ -129,7 +129,7 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='resend')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@example.com')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Local History Story Map <noreply@example.com>')
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
@@ -168,6 +168,7 @@ REST_FRAMEWORK = {
         'user': '300/minute',
         'login': '10/minute',
         'password_reset': '5/minute',
+        'verify_email': '10/minute',
     },
 }
 

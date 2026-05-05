@@ -199,7 +199,7 @@ class TestMediaItemResponseSerializer:
         from apps.users.models import User
 
         user = User.objects.create_user(
-            email='msr@example.com', username='msruser', password='Password1'
+            email='msr@example.com', username='msruser', password='Password1', is_active=True,
         )
         story = Story.objects.create(
             user=user, title='T', narrative='N',

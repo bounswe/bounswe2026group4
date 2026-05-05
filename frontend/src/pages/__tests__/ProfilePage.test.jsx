@@ -48,6 +48,12 @@ vi.mock("@/components/Profile/EditProfileForm", () => ({
   ),
 }));
 
+vi.mock("@/components/Profile/SavedStoriesTab", () => ({
+  default: ({ userId }) => (
+    <div data-testid="saved-stories-tab" data-user-id={userId} />
+  ),
+}));
+
 import { getProfile, getOwnProfile } from "@/services/userService";
 import { useAuth } from "@/hooks/useAuth";
 

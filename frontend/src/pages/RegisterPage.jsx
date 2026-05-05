@@ -14,7 +14,6 @@ import {
   CardFooter,
 } from "@/components/ui";
 import { register } from "@/services/authService";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 
 const INITIAL_FIELD_ERRORS = {
@@ -46,7 +45,6 @@ function validatePasswordStrength(password) {
 function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
   const { toast } = useToast();
 
   const [username, setUsername] = useState("");
@@ -150,17 +148,14 @@ function RegisterPage() {
     setIsLoading(true);
     try {
       await register(username, email, password, confirmPassword);
-      try {
-        await login(email, password);
-        toast.success("Account created! Welcome!");
-        navigate("/complete-profile", {
-          state: { from: location.state?.from || null },
-          replace: true,
-        });
-      } catch {
-        toast.info("Account created! Please sign in to continue.");
-        navigate("/login", { state: { from: location.state?.from }, replace: true });
-      }
+      toast.info("Account created! Check your email for a verification code.");
+      // Forward the password (held in route state, not in the URL) so
+      // VerifyEmailPage can auto-login the user the moment verification
+      // succeeds and send them straight to profile completion.
+      navigate("/verify-email", {
+        state: { email, password, from: location.state?.from || null },
+        replace: true,
+      });
     } catch (error) {
       const msg = extractApiErrors(error);
       setApiError(msg);

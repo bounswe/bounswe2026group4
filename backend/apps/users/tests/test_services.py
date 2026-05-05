@@ -23,6 +23,7 @@ from apps.users.services import (
     logout_user,
     register_user,
     request_password_reset,
+    resend_verification,
     reset_password,
     unfollow_user,
     update_own_profile,
@@ -67,14 +68,24 @@ class TestRegisterUser:
         user = register_user(self._data())
         assert EmailVerificationCode.objects.filter(user=user).exists()
 
-    def test_user_is_active_on_registration(self):
-        # Active by default — email verification is scaffolded but not yet enforced
+    def test_user_is_inactive_on_registration(self):
         user = register_user(self._data())
-        assert user.is_active is True
+        assert user.is_active is False
 
     def test_email_is_not_verified_on_registration(self):
         user = register_user(self._data())
         assert user.is_email_verified is False
+
+    def test_register_user_awards_registration_badge_when_seeded(self):
+        from apps.gamification.models import UserBadge
+        # Pioneer badge is already seeded by the data migration — no creation needed.
+        user = register_user(self._data())
+        assert UserBadge.objects.filter(user=user).exists()
+
+    def test_register_user_does_not_fail_without_registration_badge_seeded(self):
+        # Graceful no-op when no badge row exists yet
+        user = register_user(self._data())  # must not raise
+        assert user.pk is not None
 
 
 @pytest.mark.django_db
@@ -84,6 +95,7 @@ class TestLoginUser:
             email='user@example.com',
             username='testuser',
             password='Password1',
+            is_active=True,
         )
 
     def test_returns_tokens_on_valid_credentials(self):
@@ -148,6 +160,7 @@ class TestLogoutUser:
             email='user@example.com',
             username='testuser',
             password='Password1',
+            is_active=True,
         )
 
     def test_valid_refresh_token_is_blacklisted(self):
@@ -178,6 +191,7 @@ class TestGetPublicProfile:
             email='profile@example.com',
             username='profileuser',
             password='Password1',
+            is_active=True,
         )
 
     def test_returns_user_for_valid_id(self):
@@ -231,6 +245,7 @@ class TestGetOwnProfile:
             email='own@example.com',
             username='ownuser',
             password='Password1',
+            is_active=True,
         )
 
     def test_returns_correct_user(self):
@@ -263,6 +278,7 @@ class TestUpdateOwnProfile:
             email='upd@example.com',
             username='upduser',
             password='Password1',
+            is_active=True,
         )
 
     def test_updates_user_fields(self):
@@ -324,6 +340,7 @@ class TestUploadProfilePhoto:
             email='photo@example.com',
             username='photouser',
             password='Password1',
+            is_active=True,
         )
 
     def test_upload_jpeg_succeeds(self):
@@ -380,6 +397,7 @@ class TestDeleteAccount:
             email='del@example.com',
             username='deluser',
             password='Password1',
+            is_active=True,
         )
 
     def _make_story(self, title='Story'):
@@ -472,7 +490,7 @@ class TestDeleteAccount:
     def test_hard_delete_removes_user_comments_on_other_stories(self):
         from apps.interactions.models import Comment
         other_user = User.objects.create_user(
-            email='other@example.com', username='otheruser', password='Password1'
+            email='other@example.com', username='otheruser', password='Password1', is_active=True,
         )
         other_story = Story.objects.create(
             user=other_user, title='Other', narrative='N',
@@ -506,7 +524,7 @@ class TestDeleteAccount:
     def test_soft_delete_does_not_remove_user_comments(self):
         from apps.interactions.models import Comment
         other_user = User.objects.create_user(
-            email='other2@example.com', username='otheruser2', password='Password1'
+            email='other2@example.com', username='otheruser2', password='Password1', is_active=True,
         )
         other_story = Story.objects.create(
             user=other_user, title='Other', narrative='N',
@@ -529,6 +547,7 @@ class TestDeleteProfilePhoto:
             email='del@example.com',
             username='deluser',
             password='Password1',
+            is_active=True,
         )
 
     def test_clears_photo_field(self):
@@ -558,10 +577,10 @@ class TestDeleteProfilePhoto:
 class TestFollowUser:
     def setup_method(self):
         self.follower = User.objects.create_user(
-            email='fw1@example.com', username='fwuser1', password='Password1'
+            email='fw1@example.com', username='fwuser1', password='Password1', is_active=True,
         )
         self.target = User.objects.create_user(
-            email='fw2@example.com', username='fwuser2', password='Password1'
+            email='fw2@example.com', username='fwuser2', password='Password1', is_active=True,
         )
 
     def test_creates_follow_record(self):
@@ -602,10 +621,10 @@ class TestFollowUser:
 class TestUnfollowUser:
     def setup_method(self):
         self.follower = User.objects.create_user(
-            email='uf1@example.com', username='ufuser1', password='Password1'
+            email='uf1@example.com', username='ufuser1', password='Password1', is_active=True,
         )
         self.target = User.objects.create_user(
-            email='uf2@example.com', username='ufuser2', password='Password1'
+            email='uf2@example.com', username='ufuser2', password='Password1', is_active=True,
         )
 
     def test_removes_follow_record(self):
@@ -628,10 +647,10 @@ class TestUnfollowUser:
 class TestGetPublicProfileFollowCounts:
     def setup_method(self):
         self.subject = User.objects.create_user(
-            email='subj@example.com', username='subjuser', password='Password1'
+            email='subj@example.com', username='subjuser', password='Password1', is_active=True,
         )
         self.other = User.objects.create_user(
-            email='fcnt1@example.com', username='fcntuser', password='Password1'
+            email='fcnt1@example.com', username='fcntuser', password='Password1', is_active=True,
         )
 
     def test_followers_count_is_zero_initially(self):
@@ -874,3 +893,62 @@ class TestResetPassword:
         reset_password(str(token.token), 'NewPassword1')
 
         assert BlacklistedToken.objects.filter(token=outstanding).exists()
+
+
+# ── resend_verification ───────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestResendVerification:
+    def _make_unverified_user(self, email='unverified@example.com', username='unverified'):
+        return User.objects.create_user(
+            email=email, username=username, password='Password1',
+        )
+
+    def test_creates_new_code_for_unverified_user(self):
+        user = self._make_unverified_user()
+        resend_verification(user.email)
+        assert EmailVerificationCode.objects.filter(user=user, is_used=False).exists()
+
+    def test_sends_verification_email(self):
+        user = self._make_unverified_user()
+        mail.outbox.clear()
+        resend_verification(user.email)
+        assert len(mail.outbox) == 1
+
+    def test_invalidates_old_unused_codes_before_creating_new(self):
+        user = self._make_unverified_user()
+        old_code = EmailVerificationCode.objects.create(
+            user=user, code=EmailVerificationCode.generate_code()
+        )
+        resend_verification(user.email)
+        old_code.refresh_from_db()
+        assert old_code.is_used is True
+        assert EmailVerificationCode.objects.filter(user=user, is_used=False).count() == 1
+
+    def test_only_latest_code_is_valid_after_resend(self):
+        user = self._make_unverified_user()
+        resend_verification(user.email)
+        resend_verification(user.email)
+        assert EmailVerificationCode.objects.filter(user=user, is_used=False).count() == 1
+
+    def test_noop_for_unknown_email(self):
+        mail.outbox.clear()
+        resend_verification('nobody@example.com')
+        assert len(mail.outbox) == 0
+
+    def test_noop_for_already_active_user(self):
+        user = self._make_unverified_user()
+        user.is_active = True
+        user.save()
+        mail.outbox.clear()
+        resend_verification(user.email)
+        assert len(mail.outbox) == 0
+
+    def test_noop_for_already_verified_user(self):
+        user = self._make_unverified_user()
+        user.is_email_verified = True
+        user.save()
+        mail.outbox.clear()
+        resend_verification(user.email)
+        assert len(mail.outbox) == 0

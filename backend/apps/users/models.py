@@ -20,6 +20,9 @@ class UserManager(BaseUserManager):
             raise ValueError('Email is required.')
         if not username:
             raise ValueError('Username is required.')
+        # New users must verify their email before they can log in.
+        # Callers that need an already-active user (tests, create_superuser) pass is_active=True explicitly.
+        extra_fields.setdefault('is_active', False)
         email = self.normalize_email(email)
         user = self.model(email=email, username=username, **extra_fields)
         user.set_password(password)  # hashes the password — never store plaintext
@@ -47,8 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_username_public = models.BooleanField(default=True)
     # Cached total points; updated atomically alongside PointTransaction inserts (req. 1.7.1.4)
     total_points = models.IntegerField(default=0)
-    # TODO: set default=False once email verification infra is ready (req. 1.2.1.2)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     # Tracks 6-digit email verification separately from is_active to distinguish "unverified" vs "banned"
     is_email_verified = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
@@ -95,7 +97,7 @@ class UserProfile(models.Model):
 
 def _verification_code_expiry():
     # Module-level function instead of lambda so Django migrations can serialize it
-    return timezone.now() + timedelta(hours=24)
+    return timezone.now() + timedelta(minutes=15)
 
 
 class EmailVerificationCode(models.Model):

@@ -5,6 +5,7 @@ export const linking = {
       Profile: 'profile',
       UserProfile: 'users/:id',
       StoryDetail: 'stories/:id',
+      Timeline: 'timeline',
     },
   },
 };

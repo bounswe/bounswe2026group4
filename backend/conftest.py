@@ -20,6 +20,7 @@ def user(db):
         email='user@example.com',
         username='testuser',
         password='Password1',
+        is_active=True,
     )
 
 
@@ -30,6 +31,7 @@ def second_user(db):
         email='other@example.com',
         username='otheruser',
         password='Password1',
+        is_active=True,
     )
 
 
@@ -42,6 +44,7 @@ def admin_user(db):
         password='Password1',
         role=RoleChoices.ADMIN,
         is_staff=True,
+        is_active=True,
     )
 
 

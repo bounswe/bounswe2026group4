@@ -18,7 +18,7 @@ class TestUserManager:
         assert user.email == 'user@example.com'
         assert user.username == 'testuser'
         assert user.role == RoleChoices.REGISTERED_USER
-        assert user.is_active is True
+        assert user.is_active is False
         assert user.is_staff is False
         assert user.is_superuser is False
         assert user.is_email_verified is False

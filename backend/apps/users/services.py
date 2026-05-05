@@ -15,6 +15,9 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Va
 from apps.users.email_service import send_password_reset_email, send_verification_email
 from apps.users.models import EmailVerificationCode, Follow, PasswordResetToken, User, UserProfile
 
+def _invalid_verification_code():
+    return ValidationError({'code': 'Invalid or expired verification code.'})
+
 _MAX_PHOTO_SIZE = 2 * 1024 * 1024  # 2 MB
 _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
 
@@ -26,12 +29,15 @@ def register_user(validated_data: dict) -> User:
     Creates a new user, generates an email verification code, and sends the verification email.
     Email failures are caught and logged — they do not prevent account creation.
     """
+    from apps.gamification.services import award_registration_badge
+
     try:
         with transaction.atomic():
             user = User.objects.create_user(
                 email=validated_data['email'],
                 username=validated_data['username'],
                 password=validated_data['password'],
+                is_active=False,
             )
             code = EmailVerificationCode.generate_code()
             EmailVerificationCode.objects.create(user=user, code=code)
@@ -42,7 +48,62 @@ def register_user(validated_data: dict) -> User:
         send_verification_email(user.email, code)
     except Exception:
         logger.exception('Failed to send verification email to %s', user.email)
+
+    # TODO: move to email verification handler when is_email_verified enforcement is added
+    award_registration_badge(user)
     return user
+
+
+def verify_email(email: str, code: str) -> None:
+    """
+    Validates the 6-digit code and activates the account.
+
+    Uses a unified error for unknown emails, wrong codes, and expired/used codes
+    so the response does not reveal whether a given email is registered.
+    The flag update and code invalidation are atomic — they cannot diverge.
+    """
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        raise _invalid_verification_code()
+
+    verification = (
+        EmailVerificationCode.objects
+        .filter(user=user, code=code, is_used=False)
+        .order_by('-created_at')
+        .first()
+    )
+
+    if verification is None or verification.is_expired():
+        raise _invalid_verification_code()
+
+    with transaction.atomic():
+        verification.is_used = True
+        verification.save(update_fields=['is_used'])
+        user.is_active = True
+        user.is_email_verified = True
+        user.save(update_fields=['is_active', 'is_email_verified'])
+
+
+def resend_verification(email: str) -> None:
+    """
+    Generates a new verification code and emails it to unverified accounts.
+
+    Silent for unknown/active/already-verified emails to prevent enumeration.
+    Email failures are caught and logged — they do not surface to the caller.
+    """
+    try:
+        user = User.objects.get(email=email, is_active=False, is_email_verified=False)
+    except User.DoesNotExist:
+        return
+
+    EmailVerificationCode.objects.filter(user=user, is_used=False).update(is_used=True)
+    code = EmailVerificationCode.generate_code()
+    EmailVerificationCode.objects.create(user=user, code=code)
+    try:
+        send_verification_email(user.email, code)
+    except Exception:
+        logger.exception('Failed to resend verification email to %s', user.email)
 
 
 def login_user(email: str, password: str) -> dict:
@@ -203,6 +264,12 @@ def delete_account(user: User, hard_delete: bool, refresh_token: str = '') -> No
         delete_profile_photo(user)
         for item in MediaItem.objects.filter(story__user=user).only('file'):
             item.file.delete(save=False)
+        # Intentional: hard-delete does NOT reverse other users' earned points.
+        # Points from likes/comments/saves on this user's stories, and from this
+        # user's interactions on others' stories, are kept as-is. This is a
+        # deliberate product decision — the activity happened and is not penalised.
+        # Note: queryset .delete() bypasses the delete_story/delete_comment services,
+        # so no point adjustment signals are triggered.
         Comment.objects.filter(author=user).delete()
         Story.objects.filter(user=user).delete()
         user.delete()
@@ -381,8 +448,10 @@ def request_password_reset(email: str) -> None:
     except User.DoesNotExist:
         return
 
-    PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
-    token = PasswordResetToken.objects.create(user=user)
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=user.pk)
+        PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
+        token = PasswordResetToken.objects.create(user=user)
     reset_link = f"{settings.FRONTEND_URL}/reset-password/{token.token}"
     try:
         send_password_reset_email(user.email, reset_link)

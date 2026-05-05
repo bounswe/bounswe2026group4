@@ -215,6 +215,13 @@ describe("LoginPage", () => {
     expect(signUpLink).toBeInTheDocument();
   });
 
+  it("has link to forgot password page", () => {
+    renderLoginPage();
+
+    const forgotLink = screen.getByRole("link", { name: /forgot your password/i });
+    expect(forgotLink).toHaveAttribute("href", "/forgot-password");
+  });
+
   it("shows contextual message when redirected from submit-story", () => {
     render(
       <ToastProvider>

@@ -9,6 +9,7 @@ describe('toSearchParams', () => {
         locationBounds: undefined,
         timeFrom: '',
         timeTo: '',
+        tags: [],
       }),
     ).toEqual({
       q: undefined,
@@ -16,6 +17,7 @@ describe('toSearchParams', () => {
       locationBounds: undefined,
       yearFrom: undefined,
       yearTo: undefined,
+      tags: undefined,
     });
   });
 
@@ -34,6 +36,7 @@ describe('toSearchParams', () => {
         locationBounds,
         timeFrom: '',
         timeTo: '',
+        tags: [],
       }),
     ).toEqual({
       q: undefined,
@@ -41,6 +44,7 @@ describe('toSearchParams', () => {
       locationBounds,
       yearFrom: undefined,
       yearTo: undefined,
+      tags: undefined,
     });
   });
 });

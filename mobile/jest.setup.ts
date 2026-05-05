@@ -89,8 +89,13 @@ jest.mock('react-native-webview', () => {
   const React = require('react');
   const { View } = require('react-native');
 
-  const MockWebView = ({ children, ...props }: { children?: React.ReactNode }) =>
-    React.createElement(View, props, children);
+  const MockWebView = React.forwardRef(({ children, ...props }: { children?: React.ReactNode }, ref: React.Ref<unknown>) => {
+    React.useImperativeHandle(ref, () => ({
+      injectJavaScript: jest.fn(),
+    }));
+
+    return React.createElement(View, props, children);
+  });
 
   return {
     __esModule: true,

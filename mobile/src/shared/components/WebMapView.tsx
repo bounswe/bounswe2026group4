@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -30,18 +30,33 @@ interface WebMapViewProps {
   onMarkerPress?: (markerId: string) => void;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
   onRegionChangeComplete?: (region: RegionLike) => void;
+  transitionDurationMs?: number;
 }
+
+type WebViewHandle = {
+  injectJavaScript: (script: string) => void;
+};
+
+type MapUpdatePayload = {
+  region?: RegionLike;
+  markers?: MarkerItem[];
+  userLocation?: UserLocationLike | null;
+  animated?: boolean;
+  transitionDurationMs?: number;
+};
 
 const mapHtml = ({
   region,
   markers,
   userLocation,
   interactive,
+  transitionDurationMs,
 }: {
   region: RegionLike;
   markers: MarkerItem[];
   userLocation?: UserLocationLike;
   interactive: boolean;
+  transitionDurationMs: number;
 }) => `<!DOCTYPE html>
 <html>
   <head>
@@ -109,24 +124,36 @@ const mapHtml = ({
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script>
       const region = ${JSON.stringify(region)};
-      const markers = ${JSON.stringify(markers)};
-      const userLocation = ${JSON.stringify(userLocation ?? null)};
+      let markerData = ${JSON.stringify(markers)};
+      let userLocationData = ${JSON.stringify(userLocation ?? null)};
       const interactive = ${interactive ? 'true' : 'false'};
+      const defaultTransitionDurationMs = ${transitionDurationMs};
       let hasCompletedInitialMove = false;
+      let isMapReady = false;
+      let isProgrammaticMove = false;
+      let programmaticMoveTimer;
+      let markerInstances = [];
+      let pendingUpdatePayload = null;
+      let userLocationMarker = null;
 
-      const zoom = Math.max(
-        2,
-        Math.min(
-          16,
-          Math.round(Math.log2(360 / Math.max(region.longitudeDelta, 0.0001)))
-        )
-      );
+      const getZoomForRegion = (nextRegion) => {
+        const requestedDelta = Math.max(
+          Math.abs(nextRegion.latitudeDelta || 0),
+          Math.abs(nextRegion.longitudeDelta || 0),
+          0.0001
+        );
+
+        return Math.max(
+          2,
+          Math.min(16, Math.floor(Math.log2(360 / requestedDelta)))
+        );
+      };
 
       const map = new maplibregl.Map({
         container: 'map',
         style: 'https://tiles.openfreemap.org/styles/liberty',
         center: [region.longitude, region.latitude],
-        zoom,
+        zoom: getZoomForRegion(region),
         attributionControl: false,
         dragPan: interactive,
         scrollZoom: interactive,
@@ -153,7 +180,27 @@ const mapHtml = ({
         );
       };
 
-      markers.forEach((marker) => {
+      const clearProgrammaticMove = () => {
+        if (programmaticMoveTimer) {
+          window.clearTimeout(programmaticMoveTimer);
+        }
+
+        isProgrammaticMove = false;
+      };
+
+      const markProgrammaticMove = (duration) => {
+        isProgrammaticMove = true;
+
+        if (programmaticMoveTimer) {
+          window.clearTimeout(programmaticMoveTimer);
+        }
+
+        programmaticMoveTimer = window.setTimeout(() => {
+          isProgrammaticMove = false;
+        }, Math.max(duration, 0) + 120);
+      };
+
+      const createStoryMarker = (marker) => {
         const element = document.createElement('div');
         element.className = marker.selected ? 'marker selected' : 'marker';
 
@@ -164,25 +211,95 @@ const mapHtml = ({
           element.appendChild(label);
         }
 
-        element.addEventListener('click', () => {
+        element.addEventListener('click', (event) => {
+          event.stopPropagation();
           window.ReactNativeWebView?.postMessage(
             JSON.stringify({ type: 'markerPress', markerId: marker.id })
           );
         });
 
-        new maplibregl.Marker({ element, anchor: 'center' })
+        return new maplibregl.Marker({ element, anchor: 'center' })
           .setLngLat([marker.longitude, marker.latitude])
           .addTo(map);
-      });
+      };
 
-      if (userLocation) {
-        const element = document.createElement('div');
-        element.className = 'user-location-marker';
+      const renderMarkers = (nextMarkers, nextUserLocation) => {
+        markerInstances.forEach((marker) => marker.remove());
+        markerInstances = [];
 
-        new maplibregl.Marker({ element, anchor: 'center' })
-          .setLngLat([userLocation.longitude, userLocation.latitude])
-          .addTo(map);
-      }
+        nextMarkers.forEach((marker) => {
+          markerInstances.push(createStoryMarker(marker));
+        });
+
+        if (userLocationMarker) {
+          userLocationMarker.remove();
+          userLocationMarker = null;
+        }
+
+        if (nextUserLocation) {
+          const element = document.createElement('div');
+          element.className = 'user-location-marker';
+
+          userLocationMarker = new maplibregl.Marker({ element, anchor: 'center' })
+            .setLngLat([nextUserLocation.longitude, nextUserLocation.latitude])
+            .addTo(map);
+        }
+
+        markerData = nextMarkers;
+        userLocationData = nextUserLocation ?? null;
+      };
+
+      const moveToRegion = (nextRegion, animated, durationOverride) => {
+        const duration = Number.isFinite(durationOverride)
+          ? durationOverride
+          : defaultTransitionDurationMs;
+        const camera = {
+          center: [nextRegion.longitude, nextRegion.latitude],
+          zoom: getZoomForRegion(nextRegion),
+        };
+
+        markProgrammaticMove(animated ? duration : 0);
+
+        if (animated && duration > 0) {
+          map.easeTo({
+            ...camera,
+            duration,
+            easing: (progress) => progress,
+          });
+          return;
+        }
+
+        map.jumpTo(camera);
+      };
+
+      const applyMapUpdate = (payload = {}) => {
+        if (Array.isArray(payload.markers) || Object.prototype.hasOwnProperty.call(payload, 'userLocation')) {
+          const nextMarkers = Array.isArray(payload.markers) ? payload.markers : markerData;
+          const nextUserLocation = Object.prototype.hasOwnProperty.call(payload, 'userLocation')
+            ? payload.userLocation
+            : userLocationData;
+
+          renderMarkers(nextMarkers, nextUserLocation);
+        }
+
+        if (payload.region) {
+          moveToRegion(payload.region, payload.animated !== false, payload.transitionDurationMs);
+        }
+      };
+
+      renderMarkers(markerData, userLocationData);
+
+      window.__storyMapUpdate = (payload = {}) => {
+        if (!isMapReady) {
+          pendingUpdatePayload = {
+            ...(pendingUpdatePayload ?? {}),
+            ...payload,
+          };
+          return;
+        }
+
+        applyMapUpdate(payload);
+      };
 
       if (!interactive) {
         map.boxZoom.disable();
@@ -212,7 +329,22 @@ const mapHtml = ({
           return;
         }
 
+        if (isProgrammaticMove) {
+          clearProgrammaticMove();
+          return;
+        }
+
         postCurrentRegion();
+      });
+
+      map.on('load', () => {
+        isMapReady = true;
+        hasCompletedInitialMove = true;
+
+        if (pendingUpdatePayload) {
+          applyMapUpdate(pendingUpdatePayload);
+          pendingUpdatePayload = null;
+        }
       });
     </script>
   </body>
@@ -226,19 +358,67 @@ export function WebMapView({
   onMarkerPress,
   onMapPress,
   onRegionChangeComplete,
+  transitionDurationMs = 450,
 }: WebMapViewProps) {
-  const source = useMemo(
-    () => ({
-      html: mapHtml({ region, markers, userLocation, interactive }),
-    }),
-    [interactive, markers, region, userLocation],
-  );
+  const webViewRef = useRef<WebViewHandle | null>(null);
+  const sourceRef = useRef<{ html: string } | null>(null);
+  const latestUpdatePayloadRef = useRef<MapUpdatePayload | null>(null);
+  const lastSentRegionRef = useRef<RegionLike | null>(null);
+  const lastSentMarkersRef = useRef<MarkerItem[] | null>(null);
+  const lastSentUserLocationRef = useRef<UserLocationLike | null | undefined>(undefined);
+
+  if (sourceRef.current === null) {
+    sourceRef.current = {
+      html: mapHtml({ region, markers, userLocation, interactive, transitionDurationMs }),
+    };
+  }
+
+  const fullUpdatePayload = {
+    region,
+    markers,
+    userLocation: userLocation ?? null,
+    animated: true,
+    transitionDurationMs,
+  };
+  latestUpdatePayloadRef.current = fullUpdatePayload;
+
+  useEffect(() => {
+    const updatePayload: MapUpdatePayload = {};
+    const nextUserLocation = userLocation ?? null;
+
+    if (!lastSentRegionRef.current || !regionsEqual(lastSentRegionRef.current, region)) {
+      updatePayload.region = region;
+      updatePayload.animated = true;
+      updatePayload.transitionDurationMs = transitionDurationMs;
+      lastSentRegionRef.current = region;
+    }
+
+    if (!lastSentMarkersRef.current || !markersEqual(lastSentMarkersRef.current, markers)) {
+      updatePayload.markers = markers;
+      lastSentMarkersRef.current = markers;
+    }
+
+    if (
+      lastSentUserLocationRef.current === undefined ||
+      !userLocationsEqual(lastSentUserLocationRef.current, nextUserLocation)
+    ) {
+      updatePayload.userLocation = nextUserLocation;
+      lastSentUserLocationRef.current = nextUserLocation;
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      injectMapUpdate(webViewRef.current, updatePayload);
+    }
+  }, [markers, region, transitionDurationMs, userLocation]);
 
   return (
-    <View style={styles.container}>
+    <View testID="web-map-view" style={styles.container}>
       <WebView
+        ref={(ref: unknown) => {
+          webViewRef.current = ref as WebViewHandle | null;
+        }}
         originWhitelist={['*']}
-        source={source}
+        source={sourceRef.current}
         style={styles.webview}
         javaScriptEnabled
         domStorageEnabled
@@ -246,6 +426,11 @@ export function WebMapView({
         nestedScrollEnabled
         androidLayerType="hardware"
         setSupportMultipleWindows={false}
+        onLoadEnd={() => {
+          if (latestUpdatePayloadRef.current) {
+            injectMapUpdate(webViewRef.current, latestUpdatePayloadRef.current);
+          }
+        }}
         onMessage={(event: { nativeEvent: { data: string } }) => {
           try {
             const payload = JSON.parse(event.nativeEvent.data);
@@ -297,3 +482,52 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
 });
+
+function injectMapUpdate(webView: WebViewHandle | null, payload: MapUpdatePayload) {
+  webView?.injectJavaScript(
+    `window.__storyMapUpdate && window.__storyMapUpdate(${escapeInjectedJson(payload)}); true;`,
+  );
+}
+
+function regionsEqual(left: RegionLike, right: RegionLike) {
+  return (
+    left.latitude === right.latitude &&
+    left.longitude === right.longitude &&
+    left.latitudeDelta === right.latitudeDelta &&
+    left.longitudeDelta === right.longitudeDelta
+  );
+}
+
+function userLocationsEqual(left: UserLocationLike | null, right: UserLocationLike | null) {
+  if (left === null || right === null) {
+    return left === right;
+  }
+
+  return left.latitude === right.latitude && left.longitude === right.longitude;
+}
+
+function markersEqual(left: MarkerItem[], right: MarkerItem[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((marker, index) => {
+    const nextMarker = right[index];
+
+    return (
+      marker.id === nextMarker.id &&
+      marker.latitude === nextMarker.latitude &&
+      marker.longitude === nextMarker.longitude &&
+      marker.selected === nextMarker.selected &&
+      marker.label === nextMarker.label
+    );
+  });
+}
+
+function escapeInjectedJson(value: unknown) {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}

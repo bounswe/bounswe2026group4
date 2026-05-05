@@ -11,7 +11,7 @@ from apps.users.models import Follow, User
 
 
 def _make_user(email, username):
-    return User.objects.create_user(email=email, username=username, password='Password1')
+    return User.objects.create_user(email=email, username=username, password='Password1', is_active=True)
 
 
 def _make_story(user, status=Story.STATUS_PUBLISHED):
@@ -24,10 +24,11 @@ def _make_story(user, status=Story.STATUS_PUBLISHED):
 
 
 def _make_badge(name='First Story'):
-    return Badge.objects.create(
-        name=name, description='desc',
-        criteria_type='stories_published', criteria_threshold=1,
+    badge, _ = Badge.objects.get_or_create(
+        name=name,
+        defaults={'description': 'desc', 'criteria_type': 'stories_published', 'criteria_threshold': 1},
     )
+    return badge
 
 
 @pytest.mark.django_db
@@ -156,6 +157,14 @@ class TestBadgeEarnedSignal:
         UserBadge.objects.create(user=self.user, badge=self.badge)
         notif = Notification.objects.get(recipient=self.user, notification_type=NotificationType.BADGE_EARNED)
         assert notif.actor is None
+
+    def test_resaving_user_badge_does_not_duplicate_notification(self):
+        # Covers the `if not created: return` guard in on_badge_earned
+        ub = UserBadge.objects.create(user=self.user, badge=self.badge)
+        ub.save()
+        assert Notification.objects.filter(
+            recipient=self.user, notification_type=NotificationType.BADGE_EARNED,
+        ).count() == 1
 
 
 @pytest.mark.django_db

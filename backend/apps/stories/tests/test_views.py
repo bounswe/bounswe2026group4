@@ -31,6 +31,7 @@ def admin_user(db):
         username='adminuser',
         password='Password1',
         role=RoleChoices.ADMIN,
+        is_active=True,
     )
 
 
@@ -766,7 +767,7 @@ class TestStoryDetailMediaItems:
 # ── user_has_liked / user_has_saved — view integration ───────────────────────
 
 def make_user_for_interaction(email='liker@example.com', username='liker'):
-    return User.objects.create_user(email=email, username=username, password='Password1')
+    return User.objects.create_user(email=email, username=username, password='Password1', is_active=True)
 
 
 @pytest.mark.django_db

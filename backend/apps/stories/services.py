@@ -22,27 +22,44 @@ def annotate_user_interactions(qs, user):
 
 def create_story(user, validated_data: dict) -> Story:
     """Create and persist a new story owned by the given user."""
+    from apps.gamification.constants import STORY_PUBLISHED
+    from apps.gamification.services import award_points
     from apps.tags.services import attach_tags_to_story
 
     tag_ids = validated_data.pop('tag_ids', [])
     story = Story.objects.create(user=user, **validated_data)
     if tag_ids:
         attach_tags_to_story(story, tag_ids)
+    if story.status == Story.STATUS_PUBLISHED and user is not None:
+        award_points(user, STORY_PUBLISHED, story=story)
     return story
 
 
 def update_story(story: Story, validated_data: dict) -> Story:
     """Apply partial updates to an existing story and persist the changes."""
+    from apps.gamification.constants import STORY_PUBLISHED, STORY_REMOVED
+    from apps.gamification.services import award_points
     from apps.tags.services import sync_story_tags
 
     # None means tag_ids was not provided in this PATCH — leave tags as-is.
     # An empty list means explicitly clear all tags.
     tag_ids = validated_data.pop('tag_ids', None)
+    new_status = validated_data.get('status')
+    was_published = story.status == Story.STATUS_PUBLISHED
+
     for attr, value in validated_data.items():
         setattr(story, attr, value)
     story.save()
     if tag_ids is not None:
         sync_story_tags(story, tag_ids)
+
+    if story.user_id is not None:
+        if was_published and new_status == Story.STATUS_REMOVED:
+            award_points(story.user, STORY_REMOVED, story=story)
+        elif not was_published and new_status == Story.STATUS_PUBLISHED:
+            # Draft or removed story promoted to published — award the creation bonus.
+            award_points(story.user, STORY_PUBLISHED, story=story)
+
     return story
 
 
@@ -53,7 +70,24 @@ def delete_story(story: Story) -> None:
     Cascades to media_items, likes, saved_by, and comments via FK CASCADE —
     no manual cleanup required. Permission enforcement is the caller's responsibility.
     """
+    from apps.gamification.constants import STORY_REMOVED
+    from apps.gamification.services import award_points
+
+    # Capture before delete — story.user becomes inaccessible once the row is gone.
+    # story=None in award_points because PointTransaction.story is SET_NULL and
+    # passing a deleted instance's PK would cause an FK integrity error.
+    story_user = story.user
+    was_published = story.status == Story.STATUS_PUBLISHED
     story.delete()
+    if was_published and story_user is not None:
+        award_points(story_user, STORY_REMOVED, story=None)
+
+
+def remove_story(story: Story, moderation_reason: str) -> None:
+    """Soft-delete a story by setting its status to REMOVED and recording the moderation reason."""
+    story.status = Story.STATUS_REMOVED
+    story.moderation_reason = moderation_reason
+    story.save(update_fields=['status', 'moderation_reason'])
 
 
 def get_story_feed(
@@ -231,6 +265,7 @@ def get_story_search(
 
     Returns an empty queryset if q is blank or whitespace-only — callers should
     validate q before calling, but the service is safe to call directly.
+    sort_by — 'recent' (default) orders by submission date; 'popular' orders by like_count
     """
     if not q or not q.strip():
         return Story.objects.none()
@@ -269,7 +304,8 @@ def get_story_search(
     if sort_by == 'recent':
         qs = qs.order_by('-submitted_at')
 
-    # TODO: add sort_by='popular' ordered by like_count once interactions app is implemented
+    elif sort_by == 'popular':
+        qs = qs.order_by('-like_count','-submitted_at')  # secondary sort by recent to break like_count ties
 
     return qs
 

@@ -28,12 +28,17 @@ def _make_story(user):
 
 
 def _make_badge(name='Pioneer', criteria_type=BADGE_CRITERIA_REGISTRATION, threshold=0):
-    return Badge.objects.create(
+    # get_or_create so tests are safe when the seed migration has already created
+    # badges with the same name in the test DB.
+    badge, _ = Badge.objects.get_or_create(
         name=name,
-        description='A test badge.',
-        criteria_type=criteria_type,
-        criteria_threshold=threshold,
+        defaults={
+            'description': 'A test badge.',
+            'criteria_type': criteria_type,
+            'criteria_threshold': threshold,
+        },
     )
+    return badge
 
 
 @pytest.mark.django_db
@@ -47,10 +52,13 @@ class TestBadge:
         assert badge.criteria_threshold == 0
 
     def test_badge_name_must_be_unique(self):
-        _make_badge(name='Pioneer')
+        # Use a name that is not in the seed data to test the constraint directly.
+        Badge.objects.create(name='Uniqueness-Test-Badge', description='d',
+                             criteria_type=BADGE_CRITERIA_REGISTRATION, criteria_threshold=0)
         with pytest.raises(IntegrityError):
             with transaction.atomic():
-                _make_badge(name='Pioneer')
+                Badge.objects.create(name='Uniqueness-Test-Badge', description='d',
+                                     criteria_type=BADGE_CRITERIA_REGISTRATION, criteria_threshold=0)
 
     def test_all_criteria_types_are_accepted(self):
         for i, criteria in enumerate([
@@ -194,6 +202,10 @@ class TestPointTransaction:
         assert POINT_VALUES['story_like_removed'] == -2
         assert POINT_VALUES['story_comment_removed'] == -4
         assert POINT_VALUES['story_save_removed'] == -3
+        assert POINT_VALUES['user_liked'] == 1
+        assert POINT_VALUES['user_like_removed'] == -1
+        assert POINT_VALUES['user_commented'] == 2
+        assert POINT_VALUES['user_comment_removed'] == -2
 
     def test_str_contains_sign_amount_and_event_type(self):
         tx = PointTransaction.objects.create(

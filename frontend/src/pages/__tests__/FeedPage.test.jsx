@@ -9,6 +9,17 @@ vi.mock("@/services/storyService", () => ({
   getStories: vi.fn(),
 }));
 
+vi.mock("@/components/Interactions/BookmarkButton", () => ({
+  default: ({ storyId, initialBookmarked }) => (
+    <button
+      type="button"
+      data-testid="bookmark-button"
+      data-story-id={storyId}
+      aria-label={initialBookmarked ? "Remove bookmark" : "Save story"}
+    />
+  ),
+}));
+
 import { getStories } from "@/services/storyService";
 
 function makeStory(id, overrides = {}) {

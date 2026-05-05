@@ -27,6 +27,7 @@ def admin_user(db):
         username='adminuser',
         password='Password1',
         role=RoleChoices.ADMIN,
+        is_active=True,
     )
 
 
@@ -283,7 +284,7 @@ class TestStoryCommentList:
     def test_private_username_author_shows_null_in_list(self, client, story):
         private_user = User.objects.create_user(
             email='private_view@example.com', username='privateview', password='Password1',
-            is_username_public=False,
+            is_username_public=False, is_active=True,
         )
         Comment.objects.create(story=story, author=private_user, text='Hidden identity')
         response = client.get(self.url.format(story_id=story.pk))
@@ -294,7 +295,7 @@ class TestStoryCommentList:
     def test_public_username_author_shows_username_in_list(self, client, story):
         public_user = User.objects.create_user(
             email='public_view@example.com', username='publicview', password='Password1',
-            is_username_public=True,
+            is_username_public=True, is_active=True,
         )
         Comment.objects.create(story=story, author=public_user, text='Visible identity')
         response = client.get(self.url.format(story_id=story.pk))
