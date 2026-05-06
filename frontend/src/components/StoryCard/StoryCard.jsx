@@ -31,12 +31,12 @@ const StoryCard = ({ story, onBookmarkChange }) => {
                 {story.title}
               </CardTitle>
             </div>
-            {story.contributor_name && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                <User className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">{story.contributor_name}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+              <User className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">
+                {story.contributor_name ?? "Anonymous"}
+              </span>
+            </div>
           </CardHeader>
 
           <CardContent className="pb-2 space-y-2">

@@ -123,12 +123,23 @@ describe("StoryCard", () => {
     expect(screen.getByText("historian_01")).toBeInTheDocument();
   });
 
-  it("does not render contributor name when absent", () => {
+  it("renders 'Anonymous' when contributor_name is null (private profile)", () => {
+    renderCard(makeStory({ contributor_name: null }));
+    expect(screen.getByText("Anonymous")).toBeInTheDocument();
+  });
+
+  it("renders 'Anonymous' when contributor_name is absent", () => {
     const story = makeStory();
     delete story.contributor_name;
     renderCard(story);
-    // title still renders, no crash
-    expect(screen.getByText("The Ancient Bridge")).toBeInTheDocument();
+    expect(screen.getByText("Anonymous")).toBeInTheDocument();
+  });
+
+  it("contributor name row is always rendered (with Anonymous as fallback)", () => {
+    renderCard(makeStory({ contributor_name: null }));
+    // The contributor row is present even for anonymous stories
+    const row = screen.getByText("Anonymous").closest("div");
+    expect(row).toBeInTheDocument();
   });
 
   it("card link points to /stories/:id", () => {
