@@ -83,8 +83,7 @@ class TestCommentResponseSerializer:
     def test_get_is_own_comment_returns_true_for_author(self, user, story):
         comment = Comment.objects.create(story=story, author=user, text='Mine')
         request = MagicMock()
-        request.user = user
-        request.user.is_authenticated = True
+        request.user = user  # is_authenticated is a property that returns True for active users
         data = CommentResponseSerializer(comment, context={'request': request}).data
         assert data['is_own_comment'] is True
 
@@ -95,7 +94,6 @@ class TestCommentResponseSerializer:
         comment = Comment.objects.create(story=story, author=user, text='Not yours')
         request = MagicMock()
         request.user = other
-        request.user.is_authenticated = True
         data = CommentResponseSerializer(comment, context={'request': request}).data
         assert data['is_own_comment'] is False
 
@@ -105,9 +103,10 @@ class TestCommentResponseSerializer:
         assert data['is_own_comment'] is False
 
     def test_get_is_own_comment_returns_false_for_unauthenticated(self, user, story):
+        from django.contrib.auth.models import AnonymousUser
         comment = Comment.objects.create(story=story, author=user, text='Anon viewer')
         request = MagicMock()
-        request.user.is_authenticated = False
+        request.user = AnonymousUser()
         data = CommentResponseSerializer(comment, context={'request': request}).data
         assert data['is_own_comment'] is False
 
@@ -120,7 +119,6 @@ class TestCommentResponseSerializer:
         comment = Comment.objects.create(story=story, author=private_user, text='Incognito')
         request = MagicMock()
         request.user = private_user
-        request.user.is_authenticated = True
         data = CommentResponseSerializer(comment, context={'request': request}).data
         assert data['author_username'] is None
         assert data['is_own_comment'] is True
