@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const publicLinks = [
   { to: "/map", label: "Map", preserveSearch: true },
+  { to: "/timeline", label: "Timeline", preserveSearch: true },
   { to: "/", label: "Feed", preserveSearch: true },
   { to: "/submit-story", label: "Submit Story", icon: Plus },
 ];

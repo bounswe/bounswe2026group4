@@ -14,6 +14,7 @@ import ProfileCompletionPage from "@/pages/ProfileCompletionPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import FeedPage from "@/pages/FeedPage";
 import MapPage from "@/pages/MapPage";
+import TimelinePage from "@/pages/TimelinePage";
 import ProfilePage from "@/pages/ProfilePage";
 import SubmitStoryPage from "@/pages/SubmitStoryPage";
 import StoryDetailPage from "@/pages/StoryDetailPage";
@@ -28,6 +29,7 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<FeedPage />} />
               <Route path="/map" element={<MapPage />} />
+              <Route path="/timeline" element={<TimelinePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
