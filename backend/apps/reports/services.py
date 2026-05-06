@@ -3,11 +3,9 @@ from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 
 from apps.interactions.models import Comment
-from apps.reports.models import Report, ReportReason
+from apps.reports.models import Report, ReportReason, ReportStatus
 from apps.stories.models import Story
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
-
 
 
 def submit_report(reporter, target_type: str, target_id: int, reason: str, description: str = '') -> Report:
