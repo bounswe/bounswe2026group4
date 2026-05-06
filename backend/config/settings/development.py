@@ -15,7 +15,9 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
 }
 
-# Console backend by default in dev; override via EMAIL_BACKEND env var to test real delivery
+# Console backend by default in dev — emails are printed to Docker logs, not delivered to inboxes.
+# To find a verification code: docker compose logs web | grep -A 10 "Verify your email"
+# Override via EMAIL_BACKEND env var (e.g. smtp.EmailBackend) to test real delivery.
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')  # noqa: F405
 
 # Allow the local Vite dev server to call the API

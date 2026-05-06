@@ -54,11 +54,17 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = register_user(serializer.validated_data)
+        user, email_sent = register_user(serializer.validated_data)
+        message = (
+            'Registration successful. Please verify your email.'
+            if email_sent
+            else 'Registration successful. Verification email could not be delivered — use /auth/resend-verification/ to try again.'
+        )
         return Response(
             {
-                'message': 'Registration successful. Please verify your email.',
+                'message': message,
                 'user': UserResponseSerializer(user).data,
+                'email_sent': email_sent,
             },
             status=status.HTTP_201_CREATED,
         )
