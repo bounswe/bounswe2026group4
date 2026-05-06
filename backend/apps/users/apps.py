@@ -19,7 +19,9 @@ class UsersConfig(AppConfig):
         backend = getattr(settings, 'EMAIL_BACKEND', '')
         if 'smtp' not in backend.lower():
             return
-        # Skip credential checks in DEBUG — local catchers like Mailpit need no auth
+        # Credential checks are skipped in DEBUG mode because local dev catchers
+        # (Mailpit, MailHog) accept SMTP with no authentication. These warnings
+        # are only meaningful for production deployments where DEBUG=False.
         if not getattr(settings, 'DEBUG', False):
             if not getattr(settings, 'EMAIL_HOST_PASSWORD', ''):
                 logger.warning(
