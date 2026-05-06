@@ -10,6 +10,7 @@ import {
   uploadProfilePhoto,
   removeProfilePhoto,
 } from "@/services/userService";
+import { useAuth } from "@/hooks/useAuth";
 import PhotoUpload from "@/components/Profile/PhotoUpload";
 import VisibilityToggle from "@/components/Profile/VisibilityToggle";
 
@@ -17,6 +18,7 @@ const MAX_BIO_LENGTH = 500;
 
 function EditProfileForm({ initialProfile, onSave, onCancel }) {
   const { toast } = useToast();
+  const { updateUser } = useAuth();
   const prof = initialProfile?.profile ?? {};
 
   const [saving, setSaving] = useState(false);
@@ -29,6 +31,7 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
   const [bio, setBio] = useState(() => prof.bio ?? "");
   const [birthDate, setBirthDate] = useState(() => prof.birth_date ?? "");
 
+  const [isPrivate, setIsPrivate] = useState(() => !(initialProfile?.is_username_public ?? true));
   const [isNamePublic, setIsNamePublic] = useState(() => prof.is_name_public ?? true);
   const [isLocationPublic, setIsLocationPublic] = useState(() => prof.is_location_public ?? true);
   const [isBirthDatePublic, setIsBirthDatePublic] = useState(() => prof.is_birth_date_public ?? true);
@@ -103,8 +106,8 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
         await uploadProfilePhoto(newPhotoFile);
       }
 
-      await updateProfile(
-        { username: username.trim() },
+      const updated = await updateProfile(
+        { username: username.trim(), is_username_public: !isPrivate },
         {
           first_name: firstName,
           last_name: lastName,
@@ -117,6 +120,8 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
           is_photo_public: isPhotoPublic,
         }
       );
+
+      updateUser(updated.data);
 
       toast.success("Profile updated successfully.");
       onSave();
@@ -150,7 +155,14 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
 
       {/* Username */}
       <div className="space-y-1.5">
-        <Label htmlFor="edit-username">Username</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="edit-username">Username</Label>
+          <VisibilityToggle
+            checked={!isPrivate}
+            onChange={(v) => setIsPrivate(!v)}
+            fieldLabel="Username"
+          />
+        </div>
         <Input
           id="edit-username"
           value={username}
@@ -163,6 +175,11 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
         {errors.username && (
           <p className="text-sm text-destructive" role="alert">{errors.username}</p>
         )}
+        <p className="text-xs text-muted-foreground">
+          {isPrivate
+            ? "Your username is hidden — you appear as Anonymous on stories and comments."
+            : "Your username is shown on stories and comments you contribute to."}
+        </p>
       </div>
 
       {/* Name */}

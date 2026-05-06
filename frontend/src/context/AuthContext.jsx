@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { login as loginService, logout as logoutService } from "@/services/authService";
+import { getOwnProfile } from "@/services/userService";
 import { navigationRef } from "@/services/navigationRef";
 
 export const AuthContext = createContext(null);
@@ -30,6 +31,13 @@ export function AuthProvider({ children }) {
     const data = await loginService(email, password);
     setUser(data.user);
     localStorage.setItem("user", JSON.stringify(data.user));
+    try {
+      const fullProfile = await getOwnProfile();
+      setUser(fullProfile);
+      localStorage.setItem("user", JSON.stringify(fullProfile));
+    } catch {
+      // keep the login-response user if the profile fetch fails
+    }
     return data;
   }, []);
 
@@ -39,8 +47,13 @@ export function AuthProvider({ children }) {
     navigate("/login");
   }, [navigate]);
 
+  const updateUser = useCallback((newUser) => {
+    setUser(newUser);
+    localStorage.setItem("user", JSON.stringify(newUser));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

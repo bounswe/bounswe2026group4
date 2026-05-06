@@ -25,6 +25,10 @@ vi.mock("@/services/storyService", () => ({
   uploadStoryMedia: vi.fn(),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: vi.fn(() => ({ user: { is_username_public: true } })),
+}));
+
 vi.mock("@/services/tagService", () => ({
   searchTags: vi.fn().mockResolvedValue([]),
   createOrGetTag: vi.fn(),
@@ -43,6 +47,7 @@ vi.mock("@/hooks/useToast", () => ({
 }));
 
 import { createStory, uploadStoryImage, uploadStoryMedia } from "@/services/storyService";
+import { useAuth } from "@/hooks/useAuth";
 import SubmitStoryPage from "../SubmitStoryPage";
 
 function renderPage() {
@@ -739,6 +744,20 @@ describe("SubmitStoryPage", () => {
       expect(uploadStoryMedia).toHaveBeenCalledWith(21, a2);
     });
     expect(mockToast.success).toHaveBeenCalledWith("Story submitted successfully!");
+  });
+
+  it("contributor toggle defaults to OFF when user profile is private", () => {
+    useAuth.mockReturnValue({ user: { is_username_public: false } });
+    renderPage();
+    const toggle = screen.getByRole("switch", { name: /contributor visibility/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("contributor toggle defaults to ON when user is null", () => {
+    useAuth.mockReturnValue({ user: null });
+    renderPage();
+    const toggle = screen.getByRole("switch", { name: /contributor visibility/i });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
   });
 
 });
