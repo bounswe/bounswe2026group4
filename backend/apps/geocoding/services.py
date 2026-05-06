@@ -4,12 +4,24 @@ import time
 
 import requests
 from django.core.cache import cache
+from rest_framework.exceptions import APIException
+from rest_framework import status as drf_status
+
+
+class NominatimUnavailable(APIException):
+    status_code = drf_status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = 'Geocoding service unavailable.'
+    default_code = 'geocoding_unavailable'
 
 _NOMINATIM_BASE = 'https://nominatim.openstreetmap.org'
 _USER_AGENT = 'LocalHistoryStoryMap/1.0 (Django proxy; contact: admin@example.com)'
 _CACHE_TTL = 86400  # 24 hours
 _SENTINEL = object()  # distinguishes "cached as None/[]" from "cache miss"
 
+# Module-level rate limiter — enforces ≤ 1 req/s to Nominatim.
+# NOTE: This works only within a single process. Under multi-worker gunicorn
+# each worker has its own lock, so the effective rate is workers × 1 req/s.
+# A Redis-backed distributed lock would be required for multi-process safety.
 _rate_lock = threading.Lock()
 _last_call_time = 0.0
 
@@ -24,18 +36,21 @@ def _nominatim_get(path, params):
             time.sleep(1.0 - gap)
         _last_call_time = time.monotonic()
 
-    response = requests.get(
-        f'{_NOMINATIM_BASE}{path}',
-        params=params,
-        headers={
-            'User-Agent': _USER_AGENT,
-            'Accept': 'application/json',
-            'Accept-Language': 'en',
-        },
-        timeout=10,
-    )
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.get(
+            f'{_NOMINATIM_BASE}{path}',
+            params=params,
+            headers={
+                'User-Agent': _USER_AGENT,
+                'Accept': 'application/json',
+                'Accept-Language': 'en',
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as exc:
+        raise NominatimUnavailable() from exc
 
 
 def _cache_key(endpoint, raw_params):
@@ -58,7 +73,7 @@ def _parse_bbox(boundingbox):
 
 def geocode_search(q):
     """Return { lat_min, lat_max, lng_min, lng_max } for q, or None."""
-    q = q.strip()
+    q = q.strip().lower()
     if not q:
         return None
 
@@ -80,7 +95,7 @@ def geocode_search(q):
 
 def geocode_suggestions(q):
     """Return up to 5 { id, title, subtitle, bbox } suggestions for q."""
-    q = q.strip()
+    q = q.strip().lower()
     if len(q) < 3:
         return []
 
@@ -93,7 +108,7 @@ def geocode_suggestions(q):
     raw = _nominatim_get('/search', params)
     suggestions = []
     if isinstance(raw, list):
-        for item in raw:
+        for item in raw[:5]:
             lat = item.get('lat')
             lon = item.get('lon')
             display_name = (item.get('display_name') or '').strip()
@@ -118,8 +133,19 @@ def geocode_reverse(lat, lng):
     if lat is None or lng is None:
         return None
 
+    try:
+        lat_f = float(lat)
+        lng_f = float(lng)
+    except (ValueError, TypeError):
+        return None
+
+    if not (-90.0 <= lat_f <= 90.0) or not (-180.0 <= lng_f <= 180.0):
+        return None
+
     params = {'lat': lat, 'lon': lng, 'format': 'jsonv2'}
-    key = _cache_key('reverse', params)
+    # Normalize to 5 decimal places for cache key consistency (~1 m precision).
+    cache_params = {'lat': f'{lat_f:.5f}', 'lon': f'{lng_f:.5f}', 'format': 'jsonv2'}
+    key = _cache_key('reverse', cache_params)
     cached = cache.get(key, _SENTINEL)
     if cached is not _SENTINEL:
         return cached

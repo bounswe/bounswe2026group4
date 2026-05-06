@@ -1,5 +1,6 @@
 """Integration tests for the Nominatim geocoding proxy endpoints."""
 
+import requests as requests_lib
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -122,6 +123,31 @@ class TestGeocodeView:
         assert data['lat_min'] < data['lat_max']
         assert data['lng_min'] < data['lng_max']
 
+    def test_returns_503_when_nominatim_connection_fails(self, client):
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.side_effect = requests_lib.exceptions.ConnectionError('unreachable')
+            resp = client.get(GEOCODE_URL, {'q': 'Istanbul'})
+
+        assert resp.status_code == 503
+
+    def test_returns_503_when_nominatim_returns_server_error(self, client):
+        mock_resp = _mock_response({}, status_code=500)
+        mock_resp.raise_for_status.side_effect = requests_lib.exceptions.HTTPError('500')
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.return_value = mock_resp
+            resp = client.get(GEOCODE_URL, {'q': 'Istanbul'})
+
+        assert resp.status_code == 503
+
+    def test_query_is_case_insensitive_for_cache(self, client):
+        result = _nominatim_search_result()
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.return_value = _mock_response([result])
+            client.get(GEOCODE_URL, {'q': 'Istanbul'})
+            client.get(GEOCODE_URL, {'q': 'ISTANBUL'})
+
+        assert mock_get.call_count == 1
+
 
 # ── /api/geocode/suggestions/ ──────────────────────────────────────────────────
 
@@ -170,16 +196,23 @@ class TestSuggestionsView:
         assert resp.json() == []
         mock_get.assert_not_called()
 
-    def test_at_most_5_suggestions_returned(self, client):
+    def test_passes_limit_5_to_nominatim_and_caps_results(self, client):
         results = [_nominatim_search_result(place_id=i) for i in range(10)]
         with patch('apps.geocoding.services.requests.get') as mock_get:
             mock_get.return_value = _mock_response(results)
             resp = client.get(SUGGESTIONS_URL, {'q': 'Istanbul'})
 
-        # Nominatim is called with limit=5; we verify our service passes it
         _, kwargs = mock_get.call_args
         params = kwargs.get('params', {})
         assert params.get('limit') == '5'
+        assert len(resp.json()) <= 5
+
+    def test_returns_503_when_nominatim_connection_fails(self, client):
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.side_effect = requests_lib.exceptions.ConnectionError('unreachable')
+            resp = client.get(SUGGESTIONS_URL, {'q': 'Istanbul'})
+
+        assert resp.status_code == 503
 
     def test_second_identical_query_uses_cache(self, client):
         result = _nominatim_search_result()
@@ -239,3 +272,26 @@ class TestReverseView:
             client.get(REVERSE_URL, {'lat': '41.0', 'lng': '28.9'})
 
         assert mock_get.call_count == 1
+
+    def test_returns_null_for_non_numeric_coordinates(self, client):
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            resp = client.get(REVERSE_URL, {'lat': 'abc', 'lng': 'xyz'})
+
+        assert resp.status_code == 200
+        assert resp.json()['place_name'] is None
+        mock_get.assert_not_called()
+
+    def test_returns_null_for_out_of_range_coordinates(self, client):
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            resp = client.get(REVERSE_URL, {'lat': '999', 'lng': '28.9'})
+
+        assert resp.status_code == 200
+        assert resp.json()['place_name'] is None
+        mock_get.assert_not_called()
+
+    def test_returns_503_when_nominatim_connection_fails(self, client):
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.side_effect = requests_lib.exceptions.ConnectionError('unreachable')
+            resp = client.get(REVERSE_URL, {'lat': '41.0', 'lng': '28.9'})
+
+        assert resp.status_code == 503
