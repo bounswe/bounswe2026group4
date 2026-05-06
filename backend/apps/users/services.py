@@ -509,3 +509,17 @@ def reset_password(token_str: str, new_password: str) -> None:
         token.save(update_fields=['is_used'])
         for outstanding in OutstandingToken.objects.filter(user=token.user):
             BlacklistedToken.objects.get_or_create(token=outstanding)
+
+
+def ban_user(target_user: User) -> User:
+    """
+    Disable a user account by setting is_active=False.
+
+    The account record and all content are preserved. Idempotent — banning
+    an already-banned user is a no-op that returns the unchanged user.
+    """
+    if not target_user.is_active:
+        return target_user
+    target_user.is_active = False
+    target_user.save(update_fields=['is_active'])
+    return target_user
