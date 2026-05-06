@@ -6,7 +6,6 @@ vi.mock("@/services/userService", () => ({
   updateProfile: vi.fn(),
   uploadProfilePhoto: vi.fn(),
   removeProfilePhoto: vi.fn(),
-  getOwnProfile: vi.fn(),
 }));
 
 vi.mock("@/hooks/useToast", () => ({
@@ -21,7 +20,6 @@ import {
   updateProfile,
   uploadProfilePhoto,
   removeProfilePhoto,
-  getOwnProfile,
 } from "@/services/userService";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
@@ -71,8 +69,7 @@ describe("EditProfileForm", () => {
       toast: { success: mockSuccessToast, error: mockErrorToast },
     });
     useAuth.mockReturnValue({ updateUser: mockUpdateUser });
-    updateProfile.mockResolvedValue({ success: true });
-    getOwnProfile.mockResolvedValue(baseProfileResponse);
+    updateProfile.mockResolvedValue({ success: true, data: baseProfileResponse });
     uploadProfilePhoto.mockResolvedValue({ photo_url: "http://example.com/photo.jpg" });
     removeProfilePhoto.mockResolvedValue(undefined);
   });
@@ -506,13 +503,12 @@ describe("EditProfileForm", () => {
       );
     });
 
-    it("calls updateUser with fresh profile after successful save", async () => {
+    it("calls updateUser with the updateProfile response data after successful save", async () => {
       const user = userEvent.setup();
       renderForm();
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       await waitFor(() => {
-        expect(getOwnProfile).toHaveBeenCalled();
         expect(mockUpdateUser).toHaveBeenCalledWith(baseProfileResponse);
       });
     });

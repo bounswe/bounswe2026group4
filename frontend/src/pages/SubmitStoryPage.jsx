@@ -5,6 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { Button, Input, Label } from "@/components/ui";
 import MapPicker from "@/components/MapPicker/MapPicker";
 import TagInput from "@/components/Tags/TagInput";
+import VisibilityToggle from "@/components/Profile/VisibilityToggle";
 import { createStory, uploadStoryImage, uploadStoryMedia } from "@/services/storyService";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
@@ -570,29 +571,14 @@ function SubmitStoryPage() {
           {/* Contributor visibility */}
           <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
             <div className="flex items-center justify-between gap-4">
-              <Label htmlFor="contributor-visible-toggle" className="text-sm font-medium cursor-pointer">
+              <Label className="text-sm font-medium cursor-pointer">
                 Show my name on this story
               </Label>
-              <button
-                id="contributor-visible-toggle"
-                type="button"
-                role="switch"
-                aria-checked={contributorVisible}
-                aria-label="Contributor visibility"
-                onClick={() => setContributorVisible((v) => !v)}
-                disabled={isSubmitting}
-                className={[
-                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
-                  contributorVisible ? "bg-primary" : "bg-input",
-                ].join(" ")}
-              >
-                <span
-                  className={[
-                    "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                    contributorVisible ? "translate-x-4" : "translate-x-0",
-                  ].join(" ")}
-                />
-              </button>
+              <VisibilityToggle
+                checked={contributorVisible}
+                onChange={setContributorVisible}
+                fieldLabel="Contributor"
+              />
             </div>
             <p className="text-xs text-muted-foreground">
               {contributorVisible

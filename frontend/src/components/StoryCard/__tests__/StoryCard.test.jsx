@@ -135,13 +135,6 @@ describe("StoryCard", () => {
     expect(screen.getByText("Anonymous")).toBeInTheDocument();
   });
 
-  it("contributor name row is always rendered (with Anonymous as fallback)", () => {
-    renderCard(makeStory({ contributor_name: null }));
-    // The contributor row is present even for anonymous stories
-    const row = screen.getByText("Anonymous").closest("div");
-    expect(row).toBeInTheDocument();
-  });
-
   it("card link points to /stories/:id", () => {
     renderCard(makeStory({ id: 42 }));
     const link = screen.getByRole("link", { name: /read story: the ancient bridge/i });

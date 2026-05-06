@@ -9,7 +9,6 @@ import {
   updateProfile,
   uploadProfilePhoto,
   removeProfilePhoto,
-  getOwnProfile,
 } from "@/services/userService";
 import { useAuth } from "@/hooks/useAuth";
 import PhotoUpload from "@/components/Profile/PhotoUpload";
@@ -107,7 +106,7 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
         await uploadProfilePhoto(newPhotoFile);
       }
 
-      await updateProfile(
+      const updated = await updateProfile(
         { username: username.trim(), is_username_public: !isPrivate },
         {
           first_name: firstName,
@@ -122,8 +121,7 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
         }
       );
 
-      const freshProfile = await getOwnProfile();
-      updateUser(freshProfile);
+      updateUser(updated.data);
 
       toast.success("Profile updated successfully.");
       onSave();
