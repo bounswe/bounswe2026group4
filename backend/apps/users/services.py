@@ -434,6 +434,29 @@ def get_user_bookmarks(user_id: int, requesting_user):
     )
 
 
+def get_user_published_stories(user_id: int):
+    """
+    Return a queryset of published stories for the given user's public profile,
+    ordered most-recently-submitted first.
+
+    Raises Http404 if the user does not exist or is inactive (banned).
+    """
+    from apps.stories.models import Story  # local import to avoid circular imports
+
+    try:
+        target = User.objects.get(pk=user_id, is_active=True)
+    except User.DoesNotExist:
+        raise Http404
+
+    return (
+        Story.objects
+        .filter(user=target, status=Story.STATUS_PUBLISHED)
+        .select_related('user', 'user__profile')
+        .prefetch_related('tags')
+        .order_by('-submitted_at')
+    )
+
+
 def request_password_reset(email: str) -> None:
     """
     Generates a password reset token and emails the reset link to the given address.
