@@ -957,3 +957,59 @@ class TestResendVerification:
         mail.outbox.clear()
         resend_verification(user.email)
         assert len(mail.outbox) == 0
+
+
+# ── UsersConfig._warn_if_email_misconfigured ──────────────────────────────────
+
+
+class TestEmailMisconfigurationWarnings:
+    """
+    Calls _warn_if_email_misconfigured directly; AppConfig.ready() is not
+    re-invoked during the test run so we test the method in isolation.
+    """
+
+    def _run(self, settings, monkeypatch):
+        from apps.users.apps import UsersConfig
+        cfg = UsersConfig('apps.users', __import__('apps.users'))
+        cfg._warn_if_email_misconfigured()
+
+    def test_no_warning_for_non_smtp_backend(self, settings, monkeypatch, caplog):
+        settings.EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+        settings.DEBUG = False
+        with caplog.at_level('WARNING', logger='apps.users.apps'):
+            self._run(settings, monkeypatch)
+        assert caplog.text == ''
+
+    def test_no_warning_in_debug_mode(self, settings, caplog):
+        settings.EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        settings.EMAIL_HOST_PASSWORD = ''
+        settings.DEBUG = True
+        with caplog.at_level('WARNING', logger='apps.users.apps'):
+            self._run(settings, caplog)
+        assert caplog.text == ''
+
+    def test_warns_when_password_missing_in_production(self, settings, caplog):
+        settings.EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        settings.EMAIL_HOST_PASSWORD = ''
+        settings.DEBUG = False
+        with caplog.at_level('WARNING', logger='apps.users.apps'):
+            self._run(settings, caplog)
+        assert 'EMAIL_HOST_PASSWORD' in caplog.text
+
+    def test_warns_when_from_email_has_example_com_in_production(self, settings, caplog):
+        settings.EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        settings.EMAIL_HOST_PASSWORD = 'real-key'
+        settings.DEFAULT_FROM_EMAIL = 'App <noreply@example.com>'
+        settings.DEBUG = False
+        with caplog.at_level('WARNING', logger='apps.users.apps'):
+            self._run(settings, caplog)
+        assert 'example.com' in caplog.text
+
+    def test_no_warning_when_fully_configured(self, settings, caplog):
+        settings.EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        settings.EMAIL_HOST_PASSWORD = 're_real_key'
+        settings.DEFAULT_FROM_EMAIL = 'App <noreply@storymap.page>'
+        settings.DEBUG = False
+        with caplog.at_level('WARNING', logger='apps.users.apps'):
+            self._run(settings, caplog)
+        assert caplog.text == ''
