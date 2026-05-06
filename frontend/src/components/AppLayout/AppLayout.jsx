@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
+import NotificationBell from "@/components/Notifications/NotificationBell";
 
 const publicLinks = [
   { to: "/map", label: "Map", preserveSearch: true },
@@ -83,6 +84,9 @@ function AppLayout() {
           </nav>
 
           <div className="ml-auto flex items-center space-x-2">
+            {/* Notification bell — renders nothing for unauthenticated users */}
+            <NotificationBell />
+
             {/* Desktop auth section */}
             <div className="hidden md:flex items-center space-x-2">
               {isAuthenticated ? (

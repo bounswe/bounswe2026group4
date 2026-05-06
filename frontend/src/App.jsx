@@ -19,6 +19,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import SubmitStoryPage from "@/pages/SubmitStoryPage";
 import StoryDetailPage from "@/pages/StoryDetailPage";
 import TagPage from "@/pages/TagPage";
+import NotificationPreferencesPage from "@/pages/NotificationPreferencesPage";
 
 function App() {
   return (
@@ -56,6 +57,14 @@ function App() {
                 element={(
                   <ProtectedRoute>
                     <SubmitStoryPage />
+                  </ProtectedRoute>
+                )}
+              />
+              <Route
+                path="/notifications/preferences"
+                element={(
+                  <ProtectedRoute>
+                    <NotificationPreferencesPage />
                   </ProtectedRoute>
                 )}
               />

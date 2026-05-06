@@ -13,6 +13,11 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => mockAuthState,
 }));
 
+// Stub the bell — its own tests cover behavior; here we just want it to mount cleanly.
+vi.mock("@/components/Notifications/NotificationBell", () => ({
+  default: () => null,
+}));
+
 function renderWithRouter(initialRoute = "/") {
   return render(
     <MemoryRouter initialEntries={[initialRoute]}>
