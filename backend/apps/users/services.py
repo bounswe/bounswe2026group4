@@ -24,10 +24,10 @@ _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
 logger = logging.getLogger(__name__)
 
 
-def register_user(validated_data: dict) -> User:
+def register_user(validated_data: dict) -> tuple:
     """
     Creates a new user, generates an email verification code, and sends the verification email.
-    Email failures are caught and logged — they do not prevent account creation.
+    Returns (user, email_sent) — email_sent is False if delivery failed so callers can surface it.
     """
     from apps.gamification.services import award_registration_badge
 
@@ -44,14 +44,19 @@ def register_user(validated_data: dict) -> User:
     except IntegrityError:
         raise ValidationError({'email': 'A user with this email or username already exists.'})
 
+    email_sent = False
     try:
         send_verification_email(user.email, code)
+        email_sent = True
     except Exception:
-        logger.exception('Failed to send verification email to %s', user.email)
+        logger.exception(
+            'Failed to send verification email to %s via %s:%s — check EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL',
+            user.email, settings.EMAIL_HOST, settings.EMAIL_PORT,
+        )
 
     # TODO: move to email verification handler when is_email_verified enforcement is added
     award_registration_badge(user)
-    return user
+    return user, email_sent
 
 
 def verify_email(email: str, code: str) -> None:
@@ -103,7 +108,10 @@ def resend_verification(email: str) -> None:
     try:
         send_verification_email(user.email, code)
     except Exception:
-        logger.exception('Failed to resend verification email to %s', user.email)
+        logger.exception(
+            'Failed to resend verification email to %s via %s:%s — check EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL',
+            user.email, settings.EMAIL_HOST, settings.EMAIL_PORT,
+        )
 
 
 def login_user(email: str, password: str) -> dict:
