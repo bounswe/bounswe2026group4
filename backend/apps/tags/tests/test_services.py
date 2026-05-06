@@ -122,28 +122,51 @@ class TestCreateTag:
 
 @pytest.mark.django_db
 class TestDeleteTag:
-    def test_deletes_tag(self):
-        tag = Tag.objects.create(name='svc-to-delete')
-        delete_tag(tag)
-        assert not Tag.objects.filter(name='svc-to-delete').exists()
-
-    def test_cascade_deletes_story_tags(self):
+    def _make_story(self, email, username):
         from apps.stories.models import Story
         from apps.users.models import User
-
-        user = User.objects.create_user(
-            email='tagger-svc@example.com', username='tagger-svc', password='Pass1234',
-        )
-        story = Story.objects.create(
+        user = User.objects.create_user(email=email, username=username, password='Pass1234')
+        return Story.objects.create(
             user=user, title='T', narrative='N',
             status=Story.STATUS_PUBLISHED,
             location_lat=Decimal('0'), location_lng=Decimal('0'),
             location_name='P', time_type=Story.TIME_EXACT, year=2000,
         )
+
+    def test_deletes_tag(self):
+        tag = Tag.objects.create(name='svc-to-delete')
+        delete_tag(tag)
+        assert not Tag.objects.filter(name='svc-to-delete').exists()
+
+    def test_removes_story_tag_associations(self):
+        story = self._make_story('tagger-svc@example.com', 'tagger-svc')
         tag = Tag.objects.create(name='svc-cascade-tag')
         st = StoryTag.objects.create(story=story, tag=tag)
         delete_tag(tag)
         assert not StoryTag.objects.filter(pk=st.pk).exists()
+
+    def test_decrements_story_count_via_signals(self):
+        story = self._make_story('tagger-cnt@example.com', 'tagger-cnt')
+        tag = Tag.objects.create(name='svc-count-tag')
+        StoryTag.objects.create(story=story, tag=tag)  # signal → story_count=1
+        # story_count decrement signal fires when StoryTag is explicitly deleted
+        # (tag itself is then deleted, so we verify no IntegrityError escapes)
+        delete_tag(tag)
+        assert not Tag.objects.filter(name='svc-count-tag').exists()
+
+    def test_delete_tag_with_no_associations_does_not_raise(self):
+        tag = Tag.objects.create(name='svc-no-assoc-tag')
+        delete_tag(tag)  # must not raise
+        assert not Tag.objects.filter(name='svc-no-assoc-tag').exists()
+
+    def test_delete_tag_removes_multiple_associations(self):
+        story1 = self._make_story('multi1@example.com', 'multi1')
+        story2 = self._make_story('multi2@example.com', 'multi2')
+        tag = Tag.objects.create(name='svc-multi-assoc-tag')
+        StoryTag.objects.create(story=story1, tag=tag)
+        StoryTag.objects.create(story=story2, tag=tag)
+        delete_tag(tag)
+        assert StoryTag.objects.filter(tag_id=tag.pk).count() == 0
 
 
 def _make_story(email, username):

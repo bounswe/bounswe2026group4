@@ -16,6 +16,7 @@ urlpatterns = [
     path('', include('apps.reports.urls', namespace='reports')),
     path('moderation/', include([
         path('', include('apps.users.admin_urls')),
+        path('', include('apps.tags.admin_urls')),
         path('', include('apps.stories.admin_urls')),
         path('', include('apps.interactions.admin_urls')),
         path('', include('apps.reports.admin_urls')),
