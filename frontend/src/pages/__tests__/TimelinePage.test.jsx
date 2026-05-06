@@ -54,13 +54,16 @@ describe("TimelinePage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the four filter pills", async () => {
+  it("renders the four filter pills as a radiogroup", async () => {
     renderPage();
 
-    expect(screen.getByRole("button", { name: /^all$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^year$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^range$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^decade$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("radiogroup", { name: /time window mode/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^all$/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^year$/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^range$/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^decade$/i })).toBeInTheDocument();
   });
 
   it("fetches with no year params on first render (default All)", async () => {
@@ -82,7 +85,7 @@ describe("TimelinePage", () => {
 
     await waitFor(() => expect(getTimeline).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /^year$/i }));
+    await user.click(screen.getByRole("radio", { name: /^year$/i }));
     const yearInput = await screen.findByLabelText(/^year$/i);
     await user.clear(yearInput);
     await user.type(yearInput, "1875");
@@ -102,7 +105,7 @@ describe("TimelinePage", () => {
 
     await waitFor(() => expect(getTimeline).toHaveBeenCalled());
 
-    await user.click(screen.getByRole("button", { name: /^decade$/i }));
+    await user.click(screen.getByRole("radio", { name: /^decade$/i }));
     const decadeInput = await screen.findByLabelText(/decade/i);
     await user.clear(decadeInput);
     await user.type(decadeInput, "1875");
@@ -173,6 +176,56 @@ describe("TimelinePage", () => {
 
     const lastArgs = getTimeline.mock.calls[getTimeline.mock.calls.length - 1][0];
     expect(lastArgs.page).toBe(2);
+  });
+
+  it("does not fire requests for partial year input (less than 4 digits)", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+    const callsBefore = getTimeline.mock.calls.length;
+
+    await user.click(screen.getByRole("radio", { name: /^year$/i }));
+    const yearInput = await screen.findByLabelText(/^year$/i);
+    await user.type(yearInput, "187");
+
+    // No additional calls should be made for partial years (1, 18, 187).
+    // Only the initial mount call should exist.
+    expect(getTimeline.mock.calls.length).toBe(callsBefore);
+  });
+
+  it("does not fire a request when range mode has only one side filled", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+    const callsBefore = getTimeline.mock.calls.length;
+
+    await user.click(screen.getByRole("radio", { name: /^range$/i }));
+    const fromInput = await screen.findByLabelText(/^from$/i);
+    await user.type(fromInput, "1850");
+
+    // Only "From" is filled — no fetch should fire yet.
+    expect(getTimeline.mock.calls.length).toBe(callsBefore);
+    expect(screen.getByText(/enter start and end years/i)).toBeInTheDocument();
+  });
+
+  it("fires a range request when both sides are filled with 4-digit years", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("radio", { name: /^range$/i }));
+    await user.type(await screen.findByLabelText(/^from$/i), "1850");
+    await user.type(await screen.findByLabelText(/^to$/i), "1900");
+
+    await waitFor(() => {
+      const matched = getTimeline.mock.calls.some(
+        ([arg]) => arg?.yearFrom === 1850 && arg?.yearTo === 1900,
+      );
+      expect(matched).toBe(true);
+    });
   });
 
   it("passes bbox query string params through to the service", async () => {

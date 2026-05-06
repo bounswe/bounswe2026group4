@@ -7,7 +7,6 @@ const KEY_MAP = {
   latMax: "lat_max",
   lngMin: "lng_min",
   lngMax: "lng_max",
-  hasImage: "has_image",
   page: "page",
   pageSize: "page_size",
 };
@@ -26,11 +25,10 @@ export async function getTimeline({
   latMax,
   lngMin,
   lngMax,
-  hasImage,
   page,
   pageSize,
 } = {}) {
-  const args = { yearFrom, yearTo, latMin, latMax, lngMin, lngMax, hasImage, page, pageSize };
+  const args = { yearFrom, yearTo, latMin, latMax, lngMin, lngMax, page, pageSize };
   const params = {};
   for (const [key, value] of Object.entries(args)) {
     if (value === undefined) continue;

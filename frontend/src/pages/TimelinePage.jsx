@@ -27,10 +27,15 @@ function parseFloatOrUndef(v) {
   return Number.isFinite(n) ? n : undefined;
 }
 
-function parseIntOrUndef(v) {
-  if (v == null || v === "") return undefined;
-  const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) ? n : undefined;
+const YEAR_RE = /^\d{4}$/;
+
+/**
+ * Parse a 4-digit year string. Returns undefined for blank or partial input —
+ * this prevents firing requests on every keystroke while the user is typing.
+ */
+function parseFullYear(v) {
+  if (typeof v !== "string" || !YEAR_RE.test(v.trim())) return undefined;
+  return Number.parseInt(v, 10);
 }
 
 function decadeStart(year) {
@@ -41,37 +46,50 @@ function decadeStart(year) {
  * Derive the year_from / year_to filter pair for the current mode + inputs.
  * Returns { yearFrom, yearTo, label } where label is the human-readable
  * period for the status row. yearFrom/yearTo are undefined when no filter
- * should be applied (e.g. mode=all, or mode=year with a blank input).
+ * should be applied — partial input (less than 4 digits) is treated as
+ * not-yet-ready and skips the fetch.
  */
 function deriveYearFilter(mode, yearInput, rangeFrom, rangeTo) {
+  const base = { yearFrom: undefined, yearTo: undefined, invalid: false, skip: false };
   if (mode === "all") {
-    return { yearFrom: undefined, yearTo: undefined, label: "All time periods" };
+    return { ...base, label: "All time periods" };
   }
   if (mode === "year") {
-    const y = parseIntOrUndef(yearInput);
-    if (y === undefined) return { yearFrom: undefined, yearTo: undefined, label: "All time periods" };
-    return { yearFrom: y, yearTo: y, label: String(y) };
+    const y = parseFullYear(yearInput);
+    if (y === undefined) {
+      return {
+        ...base,
+        label: yearInput ? "Enter a 4-digit year" : "All time periods",
+        skip: Boolean(yearInput),
+      };
+    }
+    return { ...base, yearFrom: y, yearTo: y, label: String(y) };
   }
   if (mode === "decade") {
-    const y = parseIntOrUndef(yearInput);
-    if (y === undefined) return { yearFrom: undefined, yearTo: undefined, label: "All time periods" };
+    const y = parseFullYear(yearInput);
+    if (y === undefined) {
+      return {
+        ...base,
+        label: yearInput ? "Enter a 4-digit year" : "All time periods",
+        skip: Boolean(yearInput),
+      };
+    }
     const start = decadeStart(y);
-    return { yearFrom: start, yearTo: start + 9, label: `${start}s` };
+    return { ...base, yearFrom: start, yearTo: start + 9, label: `${start}s` };
   }
-  // range
-  const from = parseIntOrUndef(rangeFrom);
-  const to = parseIntOrUndef(rangeTo);
-  if (from === undefined && to === undefined) {
-    return { yearFrom: undefined, yearTo: undefined, label: "All time periods" };
+  // range — require both endpoints to be complete 4-digit years before fetching
+  if (!rangeFrom && !rangeTo) {
+    return { ...base, label: "All time periods" };
   }
-  if (from !== undefined && to !== undefined && from > to) {
-    return { yearFrom: undefined, yearTo: undefined, label: "Invalid range", invalid: true };
+  const from = parseFullYear(rangeFrom);
+  const to = parseFullYear(rangeTo);
+  if (from === undefined || to === undefined) {
+    return { ...base, label: "Enter start and end years", skip: true };
   }
-  return {
-    yearFrom: from,
-    yearTo: to,
-    label: from != null && to != null ? `${from}–${to}` : String(from ?? to ?? ""),
-  };
+  if (from > to) {
+    return { ...base, label: "Invalid range", invalid: true };
+  }
+  return { ...base, yearFrom: from, yearTo: to, label: `${from}–${to}` };
 }
 
 function TimelinePage() {
@@ -150,11 +168,12 @@ function TimelinePage() {
     [filter.yearFrom, filter.yearTo, bbox],
   );
 
-  // Refetch from page 1 whenever the filter changes (or on mount).
+  // Refetch from page 1 whenever the filter changes (or on mount). Skip while
+  // the user is mid-input (partial year, one-sided range) or the range is invalid.
   useEffect(() => {
-    if (filter.invalid) return;
+    if (filter.invalid || filter.skip) return;
     fetchPage(1, { append: false });
-  }, [fetchPage, filter.invalid]);
+  }, [fetchPage, filter.invalid, filter.skip]);
 
   function handleLoadMore() {
     if (!hasNext || loading || loadingMore) return;
@@ -181,12 +200,13 @@ function TimelinePage() {
             <CardTitle className="text-base">Choose a time window</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div role="group" aria-label="Time window mode" className="flex flex-wrap gap-2">
+            <div role="radiogroup" aria-label="Time window mode" className="flex flex-wrap gap-2">
               {MODES.map((m) => (
                 <button
                   key={m}
                   type="button"
-                  aria-pressed={mode === m}
+                  role="radio"
+                  aria-checked={mode === m}
                   onClick={() => setMode(m)}
                   className={cn(
                     "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",

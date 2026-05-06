@@ -117,7 +117,7 @@ describe("TimelineEntry", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
-  it("shows mapped coordinates when lat/lng are present", () => {
+  it("shows mapped coordinates when lat/lng are present and no location_name", () => {
     renderEntry({
       id: 1,
       title: "Mapped Story",
@@ -133,5 +133,24 @@ describe("TimelineEntry", () => {
 
     expect(screen.getByText(/41\.0258/)).toBeInTheDocument();
     expect(screen.getByText(/28\.9744/)).toBeInTheDocument();
+  });
+
+  it("prefers location_name over raw coordinates when provided", () => {
+    renderEntry({
+      id: 1,
+      title: "Named Story",
+      time_type: "exact_year",
+      year: 1875,
+      year_start: null,
+      year_end: null,
+      location_lat: 41.0258,
+      location_lng: 28.9744,
+      location_name: "Galata Bridge, Istanbul",
+      photo_url: null,
+      temporal_coverage: null,
+    });
+
+    expect(screen.getByText("Galata Bridge, Istanbul")).toBeInTheDocument();
+    expect(screen.queryByText(/41\.0258/)).not.toBeInTheDocument();
   });
 });

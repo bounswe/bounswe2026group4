@@ -32,13 +32,20 @@ function TimelineEntry({ story }) {
   const decade = story.time_type === "decade" ? null : decadeChip(story);
   const hasCoords =
     story.location_lat != null && story.location_lng != null;
-  const lat = hasCoords ? Number(story.location_lat).toFixed(4) : null;
-  const lng = hasCoords ? Number(story.location_lng).toFixed(4) : null;
+  const locationName =
+    typeof story.location_name === "string" && story.location_name.trim()
+      ? story.location_name.trim()
+      : null;
+  const locationText = locationName
+    ? locationName
+    : hasCoords
+      ? `Mapped at ${Number(story.location_lat).toFixed(4)}, ${Number(story.location_lng).toFixed(4)}`
+      : null;
 
   return (
     <div className="relative flex gap-4 pl-2">
       {/* Bullet */}
-      <div className="relative flex flex-col items-center" aria-hidden="false">
+      <div className="relative flex flex-col items-center">
         <div
           className={cn(
             "z-10 flex min-w-[3.5rem] items-center justify-center rounded-full border bg-background px-2 py-1",
@@ -89,12 +96,10 @@ function TimelineEntry({ story }) {
             )}
           </div>
 
-          {hasCoords && (
+          {locationText && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span>
-                Mapped at {lat}, {lng}
-              </span>
+              <span>{locationText}</span>
             </div>
           )}
         </div>

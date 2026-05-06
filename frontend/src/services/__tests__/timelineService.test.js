@@ -39,7 +39,6 @@ describe("timelineService", () => {
       latMax: 41.5,
       lngMin: 28.0,
       lngMax: 29.5,
-      hasImage: true,
       page: 2,
       pageSize: 25,
     });
@@ -52,7 +51,6 @@ describe("timelineService", () => {
         lat_max: 41.5,
         lng_min: 28.0,
         lng_max: 29.5,
-        has_image: true,
         page: 2,
         page_size: 25,
       },
