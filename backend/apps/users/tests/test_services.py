@@ -22,6 +22,7 @@ from apps.users.services import (
     login_user,
     logout_user,
     register_user,
+    send_registration_verification,
     request_password_reset,
     resend_verification,
     reset_password,
@@ -55,36 +56,36 @@ class TestRegisterUser:
         return data
 
     def test_creates_user(self):
-        user, _ = register_user(self._data())
+        user = register_user(self._data())
         assert User.objects.filter(email='user@example.com').exists()
         assert user.username == 'testuser'
 
     def test_password_is_hashed(self):
-        user, _ = register_user(self._data())
+        user = register_user(self._data())
         assert user.check_password('Password1') is True
         assert user.password != 'Password1'
 
     def test_creates_verification_code(self):
-        user, _ = register_user(self._data())
+        user = register_user(self._data())
         assert EmailVerificationCode.objects.filter(user=user).exists()
 
     def test_user_is_inactive_on_registration(self):
-        user, _ = register_user(self._data())
+        user = register_user(self._data())
         assert user.is_active is False
 
     def test_email_is_not_verified_on_registration(self):
-        user, _ = register_user(self._data())
+        user = register_user(self._data())
         assert user.is_email_verified is False
 
     def test_register_user_awards_registration_badge_when_seeded(self):
         from apps.gamification.models import UserBadge
         # Pioneer badge is already seeded by the data migration — no creation needed.
-        user, _ = register_user(self._data())
+        user = register_user(self._data())
         assert UserBadge.objects.filter(user=user).exists()
 
     def test_register_user_does_not_fail_without_registration_badge_seeded(self):
         # Graceful no-op when no badge row exists yet
-        user, _ = register_user(self._data())  # must not raise
+        user = register_user(self._data())  # must not raise
         assert user.pk is not None
 
 
@@ -758,35 +759,56 @@ class TestGetUserBookmarks:
             get_user_bookmarks(user.pk, second_user)
 
 
-# ── register_user: sends verification email ──────────────────────────────────
+# ── register_user: creates user without sending email ────────────────────────
 
 @pytest.mark.django_db
 class TestRegisterUserSendsEmail:
-    def test_sends_verification_email(self):
-        register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
-        assert len(mail.outbox) == 1
-        assert mail.outbox[0].to == ['new@example.com']
-
-    def test_email_body_contains_verification_code(self):
-        register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
-        from apps.users.models import EmailVerificationCode
-        user = User.objects.get(email='new@example.com')
-        code = EmailVerificationCode.objects.get(user=user).code
-        assert code in mail.outbox[0].body
+    _DATA = {'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'}
 
     def test_email_failure_does_not_prevent_account_creation(self, monkeypatch):
         monkeypatch.setattr(
             'apps.users.services.send_verification_email',
             lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
         )
-        user, email_sent = register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
+        user = register_user(self._DATA)
         assert User.objects.filter(email='new@example.com').exists()
         assert user.pk is not None
-        assert email_sent is False
 
-    def test_returns_email_sent_true_on_success(self):
-        _, email_sent = register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
-        assert email_sent is True
+
+# ── send_registration_verification ───────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestSendRegistrationVerification:
+    _DATA = {'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'}
+
+    def test_sends_verification_email(self):
+        user = register_user(self._DATA)
+        send_registration_verification(user)
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ['new@example.com']
+
+    def test_email_body_contains_verification_code(self):
+        user = register_user(self._DATA)
+        send_registration_verification(user)
+        code = EmailVerificationCode.objects.get(user=user).code
+        assert code in mail.outbox[0].body
+
+    def test_returns_true_on_success(self):
+        user = register_user(self._DATA)
+        assert send_registration_verification(user) is True
+
+    def test_returns_false_when_delivery_fails(self, monkeypatch):
+        monkeypatch.setattr(
+            'apps.users.services.send_verification_email',
+            lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
+        )
+        user = register_user(self._DATA)
+        assert send_registration_verification(user) is False
+
+    def test_returns_false_when_no_unused_code_exists(self):
+        user = register_user(self._DATA)
+        EmailVerificationCode.objects.filter(user=user).update(is_used=True)
+        assert send_registration_verification(user) is False
 
 
 # ── request_password_reset ────────────────────────────────────────────────────
@@ -1003,7 +1025,18 @@ class TestEmailMisconfigurationWarnings:
         settings.DEBUG = False
         with caplog.at_level('WARNING', logger='apps.users.apps'):
             self._run(settings, caplog)
-        assert 'example.com' in caplog.text
+        assert caplog.text != ''
+
+    def test_warns_when_from_email_has_yourdomain_example_in_production(self, settings, caplog):
+        # Regression: the base.py default changed from @example.com to @yourdomain.example;
+        # the warning must still fire for that placeholder.
+        settings.EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        settings.EMAIL_HOST_PASSWORD = 'real-key'
+        settings.DEFAULT_FROM_EMAIL = 'App <noreply@yourdomain.example>'
+        settings.DEBUG = False
+        with caplog.at_level('WARNING', logger='apps.users.apps'):
+            self._run(settings, caplog)
+        assert caplog.text != ''
 
     def test_no_warning_when_fully_configured(self, settings, caplog):
         settings.EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

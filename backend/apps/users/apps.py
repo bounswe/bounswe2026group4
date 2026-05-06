@@ -29,8 +29,10 @@ class UsersConfig(AppConfig):
                     'Set it in .env or use EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend for development.'
                 )
             from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
-            if 'example.com' in from_email:
+            # Catch both the legacy placeholder (example.com) and the current one
+            # (yourdomain.example / any .example TLD) to avoid false negatives.
+            if 'example.com' in from_email or '.example' in from_email:
                 logger.warning(
-                    'DEFAULT_FROM_EMAIL contains "example.com" — emails will likely be rejected. '
+                    'DEFAULT_FROM_EMAIL looks like a placeholder — emails will likely be rejected. '
                     'Set DEFAULT_FROM_EMAIL to a verified sender address in .env.'
                 )
