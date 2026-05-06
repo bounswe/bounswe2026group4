@@ -3,6 +3,7 @@ import threading
 import time
 
 import requests
+from django.conf import settings
 from django.core.cache import cache
 from rest_framework.exceptions import APIException
 from rest_framework import status as drf_status
@@ -14,7 +15,9 @@ class NominatimUnavailable(APIException):
     default_code = 'geocoding_unavailable'
 
 _NOMINATIM_BASE = 'https://nominatim.openstreetmap.org'
-_USER_AGENT = 'LocalHistoryStoryMap/1.0 (Django proxy; contact: admin@example.com)'
+_USER_AGENT = (
+    f'LocalHistoryStoryMap/1.0 (Django proxy; contact: {settings.NOMINATIM_CONTACT_EMAIL})'
+)
 _CACHE_TTL = 86400  # 24 hours
 _SENTINEL = object()  # distinguishes "cached as None/[]" from "cache miss"
 
@@ -77,7 +80,7 @@ def geocode_search(q):
     if not q:
         return None
 
-    params = {'q': q, 'format': 'jsonv2', 'limit': '1', 'addressdetails': '1'}
+    params = {'q': q, 'format': 'jsonv2', 'limit': '1'}
     key = _cache_key('search', params)
     cached = cache.get(key, _SENTINEL)
     if cached is not _SENTINEL:

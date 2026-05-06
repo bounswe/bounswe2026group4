@@ -134,6 +134,9 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Local History Story Map 
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
+# Nominatim geocoding proxy
+NOMINATIM_CONTACT_EMAIL = env('NOMINATIM_CONTACT_EMAIL', default='admin@example.com')
+
 # Static files
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
