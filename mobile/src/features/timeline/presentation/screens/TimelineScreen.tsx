@@ -266,7 +266,7 @@ export function TimelineScreen({
           title={hasActiveFilters ? 'No stories on this timeline' : 'Timeline is empty'}
           message={
             hasActiveFilters
-              ? 'Try a wider year range, a different period, or removing a place filter.'
+              ? 'Try a wider year range, a different period, or removing a place or distance filter.'
               : 'Published stories will appear here from oldest to newest.'
           }
           actionLabel="Refresh"
@@ -429,10 +429,14 @@ function toSearchState(filters: StoryFilters): SearchFiltersState {
     query: filters.q ?? '',
     location: filters.location ?? '',
     locationBounds: filters.locationBounds,
-    proximityRadiusKm: filters.radiusKm === 1 || filters.radiusKm === 10 || filters.radiusKm === 100 ? filters.radiusKm : undefined,
+    proximityRadiusKm: filters.radiusKm === 0.5 || filters.radiusKm === 1 || filters.radiusKm === 10 || filters.radiusKm === 100 ? filters.radiusKm : undefined,
     proximityCoordinates:
       filters.latitude !== undefined && filters.longitude !== undefined
         ? { latitude: filters.latitude, longitude: filters.longitude }
+        : undefined,
+    proximitySource:
+      filters.radiusKm !== undefined && filters.latitude !== undefined && filters.longitude !== undefined
+        ? 'current_location'
         : undefined,
     timeFrom: filters.yearFrom ? String(filters.yearFrom) : '',
     timeTo: filters.yearTo ? String(filters.yearTo) : '',
@@ -459,6 +463,7 @@ function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersStat
     JSON.stringify(left.locationBounds) === JSON.stringify(right.locationBounds) &&
     left.proximityRadiusKm === right.proximityRadiusKm &&
     JSON.stringify(left.proximityCoordinates) === JSON.stringify(right.proximityCoordinates) &&
+    left.proximitySource === right.proximitySource &&
     left.timeFrom === right.timeFrom &&
     left.timeTo === right.timeTo &&
     JSON.stringify(left.tags) === JSON.stringify(right.tags)

@@ -10,7 +10,7 @@ export const DEFAULT_FROM_YEAR = '1980';
 export const DEFAULT_TO_YEAR = '2026';
 export const MIN_YEAR = 1000;
 export const MAX_YEAR = 2030;
-export type ProximityRadiusOption = 1 | 10 | 100;
+export type ProximityRadiusOption = 0.5 | 1 | 10 | 100;
 export interface LocationFilterSuggestion {
   id: string;
   title: string;
@@ -27,6 +27,7 @@ export interface LocationFilterSuggestion {
 
 const PROXIMITY_OPTIONS: Array<{ label: string; value?: ProximityRadiusOption }> = [
   { label: 'Anywhere' },
+  { label: '500 m', value: 0.5 },
   { label: '1 km', value: 1 },
   { label: '10 km', value: 10 },
   { label: '100 km', value: 100 },
