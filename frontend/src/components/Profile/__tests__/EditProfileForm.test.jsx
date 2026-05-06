@@ -6,27 +6,36 @@ vi.mock("@/services/userService", () => ({
   updateProfile: vi.fn(),
   uploadProfilePhoto: vi.fn(),
   removeProfilePhoto: vi.fn(),
+  getOwnProfile: vi.fn(),
 }));
 
 vi.mock("@/hooks/useToast", () => ({
   useToast: vi.fn(),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: vi.fn(),
+}));
+
 import {
   updateProfile,
   uploadProfilePhoto,
   removeProfilePhoto,
+  getOwnProfile,
 } from "@/services/userService";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 import EditProfileForm from "../EditProfileForm";
 
 const mockSuccessToast = vi.fn();
 const mockErrorToast = vi.fn();
+const mockUpdateUser = vi.fn();
 
 const baseProfileResponse = {
   id: 1,
   username: "alice_smith",
   email: "test@example.com",
+  is_username_public: true,
   profile: {
     first_name: "Alice",
     last_name: "Smith",
@@ -61,7 +70,9 @@ describe("EditProfileForm", () => {
     useToast.mockReturnValue({
       toast: { success: mockSuccessToast, error: mockErrorToast },
     });
+    useAuth.mockReturnValue({ updateUser: mockUpdateUser });
     updateProfile.mockResolvedValue({ success: true });
+    getOwnProfile.mockResolvedValue(baseProfileResponse);
     uploadProfilePhoto.mockResolvedValue({ photo_url: "http://example.com/photo.jpg" });
     removeProfilePhoto.mockResolvedValue(undefined);
   });
@@ -89,7 +100,7 @@ describe("EditProfileForm", () => {
       expect(screen.getByLabelText(/^Birth date$/i)).toHaveValue("1990-05-15");
     });
 
-    it("reflects privacy flags from profile — birth date switch is off (Private)", () => {
+    it("reflects privacy flags from profile - birth date switch is off (Private)", () => {
       renderForm();
       const toggle = screen.getByRole("switch", { name: /Birth date visibility/i });
       expect(toggle).toHaveAttribute("aria-checked", "false");
@@ -120,12 +131,12 @@ describe("EditProfileForm", () => {
     it("toggles name visibility and sends updated value on save", async () => {
       const user = userEvent.setup();
       renderForm();
-      await user.click(screen.getByRole("switch", { name: /Name visibility/i }));
+      await user.click(screen.getByRole("switch", { name: /^Name visibility$/i }));
       await user.click(screen.getByRole("button", { name: /Save changes/i }));
 
       await waitFor(() =>
         expect(updateProfile).toHaveBeenCalledWith(
-          { username: "alice_smith" },
+          expect.objectContaining({ username: "alice_smith" }),
           expect.objectContaining({ is_name_public: false })
         )
       );
@@ -279,6 +290,88 @@ describe("EditProfileForm", () => {
     });
   });
 
+  describe("private profile toggle", () => {
+    it("renders the username visibility toggle switch", () => {
+      renderForm();
+      expect(screen.getByRole("switch", { name: /Username visibility/i })).toBeInTheDocument();
+    });
+
+    it("toggle shows Public when is_username_public is true", () => {
+      renderForm();
+      const toggle = screen.getByRole("switch", { name: /Username visibility/i });
+      // VisibilityToggle: checked=true means Public, aria-checked="true"
+      expect(toggle).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("toggle shows Private when is_username_public is false", () => {
+      renderForm({
+        initialProfile: { ...baseProfileResponse, is_username_public: false },
+      });
+      const toggle = screen.getByRole("switch", { name: /Username visibility/i });
+      // VisibilityToggle: checked=false means Private, aria-checked="false"
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+    });
+
+    it("clicking the toggle flips it from Public to Private", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      const toggle = screen.getByRole("switch", { name: /Username visibility/i });
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+    });
+
+    it("clicking the toggle twice returns it to Public", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      const toggle = screen.getByRole("switch", { name: /Username visibility/i });
+      await user.click(toggle);
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("sends is_username_public: false when private profile is enabled on save", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      await user.click(screen.getByRole("switch", { name: /Username visibility/i }));
+      await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+      await waitFor(() =>
+        expect(updateProfile).toHaveBeenCalledWith(
+          expect.objectContaining({ is_username_public: false }),
+          expect.any(Object)
+        )
+      );
+    });
+
+    it("sends is_username_public: true when private profile is disabled on save", async () => {
+      const user = userEvent.setup();
+      renderForm({
+        initialProfile: { ...baseProfileResponse, is_username_public: false },
+      });
+      await user.click(screen.getByRole("switch", { name: /Username visibility/i }));
+      await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+      await waitFor(() =>
+        expect(updateProfile).toHaveBeenCalledWith(
+          expect.objectContaining({ is_username_public: true }),
+          expect.any(Object)
+        )
+      );
+    });
+
+    it("shows helper text indicating identity is hidden when private", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      await user.click(screen.getByRole("switch", { name: /Username visibility/i }));
+      expect(screen.getByText(/you appear as anonymous/i)).toBeInTheDocument();
+    });
+
+    it("shows helper text indicating identity is visible when public", () => {
+      renderForm();
+      expect(screen.getByText(/your username is shown on stories/i)).toBeInTheDocument();
+    });
+  });
+
   describe("username validation", () => {
     it("shows error and blocks save when username is empty", async () => {
       const user = userEvent.setup();
@@ -310,7 +403,7 @@ describe("EditProfileForm", () => {
 
       await waitFor(() =>
         expect(updateProfile).toHaveBeenCalledWith(
-          { username: "alice_smith" },
+          expect.objectContaining({ username: "alice_smith", is_username_public: true }),
           expect.objectContaining({
             first_name: "Alice",
             last_name: "Smith",
@@ -411,6 +504,17 @@ describe("EditProfileForm", () => {
       await waitFor(() =>
         expect(mockErrorToast).toHaveBeenCalledWith("Server error")
       );
+    });
+
+    it("calls updateUser with fresh profile after successful save", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+      await waitFor(() => {
+        expect(getOwnProfile).toHaveBeenCalled();
+        expect(mockUpdateUser).toHaveBeenCalledWith(baseProfileResponse);
+      });
     });
 
     it("disables Cancel during save", async () => {
