@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r /requirements/development.txt
 COPY backend/ .
 
 COPY backend/entrypoint.sh /entrypoint.sh
-# Strip Windows CRLF line endings that break the shebang on Linux
-RUN sed -i 's/\r//' /entrypoint.sh && chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
