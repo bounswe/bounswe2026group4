@@ -25,6 +25,10 @@ vi.mock("@/services/storyService", () => ({
   uploadStoryMedia: vi.fn(),
 }));
 
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: vi.fn(() => ({ user: { is_username_public: true } })),
+}));
+
 vi.mock("@/services/tagService", () => ({
   searchTags: vi.fn().mockResolvedValue([]),
   createOrGetTag: vi.fn(),

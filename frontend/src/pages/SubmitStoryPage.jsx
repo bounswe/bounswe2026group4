@@ -7,6 +7,7 @@ import MapPicker from "@/components/MapPicker/MapPicker";
 import TagInput from "@/components/Tags/TagInput";
 import { createStory, uploadStoryImage, uploadStoryMedia } from "@/services/storyService";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 
 const TIME_TYPES = [
   { value: "exact_year", label: "Exact Year" },
@@ -29,6 +30,7 @@ const ALLOWED_AUDIO_TYPES = ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/og
 function SubmitStoryPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [title, setTitle] = useState("");
   const [narrative, setNarrative] = useState("");
@@ -49,6 +51,10 @@ function SubmitStoryPage() {
   const [imageError, setImageError] = useState("");
   const [videoError, setVideoError] = useState("");
   const [audioError, setAudioError] = useState("");
+  // Default to anonymous if the user has a private profile (is_username_public=false)
+  const [contributorVisible, setContributorVisible] = useState(
+    () => user?.is_username_public !== false
+  );
 
   const imagePreviewsRef = useRef([]);
   imagePreviewsRef.current = imagePreviews;
@@ -205,7 +211,7 @@ function SubmitStoryPage() {
       formData.append("location_lng", parseFloat(location.lng.toFixed(6)));
       formData.append("location_name", placeName.trim());
       formData.append("time_type", timeType);
-      formData.append("contributor_visible", true);
+      formData.append("contributor_visible", contributorVisible);
 
       if (timeType === "year_range") {
         if (yearStart) formData.append("year_start", yearStart);
@@ -559,6 +565,40 @@ function SubmitStoryPage() {
                 ))}
               </ul>
             )}
+          </div>
+
+          {/* Contributor visibility */}
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="contributor-visible-toggle" className="text-sm font-medium cursor-pointer">
+                Show my name on this story
+              </Label>
+              <button
+                id="contributor-visible-toggle"
+                type="button"
+                role="switch"
+                aria-checked={contributorVisible}
+                aria-label="Contributor visibility"
+                onClick={() => setContributorVisible((v) => !v)}
+                disabled={isSubmitting}
+                className={[
+                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+                  contributorVisible ? "bg-primary" : "bg-input",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+                    contributorVisible ? "translate-x-4" : "translate-x-0",
+                  ].join(" ")}
+                />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {contributorVisible
+                ? "Your username will appear on this story."
+                : "This story will be submitted anonymously. Your name will not be shown."}
+            </p>
           </div>
 
           {/* Submit */}
