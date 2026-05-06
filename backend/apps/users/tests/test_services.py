@@ -13,6 +13,7 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Va
 
 from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 from apps.users.services import (
+    ban_user,
     delete_account,
     delete_profile_photo,
     follow_user,
@@ -952,3 +953,56 @@ class TestResendVerification:
         mail.outbox.clear()
         resend_verification(user.email)
         assert len(mail.outbox) == 0
+
+
+# ── ban_user ──────────────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestBanUser:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='target@example.com',
+            username='targetuser',
+            password='Password1',
+            is_active=True,
+        )
+
+    def _make_story(self):
+        from decimal import Decimal
+        return Story.objects.create(
+            user=self.user,
+            title='Story',
+            narrative='Narrative.',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'),
+            location_lng=Decimal('0'),
+            location_name='Place',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_ban_user_sets_is_active_false(self):
+        ban_user(self.user)
+        self.user.refresh_from_db()
+        assert self.user.is_active is False
+
+    def test_ban_user_returns_updated_user(self):
+        result = ban_user(self.user)
+        assert result.is_active is False
+
+    def test_ban_user_is_idempotent_when_already_banned(self):
+        self.user.is_active = False
+        self.user.save()
+        result = ban_user(self.user)
+        assert result.is_active is False
+        # Confirm still a single user row — no duplicate or error
+        assert User.objects.filter(pk=self.user.pk).count() == 1
+
+    def test_ban_user_preserves_account(self):
+        ban_user(self.user)
+        assert User.objects.filter(pk=self.user.pk).exists()
+
+    def test_ban_user_preserves_stories(self):
+        story = self._make_story()
+        ban_user(self.user)
+        assert Story.objects.filter(pk=story.pk).exists()
