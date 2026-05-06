@@ -55,36 +55,36 @@ class TestRegisterUser:
         return data
 
     def test_creates_user(self):
-        user = register_user(self._data())
+        user, _ = register_user(self._data())
         assert User.objects.filter(email='user@example.com').exists()
         assert user.username == 'testuser'
 
     def test_password_is_hashed(self):
-        user = register_user(self._data())
+        user, _ = register_user(self._data())
         assert user.check_password('Password1') is True
         assert user.password != 'Password1'
 
     def test_creates_verification_code(self):
-        user = register_user(self._data())
+        user, _ = register_user(self._data())
         assert EmailVerificationCode.objects.filter(user=user).exists()
 
     def test_user_is_inactive_on_registration(self):
-        user = register_user(self._data())
+        user, _ = register_user(self._data())
         assert user.is_active is False
 
     def test_email_is_not_verified_on_registration(self):
-        user = register_user(self._data())
+        user, _ = register_user(self._data())
         assert user.is_email_verified is False
 
     def test_register_user_awards_registration_badge_when_seeded(self):
         from apps.gamification.models import UserBadge
         # Pioneer badge is already seeded by the data migration — no creation needed.
-        user = register_user(self._data())
+        user, _ = register_user(self._data())
         assert UserBadge.objects.filter(user=user).exists()
 
     def test_register_user_does_not_fail_without_registration_badge_seeded(self):
         # Graceful no-op when no badge row exists yet
-        user = register_user(self._data())  # must not raise
+        user, _ = register_user(self._data())  # must not raise
         assert user.pk is not None
 
 
@@ -779,9 +779,14 @@ class TestRegisterUserSendsEmail:
             'apps.users.services.send_verification_email',
             lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
         )
-        user = register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
+        user, email_sent = register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
         assert User.objects.filter(email='new@example.com').exists()
         assert user.pk is not None
+        assert email_sent is False
+
+    def test_returns_email_sent_true_on_success(self):
+        _, email_sent = register_user({'email': 'new@example.com', 'username': 'newuser', 'password': 'Password1'})
+        assert email_sent is True
 
 
 # ── request_password_reset ────────────────────────────────────────────────────

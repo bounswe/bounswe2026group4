@@ -1042,15 +1042,38 @@ class TestUserBookmarksView:
 
 @pytest.mark.django_db
 class TestRegisterViewSendsEmail:
+    _PAYLOAD = {
+        'email': 'new@example.com',
+        'username': 'newuser',
+        'password': 'Password1',
+        'password_confirmation': 'Password1',
+    }
+
     def test_register_sends_verification_email(self, client):
-        client.post('/auth/register/', {
-            'email': 'new@example.com',
-            'username': 'newuser',
-            'password': 'Password1',
-            'password_confirmation': 'Password1',
-        })
+        client.post('/auth/register/', self._PAYLOAD)
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to == ['new@example.com']
+
+    def test_response_includes_email_sent_true_on_success(self, client):
+        response = client.post('/auth/register/', self._PAYLOAD)
+        assert response.data['email_sent'] is True
+
+    def test_response_includes_email_sent_false_when_delivery_fails(self, client, monkeypatch):
+        monkeypatch.setattr(
+            'apps.users.services.send_verification_email',
+            lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
+        )
+        response = client.post('/auth/register/', self._PAYLOAD)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['email_sent'] is False
+
+    def test_message_mentions_resend_when_delivery_fails(self, client, monkeypatch):
+        monkeypatch.setattr(
+            'apps.users.services.send_verification_email',
+            lambda *args, **kwargs: (_ for _ in ()).throw(Exception('SMTP down')),
+        )
+        response = client.post('/auth/register/', self._PAYLOAD)
+        assert 'resend' in response.data['message'].lower()
 
 
 # ── POST /auth/password-reset/ ────────────────────────────────────────────────
