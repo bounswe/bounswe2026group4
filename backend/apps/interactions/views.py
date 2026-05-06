@@ -40,7 +40,7 @@ class StoryCommentListCreateView(APIView):
         qs = get_story_comments(story_id)
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = CommentResponseSerializer(page, many=True)
+        serializer = CommentResponseSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request, story_id):
@@ -50,7 +50,7 @@ class StoryCommentListCreateView(APIView):
         return Response(
             {
                 'message': 'Comment added successfully.',
-                'comment': CommentResponseSerializer(comment).data,
+                'comment': CommentResponseSerializer(comment, context={'request': request}).data,
             },
             status=status.HTTP_201_CREATED,
         )

@@ -100,8 +100,17 @@ class TestStoryCommentCreate:
         )
         assert response.status_code == 201
         comment_data = response.data['comment']
-        for field in ['id', 'story_id', 'author_username', 'text', 'is_anonymized', 'created_at']:
+        for field in ['id', 'story_id', 'author_username', 'text', 'is_anonymized', 'created_at', 'is_own_comment']:
             assert field in comment_data
+
+    def test_create_comment_response_is_own_comment_true(self, auth_client, story):
+        response = auth_client.post(
+            self.url.format(story_id=story.pk),
+            {'text': 'My own comment'},
+            format='json',
+        )
+        assert response.status_code == 201
+        assert response.data['comment']['is_own_comment'] is True
 
 
 # ── DELETE /comments/<comment_id>/ ───────────────────────────────────────────
@@ -257,7 +266,7 @@ class TestStoryCommentList:
         Comment.objects.create(story=story, author=user, text='Hello')
         response = client.get(self.url.format(story_id=story.pk))
         result = response.data['results'][0]
-        assert set(result.keys()) == {'id', 'story_id', 'author_username', 'text', 'is_anonymized', 'created_at'}
+        assert set(result.keys()) == {'id', 'story_id', 'author_username', 'text', 'is_anonymized', 'created_at', 'is_own_comment'}
 
     def test_comments_ordered_oldest_first(self, client, story, user):
         c1 = Comment.objects.create(story=story, author=user, text='Older')
@@ -320,6 +329,35 @@ class TestStoryCommentList:
         response = client.get(self.url.format(story_id=story.pk))
         assert response.data['count'] == 1
         assert response.data['results'][0]['text'] == 'For first story'
+
+    def test_list_comments_is_own_comment_true_for_authenticated_author(self, auth_client, user, story):
+        Comment.objects.create(story=story, author=user, text='My comment')
+        response = auth_client.get(self.url.format(story_id=story.pk))
+        assert response.data['results'][0]['is_own_comment'] is True
+
+    def test_list_comments_is_own_comment_false_for_other_user(self, client, user, story, second_user):
+        Comment.objects.create(story=story, author=user, text='Not mine')
+        client.force_authenticate(user=second_user)
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.data['results'][0]['is_own_comment'] is False
+
+    def test_list_comments_is_own_comment_false_for_unauthenticated(self, client, user, story):
+        Comment.objects.create(story=story, author=user, text='Anonymous viewer')
+        response = client.get(self.url.format(story_id=story.pk))
+        assert response.data['results'][0]['is_own_comment'] is False
+
+    def test_list_comments_is_own_comment_true_when_author_username_is_null(self, client, story):
+        # Regression: private profile hides author_username but is_own_comment must still be True.
+        private_user = User.objects.create_user(
+            email='private_view2@example.com', username='privateview2', password='Password1',
+            is_username_public=False, is_active=True,
+        )
+        Comment.objects.create(story=story, author=private_user, text='Hidden identity')
+        client.force_authenticate(user=private_user)
+        response = client.get(self.url.format(story_id=story.pk))
+        result = response.data['results'][0]
+        assert result['author_username'] is None
+        assert result['is_own_comment'] is True
 
 
 # ── POST /stories/<story_id>/bookmark/ ───────────────────────────────────────
