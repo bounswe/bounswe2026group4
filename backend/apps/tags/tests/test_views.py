@@ -176,3 +176,67 @@ class TestTagDeleteView:
         client.force_authenticate(user=admin)
         response = client.delete(tag_detail_url(99999))
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def admin_tag_moderation_url(pk):
+    return f'/moderation/tags/{pk}/'
+
+
+@pytest.mark.django_db
+class TestAdminTagDeleteView:
+    def test_admin_deletes_tag_returns_204(self):
+        tag = Tag.objects.create(name='mod-delete-me')
+        admin = make_admin(email='madadmin@example.com', username='madadmin')
+        client = APIClient()
+        client.force_authenticate(user=admin)
+        response = client.delete(admin_tag_moderation_url(tag.pk))
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_admin_deletes_tag_removes_from_db(self):
+        tag = Tag.objects.create(name='mod-gone-tag')
+        admin = make_admin(email='madadmin2@example.com', username='madadmin2')
+        client = APIClient()
+        client.force_authenticate(user=admin)
+        client.delete(admin_tag_moderation_url(tag.pk))
+        assert not Tag.objects.filter(pk=tag.pk).exists()
+
+    def test_delete_removes_story_tag_associations(self):
+        from decimal import Decimal
+        from apps.stories.models import Story
+        from apps.tags.models import StoryTag
+
+        user = make_user(email='assocuser@example.com', username='assocuser')
+        story = Story.objects.create(
+            user=user, title='T', narrative='N',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'), location_lng=Decimal('0'),
+            location_name='P', time_type=Story.TIME_EXACT, year=2000,
+        )
+        tag = Tag.objects.create(name='mod-assoc-tag')
+        st = StoryTag.objects.create(story=story, tag=tag)
+        admin = make_admin(email='madadmin3@example.com', username='madadmin3')
+        client = APIClient()
+        client.force_authenticate(user=admin)
+        client.delete(admin_tag_moderation_url(tag.pk))
+        assert not StoryTag.objects.filter(pk=st.pk).exists()
+
+    def test_registered_user_gets_403(self):
+        tag = Tag.objects.create(name='mod-no-delete')
+        user = make_user(email='modnodelete@example.com', username='modnodelete')
+        client = APIClient()
+        client.force_authenticate(user=user)
+        response = client.delete(admin_tag_moderation_url(tag.pk))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_guest_gets_401(self):
+        tag = Tag.objects.create(name='mod-unauth-delete')
+        client = APIClient()
+        response = client.delete(admin_tag_moderation_url(tag.pk))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_nonexistent_tag_returns_404(self):
+        admin = make_admin(email='mod404admin@example.com', username='mod404admin')
+        client = APIClient()
+        client.force_authenticate(user=admin)
+        response = client.delete(admin_tag_moderation_url(99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND

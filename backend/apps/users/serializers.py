@@ -50,6 +50,15 @@ class UserResponseSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class UserBanResponseSerializer(serializers.ModelSerializer):
+    """Read-only serializer returned by the admin ban endpoint."""
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'username', 'role', 'is_active']
+        read_only_fields = fields
+
+
 class UpdateProfileSerializer(serializers.Serializer):
     """Validates editable UserProfile fields accepted by PATCH /users/me/.
 

@@ -13,12 +13,14 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Va
 
 from apps.users.models import EmailVerificationCode, Follow, User, UserProfile
 from apps.users.services import (
+    ban_user,
     delete_account,
     delete_profile_photo,
     follow_user,
     get_own_profile,
     get_public_profile,
     get_user_bookmarks,
+    get_user_published_stories,
     login_user,
     logout_user,
     register_user,
@@ -759,6 +761,65 @@ class TestGetUserBookmarks:
             get_user_bookmarks(user.pk, second_user)
 
 
+# ── get_user_published_stories ────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestGetUserPublishedStories:
+    def _make_story(self, user, title='Story', status=Story.STATUS_PUBLISHED):
+        return Story.objects.create(
+            user=user,
+            title=title,
+            narrative='Narrative text.',
+            status=status,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_returns_published_stories(self, user):
+        story = self._make_story(user)
+        qs = get_user_published_stories(user.pk)
+        assert story in qs
+
+    def test_excludes_draft_stories(self, user):
+        draft = self._make_story(user, title='Draft', status=Story.STATUS_DRAFT)
+        qs = get_user_published_stories(user.pk)
+        assert draft not in qs
+
+    def test_excludes_removed_stories(self, user):
+        removed = self._make_story(user, title='Removed', status=Story.STATUS_REMOVED)
+        qs = get_user_published_stories(user.pk)
+        assert removed not in qs
+
+    def test_ordered_most_recent_first(self, user):
+        story1 = self._make_story(user, title='First')
+        story2 = self._make_story(user, title='Second')
+        Story.objects.filter(pk=story1.pk).update(
+            submitted_at=timezone.now() - datetime.timedelta(seconds=5)
+        )
+        result = list(get_user_published_stories(user.pk))
+        assert result[0] == story2
+        assert result[1] == story1
+
+    def test_nonexistent_user_raises_404(self):
+        with pytest.raises(Http404):
+            get_user_published_stories(99999)
+
+    def test_inactive_user_raises_404(self, user):
+        user.is_active = False
+        user.save()
+        with pytest.raises(Http404):
+            get_user_published_stories(user.pk)
+
+    def test_does_not_return_other_users_stories(self, user, second_user):
+        other_story = self._make_story(second_user, title='Other')
+        qs = get_user_published_stories(user.pk)
+        assert other_story not in qs
+
+
 # ── register_user: creates user without sending email ────────────────────────
 
 @pytest.mark.django_db
@@ -1046,3 +1107,56 @@ class TestEmailMisconfigurationWarnings:
         with caplog.at_level('WARNING', logger='apps.users.apps'):
             self._run(settings, caplog)
         assert caplog.text == ''
+
+
+# ── ban_user ──────────────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestBanUser:
+    def setup_method(self):
+        self.user = User.objects.create_user(
+            email='target@example.com',
+            username='targetuser',
+            password='Password1',
+            is_active=True,
+        )
+
+    def _make_story(self):
+        from decimal import Decimal
+        return Story.objects.create(
+            user=self.user,
+            title='Story',
+            narrative='Narrative.',
+            status=Story.STATUS_PUBLISHED,
+            location_lat=Decimal('0'),
+            location_lng=Decimal('0'),
+            location_name='Place',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_ban_user_sets_is_active_false(self):
+        ban_user(self.user)
+        self.user.refresh_from_db()
+        assert self.user.is_active is False
+
+    def test_ban_user_returns_updated_user(self):
+        result = ban_user(self.user)
+        assert result.is_active is False
+
+    def test_ban_user_is_idempotent_when_already_banned(self):
+        self.user.is_active = False
+        self.user.save()
+        result = ban_user(self.user)
+        assert result.is_active is False
+        # Confirm still a single user row — no duplicate or error
+        assert User.objects.filter(pk=self.user.pk).count() == 1
+
+    def test_ban_user_preserves_account(self):
+        ban_user(self.user)
+        assert User.objects.filter(pk=self.user.pk).exists()
+
+    def test_ban_user_preserves_stories(self):
+        story = self._make_story()
+        ban_user(self.user)
+        assert Story.objects.filter(pk=story.pk).exists()

@@ -693,6 +693,10 @@ class TestDeleteAccountView:
         response = client.delete(self.url, {'password': 'Password1'}, format='json')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_missing_password_returns_400(self, auth_client):
+        response = auth_client.delete(self.url, {}, format='json')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_hard_delete_returns_204(self, auth_client):
         response = auth_client.delete(self.url, {'password': 'Password1'}, format='json')
         assert response.status_code == status.HTTP_204_NO_CONTENT
@@ -747,9 +751,58 @@ class TestDeleteAccountView:
         response = auth_client.delete(self.url, {'password': 'WrongPassword'}, format='json')
         assert 'password' in response.data['errors']
 
-    def test_missing_password_returns_400(self, auth_client):
-        response = auth_client.delete(self.url, {}, format='json')
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+# ── AdminUserBanView ──────────────────────────────────────────────────────────
+
+@pytest.fixture
+def admin_client(client, admin_user):
+    response = client.post('/auth/login/', {
+        'email': 'admin@example.com',
+        'password': 'Password1',
+    })
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {response.data["access"]}')
+    return client
+
+
+@pytest.mark.django_db
+class TestAdminUserBanView:
+    def _url(self, pk):
+        return f'/moderation/users/{pk}/ban/'
+
+    def test_ban_user_returns_200(self, admin_client, user):
+        response = admin_client.patch(self._url(user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_ban_user_response_contains_expected_fields(self, admin_client, user):
+        response = admin_client.patch(self._url(user.pk))
+        assert set(response.data.keys()) >= {'id', 'email', 'username', 'role', 'is_active'}
+
+    def test_ban_user_response_shows_is_active_false(self, admin_client, user):
+        response = admin_client.patch(self._url(user.pk))
+        assert response.data['is_active'] is False
+
+    def test_ban_user_persists_in_db(self, admin_client, user):
+        admin_client.patch(self._url(user.pk))
+        user.refresh_from_db()
+        assert user.is_active is False
+
+    def test_ban_already_banned_user_returns_200(self, admin_client, user):
+        user.is_active = False
+        user.save()
+        response = admin_client.patch(self._url(user.pk))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_ban_user_returns_404_for_nonexistent_user(self, admin_client):
+        response = admin_client.patch(self._url(99999))
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_ban_user_returns_403_for_registered_user(self, auth_client, user, second_user):
+        response = auth_client.patch(self._url(second_user.pk))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_ban_user_returns_401_for_guest(self, client, user):
+        response = client.patch(self._url(user.pk))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 # ── POST/DELETE /users/:id/follow/ ───────────────────────────────────────────
@@ -1036,6 +1089,81 @@ class TestUserBookmarksView:
         second_user.save()
         response = auth_client.get(self.url.format(user_id=second_user.pk))
         assert response.status_code == 404
+
+
+# ── GET /users/<user_id>/stories/ ────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUserStoriesView:
+    url = '/users/{user_id}/stories/'
+
+    def _make_story(self, user, title='Story', status=Story.STATUS_PUBLISHED):
+        return Story.objects.create(
+            user=user,
+            title=title,
+            narrative='Narrative text.',
+            status=status,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_unauthenticated_returns_200(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.status_code == 200
+
+    def test_returns_only_published_stories(self, client, user):
+        self._make_story(user, title='Published')
+        self._make_story(user, title='Draft', status=Story.STATUS_DRAFT)
+        self._make_story(user, title='Removed', status=Story.STATUS_REMOVED)
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Published'
+
+    def test_response_is_paginated(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.status_code == 200
+        for key in ['count', 'next', 'previous', 'results']:
+            assert key in response.data
+
+    def test_unauthenticated_interaction_flags_are_false(self, client, user):
+        self._make_story(user)
+        response = client.get(self.url.format(user_id=user.pk))
+        result = response.data['results'][0]
+        assert result['user_has_liked'] is False
+        assert result['user_has_saved'] is False
+
+    def test_authenticated_user_has_liked_flag_is_true(self, client, user, second_user):
+        from apps.interactions.models import Like
+        story = self._make_story(user)
+        Like.objects.create(user=second_user, story=story)
+        client.force_authenticate(user=second_user)
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.data['results'][0]['user_has_liked'] is True
+
+    def test_inactive_user_returns_404(self, client, user):
+        user.is_active = False
+        user.save()
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.status_code == 404
+
+    def test_nonexistent_user_returns_404(self, client):
+        response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == 404
+
+    def test_empty_when_no_stories(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_response_contains_story_feed_fields(self, client, user):
+        self._make_story(user)
+        response = client.get(self.url.format(user_id=user.pk))
+        result = response.data['results'][0]
+        for field in ['id', 'title', 'location_name', 'preview_text', 'submitted_at']:
+            assert field in result
 
 
 # ── POST /auth/register/ — sends verification email ─────────────────────────
