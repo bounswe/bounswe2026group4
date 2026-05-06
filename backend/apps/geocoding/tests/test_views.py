@@ -8,9 +8,9 @@ from django.core.cache import cache
 from rest_framework.test import APIClient
 
 
-GEOCODE_URL = '/api/geocode/'
-SUGGESTIONS_URL = '/api/geocode/suggestions/'
-REVERSE_URL = '/api/geocode/reverse/'
+GEOCODE_URL = '/geocode/'
+SUGGESTIONS_URL = '/geocode/suggestions/'
+REVERSE_URL = '/geocode/reverse/'
 
 
 def _nominatim_search_result(

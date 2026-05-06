@@ -7,7 +7,7 @@ from apps.geocoding import services
 
 
 class GeocodeView(APIView):
-    """GET /api/geocode/?q=<place> — resolve a place name to a bounding box."""
+    """GET /geocode/?q=<place> — resolve a place name to a bounding box."""
 
     permission_classes = [AllowAny]
 
@@ -19,7 +19,7 @@ class GeocodeView(APIView):
 
 
 class SuggestionsView(APIView):
-    """GET /api/geocode/suggestions/?q=<partial> — autocomplete suggestions."""
+    """GET /geocode/suggestions/?q=<partial> — autocomplete suggestions."""
 
     permission_classes = [AllowAny]
 
@@ -30,7 +30,7 @@ class SuggestionsView(APIView):
 
 
 class ReverseView(APIView):
-    """GET /api/geocode/reverse/?lat=<lat>&lng=<lng> — coords to place name."""
+    """GET /geocode/reverse/?lat=<lat>&lng=<lng> — coords to place name."""
 
     permission_classes = [AllowAny]
 
