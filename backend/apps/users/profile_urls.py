@@ -8,6 +8,7 @@ from apps.users.views import (
     ProfilePhotoView,
     UserBookmarksView,
     UserPublicProfileView,
+    UserStoriesView,
 )
 
 app_name = 'users_profile'
@@ -23,4 +24,5 @@ urlpatterns = [
     path('<int:user_id>/followers/', FollowerListView.as_view(), name='user-followers'),
     path('<int:user_id>/following/', FollowingListView.as_view(), name='user-following'),
     path('<int:user_id>/bookmarks/', UserBookmarksView.as_view(), name='user-bookmarks'),
+    path('<int:user_id>/stories/', UserStoriesView.as_view(), name='user-stories'),
 ]

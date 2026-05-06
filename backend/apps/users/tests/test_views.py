@@ -1038,6 +1038,81 @@ class TestUserBookmarksView:
         assert response.status_code == 404
 
 
+# ── GET /users/<user_id>/stories/ ────────────────────────────────────────────
+
+@pytest.mark.django_db
+class TestUserStoriesView:
+    url = '/users/{user_id}/stories/'
+
+    def _make_story(self, user, title='Story', status=Story.STATUS_PUBLISHED):
+        return Story.objects.create(
+            user=user,
+            title=title,
+            narrative='Narrative text.',
+            status=status,
+            location_lat=Decimal('41.0'),
+            location_lng=Decimal('29.0'),
+            location_name='Istanbul',
+            time_type=Story.TIME_EXACT,
+            year=2000,
+        )
+
+    def test_unauthenticated_returns_200(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.status_code == 200
+
+    def test_returns_only_published_stories(self, client, user):
+        self._make_story(user, title='Published')
+        self._make_story(user, title='Draft', status=Story.STATUS_DRAFT)
+        self._make_story(user, title='Removed', status=Story.STATUS_REMOVED)
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Published'
+
+    def test_response_is_paginated(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.status_code == 200
+        for key in ['count', 'next', 'previous', 'results']:
+            assert key in response.data
+
+    def test_unauthenticated_interaction_flags_are_false(self, client, user):
+        self._make_story(user)
+        response = client.get(self.url.format(user_id=user.pk))
+        result = response.data['results'][0]
+        assert result['user_has_liked'] is False
+        assert result['user_has_saved'] is False
+
+    def test_authenticated_user_has_liked_flag_is_true(self, client, user, second_user):
+        from apps.interactions.models import Like
+        story = self._make_story(user)
+        Like.objects.create(user=second_user, story=story)
+        client.force_authenticate(user=second_user)
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.data['results'][0]['user_has_liked'] is True
+
+    def test_inactive_user_returns_404(self, client, user):
+        user.is_active = False
+        user.save()
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.status_code == 404
+
+    def test_nonexistent_user_returns_404(self, client):
+        response = client.get(self.url.format(user_id=99999))
+        assert response.status_code == 404
+
+    def test_empty_when_no_stories(self, client, user):
+        response = client.get(self.url.format(user_id=user.pk))
+        assert response.data['count'] == 0
+        assert response.data['results'] == []
+
+    def test_response_contains_story_feed_fields(self, client, user):
+        self._make_story(user)
+        response = client.get(self.url.format(user_id=user.pk))
+        result = response.data['results'][0]
+        for field in ['id', 'title', 'location_name', 'preview_text', 'submitted_at']:
+            assert field in result
+
+
 # ── POST /auth/register/ — sends verification email ─────────────────────────
 
 @pytest.mark.django_db
