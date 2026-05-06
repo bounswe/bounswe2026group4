@@ -12,6 +12,7 @@ export async function getStories({
   yearFrom,
   yearTo,
   location,
+  tags = [],
   page = 1,
   pageSize = PAGE_SIZE,
   sortBy = "recent",
@@ -21,6 +22,7 @@ export async function getStories({
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
+    if (tags.length > 0) params.tags = tags;
     const response = await api.get("/stories/search/", { params });
     return response.data; // { count, next, previous, results }
   }
@@ -29,6 +31,7 @@ export async function getStories({
   if (yearFrom) params.year_from = yearFrom;
   if (yearTo) params.year_to = yearTo;
   if (location?.trim()) params.location = location.trim();
+  if (tags.length > 0) params.tags = tags;
 
   const response = await api.get("/stories/feed/", { params });
   return response.data; // { count, next, previous, results }
@@ -68,13 +71,14 @@ function storyToFeature(story) {
  *   FeatureCollection on the client, since the search endpoint still returns
  *   the legacy paginated story list.
  */
-export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
+export async function getMapStories({ q, yearFrom, yearTo, location, tags = [] } = {}) {
   if (q?.trim()) {
     // Hard cap — pins beyond MAP_SEARCH_CAP are silently dropped.
     const params = { q: q.trim(), page_size: MAP_SEARCH_CAP };
     if (yearFrom) params.year_from = yearFrom;
     if (yearTo) params.year_to = yearTo;
     if (location?.trim()) params.location = location.trim();
+    if (tags.length > 0) params.tags = tags;
     const response = await api.get("/stories/search/", { params });
     const features = response.data.results
       .filter((s) => s.location_lat != null && s.location_lng != null)
@@ -90,6 +94,7 @@ export async function getMapStories({ q, yearFrom, yearTo, location } = {}) {
   if (yearFrom) params.year_from = yearFrom;
   if (yearTo) params.year_to = yearTo;
   if (location?.trim()) params.location = location.trim();
+  if (tags.length > 0) params.tags = tags;
 
   const response = await api.get("/stories/map/", { params });
   const fc = response.data ?? EMPTY_FEATURE_COLLECTION;

@@ -17,6 +17,7 @@ urlpatterns = [
     path('moderation/', include([
         path('', include('apps.stories.admin_urls')),
         path('', include('apps.interactions.admin_urls')),
+        path('', include('apps.reports.admin_urls')),
     ])),
 ]
 

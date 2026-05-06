@@ -29,6 +29,7 @@ interface WebMapViewProps {
   interactive?: boolean;
   onMarkerPress?: (markerId: string) => void;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
+  onMapGestureChange?: (isGestureActive: boolean) => void;
   onRegionChangeComplete?: (region: RegionLike) => void;
   transitionDurationMs?: number;
 }
@@ -44,6 +45,8 @@ type MapUpdatePayload = {
   animated?: boolean;
   transitionDurationMs?: number;
 };
+
+const MAP_HTML_VERSION = 'current-location-pin-size-v2';
 
 const mapHtml = ({
   region,
@@ -81,6 +84,20 @@ const mapHtml = ({
       }
 
       .marker {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .marker.selected {
+        width: 34px;
+        height: 34px;
+      }
+
+      .marker-dot {
+        position: relative;
         width: 18px;
         height: 18px;
         border-radius: 9999px;
@@ -89,8 +106,20 @@ const mapHtml = ({
         box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
       }
 
-      .marker.selected {
-        background: #0a0a0a;
+      .marker-pin {
+        position: relative;
+        width: 24px;
+        height: 24px;
+        border-radius: 50% 50% 50% 0;
+        background: #dc2626;
+        border: 3px solid #ffffff;
+        transform: rotate(-45deg);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.32);
+      }
+
+      .marker.selected .marker-pin {
+        width: 18px;
+        height: 18px;
       }
 
       .marker-label {
@@ -109,13 +138,31 @@ const mapHtml = ({
         pointer-events: none;
       }
 
+      .marker-pin .marker-label {
+        transform: translate(-50%, -50%) rotate(45deg);
+      }
+
       .user-location-marker {
-        width: 18px;
-        height: 18px;
-        border-radius: 9999px;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .user-location-pin {
+        position: relative;
+        width: 28px;
+        height: 28px;
+        box-sizing: border-box;
+        border-radius: 50% 50% 50% 0;
         background: #1d4ed8;
         border: 3px solid #ffffff;
-        box-shadow: 0 0 0 6px rgba(29, 78, 216, 0.18);
+        transform: rotate(-45deg);
+        transform-origin: center;
+        box-shadow:
+          0 0 0 7px rgba(29, 78, 216, 0.18),
+          0 4px 12px rgba(29, 78, 216, 0.34);
       }
     </style>
   </head>
@@ -135,6 +182,7 @@ const mapHtml = ({
       let markerInstances = [];
       let pendingUpdatePayload = null;
       let userLocationMarker = null;
+      let mapGestureReleaseTimer = null;
 
       const getZoomForRegion = (nextRegion) => {
         const requestedDelta = Math.max(
@@ -180,6 +228,26 @@ const mapHtml = ({
         );
       };
 
+      const postMapGestureChange = (isActive) => {
+        if (mapGestureReleaseTimer) {
+          window.clearTimeout(mapGestureReleaseTimer);
+          mapGestureReleaseTimer = null;
+        }
+
+        window.ReactNativeWebView?.postMessage(
+          JSON.stringify({ type: 'mapGesture', isActive })
+        );
+
+        if (isActive) {
+          mapGestureReleaseTimer = window.setTimeout(() => {
+            window.ReactNativeWebView?.postMessage(
+              JSON.stringify({ type: 'mapGesture', isActive: false })
+            );
+            mapGestureReleaseTimer = null;
+          }, 1200);
+        }
+      };
+
       const clearProgrammaticMove = () => {
         if (programmaticMoveTimer) {
           window.clearTimeout(programmaticMoveTimer);
@@ -203,12 +271,15 @@ const mapHtml = ({
       const createStoryMarker = (marker) => {
         const element = document.createElement('div');
         element.className = marker.selected ? 'marker selected' : 'marker';
+        const markerBody = document.createElement('div');
+        markerBody.className = marker.selected ? 'marker-pin' : 'marker-dot';
+        element.appendChild(markerBody);
 
         if (marker.label) {
           const label = document.createElement('span');
           label.className = 'marker-label';
           label.textContent = marker.label;
-          element.appendChild(label);
+          markerBody.appendChild(label);
         }
 
         element.addEventListener('click', (event) => {
@@ -218,7 +289,7 @@ const mapHtml = ({
           );
         });
 
-        return new maplibregl.Marker({ element, anchor: 'center' })
+        return new maplibregl.Marker({ element, anchor: marker.selected ? 'bottom' : 'center' })
           .setLngLat([marker.longitude, marker.latitude])
           .addTo(map);
       };
@@ -239,8 +310,11 @@ const mapHtml = ({
         if (nextUserLocation) {
           const element = document.createElement('div');
           element.className = 'user-location-marker';
+          const markerBody = document.createElement('div');
+          markerBody.className = 'user-location-pin';
+          element.appendChild(markerBody);
 
-          userLocationMarker = new maplibregl.Marker({ element, anchor: 'center' })
+          userLocationMarker = new maplibregl.Marker({ element, anchor: 'bottom' })
             .setLngLat([nextUserLocation.longitude, nextUserLocation.latitude])
             .addTo(map);
         }
@@ -305,6 +379,19 @@ const mapHtml = ({
         map.boxZoom.disable();
       }
 
+      const mapCanvas = map.getCanvas();
+      mapCanvas.addEventListener('touchstart', () => postMapGestureChange(true), { passive: true });
+      mapCanvas.addEventListener('touchmove', () => postMapGestureChange(true), { passive: true });
+      mapCanvas.addEventListener('touchend', () => postMapGestureChange(false), { passive: true });
+      mapCanvas.addEventListener('touchcancel', () => postMapGestureChange(false), { passive: true });
+      mapCanvas.addEventListener('pointerdown', () => postMapGestureChange(true));
+      mapCanvas.addEventListener('pointermove', () => postMapGestureChange(true));
+      mapCanvas.addEventListener('pointerup', () => postMapGestureChange(false));
+      mapCanvas.addEventListener('pointercancel', () => postMapGestureChange(false));
+
+      map.on('dragstart', () => postMapGestureChange(true));
+      map.on('dragend', () => postMapGestureChange(false));
+
       map.on('click', (event) => {
         if (!interactive) {
           return;
@@ -357,19 +444,21 @@ export function WebMapView({
   interactive = true,
   onMarkerPress,
   onMapPress,
+  onMapGestureChange,
   onRegionChangeComplete,
   transitionDurationMs = 450,
 }: WebMapViewProps) {
   const webViewRef = useRef<WebViewHandle | null>(null);
-  const sourceRef = useRef<{ html: string } | null>(null);
+  const sourceRef = useRef<{ html: string; version: string } | null>(null);
   const latestUpdatePayloadRef = useRef<MapUpdatePayload | null>(null);
   const lastSentRegionRef = useRef<RegionLike | null>(null);
   const lastSentMarkersRef = useRef<MarkerItem[] | null>(null);
   const lastSentUserLocationRef = useRef<UserLocationLike | null | undefined>(undefined);
 
-  if (sourceRef.current === null) {
+  if (sourceRef.current === null || sourceRef.current.version !== MAP_HTML_VERSION) {
     sourceRef.current = {
       html: mapHtml({ region, markers, userLocation, interactive, transitionDurationMs }),
+      version: MAP_HTML_VERSION,
     };
   }
 
@@ -418,7 +507,8 @@ export function WebMapView({
           webViewRef.current = ref as WebViewHandle | null;
         }}
         originWhitelist={['*']}
-        source={sourceRef.current}
+        source={{ html: sourceRef.current.html }}
+        key={sourceRef.current.version}
         style={styles.webview}
         javaScriptEnabled
         domStorageEnabled
@@ -457,12 +547,19 @@ export function WebMapView({
               typeof payload.latitudeDelta === 'number' &&
               typeof payload.longitudeDelta === 'number'
             ) {
-              onRegionChangeComplete?.({
+              const nextRegion = {
                 latitude: payload.latitude,
                 longitude: payload.longitude,
                 latitudeDelta: payload.latitudeDelta,
                 longitudeDelta: payload.longitudeDelta,
-              });
+              };
+
+              lastSentRegionRef.current = nextRegion;
+              onRegionChangeComplete?.(nextRegion);
+            }
+
+            if (payload.type === 'mapGesture' && typeof payload.isActive === 'boolean') {
+              onMapGestureChange?.(payload.isActive);
             }
           } catch {
             return;

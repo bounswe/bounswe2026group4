@@ -7,7 +7,12 @@ import { MapMarkerGroup } from '../../domain/entities';
 import { mapService } from '../../application/services';
 import { createInitialMapUiState, MapUiState } from '../state/mapUiState';
 import { MapCard } from '../components/MapCard';
-import { SearchFilterScope, useSearchFilters, toSearchParams } from '../../../search/presentation/context/SearchFiltersContext';
+import {
+  SearchFilterScope,
+  SearchFiltersState,
+  useSearchFilters,
+  toSearchParams,
+} from '../../../search/presentation/context/SearchFiltersContext';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { StorySearchControls } from '../../../search/presentation/components/StorySearchControls';
 
@@ -16,8 +21,10 @@ interface MapScreenProps {
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
   onMarkerPreviewRequested?: (targetY: number) => void;
+  onViewTimeline?: (coordinates: { latitude: number; longitude: number }) => void;
   showSearchControls?: boolean;
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
+  onMapTouchChange?: (isTouchingMap: boolean) => void;
   searchScope?: SearchFilterScope;
 }
 
@@ -44,8 +51,10 @@ export function MapScreen({
   onOpenStory,
   getMarkerGroups = mapService.getMarkerGroups,
   onMarkerPreviewRequested,
+  onViewTimeline,
   showSearchControls = true,
   onRegisterRefresh,
+  onMapTouchChange,
   searchScope = 'map',
 }: MapScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
@@ -59,6 +68,7 @@ export function MapScreen({
   const [hasInteractedWithArea, setHasInteractedWithArea] = useState(false);
   const [statusIndicatorMode, setStatusIndicatorMode] = useState<StatusIndicatorMode>('hidden');
   const lastAutoZoomContextKeyRef = useRef<string | null>(null);
+  const previousMapPinFilterKeyRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
   const previewOffsetRef = useRef<number | null>(null);
 
@@ -94,6 +104,20 @@ export function MapScreen({
     () => `${buildAutoZoomContextKey(activeFilters)}:${refreshToken}`,
     [activeFilters, refreshToken],
   );
+  const mapPinFilterKey = useMemo(() => getMapPinFilterKey(filters), [filters]);
+
+  useEffect(() => {
+    const previousMapPinFilterKey = previousMapPinFilterKeyRef.current;
+
+    if (previousMapPinFilterKey && !mapPinFilterKey) {
+      setState((current) => ({
+        ...current,
+        selectedMarkerId: undefined,
+      }));
+    }
+
+    previousMapPinFilterKeyRef.current = mapPinFilterKey;
+  }, [mapPinFilterKey]);
 
   const loadMarkers = React.useCallback(async () => {
     const requestId = loadRequestIdRef.current + 1;
@@ -182,14 +206,6 @@ export function MapScreen({
     if (state.filters.yearFrom || state.filters.yearTo) {
       parts.push(`Years: ${state.filters.yearFrom ?? 'Any'}-${state.filters.yearTo ?? 'Any'}`);
     }
-    if (state.filters.radiusKm) {
-      const coordinates =
-        state.filters.latitude !== undefined && state.filters.longitude !== undefined
-          ? ` from ${state.filters.latitude.toFixed(4)}, ${state.filters.longitude.toFixed(4)}`
-          : '';
-
-      parts.push(`Distance: ${state.filters.radiusKm} km${coordinates}`);
-    }
     if (state.filters.tags?.length) {
       parts.push(`Tag: ${state.filters.tags.join(', ')}`);
     }
@@ -202,7 +218,14 @@ export function MapScreen({
     [state.markers],
   );
 
-  const userLocation = filters.proximityRadiusKm && filters.proximityCoordinates ? filters.proximityCoordinates : undefined;
+  const userLocation =
+    filters.proximityRadiusKm && filters.proximityCoordinates && filters.proximitySource !== 'map_pin'
+      ? filters.proximityCoordinates
+      : undefined;
+  const mapPinFilterMarkerId = useMemo(
+    () => getMapPinFilterMarkerId(state.markers, filters),
+    [filters, state.markers],
+  );
   const statusStoryCount = useMemo(() => {
     if (statusIndicatorMode !== 'area' || !hasInteractedWithArea || !visibleRegion) {
       return totalStoryCount;
@@ -263,6 +286,7 @@ export function MapScreen({
           region={mapRegion}
           markers={state.markers}
           selectedMarkerId={state.selectedMarkerId}
+          highlightedMarkerId={mapPinFilterMarkerId}
           isLoading={state.isLoading}
           error={state.error}
           statusBadgeText={statusBadgeText}
@@ -280,6 +304,7 @@ export function MapScreen({
             }
           }}
           onOpenStory={(storyId) => onOpenStory?.(storyId)}
+          onViewTimeline={onViewTimeline}
           onRegionChangeComplete={(region) => {
             setMapRegion(region);
             setVisibleRegion(region);
@@ -287,6 +312,7 @@ export function MapScreen({
             setStatusIndicatorMode('area');
           }}
           onPreviewLayout={handlePreviewLayout}
+          onMapTouchChange={onMapTouchChange}
         />
       </View>
     </View>
@@ -366,6 +392,31 @@ function countStoriesInRegion(markers: MapMarkerGroup[], region: Region) {
 
 function formatStoryCount(count: number) {
   return `${count} ${count === 1 ? 'story' : 'stories'}`;
+}
+
+function getMapPinFilterKey(filters: SearchFiltersState) {
+  if (filters.proximitySource !== 'map_pin' || !filters.proximityCoordinates) {
+    return null;
+  }
+
+  return `${filters.proximityCoordinates.latitude}:${filters.proximityCoordinates.longitude}:${filters.proximityRadiusKm ?? ''}`;
+}
+
+function getMapPinFilterMarkerId(markers: MapMarkerGroup[], filters: SearchFiltersState) {
+  if (filters.proximitySource !== 'map_pin' || !filters.proximityCoordinates) {
+    return undefined;
+  }
+
+  const { latitude, longitude } = filters.proximityCoordinates;
+  const matchingMarker = markers.find(
+    (marker) => coordinatesEqual(marker.latitude, latitude) && coordinatesEqual(marker.longitude, longitude),
+  );
+
+  return matchingMarker?.id;
+}
+
+function coordinatesEqual(left: number, right: number) {
+  return Math.abs(left - right) < 0.000001;
 }
 
 function buildAutoZoomContextKey(filters: StoryFilters) {

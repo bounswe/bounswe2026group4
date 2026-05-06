@@ -60,6 +60,14 @@ class Report(models.Model):
         default=ReportStatus.PENDING,
     )
     resolution_outcome = models.TextField(blank=True)
+    # SET_NULL so the resolution record survives admin account deletion.
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_reports',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
 

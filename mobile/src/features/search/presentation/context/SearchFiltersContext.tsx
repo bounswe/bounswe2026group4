@@ -5,7 +5,8 @@ import { StoryFilters } from '../../../stories/domain/repositories';
 import { LocationBounds } from '../../application/services';
 
 export type SearchFilterScope = 'feed' | 'map' | 'main';
-export type ProximityRadiusKm = 1 | 10 | 100;
+export type ProximityRadiusKm = 0.5 | 1 | 10 | 100;
+export type ProximitySource = 'current_location' | 'map_pin';
 
 export interface ProximityCoordinates {
   latitude: number;
@@ -18,6 +19,7 @@ export interface SearchFiltersState {
   locationBounds?: LocationBounds;
   proximityRadiusKm?: ProximityRadiusKm;
   proximityCoordinates?: ProximityCoordinates;
+  proximitySource?: ProximitySource;
   timeFrom: string;
   timeTo: string;
   tags: string[];
@@ -40,6 +42,7 @@ const initialFilters: SearchFiltersState = {
   locationBounds: undefined,
   proximityRadiusKm: undefined,
   proximityCoordinates: undefined,
+  proximitySource: undefined,
   timeFrom: '',
   timeTo: '',
   tags: [],
@@ -151,8 +154,9 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
             ...currentFilters,
             [key]: key === 'tags' ? [] : '',
             ...(key === 'location' ? { locationBounds: undefined } : {}),
-            ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
-            ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined } : {}),
+            ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined } : {}),
+            ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined } : {}),
+            ...(key === 'proximitySource' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined } : {}),
           }),
           { refresh: true },
         );
@@ -231,6 +235,7 @@ function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): S
     locationBounds: normalizeLocationBounds(filters?.locationBounds),
     proximityRadiusKm: normalizeProximityRadius(filters?.proximityRadiusKm),
     proximityCoordinates: normalizeProximityCoordinates(filters?.proximityCoordinates),
+    proximitySource: normalizeProximitySource(filters?.proximitySource),
     timeFrom: filters?.timeFrom ?? '',
     timeTo: filters?.timeTo ?? '',
     tags: normalizeTags(filters?.tags),
@@ -248,7 +253,11 @@ function normalizeTags(tags?: string[] | null): string[] {
 }
 
 function normalizeProximityRadius(radius?: number | null): ProximityRadiusKm | undefined {
-  return radius === 1 || radius === 10 || radius === 100 ? radius : undefined;
+  return radius === 0.5 || radius === 1 || radius === 10 || radius === 100 ? radius : undefined;
+}
+
+function normalizeProximitySource(source?: string | null): ProximitySource | undefined {
+  return source === 'map_pin' || source === 'current_location' ? source : undefined;
 }
 
 function normalizeProximityCoordinates(coordinates?: ProximityCoordinates | null): ProximityCoordinates | undefined {

@@ -165,6 +165,7 @@ function BottomNavButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
@@ -200,6 +201,8 @@ function ScreenShell({
   disableScrollViewPanResponder = false,
   scrollEnabled = true,
   canCancelContentTouches = true,
+  refreshEnabled = true,
+  refreshSuppressed = false,
   testID,
   preservedScrollY = 0,
   onScrollOffsetChange,
@@ -221,6 +224,8 @@ function ScreenShell({
   disableScrollViewPanResponder?: boolean;
   scrollEnabled?: boolean;
   canCancelContentTouches?: boolean;
+  refreshEnabled?: boolean;
+  refreshSuppressed?: boolean;
   testID?: string;
   preservedScrollY?: number;
   onScrollOffsetChange?: (y: number) => void;
@@ -249,7 +254,7 @@ function ScreenShell({
     typeof children === 'function' ? children({ scrollTo, registerRefreshHandler }) : children;
 
   const handleRefresh = useCallback(async () => {
-    if (!refreshHandler || isRefreshing) {
+    if (!refreshHandler || isRefreshing || refreshSuppressed) {
       return;
     }
 
@@ -260,7 +265,7 @@ function ScreenShell({
     } finally {
       setIsRefreshing(false);
     }
-  }, [isRefreshing, refreshHandler]);
+  }, [isRefreshing, refreshHandler, refreshSuppressed]);
 
   useEffect(() => {
     if (!scrollable || !active) {
@@ -310,12 +315,17 @@ function ScreenShell({
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: flushBottom ? 0 : spacing.xl }}
         showsVerticalScrollIndicator={false}
         disableScrollViewPanResponder={disableScrollViewPanResponder}
-        scrollEnabled={scrollEnabled}
+        scrollEnabled={scrollEnabled && !refreshSuppressed}
         canCancelContentTouches={canCancelContentTouches}
         scrollEventThrottle={16}
         refreshControl={
-          refreshHandler ? (
-            <RefreshControl refreshing={isRefreshing} onRefresh={() => void handleRefresh()} tintColor={colors.primary} />
+          refreshEnabled && refreshHandler ? (
+            <RefreshControl
+              enabled={!refreshSuppressed}
+              refreshing={!refreshSuppressed && isRefreshing}
+              onRefresh={() => void handleRefresh()}
+              tintColor={colors.primary}
+            />
           ) : undefined
         }
         onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -354,9 +364,13 @@ export function RootNavigator() {
   const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
   const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isMapTouchActive, setIsMapTouchActive] = useState(false);
   const [hasResolvedInitialSession, setHasResolvedInitialSession] = useState(false);
   const [backStack, setBackStack] = useState<RouteSnapshot[]>([]);
   const pagerRef = useRef<ScrollView>(null);
+  const animatedPagerRouteRef = useRef<AppRoute | null>(null);
+  const isPagerDragActiveRef = useRef(false);
+  const pagerDragResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapScrollOffsetRef = useRef(0);
 
   const currentSnapshot = useMemo<RouteSnapshot>(
@@ -397,6 +411,32 @@ export function RootNavigator() {
     setActiveStoryId(snapshot.route === ROUTES.STORY_DETAIL ? snapshot.storyId ?? null : null);
     setActiveUserId(snapshot.route === ROUTES.USER_PROFILE ? snapshot.userId ?? null : null);
   }, []);
+
+  const scrollMainPagerToRoute = useCallback(
+    (route: AppRoute, options?: { animated?: boolean }) => {
+      const pageIndex = MAIN_PAGER_ROUTES.indexOf(route);
+
+      if (pageIndex < 0) {
+        return;
+      }
+
+      const x = pageIndex * width;
+      const animated = Boolean(options?.animated);
+
+      if (animated) {
+        animatedPagerRouteRef.current = route;
+        pagerRef.current?.scrollTo({ x, y: 0, animated: true });
+        return;
+      }
+
+      animatedPagerRouteRef.current = null;
+      pagerRef.current?.scrollTo({ x, y: 0, animated: false });
+      requestAnimationFrame(() => {
+        pagerRef.current?.scrollTo({ x, y: 0, animated: false });
+      });
+    },
+    [width],
+  );
 
   const navigateToSnapshot = useCallback(
     (snapshot: RouteSnapshot, options?: { resetStack?: boolean; preserveCurrent?: boolean }) => {
@@ -495,6 +535,7 @@ export function RootNavigator() {
 
   const handleNavigate = (route: AppRoute) => {
     if (MAIN_PAGER_ROUTES.includes(route)) {
+      scrollMainPagerToRoute(route, { animated: true });
       navigateToSnapshot({ route }, { resetStack: true, preserveCurrent: false });
       return;
     }
@@ -519,12 +560,36 @@ export function RootNavigator() {
 
   useEffect(() => {
     if (!isMainRoute) {
+      setIsMapTouchActive(false);
+      isPagerDragActiveRef.current = false;
+      if (pagerDragResetTimerRef.current) {
+        clearTimeout(pagerDragResetTimerRef.current);
+        pagerDragResetTimerRef.current = null;
+      }
       return;
     }
 
+    if (currentRoute !== ROUTES.MAP) {
+      setIsMapTouchActive(false);
+    }
+
     const pageIndex = Math.max(MAIN_PAGER_ROUTES.indexOf(currentRoute), 0);
-    pagerRef.current?.scrollTo({ x: pageIndex * width, animated: false });
-  }, [currentRoute, isMainRoute, width]);
+    if (animatedPagerRouteRef.current === MAIN_PAGER_ROUTES[pageIndex]) {
+      animatedPagerRouteRef.current = null;
+      return;
+    }
+
+    scrollMainPagerToRoute(MAIN_PAGER_ROUTES[pageIndex]);
+  }, [currentRoute, isMainRoute, scrollMainPagerToRoute]);
+
+  useEffect(
+    () => () => {
+      if (pagerDragResetTimerRef.current) {
+        clearTimeout(pagerDragResetTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const handleLoginComplete = (context?: { source: 'signIn' | 'register' }) => {
     if (context?.source === 'register') {
@@ -600,6 +665,28 @@ export function RootNavigator() {
     navigateToSnapshot({ route: ROUTES.STORY_DETAIL, storyId });
   };
 
+  const handleViewTimelineNearPin = useCallback(
+    (coordinates: { latitude: number; longitude: number }) => {
+      updateFilters(
+        {
+          query: '',
+          location: '',
+          locationBounds: undefined,
+          proximityRadiusKm: 0.5,
+          proximityCoordinates: coordinates,
+          proximitySource: 'map_pin',
+          timeFrom: '',
+          timeTo: '',
+          tags: [],
+        },
+        { refresh: true },
+      );
+      scrollMainPagerToRoute(ROUTES.TIMELINE, { animated: true });
+      navigateToSnapshot({ route: ROUTES.TIMELINE }, { resetStack: true, preserveCurrent: false });
+    },
+    [navigateToSnapshot, scrollMainPagerToRoute, updateFilters],
+  );
+
   const handleNotificationsChanged = useCallback((notifications: NotificationEntity[]) => {
     setUnreadNotificationCount(notifications.filter((notification) => !notification.isRead).length);
   }, []);
@@ -636,6 +723,7 @@ export function RootNavigator() {
           locationBounds: undefined,
           proximityRadiusKm: undefined,
           proximityCoordinates: undefined,
+          proximitySource: undefined,
           timeFrom: '',
           timeTo: '',
           tags: [tag],
@@ -775,7 +863,39 @@ export function RootNavigator() {
           contentOffset={{ x: Math.max(MAIN_PAGER_ROUTES.indexOf(currentRoute), 0) * width, y: 0 }}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
+          onScrollBeginDrag={() => {
+            if (pagerDragResetTimerRef.current) {
+              clearTimeout(pagerDragResetTimerRef.current);
+              pagerDragResetTimerRef.current = null;
+            }
+            isPagerDragActiveRef.current = true;
+          }}
+          onScrollEndDrag={() => {
+            if (pagerDragResetTimerRef.current) {
+              clearTimeout(pagerDragResetTimerRef.current);
+            }
+
+            pagerDragResetTimerRef.current = setTimeout(() => {
+              isPagerDragActiveRef.current = false;
+              pagerDragResetTimerRef.current = null;
+            }, 500);
+          }}
+          onMomentumScrollBegin={() => {
+            if (pagerDragResetTimerRef.current) {
+              clearTimeout(pagerDragResetTimerRef.current);
+              pagerDragResetTimerRef.current = null;
+            }
+          }}
           onMomentumScrollEnd={(event) => {
+            if (!isPagerDragActiveRef.current) {
+              return;
+            }
+
+            isPagerDragActiveRef.current = false;
+            if (pagerDragResetTimerRef.current) {
+              clearTimeout(pagerDragResetTimerRef.current);
+              pagerDragResetTimerRef.current = null;
+            }
             const offsetX = event.nativeEvent.contentOffset.x;
             const pageIndex = Math.max(0, Math.min(MAIN_PAGER_ROUTES.length - 1, Math.round(offsetX / width)));
             const nextRoute = MAIN_PAGER_ROUTES[pageIndex];
@@ -794,6 +914,7 @@ export function RootNavigator() {
               hideHeader
               active={currentRoute === ROUTES.MAP}
               canCancelContentTouches={false}
+              refreshSuppressed={isMapTouchActive}
               testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
               onScrollOffsetChange={(y) => {
@@ -803,9 +924,11 @@ export function RootNavigator() {
               {({ scrollTo, registerRefreshHandler }) => (
                 <MapScreen
                   onOpenStory={handleOpenStoryDetail}
+                  onViewTimeline={handleViewTimelineNearPin}
                   onMarkerPreviewRequested={(targetY) => scrollTo(targetY)}
                   showSearchControls={false}
                   onRegisterRefresh={registerRefreshHandler}
+                  onMapTouchChange={setIsMapTouchActive}
                   searchScope="main"
                 />
               )}

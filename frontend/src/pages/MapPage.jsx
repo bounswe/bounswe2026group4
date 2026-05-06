@@ -8,7 +8,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 
 function MapPage() {
-  const { q, yearFrom, yearTo, location, hasActiveFilters } = useFilterState();
+  const { q, yearFrom, yearTo, location, tags, hasActiveFilters } = useFilterState();
 
   const [featureCollection, setFeatureCollection] = useState(EMPTY_FEATURE_COLLECTION);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,7 @@ function MapPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getMapStories({ q, yearFrom, yearTo, location });
+      const data = await getMapStories({ q, yearFrom, yearTo, location, tags });
       setFeatureCollection(data ?? EMPTY_FEATURE_COLLECTION);
     } catch (err) {
       setError(
@@ -29,7 +29,7 @@ function MapPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, yearFrom, yearTo, location]);
+  }, [q, yearFrom, yearTo, location, tags]);
 
   useEffect(() => {
     fetchPins();
