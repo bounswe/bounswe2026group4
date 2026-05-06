@@ -24,10 +24,12 @@ _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
 logger = logging.getLogger(__name__)
 
 
-def register_user(validated_data: dict) -> tuple:
+def register_user(validated_data: dict) -> User:
     """
-    Creates a new user, generates an email verification code, and sends the verification email.
-    Returns (user, email_sent) — email_sent is False if delivery failed so callers can surface it.
+    Create an inactive user and an email verification code.
+
+    Does not send email — callers should follow up with send_registration_verification().
+    Email failures do not prevent account creation.
     """
     from apps.gamification.services import award_registration_badge
 
@@ -39,24 +41,42 @@ def register_user(validated_data: dict) -> tuple:
                 password=validated_data['password'],
                 is_active=False,
             )
-            code = EmailVerificationCode.generate_code()
-            EmailVerificationCode.objects.create(user=user, code=code)
+            EmailVerificationCode.objects.create(
+                user=user,
+                code=EmailVerificationCode.generate_code(),
+            )
     except IntegrityError:
         raise ValidationError({'email': 'A user with this email or username already exists.'})
 
-    email_sent = False
+    # TODO: move to email verification handler when is_email_verified enforcement is added
+    award_registration_badge(user)
+    return user
+
+
+def send_registration_verification(user: User) -> bool:
+    """
+    Send the verification email for a newly registered user.
+
+    Looks up the latest unused verification code and emails it.
+    Returns True if delivered, False on SMTP failure.
+    """
+    code_obj = (
+        EmailVerificationCode.objects
+        .filter(user=user, is_used=False)
+        .order_by('-created_at')
+        .first()
+    )
+    if not code_obj:
+        return False
     try:
-        send_verification_email(user.email, code)
-        email_sent = True
+        send_verification_email(user.email, code_obj.code)
+        return True
     except Exception:
         logger.exception(
             'Failed to send verification email to %s via %s:%s — check EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL',
             user.email, settings.EMAIL_HOST, settings.EMAIL_PORT,
         )
-
-    # TODO: move to email verification handler when is_email_verified enforcement is added
-    award_registration_badge(user)
-    return user, email_sent
+        return False
 
 
 def verify_email(email: str, code: str) -> None:
@@ -94,8 +114,11 @@ def resend_verification(email: str) -> None:
     """
     Generates a new verification code and emails it to unverified accounts.
 
-    Silent for unknown/active/already-verified emails to prevent enumeration.
-    Email failures are caught and logged — they do not surface to the caller.
+    Always returns None regardless of delivery outcome. Surfacing email_sent here
+    would break anti-enumeration: a caller could distinguish "email exists and
+    is unverified" from "email unknown/already verified" by observing delivery
+    failures. The uniform no-op response prevents that leak.
+    Email failures are caught and logged so ops can investigate SMTP issues.
     """
     try:
         user = User.objects.get(email=email, is_active=False, is_email_verified=False)
