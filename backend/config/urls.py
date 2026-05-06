@@ -14,6 +14,7 @@ urlpatterns = [
     path('stories/', include('apps.stories.urls', namespace='stories')),
     path('tags/', include('apps.tags.urls', namespace='tags')),
     path('', include('apps.reports.urls', namespace='reports')),
+    path('geocode/', include('apps.geocoding.urls', namespace='geocoding')),
     path('moderation/', include([
         path('', include('apps.users.admin_urls')),
         path('', include('apps.tags.admin_urls')),
