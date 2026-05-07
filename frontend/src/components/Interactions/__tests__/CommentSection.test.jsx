@@ -127,6 +127,19 @@ describe("CommentSection", () => {
         expect(screen.getByText("Anonymous")).toBeInTheDocument();
       });
     });
+
+    it("does not render a profile link for anonymous comments", async () => {
+      useAuth.mockReturnValue({ isAuthenticated: false, user: null });
+      getComments.mockResolvedValue([
+        makeComment({ id: 1, author_username: null }),
+      ]);
+      renderSection();
+
+      await waitFor(() => {
+        const anonymousEl = screen.getByText("Anonymous");
+        expect(anonymousEl.closest("a")).toBeNull();
+      });
+    });
   });
 
   describe("unauthenticated user", () => {

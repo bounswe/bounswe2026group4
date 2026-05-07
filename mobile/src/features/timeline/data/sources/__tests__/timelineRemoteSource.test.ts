@@ -216,4 +216,65 @@ describe('timelineRemoteSource', () => {
       '/stories/search/?page_size=100&year_from=1900&year_to=1950&tag=architecture&q=harbor&page=1',
     );
   });
+
+  it('falls back with proximity params and keeps nearby stories chronological', async () => {
+    const requests: string[] = [];
+
+    setApiTransport(async (_method, config) => {
+      requests.push(config.url ?? '');
+
+      return {
+        status: 200,
+        data: {
+          count: 3,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: 2,
+              title: 'Nearby New',
+              time_type: 'exact_year',
+              year: 1950,
+              location_lat: 41.0202,
+              location_lng: 28.9602,
+            },
+            {
+              id: 3,
+              title: 'Too Far',
+              time_type: 'exact_year',
+              year: 1900,
+              location_lat: 41.08,
+              location_lng: 28.96,
+            },
+            {
+              id: 1,
+              title: 'Nearby Old',
+              time_type: 'exact_year',
+              year: 1900,
+              location_lat: 41.02,
+              location_lng: 28.96,
+            },
+          ],
+        } as never,
+        config,
+      };
+    });
+
+    const response = await timelineRemoteSource.getTimeline({
+      filters: {
+        latitude: 41.02,
+        longitude: 28.96,
+        radiusKm: 0.5,
+      },
+    });
+
+    expect(requests[0]).toBe(
+      '/stories/feed/?page_size=100&sort_by=recent&latitude=41.02&longitude=28.96&radius_km=0.5&page=1',
+    );
+    expect(response.count).toBe(2);
+    expect(response.results?.map((story) => (story as { title: string }).title)).toEqual([
+      'Nearby Old',
+      'Nearby New',
+    ]);
+  });
 });

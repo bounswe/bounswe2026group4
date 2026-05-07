@@ -24,10 +24,10 @@ _ALLOWED_PHOTO_MIME_TYPES = {'image/jpeg', 'image/png'}
 logger = logging.getLogger(__name__)
 
 
-def register_user(validated_data: dict) -> User:
+def register_user(validated_data: dict) -> tuple:
     """
     Creates a new user, generates an email verification code, and sends the verification email.
-    Email failures are caught and logged — they do not prevent account creation.
+    Returns (user, email_sent) — email_sent is False if delivery failed so callers can surface it.
     """
     from apps.gamification.services import award_registration_badge
 
@@ -44,14 +44,19 @@ def register_user(validated_data: dict) -> User:
     except IntegrityError:
         raise ValidationError({'email': 'A user with this email or username already exists.'})
 
+    email_sent = False
     try:
         send_verification_email(user.email, code)
+        email_sent = True
     except Exception:
-        logger.exception('Failed to send verification email to %s', user.email)
+        logger.exception(
+            'Failed to send verification email to %s via %s:%s — check EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL',
+            user.email, settings.EMAIL_HOST, settings.EMAIL_PORT,
+        )
 
     # TODO: move to email verification handler when is_email_verified enforcement is added
     award_registration_badge(user)
-    return user
+    return user, email_sent
 
 
 def verify_email(email: str, code: str) -> None:
@@ -103,7 +108,10 @@ def resend_verification(email: str) -> None:
     try:
         send_verification_email(user.email, code)
     except Exception:
-        logger.exception('Failed to resend verification email to %s', user.email)
+        logger.exception(
+            'Failed to resend verification email to %s via %s:%s — check EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL',
+            user.email, settings.EMAIL_HOST, settings.EMAIL_PORT,
+        )
 
 
 def login_user(email: str, password: str) -> dict:
@@ -434,6 +442,29 @@ def get_user_bookmarks(user_id: int, requesting_user):
     )
 
 
+def get_user_published_stories(user_id: int):
+    """
+    Return a queryset of published stories for the given user's public profile,
+    ordered most-recently-submitted first.
+
+    Raises Http404 if the user does not exist or is inactive (banned).
+    """
+    from apps.stories.models import Story  # local import to avoid circular imports
+
+    try:
+        target = User.objects.get(pk=user_id, is_active=True)
+    except User.DoesNotExist:
+        raise Http404
+
+    return (
+        Story.objects
+        .filter(user=target, status=Story.STATUS_PUBLISHED)
+        .select_related('user', 'user__profile')
+        .prefetch_related('tags')
+        .order_by('-submitted_at')
+    )
+
+
 def request_password_reset(email: str) -> None:
     """
     Generates a password reset token and emails the reset link to the given address.
@@ -486,3 +517,17 @@ def reset_password(token_str: str, new_password: str) -> None:
         token.save(update_fields=['is_used'])
         for outstanding in OutstandingToken.objects.filter(user=token.user):
             BlacklistedToken.objects.get_or_create(token=outstanding)
+
+
+def ban_user(target_user: User) -> User:
+    """
+    Disable a user account by setting is_active=False.
+
+    The account record and all content are preserved. Idempotent — banning
+    an already-banned user is a no-op that returns the unchanged user.
+    """
+    if not target_user.is_active:
+        return target_user
+    target_user.is_active = False
+    target_user.save(update_fields=['is_active'])
+    return target_user

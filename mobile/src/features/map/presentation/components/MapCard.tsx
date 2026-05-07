@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
@@ -10,32 +10,40 @@ interface MapCardProps {
   region: Region;
   markers: MapMarkerGroup[];
   selectedMarkerId?: string;
+  highlightedMarkerId?: string;
   isLoading?: boolean;
   error?: string;
   statusBadgeText?: string;
   userLocation?: { latitude: number; longitude: number };
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
+  onViewTimeline?: (coordinates: { latitude: number; longitude: number }) => void;
   onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
+  onMapTouchChange?: (isTouchingMap: boolean) => void;
 }
 
 const PREVIEW_MAX_LENGTH = 140;
+const MAP_GESTURE_SUPPRESSION_MS = 1200;
 const passivePreviewTextProps = { pointerEvents: 'none' as const };
 export function MapCard({
   region,
   markers,
   selectedMarkerId,
+  highlightedMarkerId,
   isLoading = false,
   error,
   statusBadgeText,
   userLocation,
   onSelectMarker,
   onOpenStory,
+  onViewTimeline,
   onRegionChangeComplete,
   onPreviewLayout,
+  onMapTouchChange,
 }: MapCardProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const mapTouchReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : undefined;
   const mapMarkers = useMemo(
     () =>
@@ -43,10 +51,41 @@ export function MapCard({
         id: marker.id,
         latitude: marker.latitude,
         longitude: marker.longitude,
-        selected: marker.id === selectedMarkerId,
+        selected: marker.id === (highlightedMarkerId ?? selectedMarkerId),
         label: marker.isCluster ? String(marker.count) : undefined,
       })),
-    [markers, selectedMarkerId],
+    [highlightedMarkerId, markers, selectedMarkerId],
+  );
+  const clearMapTouchReleaseTimer = useCallback(() => {
+    if (mapTouchReleaseTimerRef.current) {
+      clearTimeout(mapTouchReleaseTimerRef.current);
+      mapTouchReleaseTimerRef.current = null;
+    }
+  }, []);
+  const markMapGestureActive = useCallback(() => {
+    onMapTouchChange?.(true);
+    clearMapTouchReleaseTimer();
+    mapTouchReleaseTimerRef.current = setTimeout(() => {
+      onMapTouchChange?.(false);
+      mapTouchReleaseTimerRef.current = null;
+    }, MAP_GESTURE_SUPPRESSION_MS);
+
+    return false;
+  }, [clearMapTouchReleaseTimer, onMapTouchChange]);
+  const markMapGestureFinished = useCallback(() => {
+    clearMapTouchReleaseTimer();
+    mapTouchReleaseTimerRef.current = setTimeout(() => {
+      onMapTouchChange?.(false);
+      mapTouchReleaseTimerRef.current = null;
+    }, 120);
+  }, [clearMapTouchReleaseTimer, onMapTouchChange]);
+
+  useEffect(
+    () => () => {
+      clearMapTouchReleaseTimer();
+      onMapTouchChange?.(false);
+    },
+    [clearMapTouchReleaseTimer, onMapTouchChange],
   );
 
   return (
@@ -61,6 +100,12 @@ export function MapCard({
     >
       <View
         testID="interactive-map-touch-area"
+        onStartShouldSetResponderCapture={markMapGestureActive}
+        onMoveShouldSetResponderCapture={markMapGestureActive}
+        onTouchStart={markMapGestureActive}
+        onTouchMove={markMapGestureActive}
+        onTouchEnd={markMapGestureFinished}
+        onTouchCancel={markMapGestureFinished}
         style={{ height: 420 }}
       >
         <WebMapView
@@ -71,6 +116,7 @@ export function MapCard({
           onMarkerPress={(markerId) => {
             onSelectMarker(markerId);
           }}
+          onMapGestureChange={onMapTouchChange}
           onRegionChangeComplete={onRegionChangeComplete}
         />
 
@@ -161,32 +207,41 @@ export function MapCard({
             {markers.length ? 'Select a story marker to preview.' : 'No stories match the current filters.'}
           </Text>
         ) : selectedMarker.isCluster ? (
-          <ScrollView
-            style={{ maxHeight: 240 }}
-            contentContainerStyle={{ gap: spacing.sm }}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator
-            testID="cluster-preview-list"
-          >
-            {selectedMarker.stories.map((story) => (
-              <Pressable
-                key={story.id}
-                onPress={() => onOpenStory(story.id)}
-                style={{
-                  padding: spacing.md,
-                  borderRadius: 16,
-                  backgroundColor: colors.background,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-              >
-                <Text {...passivePreviewTextProps} style={{ color: colors.text, fontWeight: '700' }}>{story.title}</Text>
-                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
-                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
-                <Text {...passivePreviewTextProps} style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <>
+            <Button
+              variant="outline"
+              accessibilityLabel={`View timeline near ${selectedMarker.count} nearby stories`}
+              onPress={() => onViewTimeline?.({ latitude: selectedMarker.latitude, longitude: selectedMarker.longitude })}
+            >
+              View Timeline
+            </Button>
+            <ScrollView
+              style={{ maxHeight: 240 }}
+              contentContainerStyle={{ gap: spacing.sm }}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              testID="cluster-preview-list"
+            >
+              {selectedMarker.stories.map((story) => (
+                <Pressable
+                  key={story.id}
+                  onPress={() => onOpenStory(story.id)}
+                  style={{
+                    padding: spacing.md,
+                    borderRadius: 16,
+                    backgroundColor: colors.background,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text {...passivePreviewTextProps} style={{ color: colors.text, fontWeight: '700' }}>{story.title}</Text>
+                  <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
+                  <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
+                  <Text {...passivePreviewTextProps} style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
         ) : (
           <>
             <Text {...passivePreviewTextProps} style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
@@ -195,7 +250,22 @@ export function MapCard({
             <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].placeName}</Text>
             <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].timePeriod}</Text>
             <Text {...passivePreviewTextProps} style={{ color: colors.text }}>{truncatePreview(selectedMarker.stories[0].previewText)}</Text>
-            <Button onPress={() => onOpenStory(selectedMarker.stories[0].id)}>Read full story</Button>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              <Button
+                style={{ flexGrow: 1, flexBasis: 140 }}
+                onPress={() => onOpenStory(selectedMarker.stories[0].id)}
+              >
+                Read full story
+              </Button>
+              <Button
+                variant="outline"
+                style={{ flexGrow: 1, flexBasis: 140 }}
+                accessibilityLabel={`View timeline near ${selectedMarker.stories[0].title}`}
+                onPress={() => onViewTimeline?.({ latitude: selectedMarker.latitude, longitude: selectedMarker.longitude })}
+              >
+                View Timeline
+              </Button>
+            </View>
           </>
         )}
       </View>

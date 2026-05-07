@@ -522,9 +522,9 @@ describe('FeedScreen', () => {
 
     await screen.findByText('Story 1');
     fireEvent.press(screen.getByText('Show filters'));
-    fireEvent.press(screen.getByLabelText('Distance 10 km'));
+    fireEvent.press(screen.getByLabelText('Distance 1 km'));
 
-    expect(await screen.findByText('Filtering within 10 km of 41.0082, 28.9784.')).toBeTruthy();
+    expect(await screen.findByText('Filtering within 1000 m of 41.0082, 28.9784.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -537,14 +537,14 @@ describe('FeedScreen', () => {
           locationBounds: undefined,
           latitude: 41.0082,
           longitude: 28.9784,
-          radiusKm: 10,
+          radiusKm: 1,
           yearFrom: undefined,
           yearTo: undefined,
         },
       });
     });
 
-    expect(screen.getByLabelText('Remove Distance: 10 km')).toBeTruthy();
+    expect(screen.getByLabelText('Remove Distance: 1000 m from current location blue pin')).toBeTruthy();
   });
 
   it('shows loading feedback while current location is fetched', async () => {
@@ -603,7 +603,7 @@ describe('FeedScreen', () => {
       });
     });
 
-    expect(screen.queryByLabelText('Remove Distance: 10 km')).toBeNull();
+    expect(screen.queryByLabelText('Remove Distance: 10 km from current location blue pin')).toBeNull();
   });
 
   it('closes the filter panel when tapping outside of it', async () => {

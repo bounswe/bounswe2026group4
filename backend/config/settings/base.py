@@ -45,6 +45,7 @@ LOCAL_APPS = [
     'apps.reports',
     'apps.notifications',
     'apps.gamification',
+    'apps.geocoding',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -132,6 +133,9 @@ EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Local History Story Map <noreply@example.com>')
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+
+# Nominatim geocoding proxy
+NOMINATIM_CONTACT_EMAIL = env('NOMINATIM_CONTACT_EMAIL', default='admin@example.com')
 
 # Static files
 STATIC_URL = '/static/'

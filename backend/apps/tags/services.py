@@ -45,8 +45,15 @@ def create_tag(validated_data: dict, *, is_predefined: bool = False) -> tuple:
 
 
 def delete_tag(tag: Tag) -> None:
-    """Delete the tag. StoryTag rows cascade via FK."""
-    tag.delete()
+    """
+    Delete a tag and all its story associations.
+
+    StoryTag rows are deleted explicitly so that post_delete signals fire and
+    Tag.story_count is decremented before the tag itself is removed.
+    """
+    with transaction.atomic():
+        StoryTag.objects.filter(tag=tag).delete()
+        tag.delete()
 
 
 def attach_tags_to_story(story, tag_ids: list) -> None:

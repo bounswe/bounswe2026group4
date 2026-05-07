@@ -9,3 +9,4 @@ Pillow==10.*
 python-magic==0.4.*
 django-cors-headers==4.*
 argon2-cffi==23.*
+requests==2.32.*

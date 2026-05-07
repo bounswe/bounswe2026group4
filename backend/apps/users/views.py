@@ -32,6 +32,7 @@ from apps.users.services import (
     get_own_profile,
     get_public_profile,
     get_user_bookmarks,
+    get_user_published_stories,
     login_user,
     logout_user,
     register_user,
@@ -54,11 +55,17 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = register_user(serializer.validated_data)
+        user, email_sent = register_user(serializer.validated_data)
+        message = (
+            'Registration successful. Please verify your email.'
+            if email_sent
+            else 'Registration successful. Verification email could not be delivered — use /auth/resend-verification/ to try again.'
+        )
         return Response(
             {
-                'message': 'Registration successful. Please verify your email.',
+                'message': message,
                 'user': UserResponseSerializer(user).data,
+                'email_sent': email_sent,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -235,6 +242,21 @@ class UserBookmarksView(APIView):
 
     def get(self, request, user_id):
         qs = annotate_user_interactions(get_user_bookmarks(user_id, request.user), request.user)
+        paginator = StoryPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = StoryFeedSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class UserStoriesView(APIView):
+    """GET /users/<user_id>/stories/ — published stories for a public profile, paginated."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, user_id):
+        qs = get_user_published_stories(user_id)
+        if request.user.is_authenticated:
+            qs = annotate_user_interactions(qs, request.user)
         paginator = StoryPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = StoryFeedSerializer(page, many=True, context={'request': request})
