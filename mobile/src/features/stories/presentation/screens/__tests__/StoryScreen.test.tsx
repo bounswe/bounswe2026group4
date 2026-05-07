@@ -11,7 +11,9 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
   const { View } = require('react-native');
 
   return {
-    WebMapView: () => <View testID="story-location-map" />,
+    WebMapView: ({ markers }: { markers?: Array<{ label?: string }> }) => (
+      <View testID="story-location-map" markers={markers} />
+    ),
   };
 });
 
@@ -138,6 +140,21 @@ describe('StoryScreen', () => {
     expect(screen.getByText(baseStory.comments[0].body)).toBeTruthy();
     expect(screen.getByText('Story location')).toBeTruthy();
     expect(screen.getByTestId('story-location-map')).toBeTruthy();
+  });
+
+  it('keeps the story detail map marker unlabeled', async () => {
+    render(<StoryScreen storyId="story-001" getStory={async () => baseStory} />);
+
+    expect(await screen.findByText(baseStory.title)).toBeTruthy();
+    expect(screen.getByTestId('story-location-map').props.markers).toEqual([
+      expect.objectContaining({
+        id: baseStory.id,
+        latitude: baseStory.location.latitude,
+        longitude: baseStory.location.longitude,
+        selected: true,
+      }),
+    ]);
+    expect(screen.getByTestId('story-location-map').props.markers[0]).not.toHaveProperty('label');
   });
 
   it('renders audio and video media on story detail', async () => {
