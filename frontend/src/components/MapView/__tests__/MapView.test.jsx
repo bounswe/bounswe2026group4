@@ -182,6 +182,41 @@ describe("MapView auto-zoom (fit bounds)", () => {
     );
     expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
   });
+
+  it("does not re-fit when re-rendered with the same feature ids", () => {
+    const { rerender } = renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <MapView
+          featureCollection={makeFeatureCollection([makeFeature(1), makeFeature(2)])}
+        />
+      </MemoryRouter>,
+    );
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-fits again after the feature set empties and repopulates", () => {
+    const { rerender } = renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1)]),
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <MapView featureCollection={makeFeatureCollection([])} />
+      </MemoryRouter>,
+    );
+    rerender(
+      <MemoryRouter>
+        <MapView featureCollection={makeFeatureCollection([makeFeature(1)])} />
+      </MemoryRouter>,
+    );
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("MapView pin clustering", () => {

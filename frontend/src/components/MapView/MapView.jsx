@@ -59,8 +59,20 @@ function featureLatLng(feature) {
 
 function FitBoundsToFeatures({ features }) {
   const map = useMap();
+  // Skip re-fitting when the feature set is unchanged — refetches that
+  // return the same stories shouldn't snap the map back over the user's pan.
+  const lastFitKeyRef = useRef(null);
+
   useEffect(() => {
-    if (!map || features.length === 0) return;
+    if (!map) return;
+    if (features.length === 0) {
+      lastFitKeyRef.current = null;
+      return;
+    }
+    const fitKey = features.map((f) => f.id).join("|");
+    if (fitKey === lastFitKeyRef.current) return;
+    lastFitKeyRef.current = fitKey;
+
     const latlngs = features.map(featureLatLng).filter(Boolean);
     if (latlngs.length === 0) return;
     const bounds = L.latLngBounds(latlngs);
