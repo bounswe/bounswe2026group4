@@ -127,10 +127,41 @@ function makeSavedStoriesPage(overrides: Partial<FeedPageEntity> = {}): FeedPage
   };
 }
 
+function makePublishedStory(id: string, title = `Published Story ${id}`): FeedEntity {
+  return {
+    id,
+    title,
+    locationName: 'Kadikoy',
+    timePeriod: '1980',
+    previewText: 'A published story about local history.',
+    submittedAt: '2026-04-12T09:00:00Z',
+    hasMedia: false,
+    likeCount: 6,
+    likedByViewer: true,
+    savedByViewer: true,
+    tags: ['Culture'],
+  };
+}
+
+function makePublishedStoriesPage(overrides: Partial<FeedPageEntity> = {}): FeedPageEntity {
+  return {
+    items: [makePublishedStory('published-1', 'Published Harbor')],
+    page: 1,
+    pageSize: 10,
+    totalCount: 1,
+    hasNextPage: false,
+    ...overrides,
+  };
+}
+
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(userService, 'getSavedStories').mockResolvedValue(makeSavedStoriesPage({
+      items: [],
+      totalCount: 0,
+    }));
+    jest.spyOn(userService, 'getUserStories').mockResolvedValue(makePublishedStoriesPage({
       items: [],
       totalCount: 0,
     }));
@@ -661,6 +692,102 @@ describe('ProfileScreen', () => {
     expect(await screen.findByText('Anonymous user')).toBeTruthy();
     expect(screen.queryByText('Izmir')).toBeNull();
     expect(screen.queryByText('1988')).toBeNull();
+  });
+
+  it('renders published stories on a public profile and opens a story', async () => {
+    const getUserStories = jest.fn(async () => makePublishedStoriesPage());
+    const onOpenStory = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        getUserStories={getUserStories}
+        onOpenStory={onOpenStory}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(await screen.findByText('Published Stories')).toBeTruthy();
+    expect(await screen.findByText('Published Harbor')).toBeTruthy();
+    expect(screen.getByText('Kadikoy')).toBeTruthy();
+    expect(screen.getByText('1 story published by this user.')).toBeTruthy();
+    expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Read story: Published Harbor'));
+
+    expect(getUserStories).toHaveBeenCalledWith('12', 1);
+    expect(onOpenStory).toHaveBeenCalledWith('published-1');
+  });
+
+  it('shows the public profile published stories empty state', async () => {
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        getUserStories={async () => makePublishedStoriesPage({
+          items: [],
+          totalCount: 0,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(await screen.findByText('No published stories yet')).toBeTruthy();
+    expect(screen.getByText('This user has not published any stories yet.')).toBeTruthy();
+  });
+
+  it('loads more public profile stories when additional pages exist', async () => {
+    const getUserStories = jest
+      .fn()
+      .mockResolvedValueOnce(makePublishedStoriesPage({
+        items: [makePublishedStory('published-1', 'First Published Story')],
+        totalCount: 2,
+        hasNextPage: true,
+      }))
+      .mockResolvedValueOnce(makePublishedStoriesPage({
+        items: [makePublishedStory('published-2', 'Second Published Story')],
+        page: 2,
+        totalCount: 2,
+        hasNextPage: false,
+      }));
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        getUserStories={getUserStories}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(await screen.findByText('First Published Story')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Load more stories'));
+
+    expect(await screen.findByText('Second Published Story')).toBeTruthy();
+    expect(getUserStories).toHaveBeenCalledWith('12', 2);
+  });
+
+  it('shows a graceful public stories error without hiding profile details', async () => {
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        getUserStories={async () => {
+          throw new Error('Not found');
+        }}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(await screen.findByText('Published stories unavailable')).toBeTruthy();
+    expect(screen.getByText('This profile is unavailable or no longer active.')).toBeTruthy();
+    expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
   });
 
   it('does not render a follow button on the user own profile', async () => {

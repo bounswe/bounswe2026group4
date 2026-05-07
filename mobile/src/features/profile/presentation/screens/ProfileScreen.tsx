@@ -55,6 +55,7 @@ interface ProfileScreenProps {
   getFollowers?: typeof userService.getFollowers;
   getFollowing?: typeof userService.getFollowing;
   getSavedStories?: typeof userService.getSavedStories;
+  getUserStories?: typeof userService.getUserStories;
   unbookmarkStory?: typeof interactionService.unbookmarkStory;
   onOpenUserProfile?: (userId: string) => void;
   onOpenStory?: (storyId: string) => void;
@@ -366,6 +367,17 @@ function validatePendingPhoto(photo: PendingPhotoState | null) {
   }
 
   return undefined;
+}
+
+function getPublishedStoriesErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : '';
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes('404') || normalizedMessage.includes('not found')) {
+    return 'This profile is unavailable or no longer active.';
+  }
+
+  return message || 'Unable to load published stories.';
 }
 
 function LoadingState() {
@@ -812,6 +824,129 @@ function FieldCard({
   );
 }
 
+function PublishedStoriesSection({
+  userId,
+  getUserStories,
+  onOpenStory,
+}: {
+  userId: string;
+  getUserStories: (userId: string, page?: number) => Promise<FeedPageEntity>;
+  onOpenStory?: (storyId: string) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const [stories, setStories] = useState<FeedEntity[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string>();
+  const [totalCount, setTotalCount] = useState(0);
+
+  const loadPage = useCallback(
+    async (nextPage: number, append: boolean) => {
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      setError(undefined);
+
+      try {
+        const result = await getUserStories(userId, nextPage);
+
+        setStories((current) => (append ? [...current, ...result.items] : result.items));
+        setPage(nextPage);
+        setHasMore(result.hasNextPage);
+        setTotalCount(result.totalCount);
+      } catch (loadError) {
+        setError(getPublishedStoriesErrorMessage(loadError));
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [getUserStories, userId],
+  );
+
+  useEffect(() => {
+    setStories([]);
+    setPage(1);
+    setHasMore(false);
+    setTotalCount(0);
+    void loadPage(1, false);
+  }, [loadPage]);
+
+  return (
+    <View
+      accessibilityLabel="Published stories section"
+      style={{
+        padding: spacing.lg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ gap: spacing.xs }}>
+        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+          Published Stories
+        </Text>
+        <Text style={{ color: colors.muted }}>
+          {totalCount > 0
+            ? `${totalCount} ${totalCount === 1 ? 'story' : 'stories'} published by this user.`
+            : 'Stories published by this user.'}
+        </Text>
+      </View>
+
+      {isLoading && stories.length === 0 ? <Loader message="Loading published stories..." /> : null}
+
+      {error && stories.length === 0 ? (
+        <ErrorState
+          title="Published stories unavailable"
+          message={error}
+          retryLabel="Try again"
+          onRetry={() => {
+            void loadPage(1, false);
+          }}
+        />
+      ) : null}
+
+      {!isLoading && !error && stories.length === 0 ? (
+        <EmptyState
+          title="No published stories yet"
+          message="This user has not published any stories yet."
+        />
+      ) : null}
+
+      {stories.length > 0 ? (
+        <View style={{ gap: spacing.md }}>
+          {stories.map((story) => (
+            <FeedCard
+              key={story.id}
+              story={story}
+              onPress={onOpenStory}
+            />
+          ))}
+          {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
+          {hasMore ? (
+            <Button
+              variant="outline"
+              onPress={() => {
+                void loadPage(page + 1, true);
+              }}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? 'Loading...' : 'Load more stories'}
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function SavedStoriesSection({
   userId,
   getSavedStories,
@@ -998,6 +1133,7 @@ export function ProfileScreen({
   getFollowers = userService.getFollowers,
   getFollowing = userService.getFollowing,
   getSavedStories = userService.getSavedStories,
+  getUserStories = userService.getUserStories,
   unbookmarkStory = interactionService.unbookmarkStory,
   onOpenUserProfile,
   onOpenStory,
@@ -1826,23 +1962,11 @@ export function ProfileScreen({
         ) : null}
 
         {!isSelfMode ? (
-          <View
-            style={{
-              padding: spacing.lg,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-              gap: spacing.sm,
-            }}
-          >
-            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
-              Stories
-            </Text>
-            <Text style={{ color: colors.muted }}>
-              Stories are intentionally out of scope for this profile version and will be added later.
-            </Text>
-          </View>
+          <PublishedStoriesSection
+            userId={profile.id}
+            getUserStories={getUserStories}
+            onOpenStory={onOpenStory}
+          />
         ) : null}
       </ScrollView>
 

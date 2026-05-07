@@ -75,4 +75,9 @@ export class ProfileRepositoryImpl implements ProfileRepository {
     const payload = await profileRemoteSource.getSavedStories(userId, page);
     return mapFeedPage(payload, page, 10);
   }
+
+  async getUserStories(userId: string, page = 1) {
+    const payload = await profileRemoteSource.getUserStories(userId, page);
+    return mapFeedPage(payload, page, 10);
+  }
 }
