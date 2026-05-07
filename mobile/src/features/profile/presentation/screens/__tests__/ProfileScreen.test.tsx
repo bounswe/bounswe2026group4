@@ -279,7 +279,29 @@ describe('ProfileScreen', () => {
     );
 
     expect(await screen.findByText('Traveler')).toBeTruthy();
-    expect(screen.getByText('Loading badges...')).toBeTruthy();
+    expect(screen.getAllByText('Loading badges...').length).toBeGreaterThan(0);
+  });
+
+  it('keeps profile points visible and shows a badge error when badge loading fails', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => ({
+          ...selfProfile,
+          totalPoints: 42,
+        })}
+        getUserPoints={async () => {
+          throw new Error('Points unavailable');
+        }}
+        getUserBadges={async () => {
+          throw new Error('Badges unavailable');
+        }}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('42')).toBeTruthy();
+    expect(await screen.findByText('Unable to load badges right now.')).toBeTruthy();
   });
 
   it('renders saved stories on the signed-in user profile', async () => {

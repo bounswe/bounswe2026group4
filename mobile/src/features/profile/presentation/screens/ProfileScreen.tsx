@@ -177,6 +177,7 @@ function formatAwardedDate(value?: string | null) {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
@@ -604,7 +605,11 @@ function BadgesSection({
             Earned badges
           </Text>
           <Text style={{ color: colors.muted }}>
-            {badges.length === 1 ? '1 badge earned' : `${badges.length} badges earned`}
+            {isLoading && badges.length === 0
+              ? 'Loading badges...'
+              : badges.length === 1
+                ? '1 badge earned'
+                : `${badges.length} badges earned`}
           </Text>
         </View>
       </View>
@@ -1308,7 +1313,7 @@ export function ProfileScreen({
   const [savedStoriesCount, setSavedStoriesCount] = useState<number | null>(null);
   const [pointsTotal, setPointsTotal] = useState<number | null>(null);
   const [badges, setBadges] = useState<BadgeEntity[]>([]);
-  const [isGamificationLoading, setIsGamificationLoading] = useState(false);
+  const [isGamificationLoading, setIsGamificationLoading] = useState(true);
   const [gamificationError, setGamificationError] = useState<string | null>(null);
   const [selectedBadge, setSelectedBadge] = useState<BadgeEntity | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -1348,6 +1353,11 @@ export function ProfileScreen({
         });
       }
 
+      setPointsTotal(nextProfile.totalPoints);
+      setBadges([]);
+      setGamificationError(null);
+      setSelectedBadge(null);
+      setIsGamificationLoading(true);
       setProfile(nextProfile);
       setFollowersCount(nextProfile.followersCount ?? 0);
       setFollowingCount(nextProfile.followingCount ?? 0);
@@ -1413,24 +1423,28 @@ export function ProfileScreen({
     setGamificationError(null);
     setIsGamificationLoading(true);
 
-    Promise.all([
+    Promise.allSettled([
       getUserPoints(profile.id),
       getUserBadges(profile.id),
     ])
-      .then(([pointsSummary, earnedBadges]) => {
+      .then(([pointsResult, badgesResult]) => {
         if (!isActive) {
           return;
         }
 
-        setPointsTotal(pointsSummary.totalPoints);
-        setBadges(earnedBadges);
-      })
-      .catch(() => {
-        if (!isActive) {
-          return;
+        if (pointsResult.status === 'fulfilled') {
+          setPointsTotal(pointsResult.value.totalPoints);
+        } else {
+          setPointsTotal(profile.totalPoints);
         }
 
-        setGamificationError('Unable to load badges right now.');
+        if (badgesResult.status === 'fulfilled') {
+          setBadges(badgesResult.value);
+          setGamificationError(null);
+        } else {
+          setBadges([]);
+          setGamificationError('Unable to load badges right now.');
+        }
       })
       .finally(() => {
         if (isActive) {
