@@ -402,6 +402,14 @@ export function RootNavigator() {
     [toast],
   );
 
+  const clearPagerDragState = useCallback(() => {
+    isPagerDragActiveRef.current = false;
+    if (pagerDragResetTimerRef.current) {
+      clearTimeout(pagerDragResetTimerRef.current);
+      pagerDragResetTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!loading) {
       setHasResolvedInitialSession(true);
@@ -422,6 +430,7 @@ export function RootNavigator() {
         return;
       }
 
+      clearPagerDragState();
       const x = pageIndex * width;
       const animated = Boolean(options?.animated);
 
@@ -437,7 +446,7 @@ export function RootNavigator() {
         pagerRef.current?.scrollTo({ x, y: 0, animated: false });
       });
     },
-    [width],
+    [clearPagerDragState, width],
   );
 
   const navigateToSnapshot = useCallback(
@@ -537,7 +546,7 @@ export function RootNavigator() {
 
   const handleNavigate = (route: AppRoute) => {
     if (MAIN_PAGER_ROUTES.includes(route)) {
-      scrollMainPagerToRoute(route, { animated: true });
+      scrollMainPagerToRoute(route);
       navigateToSnapshot({ route }, { resetStack: true, preserveCurrent: false });
       return;
     }
