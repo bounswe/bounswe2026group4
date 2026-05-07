@@ -16,8 +16,8 @@ function ToggleRow({ id, label, description, checked, disabled, onChange }) {
   return (
     <label
       htmlFor={id}
-      className={`flex cursor-pointer items-start justify-between gap-4 rounded-md border p-4 ${
-        disabled ? "opacity-60" : ""
+      className={`flex items-start justify-between gap-4 rounded-md border p-4 ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
       }`}
     >
       <div className="min-w-0 flex-1">
@@ -177,6 +177,8 @@ function NotificationPreferencesPage() {
 
         <section aria-label="Per-type preferences" className="space-y-3">
           {NOTIFICATION_TYPES.map(({ key, label }) => (
+            // Opt-out semantics: any unknown/missing key defaults to ON.
+            // Backend must mirror this default — only an explicit `false` mutes a type.
             <ToggleRow
               key={key}
               id={`pref-${key}`}

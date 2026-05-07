@@ -12,9 +12,10 @@ function NotificationItem({ notification, onMarkRead, onClose }) {
   const navigate = useNavigate();
   const isUnread = !notification.is_read;
 
-  const handleClick = async () => {
+  const handleClick = () => {
     if (isUnread) {
-      await onMarkRead?.(notification.id);
+      // Fire-and-forget: optimistic update lands locally; don't block navigation on the PATCH.
+      onMarkRead?.(notification.id);
     }
     const route = getNotificationRoute(notification);
     if (route) {

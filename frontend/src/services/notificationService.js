@@ -11,7 +11,11 @@ export async function markAsRead(id, isRead = true) {
 }
 
 export async function markAllAsRead(ids) {
-  await Promise.all(ids.map((id) => markAsRead(id, true)));
+  const results = await Promise.allSettled(
+    ids.map((id) => markAsRead(id, true))
+  );
+  const firstRejection = results.find((r) => r.status === "rejected");
+  if (firstRejection) throw firstRejection.reason;
 }
 
 export async function getPreferences() {

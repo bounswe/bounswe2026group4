@@ -109,6 +109,36 @@ describe("useNotifications", () => {
     expect(result.current.unreadCount).toBe(1);
   });
 
+  it("rolls back the optimistic mark-read when the PATCH fails", async () => {
+    getNotifications
+      .mockResolvedValueOnce({
+        notifications: [{ id: 1, message: "x", is_read: false }],
+      })
+      // The rollback call refreshes from the server — return the unread state.
+      .mockResolvedValueOnce({
+        notifications: [{ id: 1, message: "x", is_read: false }],
+      });
+    markAsRead.mockRejectedValueOnce(new Error("nope"));
+
+    const { result } = renderHook(() => useNotifications());
+    await waitFor(() => {
+      expect(result.current.notifications).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.markRead(1);
+    });
+
+    expect(markAsRead).toHaveBeenCalledWith(1, true);
+    // The rollback path re-fetches from the server, so getNotifications is
+    // called once on mount and again on rollback.
+    expect(getNotifications).toHaveBeenCalledTimes(2);
+    expect(
+      result.current.notifications.find((n) => n.id === 1).is_read
+    ).toBe(false);
+    expect(result.current.unreadCount).toBe(1);
+  });
+
   it("marks all unread notifications as read", async () => {
     getNotifications.mockResolvedValue({
       notifications: [

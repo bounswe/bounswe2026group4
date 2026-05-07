@@ -88,4 +88,37 @@ describe("NotificationBell", () => {
 
     expect(screen.getByRole("dialog", { name: /notifications/i })).toBeInTheDocument();
   });
+
+  it("closes the panel when clicking outside", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <div>
+          <NotificationBell />
+          <button type="button" data-testid="outside">
+            outside
+          </button>
+        </div>
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    expect(screen.getByRole("dialog", { name: /notifications/i })).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("outside"));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the panel when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    renderBell();
+
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    expect(screen.getByRole("dialog", { name: /notifications/i })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });
