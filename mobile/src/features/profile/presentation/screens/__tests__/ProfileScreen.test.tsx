@@ -748,6 +748,38 @@ describe('ProfileScreen', () => {
     expect(onOpenStory).toHaveBeenCalledWith('published-1');
   });
 
+  it('collapses long public profile story lists behind show more and show less controls', async () => {
+    const stories = Array.from({ length: 5 }, (_, index) =>
+      makePublishedStory(`published-${index + 1}`, `Published Story ${index + 1}`),
+    );
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        getUserStories={async () => makePublishedStoriesPage({
+          items: stories,
+          totalCount: stories.length,
+        })}
+      />,
+    );
+
+    expect(await screen.findByText('Published Story 1')).toBeTruthy();
+    expect(screen.getByText('Published Story 3')).toBeTruthy();
+    expect(screen.queryByText('Published Story 4')).toBeNull();
+
+    fireEvent.press(screen.getByText('Show more stories'));
+
+    expect(screen.getByText('Published Story 4')).toBeTruthy();
+    expect(screen.getByText('Published Story 5')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Show less stories'));
+
+    expect(screen.queryByText('Published Story 4')).toBeNull();
+    expect(screen.getByText('Published Story 3')).toBeTruthy();
+  });
+
   it('shows the public profile published stories empty state', async () => {
     render(
       <ProfileScreen

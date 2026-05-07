@@ -25,6 +25,7 @@ const BIO_MAX_LENGTH = 280;
 const MIN_BIRTH_YEAR = 1900;
 const FOLLOW_STATE_LOOKUP_MAX_PAGES = 10;
 const FOLLOW_LIST_DRAG_THRESHOLD = 8;
+const PUBLISHED_STORIES_COLLAPSED_LIMIT = 3;
 const followStateOverrides = new Map<string, boolean>();
 const MONTH_OPTIONS = [
   'January',
@@ -845,6 +846,7 @@ function PublishedStoriesSection({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string>();
   const [totalCount, setTotalCount] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
   const storyRequestIdRef = useRef(0);
 
   const loadPage = useCallback(
@@ -892,12 +894,21 @@ function PublishedStoriesSection({
     setPage(1);
     setHasMore(false);
     setTotalCount(0);
+    setIsExpanded(false);
     void loadPage(1, false);
 
     return () => {
       storyRequestIdRef.current += 1;
     };
   }, [loadPage]);
+
+  const hasHiddenPublishedStories = stories.length > PUBLISHED_STORIES_COLLAPSED_LIMIT;
+  const shouldShowPublishedStoryToggle =
+    hasHiddenPublishedStories || totalCount > PUBLISHED_STORIES_COLLAPSED_LIMIT;
+  const displayedStories =
+    hasHiddenPublishedStories && !isExpanded
+      ? stories.slice(0, PUBLISHED_STORIES_COLLAPSED_LIMIT)
+      : stories;
 
   return (
     <View
@@ -944,7 +955,7 @@ function PublishedStoriesSection({
 
       {stories.length > 0 ? (
         <View style={{ gap: spacing.md }}>
-          {stories.map((story) => (
+          {displayedStories.map((story) => (
             <FeedCard
               key={story.id}
               story={story}
@@ -952,7 +963,15 @@ function PublishedStoriesSection({
             />
           ))}
           {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
-          {hasMore ? (
+          {shouldShowPublishedStoryToggle ? (
+            <Button
+              variant="outline"
+              onPress={() => setIsExpanded((current) => !current)}
+            >
+              {isExpanded ? 'Show less stories' : 'Show more stories'}
+            </Button>
+          ) : null}
+          {hasMore && (!shouldShowPublishedStoryToggle || isExpanded) ? (
             <Button
               variant="outline"
               onPress={() => {
