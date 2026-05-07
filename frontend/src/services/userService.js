@@ -58,3 +58,9 @@ export async function updateCurrentUser({ profile = {}, userFields = {}, profile
   }
   return response.data;
 }
+
+/** GET /users/<id>/badges/ — public list of badges awarded to a user */
+export async function getUserBadges(userId) {
+  const response = await api.get(`/users/${userId}/badges/`);
+  return response.data.results;
+}

@@ -17,6 +17,7 @@ import {
   updateProfile,
   uploadProfilePhoto,
   removeProfilePhoto,
+  getUserBadges,
 } from "../userService";
 
 describe("userService", () => {
@@ -140,6 +141,47 @@ describe("userService", () => {
     it("propagates API errors", async () => {
       api.delete.mockRejectedValue(new Error("Delete failed"));
       await expect(removeProfilePhoto()).rejects.toThrow("Delete failed");
+    });
+  });
+
+  describe("getUserBadges", () => {
+    it("calls GET /users/<id>/badges/ and returns the results array", async () => {
+      const results = [
+        {
+          id: 12,
+          badge: {
+            id: 1,
+            name: "First Story",
+            description: "Awarded for publishing your first story",
+            criteria_type: "story_count",
+            criteria_threshold: 1,
+          },
+          awarded_at: "2026-04-01T12:00:00Z",
+        },
+      ];
+      api.get.mockResolvedValue({
+        data: { count: 1, next: null, previous: null, results },
+      });
+
+      const result = await getUserBadges(7);
+
+      expect(api.get).toHaveBeenCalledWith("/users/7/badges/");
+      expect(result).toEqual(results);
+    });
+
+    it("returns an empty array when no badges are awarded", async () => {
+      api.get.mockResolvedValue({
+        data: { count: 0, next: null, previous: null, results: [] },
+      });
+
+      const result = await getUserBadges(7);
+
+      expect(result).toEqual([]);
+    });
+
+    it("propagates API errors", async () => {
+      api.get.mockRejectedValue(new Error("Network error"));
+      await expect(getUserBadges(7)).rejects.toThrow("Network error");
     });
   });
 });
