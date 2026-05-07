@@ -60,6 +60,17 @@ vi.mock("@/components/Interactions/CommentSection", () => ({
   default: MockCommentSection,
 }));
 
+vi.mock("@/components/Report/ReportModal", () => ({
+  default: ({ isOpen, targetType, targetId }) =>
+    isOpen ? (
+      <div
+        data-testid="report-modal"
+        data-target-type={targetType}
+        data-target-id={String(targetId)}
+      />
+    ) : null,
+}));
+
 import { getStoryById, deleteStory } from "@/services/storyService";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -91,6 +102,7 @@ function renderPage(id = "1", locationState = undefined) {
         <Route path="/stories/:id" element={<StoryDetailPage />} />
         <Route path="/" element={<div>Feed Page</div>} />
         <Route path="/map" element={<div>Map Page</div>} />
+        <Route path="/login" element={<div>Login Page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -755,6 +767,58 @@ describe("StoryDetailPage", () => {
       await waitFor(() => {
         expect(mockToast.error).toHaveBeenCalledWith("Permission denied");
       });
+    });
+  });
+
+  describe("report button", () => {
+    it("renders the Flag button for unauthenticated visitors and navigates to /login on click", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: null });
+      getStoryById.mockResolvedValue(makeStory());
+      renderPage();
+
+      await waitFor(() => screen.getByRole("heading", { name: "The Great Fire of Beyoglu" }));
+      const flag = screen.getByRole("button", { name: /report story/i });
+
+      await user.click(flag);
+
+      expect(await screen.findByText("Login Page")).toBeInTheDocument();
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
+    });
+
+    it("renders the Flag button for authenticated users", async () => {
+      useAuth.mockReturnValue({ user: { id: 2, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /report story/i })).toBeInTheDocument();
+      });
+    });
+
+    it("does not render the Flag button on the current user's own story", async () => {
+      useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      renderPage();
+
+      await waitFor(() => screen.getByRole("heading", { name: "The Great Fire of Beyoglu" }));
+      expect(screen.queryByRole("button", { name: /report story/i })).not.toBeInTheDocument();
+    });
+
+    it("opens the report modal with the story id when Flag is clicked", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 2, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ id: 77, user: 1 }));
+      renderPage("77");
+
+      await waitFor(() => screen.getByRole("button", { name: /report story/i }));
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /report story/i }));
+
+      const modal = screen.getByTestId("report-modal");
+      expect(modal).toHaveAttribute("data-target-type", "story");
+      expect(modal).toHaveAttribute("data-target-id", "77");
     });
   });
 });
