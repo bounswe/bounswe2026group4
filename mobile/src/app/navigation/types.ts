@@ -1,5 +1,6 @@
 export type RootStackParamList = {
   Auth: undefined;
+  VerifyEmail: { email: string };
   GuestHome: undefined;
   UserHome: undefined;
   AdminHome: undefined;

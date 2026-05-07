@@ -3,7 +3,7 @@ import { BackHandler, NativeScrollEvent, NativeSyntheticEvent, Pressable, Refres
 import { Bell, MapPin, Plus } from 'lucide-react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
-import { useAuth, AuthScreen } from '../../features/auth';
+import { AuthScreen, useAuth, VerifyEmailScreen } from '../../features/auth';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { ProtectedScreen } from './ProtectedScreen';
 import { FeedScreen, FeedStoryInteractionUpdate } from '../../features/feed';
@@ -353,7 +353,7 @@ function ScreenShell({
 }
 
 export function RootNavigator() {
-  const { isAuthenticated, loading, logout, user } = useAuth();
+  const { isAuthenticated, loading, login, logout, user } = useAuth();
   const { colors, spacing } = useAppTheme();
   const { toast } = useToast();
   const { updateFilters } = useSearchFilters('main');
@@ -361,6 +361,8 @@ export function RootNavigator() {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string } | null>(null);
+  const [shouldCompleteProfileAfterLogin, setShouldCompleteProfileAfterLogin] = useState(false);
   const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
   const [storyInteractionUpdates, setStoryInteractionUpdates] = useState<Record<string, FeedStoryInteractionUpdate>>({});
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
@@ -592,6 +594,15 @@ export function RootNavigator() {
   );
 
   const handleLoginComplete = (context?: { source: 'signIn' | 'register' }) => {
+    if (shouldCompleteProfileAfterLogin) {
+      setShouldCompleteProfileAfterLogin(false);
+      navigateToSnapshot(
+        { route: ROUTES.PROFILE_COMPLETION },
+        { resetStack: true, preserveCurrent: false },
+      );
+      return;
+    }
+
     if (context?.source === 'register') {
       navigateToSnapshot(
         { route: ROUTES.PROFILE_COMPLETION },
@@ -616,6 +627,37 @@ export function RootNavigator() {
     });
     restoreSnapshot(resolvedRedirectTarget);
   };
+
+  const handleRegistrationPending = useCallback(
+    (context: { email: string; password: string }) => {
+      setPendingVerification(context);
+      navigateToSnapshot({ route: ROUTES.VERIFY_EMAIL }, { resetStack: true, preserveCurrent: false });
+    },
+    [navigateToSnapshot],
+  );
+
+  const handleVerificationSuccess = useCallback(async () => {
+    const credentials = pendingVerification;
+    setPendingVerification(null);
+
+    if (credentials) {
+      try {
+        await login({ email: credentials.email, password: credentials.password });
+        toast.success('Account verified! Welcome!');
+        navigateToSnapshot(
+          { route: ROUTES.PROFILE_COMPLETION },
+          { resetStack: true, preserveCurrent: false },
+        );
+        return;
+      } catch {
+        // Fall back to manual login if the temporary credentials cannot be reused.
+      }
+    }
+
+    setShouldCompleteProfileAfterLogin(true);
+    toast.success('Account verified! You can now log in.');
+    navigateToSnapshot({ route: ROUTES.AUTH }, { resetStack: true, preserveCurrent: false });
+  }, [login, navigateToSnapshot, pendingVerification, toast]);
 
   const handleProfileCompletionComplete = useCallback(() => {
     navigateToSnapshot(resolvedRedirectTarget, { resetStack: true, preserveCurrent: false });
@@ -756,13 +798,25 @@ export function RootNavigator() {
   let content: React.ReactNode;
 
   if (currentRoute === ROUTES.AUTH) {
-    content = <AuthScreen onAuthenticated={handleLoginComplete} />;
+    content = <AuthScreen onAuthenticated={handleLoginComplete} onRegistrationPending={handleRegistrationPending} />;
+  } else if (currentRoute === ROUTES.VERIFY_EMAIL && pendingVerification) {
+    content = (
+      <VerifyEmailScreen
+        email={pendingVerification.email}
+        onVerified={handleVerificationSuccess}
+        onRegisterAgain={() => {
+          setPendingVerification(null);
+          navigateToSnapshot({ route: ROUTES.AUTH }, { resetStack: true, preserveCurrent: false });
+        }}
+      />
+    );
   } else if (currentRoute === ROUTES.PROFILE) {
     content = (
       <ProtectedScreen
         title="Profile requires sign-in"
         description="Sign in to view your profile."
         onAuthenticated={handleLoginComplete}
+        onRegistrationPending={handleRegistrationPending}
       >
         <ScreenShell
           title="Your profile"
@@ -799,6 +853,7 @@ export function RootNavigator() {
         title="Submission requires sign-in"
         description="Sign in to submit a story."
         onAuthenticated={handleLoginComplete}
+        onRegistrationPending={handleRegistrationPending}
       >
         <ScreenShell
           title="Submit a story"
@@ -814,6 +869,7 @@ export function RootNavigator() {
         title="Notifications require sign-in"
         description="Sign in to view notifications."
         onAuthenticated={handleLoginComplete}
+        onRegistrationPending={handleRegistrationPending}
       >
         <ScreenShell
           title="Notifications"

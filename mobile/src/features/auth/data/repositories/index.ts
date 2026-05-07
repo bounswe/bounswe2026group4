@@ -29,6 +29,14 @@ export class AuthRepositoryImpl implements AuthRepository {
     };
   }
 
+  async verifyEmail(email: string, code: string): Promise<void> {
+    await authRemoteSource.verifyEmail(email.trim().toLowerCase(), code.trim());
+  }
+
+  async resendVerificationCode(email: string): Promise<void> {
+    await authRemoteSource.resendVerificationCode(email.trim().toLowerCase());
+  }
+
   async restore(): Promise<AuthSessionEntity | null> {
     const storedSession = await authLocalSource.getSession();
 

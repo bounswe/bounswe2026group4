@@ -11,6 +11,12 @@ export const authService = {
   async register(input: RegisterUserInput): Promise<RegisterUserResult> {
     return repository.register(input);
   },
+  async verifyEmail(email: string, code: string): Promise<void> {
+    return repository.verifyEmail(email, code);
+  },
+  async resendVerificationCode(email: string): Promise<void> {
+    return repository.resendVerificationCode(email);
+  },
   async restore(): Promise<AuthSessionEntity | null> {
     return repository.restore();
   },
