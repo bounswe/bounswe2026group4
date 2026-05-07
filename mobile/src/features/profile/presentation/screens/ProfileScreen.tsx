@@ -228,6 +228,9 @@ function getBadgePalette(badge: BadgeEntity) {
     return {
       background: '#FEF3C7',
       border: '#F59E0B',
+      inner: '#FDE68A',
+      ribbon: '#D97706',
+      ribbonEdge: '#B45309',
       text: '#92400E',
       shine: '#FFFBEB',
     };
@@ -237,6 +240,9 @@ function getBadgePalette(badge: BadgeEntity) {
     return {
       background: '#DBEAFE',
       border: '#2563EB',
+      inner: '#BFDBFE',
+      ribbon: '#1D4ED8',
+      ribbonEdge: '#1E40AF',
       text: '#1E3A8A',
       shine: '#EFF6FF',
     };
@@ -246,6 +252,9 @@ function getBadgePalette(badge: BadgeEntity) {
     return {
       background: '#DCFCE7',
       border: '#16A34A',
+      inner: '#BBF7D0',
+      ribbon: '#15803D',
+      ribbonEdge: '#166534',
       text: '#166534',
       shine: '#F0FDF4',
     };
@@ -254,6 +263,9 @@ function getBadgePalette(badge: BadgeEntity) {
   return {
     background: '#F3E8FF',
     border: '#9333EA',
+    inner: '#E9D5FF',
+    ribbon: '#7E22CE',
+    ribbonEdge: '#6B21A8',
     text: '#581C87',
     shine: '#FAF5FF',
   };
@@ -689,7 +701,7 @@ function BadgesSection({
                 accessibilityLabel={`Open badge details: ${badge.name}`}
                 onPress={() => onSelectBadge(badge)}
                 style={({ pressed }) => ({
-                  width: 82,
+                  width: 88,
                   alignItems: 'center',
                   gap: spacing.xs,
                   opacity: pressed ? 0.76 : 1,
@@ -698,36 +710,94 @@ function BadgesSection({
               >
                 <View
                   style={{
-                    width: 58,
-                    height: 58,
-                    borderRadius: 29,
+                    width: 72,
+                    height: 78,
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 2,
-                    borderColor: badgePalette.border,
-                    backgroundColor: badgePalette.background,
-                    shadowColor: badgePalette.border,
-                    shadowOpacity: 0.2,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 3 },
-                    elevation: 2,
+                    justifyContent: 'flex-start',
                   }}
                 >
                   <View
                     style={{
                       position: 'absolute',
-                      top: 8,
-                      left: 10,
-                      width: 17,
-                      height: 9,
-                      borderRadius: 9,
-                      backgroundColor: badgePalette.shine,
-                      opacity: 0.9,
+                      top: 42,
+                      left: 18,
+                      flexDirection: 'row',
+                      zIndex: 0,
                     }}
-                  />
-                  <Text style={{ color: badgePalette.text, fontSize: 18, fontWeight: '900' }}>
-                    {getBadgeInitial(badge)}
-                  </Text>
+                  >
+                    <View
+                      style={{
+                        width: 16,
+                        height: 30,
+                        borderBottomLeftRadius: 4,
+                        borderBottomRightRadius: 4,
+                        borderWidth: 1,
+                        borderColor: badgePalette.ribbonEdge,
+                        backgroundColor: badgePalette.ribbon,
+                        transform: [{ rotate: '10deg' }],
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 16,
+                        height: 30,
+                        marginLeft: -2,
+                        borderBottomLeftRadius: 4,
+                        borderBottomRightRadius: 4,
+                        borderWidth: 1,
+                        borderColor: badgePalette.ribbonEdge,
+                        backgroundColor: badgePalette.ribbon,
+                        transform: [{ rotate: '-10deg' }],
+                      }}
+                    />
+                  </View>
+                  <View
+                    style={{
+                      width: 58,
+                      height: 58,
+                      borderRadius: 29,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 2,
+                      borderColor: badgePalette.border,
+                      backgroundColor: badgePalette.background,
+                      shadowColor: badgePalette.border,
+                      shadowOpacity: 0.24,
+                      shadowRadius: 9,
+                      shadowOffset: { width: 0, height: 3 },
+                      elevation: 3,
+                      zIndex: 1,
+                    }}
+                  >
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        left: 10,
+                        width: 17,
+                        height: 9,
+                        borderRadius: 9,
+                        backgroundColor: badgePalette.shine,
+                        opacity: 0.9,
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 21,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: badgePalette.border,
+                        backgroundColor: badgePalette.inner,
+                      }}
+                    >
+                      <Text style={{ color: badgePalette.text, fontSize: 17, fontWeight: '900' }}>
+                        {getBadgeInitial(badge)}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
                 <Text
                   numberOfLines={2}
@@ -795,31 +865,94 @@ function BadgeDetailsModal({
               <View
                 style={{
                   alignSelf: 'center',
-                  width: 76,
-                  height: 76,
-                  borderRadius: 38,
+                  width: 106,
+                  height: 122,
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 2,
-                  borderColor: badgePalette.border,
-                  backgroundColor: badgePalette.background,
+                  justifyContent: 'flex-start',
                 }}
               >
                 <View
                   style={{
                     position: 'absolute',
-                    top: 11,
-                    left: 14,
-                    width: 23,
-                    height: 12,
-                    borderRadius: 12,
-                    backgroundColor: badgePalette.shine,
-                    opacity: 0.9,
+                    top: 66,
+                    left: 28,
+                    flexDirection: 'row',
+                    zIndex: 0,
                   }}
-                />
-                <Text style={{ color: badgePalette.text, fontSize: 24, fontWeight: '900' }}>
-                  {getBadgeInitial(badge)}
-                </Text>
+                >
+                  <View
+                    style={{
+                      width: 24,
+                      height: 44,
+                      borderBottomLeftRadius: 6,
+                      borderBottomRightRadius: 6,
+                      borderWidth: 1,
+                      borderColor: badgePalette.ribbonEdge,
+                      backgroundColor: badgePalette.ribbon,
+                      transform: [{ rotate: '10deg' }],
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: 24,
+                      height: 44,
+                      marginLeft: -3,
+                      borderBottomLeftRadius: 6,
+                      borderBottomRightRadius: 6,
+                      borderWidth: 1,
+                      borderColor: badgePalette.ribbonEdge,
+                      backgroundColor: badgePalette.ribbon,
+                      transform: [{ rotate: '-10deg' }],
+                    }}
+                  />
+                </View>
+                <View
+                  style={{
+                    width: 84,
+                    height: 84,
+                    borderRadius: 42,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 3,
+                    borderColor: badgePalette.border,
+                    backgroundColor: badgePalette.background,
+                    shadowColor: badgePalette.border,
+                    shadowOpacity: 0.28,
+                    shadowRadius: 14,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: 5,
+                    zIndex: 1,
+                  }}
+                >
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 12,
+                      left: 15,
+                      width: 26,
+                      height: 13,
+                      borderRadius: 13,
+                      backgroundColor: badgePalette.shine,
+                      opacity: 0.92,
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 30,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1,
+                      borderColor: badgePalette.border,
+                      backgroundColor: badgePalette.inner,
+                    }}
+                  >
+                    <Text style={{ color: badgePalette.text, fontSize: 25, fontWeight: '900' }}>
+                      {getBadgeInitial(badge)}
+                    </Text>
+                  </View>
+                </View>
               </View>
               <View style={{ alignItems: 'center', gap: spacing.xs }}>
                 <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800', textAlign: 'center' }}>
