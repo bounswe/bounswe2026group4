@@ -3,12 +3,30 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
-// Hoisted reference to the fake Leaflet container so the StoryLinkInterceptor
-// in MapView registers its click handler on an element we can dispatch events
-// against from tests.
-const { fakeMapContainer } = vi.hoisted(() => ({
-  fakeMapContainer: document.createElement("div"),
-}));
+// Hoisted references shared between the test file and the mocked modules.
+// fakeMapContainer is the DOM node StoryLinkInterceptor binds its click
+// handler on. fakeMap exposes the leaflet methods MapView's child components
+// invoke (fitBounds / addLayer / removeLayer) so tests can assert call args.
+const { fakeMapContainer, fakeMap, leafletMocks } = vi.hoisted(() => {
+  const container = document.createElement("div");
+  const map = {
+    fitBounds: undefined,
+    addLayer: undefined,
+    removeLayer: undefined,
+    getContainer: () => container,
+  };
+  return {
+    fakeMapContainer: container,
+    fakeMap: map,
+    leafletMocks: {
+      marker: undefined,
+      markerClusterGroup: undefined,
+      featureGroup: undefined,
+      latLngBounds: undefined,
+      latLng: undefined,
+    },
+  };
+});
 
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children, ...props }) => (
@@ -43,17 +61,48 @@ vi.mock("react-leaflet", () => ({
       </div>
     );
   },
-  useMap: () => ({ getContainer: () => fakeMapContainer }),
+  useMap: () => fakeMap,
 }));
 
 vi.mock("leaflet", () => {
-  const marker = vi.fn(() => ({ bindPopup: vi.fn() }));
+  const marker = vi.fn((latlng) => {
+    const layer = { bindPopup: vi.fn(), latlng };
+    return layer;
+  });
+  const featureGroup = vi.fn((markers) => ({
+    getBounds: () => ({ markers, kind: "feature-group-bounds" }),
+  }));
+  const latLngBounds = vi.fn((latlngs) => ({
+    latlngs,
+    kind: "latlng-bounds",
+  }));
+  const latLng = vi.fn((lat, lng) => ({ lat, lng }));
+  const markerClusterGroup = vi.fn(() => ({
+    addLayer: vi.fn(),
+    addLayers: vi.fn(),
+    clearLayers: vi.fn(),
+    removeLayer: vi.fn(),
+    kind: "cluster-group",
+  }));
+  leafletMocks.marker = marker;
+  leafletMocks.markerClusterGroup = markerClusterGroup;
+  leafletMocks.featureGroup = featureGroup;
+  leafletMocks.latLngBounds = latLngBounds;
+  leafletMocks.latLng = latLng;
   const L = {
     Icon: { Default: { prototype: { _getIconUrl: "" }, mergeOptions: vi.fn() } },
     marker,
+    markerClusterGroup,
+    featureGroup,
+    latLngBounds,
+    latLng,
   };
   return { default: L };
 });
+
+vi.mock("leaflet.markercluster", () => ({}));
+vi.mock("leaflet.markercluster/dist/MarkerCluster.css", () => ({}));
+vi.mock("leaflet.markercluster/dist/MarkerCluster.Default.css", () => ({}));
 
 import MapView from "../MapView";
 import { onEachFeature } from "../mapFeatureUtils";
@@ -99,6 +148,10 @@ describe("MapView", () => {
       fakeMapContainer.removeChild(fakeMapContainer.firstChild);
     }
     fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
+    fakeMap.fitBounds = vi.fn();
+    fakeMap.addLayer = vi.fn();
+    fakeMap.removeLayer = vi.fn();
+    fakeMap.getContainer = () => fakeMapContainer;
   });
 
   it("renders the map container", () => {
@@ -106,28 +159,29 @@ describe("MapView", () => {
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });
 
-  it("renders a marker for each feature in the FeatureCollection", () => {
+  it("creates a leaflet marker for each feature in the FeatureCollection", () => {
     const fc = makeFeatureCollection([makeFeature(1), makeFeature(2), makeFeature(3)]);
     renderMapView({ featureCollection: fc });
-    expect(screen.getAllByTestId("map-marker")).toHaveLength(3);
+    expect(leafletMocks.marker).toHaveBeenCalledTimes(3);
   });
 
-  it("passes the FeatureCollection as-is to the GeoJSON layer", () => {
+  it("creates markers using [lat, lng] order from feature [lng, lat] coordinates", () => {
     const fc = makeFeatureCollection([makeFeature(1)]);
     renderMapView({ featureCollection: fc });
-    const layer = screen.getByTestId("map-geojson");
-    expect(layer).toHaveAttribute("data-feature-count", "1");
+    // makeFeature(1).geometry.coordinates = [28.91, 41.01]
+    const firstCallArg = leafletMocks.marker.mock.calls[0][0];
+    expect(firstCallArg[0]).toBeCloseTo(41.01);
+    expect(firstCallArg[1]).toBeCloseTo(28.91);
   });
 
-  it("does not render a GeoJSON layer when the FeatureCollection is empty", () => {
+  it("does not create any markers when the FeatureCollection is empty", () => {
     renderMapView({ featureCollection: makeFeatureCollection([]) });
-    expect(screen.queryByTestId("map-geojson")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();
+    expect(leafletMocks.marker).not.toHaveBeenCalled();
   });
 
   it("handles a missing featureCollection prop without crashing", () => {
     renderMapView();
-    expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();
+    expect(leafletMocks.marker).not.toHaveBeenCalled();
   });
 
   it("shows loading overlay when loading is true", () => {
@@ -140,11 +194,124 @@ describe("MapView", () => {
     renderMapView({ loading: false });
     expect(screen.queryByLabelText("Loading map pins")).not.toBeInTheDocument();
   });
+});
 
-  it("exposes the feature title in the marker element", () => {
-    const fc = makeFeatureCollection([makeFeature(1)]);
+describe("MapView auto-zoom (fit bounds)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    while (fakeMapContainer.firstChild) {
+      fakeMapContainer.removeChild(fakeMapContainer.firstChild);
+    }
+    fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
+    fakeMap.fitBounds = vi.fn();
+    fakeMap.addLayer = vi.fn();
+    fakeMap.removeLayer = vi.fn();
+    fakeMap.getContainer = () => fakeMapContainer;
+  });
+
+  it("does not call fitBounds when there are zero features", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([]) });
+    expect(fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("calls fitBounds with maxZoom 15 when there is exactly one feature", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([makeFeature(1)]) });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    const options = fakeMap.fitBounds.mock.calls[0][1];
+    expect(options).toMatchObject({ maxZoom: 15 });
+  });
+
+  it("calls fitBounds with bounds covering all features when there are multiple", () => {
+    const fc = makeFeatureCollection([
+      makeFeature(1),
+      makeFeature(2),
+      makeFeature(3),
+    ]);
     renderMapView({ featureCollection: fc });
-    expect(screen.getByText("Story 1")).toBeInTheDocument();
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    const options = fakeMap.fitBounds.mock.calls[0][1];
+    expect(options).toMatchObject({ padding: [40, 40] });
+  });
+
+  it("re-fits bounds when the feature set changes", () => {
+    const { rerender } = renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1)]),
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <MapView
+          featureCollection={makeFeatureCollection([makeFeature(2), makeFeature(3)])}
+        />
+      </MemoryRouter>,
+    );
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("MapView pin clustering", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    while (fakeMapContainer.firstChild) {
+      fakeMapContainer.removeChild(fakeMapContainer.firstChild);
+    }
+    fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
+    fakeMap.fitBounds = vi.fn();
+    fakeMap.addLayer = vi.fn();
+    fakeMap.removeLayer = vi.fn();
+    fakeMap.getContainer = () => fakeMapContainer;
+  });
+
+  it("creates a marker cluster group when features are present", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([makeFeature(1)]) });
+    expect(leafletMocks.markerClusterGroup).toHaveBeenCalled();
+  });
+
+  it("adds the cluster group to the map", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([makeFeature(1)]) });
+    const clusterGroup = leafletMocks.markerClusterGroup.mock.results[0].value;
+    expect(fakeMap.addLayer).toHaveBeenCalledWith(clusterGroup);
+  });
+
+  it("clears and repopulates the cluster group when features change", () => {
+    const { rerender } = renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1)]),
+    });
+    const clusterGroup = leafletMocks.markerClusterGroup.mock.results[0].value;
+    const initialMarkerCalls = leafletMocks.marker.mock.calls.length;
+
+    rerender(
+      <MemoryRouter>
+        <MapView
+          featureCollection={makeFeatureCollection([makeFeature(2), makeFeature(3)])}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(clusterGroup.clearLayers).toHaveBeenCalled();
+    expect(leafletMocks.marker.mock.calls.length).toBeGreaterThan(initialMarkerCalls);
+  });
+
+  it("removes the cluster group from the map on unmount", () => {
+    const { unmount } = renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1)]),
+    });
+    const clusterGroup = leafletMocks.markerClusterGroup.mock.results[0].value;
+    unmount();
+    expect(fakeMap.removeLayer).toHaveBeenCalledWith(clusterGroup);
+  });
+
+  it("binds a popup containing the feature title for each marker", () => {
+    renderMapView({
+      featureCollection: makeFeatureCollection([
+        makeFeature(1, { title: "Castle Story" }),
+      ]),
+    });
+    const markerInstance = leafletMocks.marker.mock.results[0].value;
+    expect(markerInstance.bindPopup).toHaveBeenCalledTimes(1);
+    const html = markerInstance.bindPopup.mock.calls[0][0];
+    expect(html).toContain("Castle Story");
   });
 });
 
