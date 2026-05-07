@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ScrollView } from 'react-native';
 import { ProfileScreen } from '../ProfileScreen';
@@ -779,7 +779,9 @@ describe('ProfileScreen', () => {
         userId="12"
         getPublicProfile={async () => publicProfile}
         getUserStories={async () => {
-          throw new Error('Not found');
+          throw Object.assign(new Error('No User matches the given query.'), {
+            response: { status: 404 },
+          });
         }}
       />,
     );
@@ -788,6 +790,59 @@ describe('ProfileScreen', () => {
     expect(await screen.findByText('Published stories unavailable')).toBeTruthy();
     expect(screen.getByText('This profile is unavailable or no longer active.')).toBeTruthy();
     expect(screen.getByText('I write about harbor neighborhoods.')).toBeTruthy();
+  });
+
+  it('ignores stale public story responses after switching profiles', async () => {
+    let resolveFirstStories: (value: FeedPageEntity) => void = () => undefined;
+    const firstStoriesPromise = new Promise<FeedPageEntity>((resolve) => {
+      resolveFirstStories = resolve;
+    });
+    const getUserStories = jest.fn((loadedUserId: string) => {
+      if (loadedUserId === '12') {
+        return firstStoriesPromise;
+      }
+
+      return Promise.resolve(makePublishedStoriesPage({
+        items: [makePublishedStory('published-2', 'Second User Story')],
+      }));
+    });
+    const getPublicProfile = jest.fn(async (loadedUserId: string) => ({
+      ...publicProfile,
+      id: loadedUserId,
+      username: loadedUserId === '12' ? 'Aylin' : 'Deniz',
+    }));
+
+    const { rerender } = render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={getPublicProfile}
+        getUserStories={getUserStories}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+
+    rerender(
+      <ProfileScreen
+        mode="public"
+        userId="13"
+        getPublicProfile={getPublicProfile}
+        getUserStories={getUserStories}
+      />,
+    );
+
+    expect(await screen.findByText('Deniz')).toBeTruthy();
+    expect(await screen.findByText('Second User Story')).toBeTruthy();
+
+    await act(async () => {
+      resolveFirstStories(makePublishedStoriesPage({
+        items: [makePublishedStory('published-1', 'First User Story')],
+      }));
+    });
+
+    expect(screen.queryByText('First User Story')).toBeNull();
+    expect(screen.getByText('Second User Story')).toBeTruthy();
   });
 
   it('does not render a follow button on the user own profile', async () => {

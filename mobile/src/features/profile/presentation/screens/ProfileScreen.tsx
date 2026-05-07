@@ -370,10 +370,14 @@ function validatePendingPhoto(photo: PendingPhotoState | null) {
 }
 
 function getPublishedStoriesErrorMessage(error: unknown) {
+  const responseStatus =
+    error && typeof error === 'object' && 'response' in error
+      ? (error as { response?: { status?: unknown } }).response?.status
+      : undefined;
   const message = error instanceof Error ? error.message : '';
   const normalizedMessage = message.toLowerCase();
 
-  if (normalizedMessage.includes('404') || normalizedMessage.includes('not found')) {
+  if (responseStatus === 404 || normalizedMessage.includes('404') || normalizedMessage.includes('not found')) {
     return 'This profile is unavailable or no longer active.';
   }
 
@@ -841,9 +845,13 @@ function PublishedStoriesSection({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string>();
   const [totalCount, setTotalCount] = useState(0);
+  const storyRequestIdRef = useRef(0);
 
   const loadPage = useCallback(
     async (nextPage: number, append: boolean) => {
+      const requestId = storyRequestIdRef.current + 1;
+      storyRequestIdRef.current = requestId;
+
       if (append) {
         setIsLoadingMore(true);
       } else {
@@ -855,15 +863,25 @@ function PublishedStoriesSection({
       try {
         const result = await getUserStories(userId, nextPage);
 
+        if (storyRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setStories((current) => (append ? [...current, ...result.items] : result.items));
         setPage(nextPage);
         setHasMore(result.hasNextPage);
         setTotalCount(result.totalCount);
       } catch (loadError) {
+        if (storyRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setError(getPublishedStoriesErrorMessage(loadError));
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (storyRequestIdRef.current === requestId) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     },
     [getUserStories, userId],
@@ -875,6 +893,10 @@ function PublishedStoriesSection({
     setHasMore(false);
     setTotalCount(0);
     void loadPage(1, false);
+
+    return () => {
+      storyRequestIdRef.current += 1;
+    };
   }, [loadPage]);
 
   return (
