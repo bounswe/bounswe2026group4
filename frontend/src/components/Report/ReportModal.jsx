@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { reportContent } from "@/services/reportService";
 
+const DIALOG_CLOSE_ANIMATION_MS = 300;
+
 const REASONS = [
   { value: "spam", label: "Spam" },
   { value: "false_content", label: "False or misleading content" },
@@ -37,7 +39,7 @@ function ReportModal({ isOpen, onClose, targetType, targetId }) {
       setSubmitting(false);
       setSubmitted(false);
       setError(null);
-    }, 300);
+    }, DIALOG_CLOSE_ANIMATION_MS);
   }
 
   async function handleSubmit(e) {
@@ -61,6 +63,8 @@ function ReportModal({ isOpen, onClose, targetType, targetId }) {
       const fieldErr =
         pickFirst(errors.non_field_errors) ||
         pickFirst(errors.target_id) ||
+        // Defensive: backend's custom_exception_handler always wraps these under `errors`,
+        // but fall back to top-level keys in case of a non-DRF error path.
         pickFirst(data?.non_field_errors) ||
         pickFirst(data?.target_id);
       setError(fieldErr || data?.message || "Failed to submit report. Please try again.");

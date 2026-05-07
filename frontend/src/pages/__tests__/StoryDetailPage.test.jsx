@@ -102,6 +102,7 @@ function renderPage(id = "1", locationState = undefined) {
         <Route path="/stories/:id" element={<StoryDetailPage />} />
         <Route path="/" element={<div>Feed Page</div>} />
         <Route path="/map" element={<div>Map Page</div>} />
+        <Route path="/login" element={<div>Login Page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -770,13 +771,19 @@ describe("StoryDetailPage", () => {
   });
 
   describe("report button", () => {
-    it("does not render the Flag button for unauthenticated visitors", async () => {
+    it("renders the Flag button for unauthenticated visitors and navigates to /login on click", async () => {
+      const user = userEvent.setup();
       useAuth.mockReturnValue({ user: null });
       getStoryById.mockResolvedValue(makeStory());
       renderPage();
 
       await waitFor(() => screen.getByRole("heading", { name: "The Great Fire of Beyoglu" }));
-      expect(screen.queryByRole("button", { name: /report story/i })).not.toBeInTheDocument();
+      const flag = screen.getByRole("button", { name: /report story/i });
+
+      await user.click(flag);
+
+      expect(await screen.findByText("Login Page")).toBeInTheDocument();
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
     });
 
     it("renders the Flag button for authenticated users", async () => {
@@ -787,6 +794,15 @@ describe("StoryDetailPage", () => {
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /report story/i })).toBeInTheDocument();
       });
+    });
+
+    it("does not render the Flag button on the current user's own story", async () => {
+      useAuth.mockReturnValue({ user: { id: 1, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      renderPage();
+
+      await waitFor(() => screen.getByRole("heading", { name: "The Great Fire of Beyoglu" }));
+      expect(screen.queryByRole("button", { name: /report story/i })).not.toBeInTheDocument();
     });
 
     it("opens the report modal with the story id when Flag is clicked", async () => {

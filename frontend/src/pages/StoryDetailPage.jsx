@@ -386,12 +386,18 @@ function StoryDetailPage() {
                   toast.success(newBookmarked ? "Story saved." : "Story removed from saved.");
                 }}
               />
-              {user && (
+              {(!user || user.id !== story.user) && (
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowReportModal(true)}
+                  onClick={() => {
+                    if (!user) {
+                      navigate("/login");
+                      return;
+                    }
+                    setShowReportModal(true);
+                  }}
                   aria-label="Report story"
                 >
                   <Flag className="h-4 w-4" aria-hidden="true" />

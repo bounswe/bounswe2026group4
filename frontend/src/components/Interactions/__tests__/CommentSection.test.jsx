@@ -5,6 +5,12 @@ import { MemoryRouter } from "react-router-dom";
 
 import CommentSection from "../CommentSection";
 
+const navigateMock = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
 vi.mock("@/hooks/useAuth");
 vi.mock("@/services/interactionService", () => ({
   getComments: vi.fn(),
@@ -375,7 +381,8 @@ describe("CommentSection", () => {
   });
 
   describe("report button", () => {
-    it("does not render the Flag button when unauthenticated", async () => {
+    it("renders the Flag button for unauthenticated visitors and navigates to /login on click", async () => {
+      const user = userEvent.setup();
       useAuth.mockReturnValue({ isAuthenticated: false, user: null });
       getComments.mockResolvedValue([
         makeComment({ id: 1, author_username: "bob", text: "Hello" }),
@@ -383,14 +390,20 @@ describe("CommentSection", () => {
       renderSection();
 
       await waitFor(() => screen.getByText("Hello"));
-      expect(screen.queryByRole("button", { name: /report comment/i })).not.toBeInTheDocument();
+      const flag = screen.getByRole("button", { name: /report comment/i });
+
+      await user.click(flag);
+
+      expect(navigateMock).toHaveBeenCalledWith("/login");
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
     });
 
-    it("renders a Flag button on each comment when authenticated", async () => {
+    it("renders a Flag button only on comments not owned by the current user", async () => {
       useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
       getComments.mockResolvedValue([
         makeComment({ id: 1, author_username: "alice", text: "Mine" }),
         makeComment({ id: 2, author_username: "bob", text: "Theirs" }),
+        makeComment({ id: 3, author_username: "carol", text: "Hers" }),
       ]);
       renderSection();
 
@@ -417,8 +430,7 @@ describe("CommentSection", () => {
       expect(modal).toHaveAttribute("data-target-id", "99");
     });
 
-    it("hides the Flag button on a comment whose delete-confirm is open", async () => {
-      const user = userEvent.setup();
+    it("does not render the Flag button on the current user's own comment", async () => {
       useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
       getComments.mockResolvedValue([
         makeComment({ id: 5, author_username: "alice", text: "My comment" }),
@@ -426,10 +438,6 @@ describe("CommentSection", () => {
       renderSection();
 
       await waitFor(() => screen.getByRole("button", { name: /delete comment/i }));
-      expect(screen.getByRole("button", { name: /report comment/i })).toBeInTheDocument();
-
-      await user.click(screen.getByRole("button", { name: /delete comment/i }));
-
       expect(screen.queryByRole("button", { name: /report comment/i })).not.toBeInTheDocument();
     });
   });
