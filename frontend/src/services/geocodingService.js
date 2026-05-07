@@ -1,8 +1,4 @@
-const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
-// User-Agent is a forbidden header name in browsers and is silently dropped by fetch.
-const NOMINATIM_HEADERS = {
-  "Accept-Language": "en",
-};
+import api from "./api";
 
 const geocodeCache = new Map();
 const suggestionsCache = new Map();
@@ -14,7 +10,7 @@ export function clearCache() {
 }
 
 /**
- * Geocode a place name to a bounding box using the Nominatim API.
+ * Geocode a place name to a bounding box via the backend proxy.
  * Returns { latMin, latMax, lngMin, lngMax } or null if no result.
  */
 export async function geocodeLocation(query) {
@@ -23,44 +19,25 @@ export async function geocodeLocation(query) {
   const key = query.trim().toLowerCase();
   if (geocodeCache.has(key)) return geocodeCache.get(key);
 
-  const url = `${NOMINATIM_BASE}?${new URLSearchParams({
-    q: query.trim(),
-    format: "json",
-    limit: "1",
-  })}`;
+  const { data } = await api.get("/geocode/", { params: { q: query.trim() } });
 
-  const response = await fetch(url, { headers: NOMINATIM_HEADERS });
-
-  if (!response.ok) throw new Error(`Nominatim request failed: ${response.status}`);
-
-  const results = await response.json();
-  if (!results.length) {
+  if (!data) {
     geocodeCache.set(key, null);
     return null;
   }
 
-  const { boundingbox } = results[0];
-  if (!boundingbox?.length) {
-    geocodeCache.set(key, null);
-    return null;
-  }
-
-  // Nominatim boundingbox order: [lat_min, lat_max, lng_min, lng_max] (strings)
-  const [latMin, latMax, lngMin, lngMax] = boundingbox.map(Number);
-  const bbox = { latMin, latMax, lngMin, lngMax };
+  const bbox = {
+    latMin: data.lat_min,
+    latMax: data.lat_max,
+    lngMin: data.lng_min,
+    lngMax: data.lng_max,
+  };
   geocodeCache.set(key, bbox);
   return bbox;
 }
 
-function parseBbox(boundingbox) {
-  if (!Array.isArray(boundingbox) || boundingbox.length < 4) return null;
-  const [latMin, latMax, lngMin, lngMax] = boundingbox.map(Number);
-  if (![latMin, latMax, lngMin, lngMax].every(Number.isFinite)) return null;
-  return { latMin, latMax, lngMin, lngMax };
-}
-
 /**
- * Fetch up to 5 location suggestions for a query (min 3 chars).
+ * Fetch up to 5 location suggestions for a query (min 3 chars) via the backend proxy.
  * Each suggestion includes a display title, optional subtitle, and optional bbox.
  */
 export async function searchLocationSuggestions(query) {
@@ -70,38 +47,23 @@ export async function searchLocationSuggestions(query) {
   const key = normalized.toLowerCase();
   if (suggestionsCache.has(key)) return suggestionsCache.get(key);
 
-  const url = `${NOMINATIM_BASE}?${new URLSearchParams({
-    q: normalized,
-    format: "json",
-    limit: "5",
-    addressdetails: "1",
-  })}`;
+  const { data } = await api.get("/geocode/suggestions/", { params: { q: normalized } });
 
-  const response = await fetch(url, { headers: NOMINATIM_HEADERS });
+  if (!Array.isArray(data)) return [];
 
-  if (!response.ok) throw new Error(`Nominatim request failed: ${response.status}`);
-
-  const results = await response.json();
-  if (!Array.isArray(results)) return [];
-
-  const suggestions = results
-    .map((r) => {
-      const lat = Number(r.lat);
-      const lng = Number(r.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-      const parts = r.display_name?.split(",").map((p) => p.trim()).filter(Boolean) ?? [];
-      const title = r.name?.trim() || parts[0];
-      if (!title) return null;
-
-      return {
-        id: String(r.place_id ?? r.osm_id ?? `${lat},${lng}`),
-        title,
-        subtitle: parts.slice(1).join(", ") || undefined,
-        bbox: parseBbox(r.boundingbox),
-      };
-    })
-    .filter(Boolean);
+  const suggestions = data.map((r) => ({
+    id: r.id,
+    title: r.title,
+    subtitle: r.subtitle ?? undefined,
+    bbox: r.bbox
+      ? {
+          latMin: r.bbox.lat_min,
+          latMax: r.bbox.lat_max,
+          lngMin: r.bbox.lng_min,
+          lngMax: r.bbox.lng_max,
+        }
+      : null,
+  }));
 
   suggestionsCache.set(key, suggestions);
   return suggestions;

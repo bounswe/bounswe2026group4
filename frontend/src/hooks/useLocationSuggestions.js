@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { searchLocationSuggestions } from "@/services/geocodingService";
 
-const DEBOUNCE_MS = 250;
+const DEBOUNCE_MS = 300;
 const MIN_CHARS = 3;
 
 /**
  * Debounced location suggestions hook.
- * Fires after 400 ms once the query reaches 3+ characters.
+ * Fires after 300 ms once the query reaches 3+ characters.
  * Returns up to 5 Nominatim suggestions, each with an optional bbox.
  */
 export function useLocationSuggestions(query) {

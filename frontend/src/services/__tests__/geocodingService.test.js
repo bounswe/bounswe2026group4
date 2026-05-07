@@ -1,47 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { geocodeLocation, searchLocationSuggestions, clearCache } from "../geocodingService";
 
-const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
+vi.mock("../api", () => ({
+  default: { get: vi.fn() },
+}));
 
-function mockFetch(data, { ok = true, status = 200 } = {}) {
-  globalThis.fetch = vi.fn().mockResolvedValue({
-    ok,
-    status,
-    json: () => Promise.resolve(data),
-  });
+import api from "../api";
+
+function mockGet(data, { ok = true, status = 200 } = {}) {
+  if (ok) {
+    api.get.mockResolvedValue({ data, status });
+  } else {
+    const err = Object.assign(new Error(`Request failed with status code ${status}`), {
+      response: { status },
+    });
+    api.get.mockRejectedValue(err);
+  }
 }
 
 describe("geocodeLocation", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     clearCache();
   });
 
   it("returns null for empty query", async () => {
-    globalThis.fetch = vi.fn();
     expect(await geocodeLocation("")).toBeNull();
     expect(await geocodeLocation("   ")).toBeNull();
     expect(await geocodeLocation(null)).toBeNull();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
   });
 
-  it("calls Nominatim with correct params", async () => {
-    mockFetch([]);
+  it("calls the backend proxy with correct params", async () => {
+    mockGet(null);
     await geocodeLocation("Istanbul");
-    expect(globalThis.fetch).toHaveBeenCalledOnce();
-    const [url] = globalThis.fetch.mock.calls[0];
-    expect(url).toContain(NOMINATIM_BASE);
-    expect(url).toContain("q=Istanbul");
-    expect(url).toContain("format=json");
-    expect(url).toContain("limit=1");
+    expect(api.get).toHaveBeenCalledOnce();
+    expect(api.get).toHaveBeenCalledWith("/geocode/", { params: { q: "Istanbul" } });
   });
 
   it("returns bounding box for a valid result", async () => {
-    mockFetch([
-      {
-        boundingbox: ["40.8027636", "41.3420105", "28.5025972", "29.4580951"],
-      },
-    ]);
+    mockGet({ lat_min: 40.8027636, lat_max: 41.3420105, lng_min: 28.5025972, lng_max: 29.4580951 });
 
     const result = await geocodeLocation("Istanbul");
 
@@ -53,64 +51,57 @@ describe("geocodeLocation", () => {
     });
   });
 
-  it("returns null when Nominatim returns an empty array", async () => {
-    mockFetch([]);
+  it("returns null when backend returns null", async () => {
+    mockGet(null);
     const result = await geocodeLocation("xyznonexistentplace12345");
     expect(result).toBeNull();
   });
 
-  it("returns null when result has no boundingbox", async () => {
-    mockFetch([{ display_name: "Some Place" }]);
-    const result = await geocodeLocation("Some Place");
-    expect(result).toBeNull();
-  });
-
-  it("throws when Nominatim responds with a non-ok status", async () => {
-    mockFetch(null, { ok: false, status: 429 });
-    await expect(geocodeLocation("Istanbul")).rejects.toThrow("Nominatim request failed: 429");
-  });
-
   it("trims whitespace from query before sending", async () => {
-    mockFetch([]);
+    mockGet(null);
     await geocodeLocation("  Paris  ");
-    const [url] = globalThis.fetch.mock.calls[0];
-    expect(url).toContain("q=Paris");
-    expect(url).not.toContain("q=++Paris");
+    expect(api.get).toHaveBeenCalledWith("/geocode/", { params: { q: "Paris" } });
+  });
+
+  it("caches results and does not call the backend twice for the same query", async () => {
+    mockGet({ lat_min: 40.8, lat_max: 41.3, lng_min: 28.5, lng_max: 29.4 });
+    await geocodeLocation("Istanbul");
+    await geocodeLocation("Istanbul");
+    expect(api.get).toHaveBeenCalledOnce();
+  });
+
+  it("throws when backend responds with an error", async () => {
+    mockGet(null, { ok: false, status: 503 });
+    await expect(geocodeLocation("Istanbul")).rejects.toThrow();
   });
 });
 
 describe("searchLocationSuggestions", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     clearCache();
   });
 
   it("returns empty array for queries shorter than 3 characters", async () => {
-    globalThis.fetch = vi.fn();
     expect(await searchLocationSuggestions("")).toEqual([]);
     expect(await searchLocationSuggestions("Is")).toEqual([]);
     expect(await searchLocationSuggestions(null)).toEqual([]);
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(api.get).not.toHaveBeenCalled();
   });
 
-  it("calls Nominatim with limit=5 and addressdetails=1", async () => {
-    mockFetch([]);
+  it("calls the backend proxy with correct params", async () => {
+    mockGet([]);
     await searchLocationSuggestions("Istanbul");
-    const [url] = globalThis.fetch.mock.calls[0];
-    expect(url).toContain("limit=5");
-    expect(url).toContain("addressdetails=1");
-    expect(url).toContain("q=Istanbul");
+    expect(api.get).toHaveBeenCalledWith("/geocode/suggestions/", { params: { q: "Istanbul" } });
   });
 
   it("returns parsed suggestions with title, subtitle, and bbox", async () => {
-    mockFetch([
+    mockGet([
       {
-        place_id: 12345,
-        name: "Istanbul",
-        display_name: "Istanbul, Marmara Region, Turkey",
-        lat: "41.0082",
-        lon: "28.9784",
-        boundingbox: ["40.8027636", "41.3420105", "28.5025972", "29.4580951"],
+        id: "12345",
+        title: "Istanbul",
+        subtitle: "Marmara Region, Turkey",
+        bbox: { lat_min: 40.8027636, lat_max: 41.3420105, lng_min: 28.5025972, lng_max: 29.4580951 },
       },
     ]);
 
@@ -125,49 +116,34 @@ describe("searchLocationSuggestions", () => {
     });
   });
 
-  it("falls back to first display_name segment when name is absent", async () => {
-    mockFetch([
-      {
-        place_id: 1,
-        display_name: "Galata, Beyoğlu, Istanbul, Turkey",
-        lat: "41.025",
-        lon: "28.974",
-        boundingbox: ["41.0", "41.05", "28.97", "28.98"],
-      },
-    ]);
-
-    const results = await searchLocationSuggestions("Galata");
-    expect(results[0].title).toBe("Galata");
-    expect(results[0].subtitle).toBe("Beyoğlu, Istanbul, Turkey");
-  });
-
-  it("sets bbox to null when boundingbox is missing", async () => {
-    mockFetch([
-      { place_id: 1, name: "SomePlace", display_name: "SomePlace", lat: "41.0", lon: "28.9" },
-    ]);
+  it("sets bbox to null when backend returns null bbox", async () => {
+    mockGet([{ id: "1", title: "SomePlace", subtitle: null, bbox: null }]);
 
     const results = await searchLocationSuggestions("SomePlace");
     expect(results[0].bbox).toBeNull();
   });
 
-  it("filters out results with invalid coordinates", async () => {
-    mockFetch([
-      { place_id: 1, name: "Bad", display_name: "Bad", lat: "invalid", lon: "28.9" },
-      { place_id: 2, name: "Good", display_name: "Good", lat: "41.0", lon: "28.9" },
-    ]);
+  it("sets subtitle to undefined when backend returns null subtitle", async () => {
+    mockGet([{ id: "1", title: "SomePlace", subtitle: null, bbox: null }]);
 
-    const results = await searchLocationSuggestions("test");
-    expect(results).toHaveLength(1);
-    expect(results[0].title).toBe("Good");
+    const results = await searchLocationSuggestions("SomePlace");
+    expect(results[0].subtitle).toBeUndefined();
   });
 
-  it("returns empty array when Nominatim returns no results", async () => {
-    mockFetch([]);
+  it("returns empty array when backend returns no results", async () => {
+    mockGet([]);
     expect(await searchLocationSuggestions("xyzunknown123")).toEqual([]);
   });
 
-  it("throws on non-ok response", async () => {
-    mockFetch(null, { ok: false, status: 503 });
-    await expect(searchLocationSuggestions("Istanbul")).rejects.toThrow("Nominatim request failed: 503");
+  it("caches results and does not call the backend twice for the same query", async () => {
+    mockGet([]);
+    await searchLocationSuggestions("Istanbul");
+    await searchLocationSuggestions("Istanbul");
+    expect(api.get).toHaveBeenCalledOnce();
+  });
+
+  it("throws on backend error", async () => {
+    mockGet(null, { ok: false, status: 503 });
+    await expect(searchLocationSuggestions("Istanbul")).rejects.toThrow();
   });
 });
