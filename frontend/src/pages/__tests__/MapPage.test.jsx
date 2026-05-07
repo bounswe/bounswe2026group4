@@ -20,13 +20,23 @@ vi.mock("react-leaflet", () => ({
       </div>
     );
   },
-  useMap: () => ({ getContainer: () => document.createElement("div") }),
+  useMap: () => ({
+    getContainer: () => document.createElement("div"),
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+    fitBounds: vi.fn(),
+  }),
 }));
 
 vi.mock("leaflet", () => {
   const L = {
     Icon: { Default: { prototype: { _getIconUrl: "" }, mergeOptions: vi.fn() } },
     marker: vi.fn(() => ({ bindPopup: vi.fn() })),
+    markerClusterGroup: vi.fn(() => ({
+      addLayer: vi.fn(),
+      clearLayers: vi.fn(),
+    })),
+    latLngBounds: vi.fn(() => ({})),
   };
   return { default: L };
 });
@@ -42,6 +52,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import { getMapStories } from "@/services/storyService";
+import L from "leaflet";
 import MapPage from "../MapPage";
 
 function makeFeature(id, overrides = {}) {
@@ -100,7 +111,7 @@ describe("MapPage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getAllByTestId("map-marker")).toHaveLength(2);
+      expect(L.marker).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -128,7 +139,7 @@ describe("MapPage", () => {
     await user.click(screen.getByRole("button", { name: /retry/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("map-marker")).toBeInTheDocument();
+      expect(L.marker).toHaveBeenCalled();
     });
 
     expect(getMapStories).toHaveBeenCalledTimes(2);
@@ -139,8 +150,9 @@ describe("MapPage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();
+      expect(getMapStories).toHaveBeenCalled();
     });
+    expect(L.marker).not.toHaveBeenCalled();
   });
 
   describe("search status indicator", () => {
