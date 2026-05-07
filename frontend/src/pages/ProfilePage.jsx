@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
-import { User, BookOpen, CalendarDays, MapPin, Star, Pencil, Lock, Loader2 } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { User, BookOpen, CalendarDays, MapPin, Star, Pencil, Lock, Loader2, Bell } from "lucide-react";
 
 import { SkeletonPage } from "@/components/ui/loading-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -265,14 +265,22 @@ function ProfilePage() {
               </div>
               <div className="flex shrink-0 gap-2">
                 {isOwnProfile && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditMode(true)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit Profile
-                  </Button>
+                  <>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/notifications/preferences">
+                        <Bell className="h-4 w-4" />
+                        Notifications
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditMode(true)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit Profile
+                    </Button>
+                  </>
                 )}
                 {!isOwnProfile && (
                   <FollowButton
