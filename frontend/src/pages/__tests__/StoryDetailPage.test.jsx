@@ -60,6 +60,17 @@ vi.mock("@/components/Interactions/CommentSection", () => ({
   default: MockCommentSection,
 }));
 
+vi.mock("@/components/Report/ReportModal", () => ({
+  default: ({ isOpen, targetType, targetId }) =>
+    isOpen ? (
+      <div
+        data-testid="report-modal"
+        data-target-type={targetType}
+        data-target-id={String(targetId)}
+      />
+    ) : null,
+}));
+
 import { getStoryById, deleteStory } from "@/services/storyService";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -755,6 +766,43 @@ describe("StoryDetailPage", () => {
       await waitFor(() => {
         expect(mockToast.error).toHaveBeenCalledWith("Permission denied");
       });
+    });
+  });
+
+  describe("report button", () => {
+    it("does not render the Flag button for unauthenticated visitors", async () => {
+      useAuth.mockReturnValue({ user: null });
+      getStoryById.mockResolvedValue(makeStory());
+      renderPage();
+
+      await waitFor(() => screen.getByRole("heading", { name: "The Great Fire of Beyoglu" }));
+      expect(screen.queryByRole("button", { name: /report story/i })).not.toBeInTheDocument();
+    });
+
+    it("renders the Flag button for authenticated users", async () => {
+      useAuth.mockReturnValue({ user: { id: 2, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ user: 1 }));
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /report story/i })).toBeInTheDocument();
+      });
+    });
+
+    it("opens the report modal with the story id when Flag is clicked", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 2, role: "registered_user" } });
+      getStoryById.mockResolvedValue(makeStory({ id: 77, user: 1 }));
+      renderPage("77");
+
+      await waitFor(() => screen.getByRole("button", { name: /report story/i }));
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /report story/i }));
+
+      const modal = screen.getByTestId("report-modal");
+      expect(modal).toHaveAttribute("data-target-type", "story");
+      expect(modal).toHaveAttribute("data-target-id", "77");
     });
   });
 });

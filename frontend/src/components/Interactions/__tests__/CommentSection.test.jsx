@@ -11,6 +11,16 @@ vi.mock("@/services/interactionService", () => ({
   addComment: vi.fn(),
   deleteComment: vi.fn(),
 }));
+vi.mock("@/components/Report/ReportModal", () => ({
+  default: ({ isOpen, targetType, targetId }) =>
+    isOpen ? (
+      <div
+        data-testid="report-modal"
+        data-target-type={targetType}
+        data-target-id={String(targetId)}
+      />
+    ) : null,
+}));
 
 import { useAuth } from "@/hooks/useAuth";
 import { getComments, addComment, deleteComment } from "@/services/interactionService";
@@ -361,6 +371,66 @@ describe("CommentSection", () => {
         expect(screen.getByRole("alert")).toHaveTextContent(/failed to delete comment/i);
       });
       expect(screen.getByText("My comment")).toBeInTheDocument();
+    });
+  });
+
+  describe("report button", () => {
+    it("does not render the Flag button when unauthenticated", async () => {
+      useAuth.mockReturnValue({ isAuthenticated: false, user: null });
+      getComments.mockResolvedValue([
+        makeComment({ id: 1, author_username: "bob", text: "Hello" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => screen.getByText("Hello"));
+      expect(screen.queryByRole("button", { name: /report comment/i })).not.toBeInTheDocument();
+    });
+
+    it("renders a Flag button on each comment when authenticated", async () => {
+      useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
+      getComments.mockResolvedValue([
+        makeComment({ id: 1, author_username: "alice", text: "Mine" }),
+        makeComment({ id: 2, author_username: "bob", text: "Theirs" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => {
+        expect(screen.getAllByRole("button", { name: /report comment/i })).toHaveLength(2);
+      });
+    });
+
+    it("opens the report modal with the comment id when Flag is clicked", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
+      getComments.mockResolvedValue([
+        makeComment({ id: 99, author_username: "bob", text: "Theirs" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => screen.getByRole("button", { name: /report comment/i }));
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /report comment/i }));
+
+      const modal = screen.getByTestId("report-modal");
+      expect(modal).toHaveAttribute("data-target-type", "comment");
+      expect(modal).toHaveAttribute("data-target-id", "99");
+    });
+
+    it("hides the Flag button on a comment whose delete-confirm is open", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
+      getComments.mockResolvedValue([
+        makeComment({ id: 5, author_username: "alice", text: "My comment" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => screen.getByRole("button", { name: /delete comment/i }));
+      expect(screen.getByRole("button", { name: /report comment/i })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /delete comment/i }));
+
+      expect(screen.queryByRole("button", { name: /report comment/i })).not.toBeInTheDocument();
     });
   });
 
