@@ -36,16 +36,10 @@ vi.mock("leaflet", () => {
       addLayer: vi.fn(),
       clearLayers: vi.fn(),
     })),
-    featureGroup: vi.fn(() => ({ getBounds: () => ({}) })),
     latLngBounds: vi.fn(() => ({})),
-    latLng: vi.fn((lat, lng) => ({ lat, lng })),
   };
   return { default: L };
 });
-
-vi.mock("leaflet.markercluster", () => ({}));
-vi.mock("leaflet.markercluster/dist/MarkerCluster.css", () => ({}));
-vi.mock("leaflet.markercluster/dist/MarkerCluster.Default.css", () => ({}));
 
 vi.mock("@/services/storyService", () => ({
   getMapStories: vi.fn(),

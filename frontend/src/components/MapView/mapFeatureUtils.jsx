@@ -1,4 +1,3 @@
-import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import StoryPopup from "./StoryPopup";
@@ -23,9 +22,3 @@ function featureToStory(feature) {
 // in place (or sanitize explicitly) to prevent XSS at this seam.
 export const featurePopupHtml = (feature) =>
   renderToStaticMarkup(<StoryPopup story={featureToStory(feature)} />);
-
-export const pointToLayer = (_feature, latlng) => L.marker(latlng);
-
-export const onEachFeature = (feature, layer) => {
-  layer.bindPopup(featurePopupHtml(feature));
-};

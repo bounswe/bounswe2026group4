@@ -3,27 +3,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
-// Hoisted references shared between the test file and the mocked modules.
-// fakeMapContainer is the DOM node StoryLinkInterceptor binds its click
-// handler on. fakeMap exposes the leaflet methods MapView's child components
-// invoke (fitBounds / addLayer / removeLayer) so tests can assert call args.
 const { fakeMapContainer, fakeMap, leafletMocks } = vi.hoisted(() => {
   const container = document.createElement("div");
-  const map = {
-    fitBounds: undefined,
-    addLayer: undefined,
-    removeLayer: undefined,
-    getContainer: () => container,
-  };
   return {
     fakeMapContainer: container,
-    fakeMap: map,
+    fakeMap: {
+      fitBounds: undefined,
+      addLayer: undefined,
+      removeLayer: undefined,
+      getContainer: () => container,
+    },
     leafletMocks: {
       marker: undefined,
       markerClusterGroup: undefined,
-      featureGroup: undefined,
       latLngBounds: undefined,
-      latLng: undefined,
     },
   };
 });
@@ -36,76 +29,32 @@ vi.mock("react-leaflet", () => ({
     </div>
   ),
   TileLayer: () => null,
-  GeoJSON: ({ data, pointToLayer, onEachFeature }) => {
-    const features = data?.features ?? [];
-    // Invoke the callbacks the same way L.geoJSON would so that bindPopup
-    // and marker creation are exercised under test.
-    features.forEach((feature) => {
-      const fakeLayer = {
-        bindPopup: vi.fn(),
-        on: vi.fn(),
-      };
-      pointToLayer?.(feature, [0, 0]);
-      onEachFeature?.(feature, fakeLayer);
-    });
-    return (
-      <div
-        data-testid="map-geojson"
-        data-feature-count={features.length}
-      >
-        {features.map((f) => (
-          <div key={f.id} data-testid="map-marker">
-            {f.properties?.title}
-          </div>
-        ))}
-      </div>
-    );
-  },
   useMap: () => fakeMap,
 }));
 
 vi.mock("leaflet", () => {
-  const marker = vi.fn((latlng) => {
-    const layer = { bindPopup: vi.fn(), latlng };
-    return layer;
-  });
-  const featureGroup = vi.fn((markers) => ({
-    getBounds: () => ({ markers, kind: "feature-group-bounds" }),
-  }));
-  const latLngBounds = vi.fn((latlngs) => ({
-    latlngs,
-    kind: "latlng-bounds",
-  }));
-  const latLng = vi.fn((lat, lng) => ({ lat, lng }));
+  const marker = vi.fn((latlng) => ({ bindPopup: vi.fn(), latlng }));
+  const latLngBounds = vi.fn((latlngs) => ({ latlngs }));
   const markerClusterGroup = vi.fn(() => ({
     addLayer: vi.fn(),
     addLayers: vi.fn(),
     clearLayers: vi.fn(),
     removeLayer: vi.fn(),
-    kind: "cluster-group",
   }));
   leafletMocks.marker = marker;
   leafletMocks.markerClusterGroup = markerClusterGroup;
-  leafletMocks.featureGroup = featureGroup;
   leafletMocks.latLngBounds = latLngBounds;
-  leafletMocks.latLng = latLng;
   const L = {
     Icon: { Default: { prototype: { _getIconUrl: "" }, mergeOptions: vi.fn() } },
     marker,
     markerClusterGroup,
-    featureGroup,
     latLngBounds,
-    latLng,
   };
   return { default: L };
 });
 
-vi.mock("leaflet.markercluster", () => ({}));
-vi.mock("leaflet.markercluster/dist/MarkerCluster.css", () => ({}));
-vi.mock("leaflet.markercluster/dist/MarkerCluster.Default.css", () => ({}));
-
 import MapView from "../MapView";
-import { onEachFeature } from "../mapFeatureUtils";
+import { featurePopupHtml } from "../mapFeatureUtils";
 
 function makeFeature(id, overrides = {}) {
   return {
@@ -139,21 +88,19 @@ function renderMapView(props = {}, { initialEntries = ["/map"] } = {}) {
   );
 }
 
-describe("MapView", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    // Reset the shared fake container so event listeners from a prior test
-    // don't leak into the next one.
-    while (fakeMapContainer.firstChild) {
-      fakeMapContainer.removeChild(fakeMapContainer.firstChild);
-    }
-    fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
-    fakeMap.fitBounds = vi.fn();
-    fakeMap.addLayer = vi.fn();
-    fakeMap.removeLayer = vi.fn();
-    fakeMap.getContainer = () => fakeMapContainer;
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
+  while (fakeMapContainer.firstChild) {
+    fakeMapContainer.removeChild(fakeMapContainer.firstChild);
+  }
+  fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
+  fakeMap.fitBounds = vi.fn();
+  fakeMap.addLayer = vi.fn();
+  fakeMap.removeLayer = vi.fn();
+  fakeMap.getContainer = () => fakeMapContainer;
+});
 
+describe("MapView", () => {
   it("renders the map container", () => {
     renderMapView();
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
@@ -168,7 +115,6 @@ describe("MapView", () => {
   it("creates markers using [lat, lng] order from feature [lng, lat] coordinates", () => {
     const fc = makeFeatureCollection([makeFeature(1)]);
     renderMapView({ featureCollection: fc });
-    // makeFeature(1).geometry.coordinates = [28.91, 41.01]
     const firstCallArg = leafletMocks.marker.mock.calls[0][0];
     expect(firstCallArg[0]).toBeCloseTo(41.01);
     expect(firstCallArg[1]).toBeCloseTo(28.91);
@@ -197,18 +143,6 @@ describe("MapView", () => {
 });
 
 describe("MapView auto-zoom (fit bounds)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    while (fakeMapContainer.firstChild) {
-      fakeMapContainer.removeChild(fakeMapContainer.firstChild);
-    }
-    fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
-    fakeMap.fitBounds = vi.fn();
-    fakeMap.addLayer = vi.fn();
-    fakeMap.removeLayer = vi.fn();
-    fakeMap.getContainer = () => fakeMapContainer;
-  });
-
   it("does not call fitBounds when there are zero features", () => {
     renderMapView({ featureCollection: makeFeatureCollection([]) });
     expect(fakeMap.fitBounds).not.toHaveBeenCalled();
@@ -251,18 +185,6 @@ describe("MapView auto-zoom (fit bounds)", () => {
 });
 
 describe("MapView pin clustering", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    while (fakeMapContainer.firstChild) {
-      fakeMapContainer.removeChild(fakeMapContainer.firstChild);
-    }
-    fakeMapContainer.replaceWith(fakeMapContainer.cloneNode(false));
-    fakeMap.fitBounds = vi.fn();
-    fakeMap.addLayer = vi.fn();
-    fakeMap.removeLayer = vi.fn();
-    fakeMap.getContainer = () => fakeMapContainer;
-  });
-
   it("creates a marker cluster group when features are present", () => {
     renderMapView({ featureCollection: makeFeatureCollection([makeFeature(1)]) });
     expect(leafletMocks.markerClusterGroup).toHaveBeenCalled();
@@ -302,7 +224,7 @@ describe("MapView pin clustering", () => {
     expect(fakeMap.removeLayer).toHaveBeenCalledWith(clusterGroup);
   });
 
-  it("binds a popup containing the feature title for each marker", () => {
+  it("binds a popup whose lazy callback returns HTML containing the feature title", () => {
     renderMapView({
       featureCollection: makeFeatureCollection([
         makeFeature(1, { title: "Castle Story" }),
@@ -310,23 +232,20 @@ describe("MapView pin clustering", () => {
     });
     const markerInstance = leafletMocks.marker.mock.results[0].value;
     expect(markerInstance.bindPopup).toHaveBeenCalledTimes(1);
-    const html = markerInstance.bindPopup.mock.calls[0][0];
-    expect(html).toContain("Castle Story");
+    const popupArg = markerInstance.bindPopup.mock.calls[0][0];
+    expect(typeof popupArg).toBe("function");
+    expect(popupArg()).toContain("Castle Story");
   });
 });
 
-describe("onEachFeature", () => {
-  it("binds a popup whose HTML contains title, location, time period, and a Read more link", () => {
+describe("featurePopupHtml", () => {
+  it("returns HTML containing title, location, time period, and a Read more link", () => {
     const feature = makeFeature(42, {
       title: "The Old Bridge",
       location_name: "Galata",
       year: 1920,
     });
-    const bindPopup = vi.fn();
-    onEachFeature(feature, { bindPopup });
-
-    expect(bindPopup).toHaveBeenCalledTimes(1);
-    const html = bindPopup.mock.calls[0][0];
+    const html = featurePopupHtml(feature);
     expect(html).toContain("The Old Bridge");
     expect(html).toContain("Galata");
     expect(html).toContain("1920");
@@ -336,10 +255,7 @@ describe("onEachFeature", () => {
 
   it("omits the location line when location_name is missing", () => {
     const feature = makeFeature(7, { location_name: undefined });
-    const bindPopup = vi.fn();
-    onEachFeature(feature, { bindPopup });
-
-    const html = bindPopup.mock.calls[0][0];
+    const html = featurePopupHtml(feature);
     expect(html).toContain("Story 7");
     expect(html).not.toContain("Location 7");
   });
@@ -379,7 +295,6 @@ describe("StoryLinkInterceptor", () => {
     const user = userEvent.setup();
     render(<Harness initialEntries={["/map?category=nature"]} />);
 
-    // Simulate the popup HTML Leaflet would have injected into the map container.
     const anchor = document.createElement("a");
     anchor.setAttribute("href", "/stories/99");
     anchor.textContent = "Read more";
@@ -390,8 +305,8 @@ describe("StoryLinkInterceptor", () => {
     await user.click(anchor);
 
     expect(screen.getByTestId("current-pathname").textContent).toBe("/stories/99");
-    // Filter state must survive the SPA navigation so the Back navigation
-    // returns the user to the filtered map.
+    // Filter state must survive the SPA navigation so Back returns the user
+    // to the filtered map.
     expect(screen.getByTestId("current-state-from").textContent).toBe(
       "/map?category=nature",
     );

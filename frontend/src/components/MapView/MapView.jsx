@@ -96,7 +96,7 @@ function ClusteredMarkers({ features }) {
       const latlng = featureLatLng(feature);
       if (!latlng) return;
       const marker = L.marker(latlng);
-      marker.bindPopup(featurePopupHtml(feature));
+      marker.bindPopup(() => featurePopupHtml(feature));
       group.addLayer(marker);
     });
   }, [features]);
