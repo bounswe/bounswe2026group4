@@ -12,6 +12,7 @@ const story: FeedEntity = {
   submittedAt: '2026-03-18T10:00:00Z',
   hasMedia: true,
   likeCount: 14,
+  likedByViewer: false,
   savedByViewer: false,
   tags: ['Architecture', 'Ottoman'],
 };
@@ -63,6 +64,15 @@ describe('FeedCard', () => {
 
     expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
     expect(screen.queryByLabelText('Not bookmarked story')).toBeNull();
+    expect(screen.getByText('♡ 14')).toBeTruthy();
+    expect(screen.queryByText('♥ 14')).toBeNull();
+  });
+
+  it('renders the filled like indicator only when the story is liked', () => {
+    render(<FeedCard story={{ ...story, likedByViewer: true, savedByViewer: false }} />);
+
+    expect(screen.getByText('♥ 14')).toBeTruthy();
+    expect(screen.getByLabelText('Not bookmarked story')).toBeTruthy();
   });
 
   it('calls the bookmark handler from the card bookmark button', () => {

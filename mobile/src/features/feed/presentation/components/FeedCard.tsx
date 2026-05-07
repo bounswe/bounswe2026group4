@@ -165,17 +165,17 @@ export function FeedCard({
             paddingHorizontal: spacing.sm,
             paddingVertical: spacing.xs,
             borderRadius: 999,
-            backgroundColor: story.savedByViewer ? colors.primary : colors.background,
+            backgroundColor: story.likedByViewer ? colors.primary : colors.background,
           }}
         >
           <Text
             style={{
-              color: story.savedByViewer ? colors.background : colors.text,
+              color: story.likedByViewer ? colors.background : colors.text,
               fontSize: typography.caption,
               fontWeight: '700',
             }}
           >
-            {story.savedByViewer ? '♥' : '♡'} {story.likeCount}
+            {story.likedByViewer ? '♥' : '♡'} {story.likeCount}
           </Text>
         </View>
         {story.timePeriod ? (

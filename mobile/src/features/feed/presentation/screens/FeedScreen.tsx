@@ -43,6 +43,7 @@ const SORT_OPTIONS: Array<{ value: FeedSortOption; label: string; shortLabel: st
 
 export interface FeedStoryInteractionUpdate {
   likeCount?: number;
+  likedByViewer?: boolean;
   savedByViewer?: boolean;
 }
 
@@ -422,12 +423,14 @@ function applyStoryInteractionUpdates(
     const nextItem = {
       ...item,
       likeCount: update.likeCount ?? item.likeCount,
+      likedByViewer: update.likedByViewer ?? item.likedByViewer,
       savedByViewer: update.savedByViewer ?? item.savedByViewer,
     };
 
     hasChanges =
       hasChanges ||
       nextItem.likeCount !== item.likeCount ||
+      nextItem.likedByViewer !== item.likedByViewer ||
       nextItem.savedByViewer !== item.savedByViewer;
 
     return nextItem;

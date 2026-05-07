@@ -12,6 +12,7 @@ describe('feed mappers', () => {
         preview_text: 'A story about the old city walls.',
         submitted_at: '2026-03-18T10:00:00Z',
         like_count: 7,
+        user_has_liked: true,
         user_has_saved: true,
       }),
     ).toEqual({
@@ -23,6 +24,7 @@ describe('feed mappers', () => {
       submittedAt: '2026-03-18T10:00:00Z',
       hasMedia: false,
       likeCount: 7,
+      likedByViewer: true,
       savedByViewer: true,
       tags: [],
     });

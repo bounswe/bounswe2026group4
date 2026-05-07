@@ -33,6 +33,7 @@ function makeStory(id: string, overrides: Partial<FeedPageEntity['items'][number
     submittedAt: '2026-03-18T10:00:00Z',
     hasMedia: false,
     likeCount: 0,
+    likedByViewer: false,
     savedByViewer: false,
     tags: [],
     ...overrides,
@@ -252,7 +253,7 @@ describe('FeedScreen', () => {
       <SearchFiltersProvider>
         <FeedScreen
           getFeed={getFeed}
-          storyInteractionUpdates={{ '1': { likeCount: 1, savedByViewer: true } }}
+          storyInteractionUpdates={{ '1': { likeCount: 1, likedByViewer: true, savedByViewer: true } }}
         />
       </SearchFiltersProvider>,
     );
@@ -285,6 +286,7 @@ describe('FeedScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('Bookmarked story')).toBeTruthy();
+      expect(screen.getByText('♡ 0')).toBeTruthy();
       expect(interactionService.bookmarkStory).toHaveBeenCalledWith('1');
       expect(onStoryInteractionUpdated).toHaveBeenCalledWith({ storyId: '1', savedByViewer: true });
     });

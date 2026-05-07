@@ -740,6 +740,7 @@ export function RootNavigator() {
         [update.storyId]: {
           ...current[update.storyId],
           likeCount: update.likeCount ?? current[update.storyId]?.likeCount,
+          likedByViewer: update.likedByViewer ?? current[update.storyId]?.likedByViewer,
           savedByViewer: update.savedByViewer ?? current[update.storyId]?.savedByViewer,
         },
       }));
