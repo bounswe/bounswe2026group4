@@ -177,18 +177,56 @@ describe("StructuredData", () => {
         expect(getJsonLd(container).temporalCoverage).toBe("1950/1975");
       });
 
-      it("prefers temporal_coverage_iso8601 from the API over derivation", () => {
+      it("exact_date yields the ISO date", () => {
+        const { container } = render(
+          <StructuredData
+            story={makeStory({
+              time_type: "exact_date",
+              year: null,
+              date_value: "1965-04-12",
+            })}
+          />
+        );
+        expect(getJsonLd(container).temporalCoverage).toBe("1965-04-12");
+      });
+
+      it("exact_date with a time yields ISO date+time", () => {
+        const { container } = render(
+          <StructuredData
+            story={makeStory({
+              time_type: "exact_date",
+              year: null,
+              date_value: "1965-04-12",
+              time_value: "14:30",
+            })}
+          />
+        );
+        expect(getJsonLd(container).temporalCoverage).toBe("1965-04-12T14:30");
+      });
+
+      it("approximate_year is rendered as a bare year (lossy ISO 8601 from EDTF)", () => {
+        const { container } = render(
+          <StructuredData
+            story={makeStory({ time_type: "approximate_year", year: 1965 })}
+          />
+        );
+        // EDTF "1965~" must be lossily mapped to "1965" for Schema.org/Google validators.
+        expect(getJsonLd(container).temporalCoverage).toBe("1965");
+      });
+
+      it("prefers temporal_coverage_iso from the backend over derivation", () => {
         const { container } = render(
           <StructuredData
             story={makeStory({
               time_type: "decade",
               year: 1960,
-              temporal_coverage_iso8601: "1961-03",
+              temporal_coverage_iso: "1961-03",
             })}
           />
         );
         expect(getJsonLd(container).temporalCoverage).toBe("1961-03");
       });
+
     });
   });
 

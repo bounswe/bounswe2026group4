@@ -15,6 +15,7 @@ const TIME_TYPES = [
   { value: "approximate_year", label: "Approximate Year" },
   { value: "decade", label: "Decade" },
   { value: "year_range", label: "Year Range" },
+  { value: "exact_date", label: "Specific Date" },
 ];
 
 const MAX_TAGS = 3;
@@ -41,6 +42,8 @@ function SubmitStoryPage() {
   const [year, setYear] = useState("");
   const [yearStart, setYearStart] = useState("");
   const [yearEnd, setYearEnd] = useState("");
+  const [dateValue, setDateValue] = useState("");
+  const [timeValue, setTimeValue] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -80,6 +83,15 @@ function SubmitStoryPage() {
       else if (isNaN(Number(yearEnd))) errors.yearEnd = "End year must be a valid number";
       if (!errors.yearStart && !errors.yearEnd && Number(yearStart) >= Number(yearEnd)) {
         errors.yearStart = "Start year must be before end year";
+      }
+    } else if (timeType === "exact_date") {
+      if (!dateValue.trim()) {
+        errors.dateValue = "Date is required";
+      } else if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        errors.dateValue = "Date must be in YYYY-MM-DD format";
+      }
+      if (timeValue && !/^\d{2}:\d{2}$/.test(timeValue)) {
+        errors.timeValue = "Time must be in HH:MM format";
       }
     } else {
       if (!year.toString().trim()) errors.year = "Year is required";
@@ -217,6 +229,9 @@ function SubmitStoryPage() {
       if (timeType === "year_range") {
         if (yearStart) formData.append("year_start", yearStart);
         if (yearEnd) formData.append("year_end", yearEnd);
+      } else if (timeType === "exact_date") {
+        if (dateValue) formData.append("date_value", dateValue);
+        if (timeValue) formData.append("time_value", timeValue);
       } else {
         if (year) formData.append("year", year);
       }
@@ -385,8 +400,45 @@ function SubmitStoryPage() {
             </select>
           </div>
 
-          {/* Year inputs */}
-          {timeType === "year_range" ? (
+          {/* Year / date inputs */}
+          {timeType === "exact_date" ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="dateValue">Date</Label>
+                <Input
+                  id="dateValue"
+                  type="date"
+                  value={dateValue}
+                  onChange={(e) => {
+                    setDateValue(e.target.value);
+                    if (fieldErrors.dateValue)
+                      setFieldErrors((prev) => ({ ...prev, dateValue: "" }));
+                  }}
+                  disabled={isSubmitting}
+                />
+                {fieldErrors.dateValue && (
+                  <p className="text-sm text-destructive">{fieldErrors.dateValue}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="timeValue">Time (optional)</Label>
+                <Input
+                  id="timeValue"
+                  type="time"
+                  value={timeValue}
+                  onChange={(e) => {
+                    setTimeValue(e.target.value);
+                    if (fieldErrors.timeValue)
+                      setFieldErrors((prev) => ({ ...prev, timeValue: "" }));
+                  }}
+                  disabled={isSubmitting || !dateValue}
+                />
+                {fieldErrors.timeValue && (
+                  <p className="text-sm text-destructive">{fieldErrors.timeValue}</p>
+                )}
+              </div>
+            </div>
+          ) : timeType === "year_range" ? (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="yearStart">Start Year</Label>
