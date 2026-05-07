@@ -468,7 +468,7 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByTestId('main-route-pager').props.scrollEnabled).not.toBe(false);
     expect(screen.getByTestId('main-route-pager').props.canCancelContentTouches).toBe(false);
     expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
-    expect(screen.getByTestId('map-route-scroll').props.canCancelContentTouches).toBe(false);
+    expect(screen.getByTestId('map-route-scroll').props.canCancelContentTouches).toBe(true);
     await waitFor(() => {
       expect(screen.getByTestId('map-route-scroll').props.refreshControl).toBeTruthy();
       expect(screen.getByTestId('map-route-scroll').props.refreshControl.props.enabled).toBe(true);
