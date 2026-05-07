@@ -71,6 +71,7 @@ export function MapScreen({
   const previousMapPinFilterKeyRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
   const previewOffsetRef = useRef<number | null>(null);
+  const previewScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (filters.query !== debouncedQuery) {
@@ -182,6 +183,15 @@ export function MapScreen({
     };
   }, [isHydrated, loadMarkers, onRegisterRefresh]);
 
+  useEffect(
+    () => () => {
+      if (previewScrollTimerRef.current) {
+        clearTimeout(previewScrollTimerRef.current);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     setHasInteractedWithArea(false);
     setVisibleRegion(undefined);
@@ -269,7 +279,14 @@ export function MapScreen({
       return;
     }
 
-    onMarkerPreviewRequested?.(mapCardTop + previewOffset);
+    if (previewScrollTimerRef.current) {
+      clearTimeout(previewScrollTimerRef.current);
+    }
+
+    previewScrollTimerRef.current = setTimeout(() => {
+      onMarkerPreviewRequested?.(mapCardTop + previewOffset);
+      previewScrollTimerRef.current = null;
+    }, 160);
   }
 
   return (

@@ -343,7 +343,9 @@ describe('MapScreen', () => {
     });
     fireEvent.press(screen.getAllByTestId('story-marker')[1]);
 
-    expect(onMarkerPreviewRequested).toHaveBeenCalledWith(660);
+    await waitFor(() => {
+      expect(onMarkerPreviewRequested).toHaveBeenCalledWith(660);
+    });
   });
 
   it('refetches markers when filters change', async () => {
