@@ -138,7 +138,7 @@ RESEND_API_KEY = env('RESEND_API_KEY', default='')
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
 # Nominatim geocoding proxy
-NOMINATIM_CONTACT_EMAIL = env('NOMINATIM_CONTACT_EMAIL', default='kemal.mahmutogullari@gmail.com')
+NOMINATIM_CONTACT_EMAIL = env('NOMINATIM_CONTACT_EMAIL')
 
 # Static files
 STATIC_URL = '/static/'
