@@ -46,7 +46,7 @@ class UsersConfig(AppConfig):
         if getattr(settings, 'DEBUG', True):
             return
         frontend_url = getattr(settings, 'FRONTEND_URL', '')
-        if 'localhost' in frontend_url or '127.0.0.1' in frontend_url:
+        if not frontend_url or 'localhost' in frontend_url or '127.0.0.1' in frontend_url:
             logger.warning(
                 'FRONTEND_URL is set to "%s" — password reset email links will point '
                 'to localhost and will not work in production. '

@@ -37,6 +37,9 @@ class TestEmailMisconfigurationWarning:
         assert 'EMAIL_HOST_PASSWORD' not in caplog.text
 
     # ── Resend HTTP backend ─────────────────────────────────────────────────
+    # ResendEmailBackend is introduced by fix/email-verification-delivery.
+    # Django never imports the backend class during these checks, so the
+    # module does not need to exist — only the string 'resend' is matched.
 
     @override_settings(
         EMAIL_BACKEND='common.email_backend.ResendEmailBackend',
@@ -111,6 +114,12 @@ class TestFrontendUrlWarning:
         with caplog.at_level(logging.WARNING, logger='apps.users.apps'):
             _run_frontend_url_check()
         assert 'FRONTEND_URL' not in caplog.text
+
+    @override_settings(DEBUG=False, FRONTEND_URL='')
+    def test_warns_when_frontend_url_is_empty(self, caplog):
+        with caplog.at_level(logging.WARNING, logger='apps.users.apps'):
+            _run_frontend_url_check()
+        assert 'FRONTEND_URL' in caplog.text
 
     @override_settings(DEBUG=True, FRONTEND_URL='http://localhost:3000')
     def test_no_warning_in_debug_mode(self, caplog):
