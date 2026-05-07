@@ -120,9 +120,11 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Email — provider: Resend (smtp.resend.com)
-# Use port 465 + EMAIL_USE_SSL=True (recommended), or port 587 + EMAIL_USE_TLS=True.
-# EMAIL_USE_TLS and EMAIL_USE_SSL are mutually exclusive.
+# Email — provider: Resend
+# Production uses ResendEmailBackend (HTTP API, port 443 — never blocked by cloud hosts).
+# Development uses the console backend (overridden in development.py).
+# Set EMAIL_BACKEND=common.email_backend.ResendEmailBackend and RESEND_API_KEY=re_...
+# in production. SMTP settings below are kept for local Mailpit dev catcher only.
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = env('EMAIL_HOST', default='smtp.resend.com')
 EMAIL_PORT = env.int('EMAIL_PORT', default=465)
@@ -131,6 +133,7 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Local History Story Map <noreply@yourdomain.example>')
+RESEND_API_KEY = env('RESEND_API_KEY', default='')
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
