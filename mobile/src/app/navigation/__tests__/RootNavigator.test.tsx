@@ -1064,6 +1064,15 @@ describe('RootNavigator auth flow', () => {
     });
     fireEvent.press(screen.getAllByTestId('story-marker')[0]);
     fireEvent.press(await screen.findByLabelText('View timeline near Harbor Memory'));
+    fireEvent(screen.getByTestId('main-route-pager'), 'momentumScrollEnd', {
+      nativeEvent: {
+        contentOffset: { x: 999999, y: 0 },
+      },
+    });
+
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
 
     await waitFor(() => {
       expect(apiRequests).toContain(

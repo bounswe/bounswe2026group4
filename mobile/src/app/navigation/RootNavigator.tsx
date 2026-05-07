@@ -732,7 +732,7 @@ export function RootNavigator() {
         },
         { refresh: true },
       );
-      scrollMainPagerToRoute(ROUTES.TIMELINE, { animated: true });
+      scrollMainPagerToRoute(ROUTES.TIMELINE);
       navigateToSnapshot({ route: ROUTES.TIMELINE }, { resetStack: true, preserveCurrent: false });
     },
     [navigateToSnapshot, scrollMainPagerToRoute, updateFilters],
