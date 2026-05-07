@@ -16,16 +16,16 @@ function featureToStory(feature) {
   };
 }
 
-export const pointToLayer = (_feature, latlng) => L.marker(latlng);
-
 // XSS trust boundary: Leaflet's bindPopup treats this string as innerHTML.
 // renderToStaticMarkup escapes every React child/attribute, so feature
 // properties coming from our trusted API render safely. Any future change
 // that embeds user-controlled HTML into StoryPopup must keep that escaping
 // in place (or sanitize explicitly) to prevent XSS at this seam.
+export const featurePopupHtml = (feature) =>
+  renderToStaticMarkup(<StoryPopup story={featureToStory(feature)} />);
+
+export const pointToLayer = (_feature, latlng) => L.marker(latlng);
+
 export const onEachFeature = (feature, layer) => {
-  const html = renderToStaticMarkup(
-    <StoryPopup story={featureToStory(feature)} />,
-  );
-  layer.bindPopup(html);
+  layer.bindPopup(featurePopupHtml(feature));
 };
