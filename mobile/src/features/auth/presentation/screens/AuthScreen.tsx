@@ -9,6 +9,7 @@ import { AuthUiState } from '../state/authUiState';
 
 interface AuthScreenProps {
   onAuthenticated?: (context: { source: 'signIn' | 'register' }) => void;
+  onRegistrationPending?: (context: { email: string; password: string }) => void;
 }
 
 const initialState: AuthUiState = {
@@ -130,7 +131,7 @@ function extractRegisterErrors(error: unknown): {
   };
 }
 
-export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
+export function AuthScreen({ onAuthenticated, onRegistrationPending }: AuthScreenProps) {
   const { login, register, loading } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
@@ -274,24 +275,9 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
           confirmPassword: state.confirmPassword,
         });
 
-        try {
-          const session = await login({ email, password });
-          toast.success(`Welcome, ${session.user.username}.`);
-          onAuthenticated?.({ source: 'register' });
-          setState(initialFormState);
-        } catch {
-          const successMessage = result.message || 'Account created successfully.';
-          const autoLoginError = 'Your account was created, but automatic sign-in failed. Please sign in manually.';
-
-          setMode('signIn');
-          setState({
-            ...initialFormState,
-            email,
-            error: autoLoginError,
-            successMessage,
-          });
-          toast.error(autoLoginError);
-        }
+        toast.success(result.message || 'Registration successful. Please verify your email.');
+        onRegistrationPending?.({ email, password });
+        setState(initialFormState);
 
         return;
       }

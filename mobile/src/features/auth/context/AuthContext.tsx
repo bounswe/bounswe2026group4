@@ -21,7 +21,14 @@ interface LoginInput {
   password: string;
 }
 
-const AUTH_ENDPOINTS = ['/auth/login/', '/auth/register/', '/auth/token/refresh/', '/auth/logout/'];
+const AUTH_ENDPOINTS = [
+  '/auth/login/',
+  '/auth/register/',
+  '/auth/token/refresh/',
+  '/auth/logout/',
+  '/auth/verify-email/',
+  '/auth/resend-verification/',
+];
 
 interface AuthContextValue {
   user: AuthUser | null;

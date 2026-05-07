@@ -346,6 +346,22 @@ function installAuthTransport() {
       };
     }
 
+    if (method === 'POST' && config.url === '/auth/verify-email/') {
+      return {
+        status: 200,
+        data: { message: 'Email verified successfully.' } as never,
+        config,
+      };
+    }
+
+    if (method === 'POST' && config.url === '/auth/resend-verification/') {
+      return {
+        status: 200,
+        data: { message: 'If that email is pending verification, a new code has been sent.' } as never,
+        config,
+      };
+    }
+
     if (method === 'POST' && config.url === '/auth/logout/') {
       return {
         status: 204,
@@ -527,7 +543,7 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByText('1 unread')).toBeTruthy();
   });
 
-  it('opens profile completion after registration and persists the session', async () => {
+  it('opens email verification after registration and does not persist a session yet', async () => {
     renderNavigator();
 
     fireEvent.press(await screen.findByLabelText('Login'));
@@ -540,10 +556,33 @@ describe('RootNavigator auth flow', () => {
     fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
     fireEvent.press(screen.getAllByText('Create account').at(-1)!);
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('Name')).toBeTruthy();
-    });
+    expect(await screen.findByText('Verify your email')).toBeTruthy();
+    expect(screen.getByText(/newuser@example.com/)).toBeTruthy();
+    expect(await storage.get(storageKeys.authSession)).toBeNull();
+  });
 
+  it('opens profile completion after email verification auto-login succeeds', async () => {
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Login'));
+    await screen.findByLabelText('Email address');
+    fireEvent.press(screen.getByText('Sign up'));
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'newtraveler');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'newuser@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
+    fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
+    fireEvent.press(screen.getAllByText('Create account').at(-1)!);
+
+    await screen.findByText('Verify your email');
+
+    ['1', '2', '3', '4', '5', '6'].forEach((digit, index) => {
+      fireEvent.changeText(screen.getByLabelText(`Digit ${index + 1}`), digit);
+    });
+    fireEvent.press(screen.getByText('Verify email'));
+
+    expect(await screen.findByLabelText('Name')).toBeTruthy();
+    expect(screen.getByText('Account verified! Welcome!')).toBeTruthy();
     expect(await storage.get<{ accessToken?: string }>(storageKeys.authSession)).toMatchObject({
       accessToken: 'access-token-123',
     });
@@ -561,6 +600,12 @@ describe('RootNavigator auth flow', () => {
     fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
     fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
     fireEvent.press(screen.getAllByText('Create account').at(-1)!);
+
+    await screen.findByText('Verify your email');
+    ['1', '2', '3', '4', '5', '6'].forEach((digit, index) => {
+      fireEvent.changeText(screen.getByLabelText(`Digit ${index + 1}`), digit);
+    });
+    fireEvent.press(screen.getByText('Verify email'));
 
     await screen.findByLabelText('Name');
 
@@ -581,7 +626,7 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
-  it('falls back to manual sign-in when auto-login after registration fails', async () => {
+  it('falls back to login after email verification when auto-login fails', async () => {
     let loginAttempts = 0;
 
     setApiTransport(async (method, config) => {
@@ -689,6 +734,14 @@ describe('RootNavigator auth flow', () => {
         };
       }
 
+      if (method === 'POST' && config.url === '/auth/verify-email/') {
+        return {
+          status: 200,
+          data: { message: 'Email verified successfully.' } as never,
+          config,
+        };
+      }
+
       if (method === 'POST' && config.url === '/auth/login/') {
         loginAttempts += 1;
 
@@ -735,19 +788,105 @@ describe('RootNavigator auth flow', () => {
     fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
     fireEvent.press(screen.getAllByText('Create account').at(-1)!);
 
-    expect(
-      await screen.findAllByText('Your account was created, but automatic sign-in failed. Please sign in manually.'),
-    ).toHaveLength(2);
-    expect(screen.getByText('Registration successful. Please verify your email.')).toBeTruthy();
-    expect(screen.getAllByText('Sign in').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Email address').props.value).toBe('newuser@example.com');
+    expect(await screen.findByText('Verify your email')).toBeTruthy();
 
+    ['1', '2', '3', '4', '5', '6'].forEach((digit, index) => {
+      fireEvent.changeText(screen.getByLabelText(`Digit ${index + 1}`), digit);
+    });
+    fireEvent.press(screen.getByText('Verify email'));
+
+    expect(await screen.findByLabelText('Email address')).toBeTruthy();
+    expect(screen.getByText('Account verified! You can now log in.')).toBeTruthy();
+    expect(loginAttempts).toBe(1);
+
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'newuser@example.com');
     fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
     fireEvent.press(screen.getAllByText('Sign in').at(-1)!);
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('Profile')).toBeTruthy();
+    await screen.findByLabelText('Name');
+    expect(loginAttempts).toBe(2);
+  });
+
+  it('does not attempt auto-login before email verification', async () => {
+    let loginAttempts = 0;
+
+    setApiTransport(async (method, config) => {
+      if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/timeline/')) {
+        return {
+          status: 200,
+          data: {
+            count: timelineResults.length,
+            next: null,
+            previous: null,
+            results: timelineResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url?.startsWith('/stories/map/')) {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/register/') {
+        return {
+          status: 201,
+          data: {
+            message: 'Registration successful. Please verify your email.',
+            user: {
+              id: 2,
+              email: 'newuser@example.com',
+              username: 'NewTraveler',
+              role: 'registered_user',
+            },
+          } as never,
+          config,
+        };
+      }
+
+      if (method === 'POST' && config.url === '/auth/login/') {
+        loginAttempts += 1;
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
     });
+
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Login'));
+    await screen.findByLabelText('Email address');
+    fireEvent.press(screen.getByText('Sign up'));
+
+    fireEvent.changeText(screen.getByLabelText('Username'), 'newtraveler');
+    fireEvent.changeText(screen.getByLabelText('Email address'), 'newuser@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'Password1');
+    fireEvent.changeText(screen.getByLabelText('Confirm password'), 'Password1');
+    fireEvent.press(screen.getAllByText('Create account').at(-1)!);
+
+    expect(await screen.findByText('Verify your email')).toBeTruthy();
+    expect(loginAttempts).toBe(0);
   });
 
   it('persists search and filter state between feed, timeline, and map views', async () => {
