@@ -255,6 +255,9 @@ class UserStoriesView(APIView):
 
     def get(self, request, user_id):
         qs = get_user_published_stories(user_id)
+        is_owner = request.user.is_authenticated and request.user.pk == user_id
+        if not is_owner:
+            qs = qs.filter(contributor_visible=True)
         if request.user.is_authenticated:
             qs = annotate_user_interactions(qs, request.user)
         paginator = StoryPagination()

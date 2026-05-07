@@ -1983,6 +1983,14 @@ export function ProfileScreen({
           </View>
         ) : null}
 
+        {isSelfMode && activeSelfTab === 'profile' ? (
+          <PublishedStoriesSection
+            userId={profile.id}
+            getUserStories={getUserStories}
+            onOpenStory={onOpenStory}
+          />
+        ) : null}
+
         {!isSelfMode ? (
           <PublishedStoriesSection
             userId={profile.id}

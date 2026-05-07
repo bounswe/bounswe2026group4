@@ -313,6 +313,33 @@ describe('ProfileScreen', () => {
     expect(onOpenStory).toHaveBeenCalledWith('saved-1');
   });
 
+  it('renders published stories on the signed-in user profile and opens one', async () => {
+    const getUserStories = jest.fn(async () => makePublishedStoriesPage({
+      items: [makePublishedStory('published-own-1', 'My Published Harbor')],
+      totalCount: 2,
+    }));
+    const onOpenStory = jest.fn();
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getUserStories={getUserStories}
+        onOpenStory={onOpenStory}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(await screen.findByText('Published Stories')).toBeTruthy();
+    expect(await screen.findByText('My Published Harbor')).toBeTruthy();
+    expect(screen.getByText('2 stories published by this user.')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Read story: My Published Harbor'));
+
+    expect(getUserStories).toHaveBeenCalledWith('7', 1);
+    expect(onOpenStory).toHaveBeenCalledWith('published-own-1');
+  });
+
   it('removes a saved story with an optimistic update and confirmation toast', async () => {
     const unbookmarkStory = jest.fn(async () => undefined);
     const onStoryInteractionUpdated = jest.fn();

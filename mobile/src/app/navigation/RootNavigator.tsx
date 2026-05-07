@@ -854,6 +854,7 @@ export function RootNavigator() {
           mode="public"
           userId={activeUserId}
           onOpenUserProfile={(targetUserId) => navigationRef.navigateToUserProfile?.(targetUserId)}
+          onOpenStory={handleOpenStoryDetail}
         />
       </ScreenShell>
     );
