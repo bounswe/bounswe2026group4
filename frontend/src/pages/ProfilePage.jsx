@@ -326,7 +326,6 @@ function ProfilePage() {
           </div>
         </div>
 
-        {/* Badges Section */}
         <section className="mb-8">
           <h2 className="mb-4 text-xl font-semibold tracking-tight">Badges</h2>
           <BadgeGrid userId={profile.id} />

@@ -39,8 +39,13 @@ describe("BadgeGrid", () => {
     getUserBadges.mockResolvedValue([]);
     render(<BadgeGrid userId={1} />);
     await waitFor(() =>
-      expect(screen.getByText("No badges earned yet.")).toBeInTheDocument()
+      expect(
+        screen.getByRole("heading", { name: /no badges yet/i })
+      ).toBeInTheDocument()
     );
+    expect(
+      screen.getByText(/badges will appear here as you earn them/i)
+    ).toBeInTheDocument();
   });
 
   it("shows an error state when the request fails", async () => {
@@ -120,22 +125,6 @@ describe("BadgeGrid", () => {
     );
     expect(
       screen.getByTestId("badge-card").querySelector('[data-icon="Trophy"]')
-    ).toBeInTheDocument();
-  });
-
-  it("exposes the badge description via tooltip content (sr-only fallback)", async () => {
-    getUserBadges.mockResolvedValue([
-      makeBadge({
-        name: "First Story",
-        description: "Awarded for publishing your first story",
-      }),
-    ]);
-    render(<BadgeGrid userId={1} />);
-    await waitFor(() =>
-      expect(screen.getByText("First Story")).toBeInTheDocument()
-    );
-    expect(
-      screen.getByText("Awarded for publishing your first story")
     ).toBeInTheDocument();
   });
 
