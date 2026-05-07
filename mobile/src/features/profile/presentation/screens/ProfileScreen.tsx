@@ -58,7 +58,12 @@ interface ProfileScreenProps {
   unbookmarkStory?: typeof interactionService.unbookmarkStory;
   onOpenUserProfile?: (userId: string) => void;
   onOpenStory?: (storyId: string) => void;
-  onStoryInteractionUpdated?: (update: { storyId: string; savedByViewer?: boolean; likeCount?: number }) => void;
+  onStoryInteractionUpdated?: (update: {
+    storyId: string;
+    savedByViewer?: boolean;
+    likeCount?: number;
+    likedByViewer?: boolean;
+  }) => void;
 }
 
 interface ProfileFormState {
@@ -820,7 +825,12 @@ function SavedStoriesSection({
   unbookmarkStory: (storyId: string) => Promise<void>;
   onTotalCountChange?: (count: number) => void;
   onOpenStory?: (storyId: string) => void;
-  onStoryInteractionUpdated?: (update: { storyId: string; savedByViewer?: boolean; likeCount?: number }) => void;
+  onStoryInteractionUpdated?: (update: {
+    storyId: string;
+    savedByViewer?: boolean;
+    likeCount?: number;
+    likedByViewer?: boolean;
+  }) => void;
 }) {
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();

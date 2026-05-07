@@ -20,6 +20,8 @@ interface FeedApiRecord {
   likeCount?: unknown;
   likes_count?: unknown;
   total_likes?: unknown;
+  user_has_liked?: unknown;
+  likedByViewer?: unknown;
   user_has_saved?: unknown;
   savedByViewer?: unknown;
   tags?: unknown;
@@ -163,6 +165,7 @@ export function mapFeedItem(value: unknown): FeedEntity {
       asNumber(record.likes_count) ??
       asNumber(record.total_likes) ??
       0,
+    likedByViewer: asBoolean(record.likedByViewer, asBoolean(record.user_has_liked, false)),
     savedByViewer: asBoolean(record.savedByViewer, asBoolean(record.user_has_saved, false)),
     tags: getTags(record),
   };

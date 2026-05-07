@@ -111,6 +111,7 @@ function makeSavedStory(id: string, title = `Saved Story ${id}`): FeedEntity {
     submittedAt: '2026-03-18T10:00:00Z',
     hasMedia: false,
     likeCount: 4,
+    likedByViewer: false,
     savedByViewer: true,
   };
 }
