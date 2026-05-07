@@ -582,7 +582,6 @@ function StoryMiniMap({ story }: { story: StoryEntity }) {
               latitude: story.location.latitude,
               longitude: story.location.longitude,
               selected: true,
-              label: story.location.name,
             },
           ]}
           interactive={false}
