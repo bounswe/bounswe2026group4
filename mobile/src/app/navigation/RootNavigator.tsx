@@ -970,7 +970,6 @@ export function RootNavigator() {
               scrollable
               hideHeader
               active={currentRoute === ROUTES.MAP}
-              canCancelContentTouches={false}
               refreshSuppressed={isMapTouchActive}
               testID="map-route-scroll"
               preservedScrollY={mapScrollOffsetRef.current}
