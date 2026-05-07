@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import threading
 import time
 
@@ -7,6 +8,8 @@ from django.conf import settings
 from django.core.cache import cache
 from rest_framework.exceptions import APIException
 from rest_framework import status as drf_status
+
+logger = logging.getLogger(__name__)
 
 
 class NominatimUnavailable(APIException):
@@ -32,27 +35,38 @@ _last_call_time = 0.0
 def _nominatim_get(path, params):
     """Call Nominatim, honouring the 1 req/s server-side rate limit."""
     global _last_call_time
-    with _rate_lock:
-        now = time.monotonic()
-        gap = now - _last_call_time
-        if gap < 1.0:
-            time.sleep(1.0 - gap)
-        _last_call_time = time.monotonic()
-
     try:
-        response = requests.get(
-            f'{_NOMINATIM_BASE}{path}',
-            params=params,
-            headers={
-                'User-Agent': _USER_AGENT,
-                'Accept': 'application/json',
-                'Accept-Language': 'en',
-            },
-            timeout=10,
-        )
+        with _rate_lock:
+            now = time.monotonic()
+            gap = now - _last_call_time
+            if gap < 1.0:
+                time.sleep(1.0 - gap)
+            response = requests.get(
+                f'{_NOMINATIM_BASE}{path}',
+                params=params,
+                headers={
+                    'User-Agent': _USER_AGENT,
+                    'Accept': 'application/json',
+                    'Accept-Language': 'en',
+                },
+                timeout=10,
+            )
+            _last_call_time = time.monotonic()
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as exc:
+        resp = getattr(exc, 'response', None)
+        status = getattr(resp, 'status_code', 'N/A')
+        body = ''
+        if resp is not None:
+            try:
+                body = resp.text[:500]
+            except Exception:
+                body = '<unreadable>'
+        logger.error(
+            'Nominatim %s %s returned %s: %s',
+            path, params, status, body or '<no body>',
+        )
         raise NominatimUnavailable() from exc
 
 
