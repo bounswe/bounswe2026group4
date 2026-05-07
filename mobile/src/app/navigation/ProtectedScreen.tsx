@@ -9,6 +9,7 @@ interface ProtectedScreenProps extends PropsWithChildren {
   title: string;
   description: string;
   onAuthenticated?: () => void;
+  onRegistrationPending?: (context: { email: string; password: string }) => void;
 }
 
 export function ProtectedScreen({
@@ -16,6 +17,7 @@ export function ProtectedScreen({
   description,
   children,
   onAuthenticated,
+  onRegistrationPending,
 }: ProtectedScreenProps) {
   const { isAuthenticated, loading } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
@@ -41,7 +43,7 @@ export function ProtectedScreen({
           </Text>
           <Text style={{ marginTop: spacing.sm, color: colors.muted }}>{description}</Text>
         </View>
-        <AuthScreen onAuthenticated={onAuthenticated} />
+        <AuthScreen onAuthenticated={onAuthenticated} onRegistrationPending={onRegistrationPending} />
       </View>
     );
   }

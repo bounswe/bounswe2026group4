@@ -79,6 +79,12 @@ export const authRemoteSource = {
 
     return response;
   },
+  async verifyEmail(email: string, code: string): Promise<void> {
+    await apiClient.post<void>(`${endpoints.auth}/verify-email/`, { email, code });
+  },
+  async resendVerificationCode(email: string): Promise<void> {
+    await apiClient.post<void>(`${endpoints.auth}/resend-verification/`, { email });
+  },
   async refresh(session: Session): Promise<Pick<Session, 'accessToken' | 'refreshToken'>> {
     const response = await apiClient.post<RefreshResponse>(
       `${endpoints.auth}/token/refresh/`,

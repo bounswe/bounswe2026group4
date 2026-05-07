@@ -1,5 +1,6 @@
 export const ROUTES = {
   AUTH: 'Auth',
+  VERIFY_EMAIL: 'VerifyEmail',
   GUEST_HOME: 'GuestHome',
   USER_HOME: 'UserHome',
   ADMIN_HOME: 'AdminHome',
