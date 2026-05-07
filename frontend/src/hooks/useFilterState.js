@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 /**
  * Manages search/filter state via URL query parameters.
- * Supported params: q, year_from, year_to, location, tags, page, sort_by
+ * Supported params: q, year_from, year_to, location, lat_min, lat_max, lng_min, lng_max, tags, page, sort_by
  * Tags are stored as a comma-separated string: tags=foo,bar
  */
 export function useFilterState() {
@@ -13,6 +13,10 @@ export function useFilterState() {
   const yearFrom = searchParams.get("year_from") ? Number(searchParams.get("year_from")) : "";
   const yearTo = searchParams.get("year_to") ? Number(searchParams.get("year_to")) : "";
   const location = searchParams.get("location") || "";
+  const latMin = searchParams.get("lat_min") != null && searchParams.get("lat_min") !== "" ? Number(searchParams.get("lat_min")) : null;
+  const latMax = searchParams.get("lat_max") != null && searchParams.get("lat_max") !== "" ? Number(searchParams.get("lat_max")) : null;
+  const lngMin = searchParams.get("lng_min") != null && searchParams.get("lng_min") !== "" ? Number(searchParams.get("lng_min")) : null;
+  const lngMax = searchParams.get("lng_max") != null && searchParams.get("lng_max") !== "" ? Number(searchParams.get("lng_max")) : null;
   const page = searchParams.get("page") ? Number(searchParams.get("page")) : 1;
   const sortBy = searchParams.get("sort_by") || "recent";
   const tagsRaw = searchParams.get("tags") || "";
@@ -95,6 +99,10 @@ export function useFilterState() {
     yearFrom,
     yearTo,
     location,
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
     page,
     sortBy,
     tags,

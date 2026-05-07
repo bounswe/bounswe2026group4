@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { SlidersHorizontal, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { useLocationSuggestions } from "@/hooks/useLocationSuggestions";
 import TagFilterInput from "./TagFilterInput";
 
 const YEAR_MIN = 1000;
@@ -17,19 +19,75 @@ const YEAR_SPINNER_TO = new Date().getFullYear();
  * The parent should pass a `key` tied to the current filter values so that
  * the component resets its local form whenever filters are cleared externally.
  */
-function FilterPanel({ yearFrom = "", yearTo = "", location = "", tags = [], onApply, activeCount = 0 }) {
+function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, tags = [], onApply, activeCount = 0 }) {
   const [open, setOpen] = useState(false);
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
   const [localLocation, setLocalLocation] = useState(location);
+  const [suggestionsQuery, setSuggestionsQuery] = useState("");
   const [localTags, setLocalTags] = useState(tags);
   const [yearError, setYearError] = useState("");
+  const [lockedBbox, setLockedBbox] = useState(
+    () => latMin != null && latMax != null && lngMin != null && lngMax != null
+      ? { latMin, latMax, lngMin, lngMax }
+      : null
+  );
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  const locationRef = useRef(null);
+
+  const { suggestions, isLoading: isSuggestionsLoading, clearSuggestions } = useLocationSuggestions(suggestionsQuery);
+
+  // Dismiss suggestions when clicking outside the location field.
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (locationRef.current && !locationRef.current.contains(e.target)) {
+        clearSuggestions();
+        setActiveIndex(-1);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [clearSuggestions]);
 
   function clampYear(value) {
     if (value === "") return value;
     const num = Number(value);
     if (isNaN(num)) return value;
     return num > YEAR_MAX ? YEAR_MAX : num;
+  }
+
+  function handleLocationChange(value) {
+    setLocalLocation(value);
+    setSuggestionsQuery(value);
+    setLockedBbox(null);
+    setActiveIndex(-1);
+  }
+
+  function handleSuggestionSelect(suggestion) {
+    setLocalLocation(suggestion.title);
+    setSuggestionsQuery(""); // prevent hook from refiring on the selected title
+    setLockedBbox(suggestion.bbox ?? null);
+    clearSuggestions();
+    setActiveIndex(-1);
+  }
+
+  function handleLocationKeyDown(e) {
+    if (suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      e.preventDefault();
+      handleSuggestionSelect(suggestions[activeIndex]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      clearSuggestions();
+      setActiveIndex(-1);
+    }
   }
 
   function handleApply() {
@@ -44,8 +102,22 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", tags = [], onA
       setYearError("'From' year must not exceed 'To' year.");
       return;
     }
+
+    // Only use a bbox if the user explicitly selected a suggestion.
+    const effectiveBbox = lockedBbox;
+
     setYearError("");
-    onApply({ yearFrom: from, yearTo: to, location: localLocation.trim(), tags: localTags });
+    clearSuggestions();
+    onApply({
+      yearFrom: from,
+      yearTo: to,
+      location: localLocation.trim(),
+      latMin: effectiveBbox?.latMin ?? null,
+      latMax: effectiveBbox?.latMax ?? null,
+      lngMin: effectiveBbox?.lngMin ?? null,
+      lngMax: effectiveBbox?.lngMax ?? null,
+      tags: localTags
+    });
     setOpen(false);
   }
 
@@ -53,9 +125,12 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", tags = [], onA
     setLocalYearFrom("");
     setLocalYearTo("");
     setLocalLocation("");
+    setSuggestionsQuery("");
+    setLockedBbox(null);
     setLocalTags([]);
     setYearError("");
-    onApply({ yearFrom: "", yearTo: "", location: "", tags: [] });
+    clearSuggestions();
+    onApply({ yearFrom: "", yearTo: "", location: "", latMin: null, latMax: null, lngMin: null, lngMax: null, tags: [] });
     setOpen(false);
   }
 
@@ -176,14 +251,57 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", tags = [], onA
               >
                 Location
               </Label>
-              <Input
-                id="location-filter"
-                type="text"
-                placeholder="Neighbourhood, district, city…"
-                value={localLocation}
-                onChange={(e) => setLocalLocation(e.target.value)}
-                aria-label="Location filter"
-              />
+              <div className="relative" ref={locationRef}>
+                <Input
+                  id="location-filter"
+                  type="text"
+                  placeholder="Neighbourhood, district, city…"
+                  value={localLocation}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  onKeyDown={handleLocationKeyDown}
+                  aria-label="Location filter"
+                  aria-autocomplete="list"
+                  aria-expanded={suggestions.length > 0}
+                  aria-activedescendant={activeIndex >= 0 ? `suggestion-${suggestions[activeIndex]?.id}` : undefined}
+                  autoComplete="off"
+                  className={isSuggestionsLoading ? "pr-8" : ""}
+                />
+                {isSuggestionsLoading && (
+                  <Loader2
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                )}
+                {suggestions.length > 0 && (
+                  <ul
+                    role="listbox"
+                    aria-label="Location suggestions"
+                    className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-y-auto rounded-md border bg-background shadow-md"
+                  >
+                    {suggestions.map((s, i) => (
+                      <li key={s.id} id={`suggestion-${s.id}`} role="option" aria-selected={i === activeIndex}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            // mousedown fires before blur; prevent input from losing focus first
+                            e.preventDefault();
+                            handleSuggestionSelect(s);
+                          }}
+                          className={cn(
+                            "w-full px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none",
+                            i === activeIndex && "bg-accent"
+                          )}
+                        >
+                          <div className="text-sm font-medium truncate">{s.title}</div>
+                          {s.subtitle && (
+                            <div className="text-xs text-muted-foreground truncate">{s.subtitle}</div>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
             {/* Tags */}

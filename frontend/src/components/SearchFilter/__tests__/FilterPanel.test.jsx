@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("@/hooks/useLocationSuggestions", () => ({
+  useLocationSuggestions: vi.fn(() => ({ suggestions: [], isLoading: false, clearSuggestions: vi.fn() })),
+}));
+
 import FilterPanel from "../FilterPanel";
 
 vi.mock("@/services/tagService", () => ({
@@ -77,7 +81,7 @@ describe("FilterPanel", () => {
     await user.type(screen.getByLabelText("Location filter"), "Galata");
     await user.click(screen.getByRole("button", { name: /apply/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata", tags: [] });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata", latMin: null, latMax: null, lngMin: null, lngMax: null, tags: [] });
   });
 
 
@@ -105,7 +109,7 @@ describe("FilterPanel", () => {
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.click(screen.getByRole("button", { name: /reset filters/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "", tags: [] });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "",  latMin: null, latMax: null, lngMin: null, lngMax: null, tags: [] });
   });
 
   it("shows tag section when panel is open", async () => {
@@ -170,6 +174,21 @@ describe("FilterPanel", () => {
     expect(screen.getByLabelText("From year")).toHaveValue(1453);
     expect(screen.getByLabelText("To year")).toHaveValue(1923);
     expect(screen.getByLabelText("Location filter")).toHaveValue("Galata");
+  });
+
+  it("preserves bbox props in onApply when user only changes year without re-typing location", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    const bbox = { latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 };
+    renderPanel({ location: "Istanbul", ...bbox, onApply });
+
+    await user.click(screen.getByRole("button", { name: /filters/i }));
+    await user.type(screen.getByLabelText("From year"), "1900");
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ location: "Istanbul", latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 })
+    );
   });
 
   it("year fields are empty on first open (placeholder visible)", async () => {

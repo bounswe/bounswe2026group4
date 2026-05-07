@@ -113,6 +113,36 @@ describe("storyService", () => {
       });
     });
 
+    it("passes bbox params to search API instead of text location when bbox is provided", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ q: "galata", location: "Istanbul", latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "galata", page: 1, page_size: 12, lat_min: 40.8, lat_max: 41.3, lng_min: 28.5, lng_max: 29.4 },
+      });
+    });
+
+    it("falls back to text location param when no bbox is provided (feed)", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ location: "Galata" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/feed/", {
+        params: { page: 1, page_size: 12, sort_by: "recent", location: "Galata" },
+      });
+    });
+
+    it("passes bbox params to feed API instead of text location when bbox is provided", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ location: "Istanbul", latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/feed/", {
+        params: { page: 1, page_size: 12, sort_by: "recent", lat_min: 40.8, lat_max: 41.3, lng_min: 28.5, lng_max: 29.4 },
+      });
+    });
+
     it("uses feed API when q is empty string", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
@@ -201,6 +231,38 @@ describe("storyService", () => {
 
       expect(api.get).toHaveBeenCalledWith("/stories/search/", {
         params: { q: "bridge", page_size: 100, year_from: 1900, year_to: 2000, location: "Galata" },
+      });
+    });
+
+    it("passes bbox params to map search API when bbox is provided", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getMapStories({ q: "bridge", location: "Istanbul", latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "bridge", page_size: 100, lat_min: 40.8, lat_max: 41.3, lng_min: 28.5, lng_max: 29.4 },
+      });
+    });
+
+    it("passes bbox params to map endpoint when no q is provided", async () => {
+      const emptyFeatureCollection = { type: "FeatureCollection", features: [] };
+      api.get.mockResolvedValue({ data: emptyFeatureCollection });
+
+      await getMapStories({ location: "Istanbul", latMin: 40.8, latMax: 41.3, lngMin: 28.5, lngMax: 29.4 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", {
+        params: { lat_min: 40.8, lat_max: 41.3, lng_min: 28.5, lng_max: 29.4 },
+      });
+    });
+
+    it("falls back to text location on map endpoint when no bbox is provided", async () => {
+      const emptyFeatureCollection = { type: "FeatureCollection", features: [] };
+      api.get.mockResolvedValue({ data: emptyFeatureCollection });
+
+      await getMapStories({ location: "Galata" });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", {
+        params: { location: "Galata" },
       });
     });
 

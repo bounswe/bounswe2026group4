@@ -17,8 +17,7 @@ function countActiveFilters({ yearFrom, yearTo, location, tags }) {
  * Must be rendered inside a React Router context.
  */
 function SearchFilter({ className }) {
-  const { q, yearFrom, yearTo, location, tags, setFilters, removeFilter, removeTag, clearAll } =
-    useFilterState();
+  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags, setFilters, removeFilter, removeTag, clearAll } = useFilterState();
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -27,14 +26,24 @@ function SearchFilter({ className }) {
     [setFilters]
   );
 
-  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc, tags: tgs }) {
-    setFilters({ year_from: yf, year_to: yt, location: loc, tags: tgs }, { replace: true });
+  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc, latMin, latMax, lngMin, lngMax, tags: tgs}) {
+    setFilters({
+      year_from: yf,
+      year_to: yt,
+      location: loc,
+      lat_min: latMin ?? "",
+      lat_max: latMax ?? "",
+      lng_min: lngMin ?? "",
+      lng_max: lngMax ?? "",
+      tags: tgs
+    }, { replace: true });
   }
 
   function handleRemoveFilter(key) {
     if (key === "year_range") {
-      // Remove both year params atomically
       setFilters({ year_from: "", year_to: "" }, { replace: true });
+    } else if (key === "location") {
+      setFilters({ location: "", lat_min: "", lat_max: "", lng_min: "", lng_max: "" }, { replace: true });
     } else {
       removeFilter(key);
     }
@@ -52,10 +61,14 @@ function SearchFilter({ className }) {
           />
         </div>
         <FilterPanel
-          key={`${yearFrom}-${yearTo}-${location}-${tags.join(",")}`}
+          key={`${yearFrom}-${yearTo}-${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${tags.join(",")}`}
           yearFrom={yearFrom}
           yearTo={yearTo}
           location={location}
+          latMin={latMin}
+          latMax={latMax}
+          lngMin={lngMin}
+          lngMax={lngMax}
           tags={tags}
           onApply={handleFilterApply}
           activeCount={activeFilterCount}
