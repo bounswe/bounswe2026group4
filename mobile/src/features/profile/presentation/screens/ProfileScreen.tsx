@@ -15,7 +15,14 @@ import { interactionService } from '../../../interactions/application/services';
 import { FeedCard } from '../../../feed/presentation/components/FeedCard';
 import { FeedEntity, FeedPageEntity } from '../../../feed/domain/entities';
 import { userService } from '../../application/services';
-import { FollowListResult, FollowUserEntity, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import {
+  BadgeEntity,
+  FollowListResult,
+  FollowUserEntity,
+  ProfileEntity,
+  ProfilePhotoUploadInput,
+  UpdateProfileInput,
+} from '../../domain/entities';
 import { AuthUser } from '../../../../core/auth/session';
 
 type ProfileMode = 'self' | 'public';
@@ -55,6 +62,8 @@ interface ProfileScreenProps {
   getFollowers?: typeof userService.getFollowers;
   getFollowing?: typeof userService.getFollowing;
   getSavedStories?: typeof userService.getSavedStories;
+  getUserPoints?: typeof userService.getUserPoints;
+  getUserBadges?: typeof userService.getUserBadges;
   unbookmarkStory?: typeof interactionService.unbookmarkStory;
   onOpenUserProfile?: (userId: string) => void;
   onOpenStory?: (storyId: string) => void;
@@ -147,6 +156,70 @@ function formatJoinedDate(value?: string) {
     month: 'long',
     year: 'numeric',
   });
+}
+
+function formatPoints(value: number) {
+  return Math.max(0, value).toLocaleString('en-US');
+}
+
+function formatAwardedDate(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return undefined;
+  }
+
+  return parsedDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function describeBadgeCondition(badge: BadgeEntity) {
+  const threshold = badge.criteriaThreshold;
+
+  if (badge.criteriaType === 'registration') {
+    return 'Awarded for completing registration.';
+  }
+
+  if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
+    if (threshold === 1) {
+      return 'Awarded for publishing your first story.';
+    }
+
+    if (threshold) {
+      return `Awarded for publishing ${threshold} stories.`;
+    }
+  }
+
+  if (badge.criteriaType === 'points' || badge.criteriaType === 'points_total') {
+    if (threshold) {
+      return `Awarded for reaching ${formatPoints(threshold)} points.`;
+    }
+  }
+
+  return badge.description ?? 'Earned through profile activity.';
+}
+
+function getBadgeInitial(badge: BadgeEntity) {
+  if (badge.criteriaType === 'registration') {
+    return 'R';
+  }
+
+  if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
+    return 'S';
+  }
+
+  if (badge.criteriaType === 'points' || badge.criteriaType === 'points_total') {
+    return 'P';
+  }
+
+  return badge.name.slice(0, 1).toUpperCase();
 }
 
 function formatBirthDateLabel(value: string) {
@@ -497,6 +570,203 @@ function StatButton({
       </Text>
       <Text style={{ color: selected ? colors.primary : colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{value}</Text>
     </Pressable>
+  );
+}
+
+function BadgesSection({
+  badges,
+  isLoading,
+  error,
+  onSelectBadge,
+}: {
+  badges: BadgeEntity[];
+  isLoading: boolean;
+  error?: string | null;
+  onSelectBadge: (badge: BadgeEntity) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <View
+      accessibilityLabel="Earned badges section"
+      style={{
+        padding: spacing.lg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+            Earned badges
+          </Text>
+          <Text style={{ color: colors.muted }}>
+            {badges.length === 1 ? '1 badge earned' : `${badges.length} badges earned`}
+          </Text>
+        </View>
+      </View>
+
+      {isLoading && badges.length === 0 ? <Loader message="Loading badges..." /> : null}
+
+      {error && badges.length === 0 ? (
+        <Text style={{ color: colors.danger }}>{error}</Text>
+      ) : null}
+
+      {!isLoading && !error && badges.length === 0 ? (
+        <View
+          style={{
+            padding: spacing.md,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.background,
+          }}
+        >
+          <Text style={{ color: colors.text, fontWeight: '700' }}>No badges earned yet</Text>
+          <Text style={{ marginTop: spacing.xs, color: colors.muted }}>
+            Publish stories and collect points to unlock badges.
+          </Text>
+        </View>
+      ) : null}
+
+      {badges.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.sm }}
+        >
+          {badges.map((badge) => (
+            <Pressable
+              key={badge.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open badge details: ${badge.name}`}
+              onPress={() => onSelectBadge(badge)}
+              style={({ pressed }) => ({
+                width: 156,
+                minHeight: 148,
+                padding: spacing.md,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                gap: spacing.sm,
+                opacity: pressed ? 0.82 : 1,
+              })}
+            >
+              <View
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 23,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.infoSurface,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: typography.subtitle, fontWeight: '800' }}>
+                  {getBadgeInitial(badge)}
+                </Text>
+              </View>
+              <Text numberOfLines={2} style={{ color: colors.text, fontWeight: '800' }}>
+                {badge.name}
+              </Text>
+              <Text numberOfLines={3} style={{ color: colors.muted, fontSize: typography.caption }}>
+                {describeBadgeCondition(badge)}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
+function BadgeDetailsModal({
+  badge,
+  onClose,
+}: {
+  badge: BadgeEntity | null;
+  onClose: () => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const awardedDate = formatAwardedDate(badge?.awardedAt);
+
+  return (
+    <Modal animationType="slide" transparent visible={Boolean(badge)} onRequestClose={onClose}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(10, 10, 10, 0.35)',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <View
+          style={{
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.lg,
+            paddingBottom: spacing.xl,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            backgroundColor: colors.background,
+            gap: spacing.md,
+          }}
+        >
+          {badge ? (
+            <>
+              <View
+                style={{
+                  width: 54,
+                  height: 54,
+                  borderRadius: 27,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.infoSurface,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: typography.title, fontWeight: '800' }}>
+                  {getBadgeInitial(badge)}
+                </Text>
+              </View>
+              <View style={{ gap: spacing.xs }}>
+                <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+                  {badge.name}
+                </Text>
+                <Text style={{ color: colors.text }}>
+                  {badge.description ?? describeBadgeCondition(badge)}
+                </Text>
+              </View>
+              <View
+                style={{
+                  padding: spacing.md,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  gap: spacing.xs,
+                }}
+              >
+                <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+                  Requirement
+                </Text>
+                <Text style={{ color: colors.text, fontWeight: '700' }}>
+                  {describeBadgeCondition(badge)}
+                </Text>
+                {awardedDate ? (
+                  <Text style={{ color: colors.muted }}>Earned on {awardedDate}</Text>
+                ) : null}
+              </View>
+            </>
+          ) : null}
+          <Button variant="outline" onPress={onClose} fullWidth>
+            Close
+          </Button>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -998,6 +1268,8 @@ export function ProfileScreen({
   getFollowers = userService.getFollowers,
   getFollowing = userService.getFollowing,
   getSavedStories = userService.getSavedStories,
+  getUserPoints = userService.getUserPoints,
+  getUserBadges = userService.getUserBadges,
   unbookmarkStory = interactionService.unbookmarkStory,
   onOpenUserProfile,
   onOpenStory,
@@ -1034,6 +1306,11 @@ export function ProfileScreen({
   const [isFollowListVisible, setIsFollowListVisible] = useState(false);
   const [activeSelfTab, setActiveSelfTab] = useState<SelfProfileTab>('profile');
   const [savedStoriesCount, setSavedStoriesCount] = useState<number | null>(null);
+  const [pointsTotal, setPointsTotal] = useState<number | null>(null);
+  const [badges, setBadges] = useState<BadgeEntity[]>([]);
+  const [isGamificationLoading, setIsGamificationLoading] = useState(false);
+  const [gamificationError, setGamificationError] = useState<string | null>(null);
+  const [selectedBadge, setSelectedBadge] = useState<BadgeEntity | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const savedStoriesSectionYRef = useRef(0);
   const shouldScrollToSavedStoriesRef = useRef(false);
@@ -1120,6 +1397,51 @@ export function ProfileScreen({
       isActive = false;
     };
   }, [getSavedStories, isSelfMode, profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) {
+      setPointsTotal(null);
+      setBadges([]);
+      setGamificationError(null);
+      return;
+    }
+
+    let isActive = true;
+
+    setPointsTotal(profile.totalPoints);
+    setBadges([]);
+    setGamificationError(null);
+    setIsGamificationLoading(true);
+
+    Promise.all([
+      getUserPoints(profile.id),
+      getUserBadges(profile.id),
+    ])
+      .then(([pointsSummary, earnedBadges]) => {
+        if (!isActive) {
+          return;
+        }
+
+        setPointsTotal(pointsSummary.totalPoints);
+        setBadges(earnedBadges);
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+
+        setGamificationError('Unable to load badges right now.');
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsGamificationLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [getUserBadges, getUserPoints, profile?.id, profile?.totalPoints]);
 
   const validateForm = useCallback(() => {
     const nextErrors: FormErrors = {};
@@ -1499,7 +1821,7 @@ export function ProfileScreen({
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
             {joinedDate ? <StatChip label="Joined" value={joinedDate} /> : null}
-            {isSelfMode ? <StatChip label="Points" value={String(profile.totalPoints)} /> : null}
+            <StatChip label="Points" value={formatPoints(pointsTotal ?? profile.totalPoints)} />
             <StatChip label="Stories" value={String(profile.publishedStoryCount ?? 0)} />
             <StatButton
               label={followersCount === 1 ? 'Follower' : 'Followers'}
@@ -1547,6 +1869,13 @@ export function ProfileScreen({
             </FieldCard>
           ) : null}
         </View>
+
+        <BadgesSection
+          badges={badges}
+          isLoading={isGamificationLoading}
+          error={gamificationError}
+          onSelectBadge={setSelectedBadge}
+        />
 
         {isSelfMode && activeSelfTab === 'saved' ? (
           <View
@@ -1856,6 +2185,11 @@ export function ProfileScreen({
         showCurrentUserAtTop={isFollowing}
         onClose={() => setIsFollowListVisible(false)}
         onOpenUserProfile={handleOpenFollowUserProfile}
+      />
+
+      <BadgeDetailsModal
+        badge={selectedBadge}
+        onClose={() => setSelectedBadge(null)}
       />
 
       <Modal

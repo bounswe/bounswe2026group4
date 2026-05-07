@@ -165,6 +165,24 @@ export const profileRemoteSource = {
       results: [],
     };
   },
+
+  async getUserPoints(userId: string) {
+    return (await apiClient.get<Record<string, unknown>>(`/users/${userId}/points/`)) ?? {
+      user_id: userId,
+      total_points: 0,
+    };
+  },
+
+  async getUserBadges(userId: string) {
+    return (await apiClient.get<Record<string, unknown>>(
+      `/users/${userId}/badges/${buildQueryString({ page: 1, page_size: 50 })}`,
+    )) ?? {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    };
+  },
 };
 
 export const profileLocalSource = {};

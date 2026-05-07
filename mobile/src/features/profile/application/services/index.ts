@@ -1,5 +1,12 @@
 import { ProfileRepositoryImpl } from '../../data/repositories';
-import { FollowListResult, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import {
+  BadgeEntity,
+  FollowListResult,
+  PointsSummaryEntity,
+  ProfileEntity,
+  ProfilePhotoUploadInput,
+  UpdateProfileInput,
+} from '../../domain/entities';
 import { FeedPageEntity } from '../../../feed/domain/entities';
 
 const repository = new ProfileRepositoryImpl();
@@ -40,5 +47,11 @@ export const userService = {
   },
   async getSavedStories(userId: string, page = 1): Promise<FeedPageEntity> {
     return repository.getSavedStories(userId, page);
+  },
+  async getUserPoints(userId: string): Promise<PointsSummaryEntity> {
+    return repository.getUserPoints(userId);
+  },
+  async getUserBadges(userId: string): Promise<BadgeEntity[]> {
+    return repository.getUserBadges(userId);
   },
 };

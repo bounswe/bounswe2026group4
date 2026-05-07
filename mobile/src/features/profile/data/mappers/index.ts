@@ -1,4 +1,10 @@
-import { FollowListResult, FollowUserEntity, ProfileEntity } from '../../domain/entities';
+import {
+  BadgeEntity,
+  FollowListResult,
+  FollowUserEntity,
+  PointsSummaryEntity,
+  ProfileEntity,
+} from '../../domain/entities';
 
 function asString(value: unknown) {
   if (typeof value === 'string') {
@@ -193,4 +199,36 @@ export function mapFollowList(payload: Record<string, unknown>): FollowListResul
     previous: asNullableString(payload.previous),
     count: asNumber(payload.count),
   };
+}
+
+export function mapPointsSummary(payload: Record<string, unknown>): PointsSummaryEntity {
+  return {
+    userId: asString(payload.user_id ?? payload.userId),
+    totalPoints: asNumber(payload.total_points ?? payload.totalPoints),
+  };
+}
+
+export function mapUserBadge(payload: Record<string, unknown>): BadgeEntity {
+  const nestedBadge =
+    payload.badge && typeof payload.badge === 'object'
+      ? (payload.badge as Record<string, unknown>)
+      : payload;
+
+  return {
+    id: asString(nestedBadge.id ?? payload.id),
+    name: asString(nestedBadge.name),
+    description: asNullableString(nestedBadge.description),
+    criteriaType: asNullableString(nestedBadge.criteria_type ?? nestedBadge.criteriaType),
+    criteriaThreshold: asNullableNumber(nestedBadge.criteria_threshold ?? nestedBadge.criteriaThreshold),
+    awardedAt: asNullableString(payload.awarded_at ?? payload.awardedAt),
+  };
+}
+
+export function mapUserBadges(payload: Record<string, unknown>): BadgeEntity[] {
+  const results = Array.isArray(payload.results) ? payload.results : [];
+
+  return results
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map(mapUserBadge)
+    .filter((badge) => badge.id && badge.name);
 }
