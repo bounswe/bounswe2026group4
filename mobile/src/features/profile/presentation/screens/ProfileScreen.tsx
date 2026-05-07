@@ -209,7 +209,7 @@ function describeBadgeCondition(badge: BadgeEntity) {
 
 function getBadgeInitial(badge: BadgeEntity) {
   if (badge.criteriaType === 'registration') {
-    return 'R';
+    return '01';
   }
 
   if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
@@ -221,6 +221,42 @@ function getBadgeInitial(badge: BadgeEntity) {
   }
 
   return badge.name.slice(0, 1).toUpperCase();
+}
+
+function getBadgePalette(badge: BadgeEntity) {
+  if (badge.criteriaType === 'registration') {
+    return {
+      background: '#FEF3C7',
+      border: '#F59E0B',
+      text: '#92400E',
+      shine: '#FFFBEB',
+    };
+  }
+
+  if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
+    return {
+      background: '#DBEAFE',
+      border: '#2563EB',
+      text: '#1E3A8A',
+      shine: '#EFF6FF',
+    };
+  }
+
+  if (badge.criteriaType === 'points' || badge.criteriaType === 'points_total') {
+    return {
+      background: '#DCFCE7',
+      border: '#16A34A',
+      text: '#166534',
+      shine: '#F0FDF4',
+    };
+  }
+
+  return {
+    background: '#F3E8FF',
+    border: '#9333EA',
+    text: '#581C87',
+    shine: '#FAF5FF',
+  };
 }
 
 function formatBirthDateLabel(value: string) {
@@ -643,46 +679,71 @@ function BadgesSection({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.sm }}
         >
-          {badges.map((badge) => (
-            <Pressable
-              key={badge.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open badge details: ${badge.name}`}
-              onPress={() => onSelectBadge(badge)}
-              style={({ pressed }) => ({
-                width: 156,
-                minHeight: 148,
-                padding: spacing.md,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: colors.background,
-                gap: spacing.sm,
-                opacity: pressed ? 0.82 : 1,
-              })}
-            >
-              <View
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 23,
+          {badges.map((badge) => {
+            const badgePalette = getBadgePalette(badge);
+
+            return (
+              <Pressable
+                key={badge.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open badge details: ${badge.name}`}
+                onPress={() => onSelectBadge(badge)}
+                style={({ pressed }) => ({
+                  width: 82,
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: colors.infoSurface,
-                }}
+                  gap: spacing.xs,
+                  opacity: pressed ? 0.76 : 1,
+                  transform: [{ scale: pressed ? 0.96 : 1 }],
+                })}
               >
-                <Text style={{ color: colors.primary, fontSize: typography.subtitle, fontWeight: '800' }}>
-                  {getBadgeInitial(badge)}
+                <View
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: 29,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: badgePalette.border,
+                    backgroundColor: badgePalette.background,
+                    shadowColor: badgePalette.border,
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 3 },
+                    elevation: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      left: 10,
+                      width: 17,
+                      height: 9,
+                      borderRadius: 9,
+                      backgroundColor: badgePalette.shine,
+                      opacity: 0.9,
+                    }}
+                  />
+                  <Text style={{ color: badgePalette.text, fontSize: 18, fontWeight: '900' }}>
+                    {getBadgeInitial(badge)}
+                  </Text>
+                </View>
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    minHeight: 34,
+                    color: colors.text,
+                    fontSize: typography.caption,
+                    fontWeight: '800',
+                    textAlign: 'center',
+                  }}
+                >
+                  {badge.name}
                 </Text>
-              </View>
-              <Text numberOfLines={2} style={{ color: colors.text, fontWeight: '800' }}>
-                {badge.name}
-              </Text>
-              <Text numberOfLines={3} style={{ color: colors.muted, fontSize: typography.caption }}>
-                {describeBadgeCondition(badge)}
-              </Text>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
         </ScrollView>
       ) : null}
     </View>
@@ -698,49 +759,73 @@ function BadgeDetailsModal({
 }) {
   const { colors, spacing, typography } = useAppTheme();
   const awardedDate = formatAwardedDate(badge?.awardedAt);
+  const badgePalette = badge ? getBadgePalette(badge) : null;
 
   return (
-    <Modal animationType="slide" transparent visible={Boolean(badge)} onRequestClose={onClose}>
+    <Modal animationType="fade" transparent visible={Boolean(badge)} onRequestClose={onClose}>
       <View
         style={{
           flex: 1,
-          backgroundColor: 'rgba(10, 10, 10, 0.35)',
-          justifyContent: 'flex-end',
+          padding: spacing.lg,
+          backgroundColor: 'rgba(10, 10, 10, 0.34)',
+          justifyContent: 'center',
         }}
       >
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <Pressable
+          style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+          onPress={onClose}
+        />
         <View
           style={{
-            paddingHorizontal: spacing.lg,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.xl,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
+            padding: spacing.lg,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: colors.border,
             backgroundColor: colors.background,
             gap: spacing.md,
+            shadowColor: '#000000',
+            shadowOpacity: 0.18,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 6,
           }}
         >
-          {badge ? (
+          {badge && badgePalette ? (
             <>
               <View
                 style={{
-                  width: 54,
-                  height: 54,
-                  borderRadius: 27,
+                  alignSelf: 'center',
+                  width: 76,
+                  height: 76,
+                  borderRadius: 38,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: colors.infoSurface,
+                  borderWidth: 2,
+                  borderColor: badgePalette.border,
+                  backgroundColor: badgePalette.background,
                 }}
               >
-                <Text style={{ color: colors.primary, fontSize: typography.title, fontWeight: '800' }}>
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 11,
+                    left: 14,
+                    width: 23,
+                    height: 12,
+                    borderRadius: 12,
+                    backgroundColor: badgePalette.shine,
+                    opacity: 0.9,
+                  }}
+                />
+                <Text style={{ color: badgePalette.text, fontSize: 24, fontWeight: '900' }}>
                   {getBadgeInitial(badge)}
                 </Text>
               </View>
-              <View style={{ gap: spacing.xs }}>
-                <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800' }}>
+              <View style={{ alignItems: 'center', gap: spacing.xs }}>
+                <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800', textAlign: 'center' }}>
                   {badge.name}
                 </Text>
-                <Text style={{ color: colors.text }}>
+                <Text style={{ color: colors.text, textAlign: 'center' }}>
                   {badge.description ?? describeBadgeCondition(badge)}
                 </Text>
               </View>
