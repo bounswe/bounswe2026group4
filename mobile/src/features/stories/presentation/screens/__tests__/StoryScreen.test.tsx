@@ -5,6 +5,9 @@ import { StoryScreen } from '../StoryScreen';
 import { Session } from '../../../../../core/auth/session';
 import { StoryEntity } from '../../../domain/entities';
 import { interactionService } from '../../../../interactions/application/services';
+import { reportService } from '../../../../reports/application/services';
+
+const mockToastSuccess = jest.fn();
 
 jest.mock('../../../../../shared/components/WebMapView', () => {
   const React = require('react');
@@ -27,6 +30,23 @@ jest.mock('../../../../interactions/application/services', () => ({
     addComment: jest.fn(async () => undefined),
     deleteComment: jest.fn(async () => undefined),
   },
+}));
+
+jest.mock('../../../../reports/application/services', () => ({
+  reportService: {
+    reportContent: jest.fn(async () => undefined),
+  },
+}));
+
+jest.mock('../../../../../shared/hooks/useToast', () => ({
+  useToast: () => ({
+    toast: {
+      success: mockToastSuccess,
+      error: jest.fn(),
+      info: jest.fn(),
+      show: jest.fn(),
+    },
+  }),
 }));
 
 const baseStory: StoryEntity = {
@@ -452,7 +472,7 @@ describe('StoryScreen', () => {
     fireEvent.press(screen.getByText('♡ 27'));
 
     await waitFor(() => {
-      expect(screen.getByText('Log in to like, bookmark, or comment on this story.')).toBeTruthy();
+      expect(screen.getByText('Log in to like, bookmark, comment, or report this story.')).toBeTruthy();
     });
     expect(onRequestLogin).toHaveBeenCalledTimes(1);
   });
@@ -540,7 +560,7 @@ describe('StoryScreen', () => {
     fireEvent.press(screen.getByLabelText('Bookmark story'));
 
     await waitFor(() => {
-      expect(screen.getByText('Log in to like, bookmark, or comment on this story.')).toBeTruthy();
+      expect(screen.getByText('Log in to like, bookmark, comment, or report this story.')).toBeTruthy();
     });
     expect(onRequestLogin).toHaveBeenCalledTimes(1);
     expect(interactionService.bookmarkStory).not.toHaveBeenCalled();
@@ -642,6 +662,106 @@ describe('StoryScreen', () => {
     expect(comments[0]).toHaveTextContent('My new comment');
   });
 
+  it('opens the story report sheet, requires a reason, submits, and shows a success toast', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Report story'));
+    expect(screen.getByText('Report story')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Submit report'));
+    expect(reportService.reportContent).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByLabelText('Report reason: Harassment'));
+    fireEvent.press(screen.getByText('Submit report'));
+
+    await waitFor(() => {
+      expect(reportService.reportContent).toHaveBeenCalledWith({
+        targetType: 'story',
+        targetId: 'story-001',
+        reason: 'harassment',
+        description: '',
+      });
+      expect(mockToastSuccess).toHaveBeenCalledWith('Report submitted. Our team will review it.');
+    });
+  });
+
+  it('closes the report sheet without submitting', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Report story'));
+    expect(screen.getByLabelText('Report reason: Spam')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Close report modal'));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Report reason: Spam')).toBeNull();
+    });
+    expect(reportService.reportContent).not.toHaveBeenCalled();
+  });
+
+  it('submits comment reports with optional details for the other reason', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    await screen.findByText(baseStory.comments[0].body);
+    fireEvent.press(screen.getByLabelText('Report comment by Mert Kaya'));
+    expect(screen.getByText('Report comment')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Report reason: Other'));
+    fireEvent.changeText(screen.getByLabelText('Report details'), 'This includes private information.');
+    fireEvent.press(screen.getByText('Submit report'));
+
+    await waitFor(() => {
+      expect(reportService.reportContent).toHaveBeenCalledWith({
+        targetType: 'comment',
+        targetId: 'comment-1',
+        reason: 'other',
+        description: 'This includes private information.',
+      });
+    });
+  });
+
+  it('shows duplicate report errors inside the report sheet', async () => {
+    (reportService.reportContent as jest.Mock).mockRejectedValueOnce({
+      response: {
+        data: {
+          non_field_errors: ['You have already reported this content.'],
+        },
+      },
+    });
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={userSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Report story'));
+    fireEvent.press(screen.getByLabelText('Report reason: Spam'));
+    fireEvent.press(screen.getByText('Submit report'));
+
+    expect(await screen.findByText('You have already reported this content.')).toBeTruthy();
+  });
+
   it('shows delete controls only for the user’s own comments and deletes after confirmation', async () => {
     (interactionService.deleteComment as jest.Mock).mockResolvedValueOnce(undefined);
     (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
@@ -686,6 +806,8 @@ describe('StoryScreen', () => {
     await screen.findByText('My own comment');
     expect(screen.getByText('Delete comment')).toBeTruthy();
     expect(screen.queryAllByText('Delete comment')).toHaveLength(1);
+    expect(screen.queryByLabelText('Report comment by Traveler (You)')).toBeNull();
+    expect(screen.getByLabelText('Report comment by Someone else')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Delete comment'));
     expect(screen.getByText('Delete this comment?')).toBeTruthy();
@@ -739,6 +861,7 @@ describe('StoryScreen', () => {
     expect(screen.getByText('Traveler (You)')).toBeTruthy();
     expect(screen.queryByText('Anonymous')).toBeNull();
     expect(screen.getByText('Delete comment')).toBeTruthy();
+    expect(screen.queryByLabelText('Report comment by Traveler (You)')).toBeNull();
   });
 
   it('shows the delete story action only to the owner or an admin', async () => {
@@ -773,6 +896,19 @@ describe('StoryScreen', () => {
     );
 
     expect(await screen.findByLabelText('Delete story')).toBeTruthy();
+  });
+
+  it('does not show the report story action to the story owner', async () => {
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={ownerSession}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    expect(await screen.findByLabelText('Delete story')).toBeTruthy();
+    expect(screen.queryByLabelText('Report story')).toBeNull();
   });
 
   it('confirms and deletes the story for authorized users', async () => {
@@ -891,6 +1027,25 @@ describe('StoryScreen', () => {
       expect(screen.getByText('Log in to comment on this story.')).toBeTruthy();
     });
     expect(onRequestLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('prompts unauthenticated users when they try to report', async () => {
+    const onRequestLogin = jest.fn();
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={guestSession}
+        onRequestLogin={onRequestLogin}
+        getStory={async () => baseStory}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Report story'));
+
+    expect(await screen.findByText('Log in to like, bookmark, comment, or report this story.')).toBeTruthy();
+    expect(onRequestLogin).toHaveBeenCalledTimes(1);
+    expect(reportService.reportContent).not.toHaveBeenCalled();
   });
 
   it('renders the 404 state when the story does not exist', async () => {
