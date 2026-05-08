@@ -44,6 +44,40 @@ export function getTimelineHistoricalYear(story) {
   return Number.MAX_SAFE_INTEGER;
 }
 
+function getStoryYearInterval(story) {
+  if (!story || typeof story !== "object") return null;
+  const { time_type, year, year_start, year_end, date_value } = story;
+  if (time_type === "year_range" && Number.isFinite(year_start) && Number.isFinite(year_end)) {
+    return [year_start, year_end];
+  }
+  if (time_type === "decade" && Number.isFinite(year)) {
+    return [year, year + 9];
+  }
+  if (time_type === "exact_date" && typeof date_value === "string") {
+    const parsedYear = Number.parseInt(date_value.slice(0, 4), 10);
+    return Number.isFinite(parsedYear) ? [parsedYear, parsedYear] : null;
+  }
+  if (Number.isFinite(year)) return [year, year];
+  return null;
+}
+
+/**
+ * Same interval-overlap year filter the /stories/timeline/ endpoint applies
+ * server-side. Re-applied client-side for the fallback path because
+ * /stories/feed/ and /stories/search/ use a simpler `year__gte` / `year__lte`
+ * check that silently excludes decade and exact_date stories whose intervals
+ * the timeline endpoint would include. yearFrom/yearTo of null mean "no bound."
+ */
+export function storyOverlapsYearWindow(story, yearFrom, yearTo) {
+  if (yearFrom == null && yearTo == null) return true;
+  const interval = getStoryYearInterval(story);
+  if (!interval) return false;
+  const [start, end] = interval;
+  if (yearFrom != null && end < yearFrom) return false;
+  if (yearTo != null && start > yearTo) return false;
+  return true;
+}
+
 function hasUnsupportedTimelineFilters(filters) {
   if (filters.q?.trim()) return true;
   if (Array.isArray(filters.tags) && filters.tags.length > 0) return true;
@@ -134,10 +168,14 @@ async function getTimelineViaFallback({
   // storyService.getStories already routes between /stories/search/ (with q)
   // and /stories/feed/, and it builds exactly the bbox/location/proximity/
   // tags param shape we need. We just borrow it as the underlying fetch.
+  //
+  // year_from/year_to are deliberately NOT forwarded — feed/search apply a
+  // simpler `year__gte`/`year__lte` filter that drops decade and exact_date
+  // stories the timeline endpoint would include via interval overlap. We
+  // re-apply year filtering below with storyOverlapsYearWindow so the fallback
+  // path matches the primary path's semantics.
   const data = await getStories({
     q,
-    yearFrom,
-    yearTo,
     location,
     latMin,
     latMax,
@@ -151,9 +189,13 @@ async function getTimelineViaFallback({
     pageSize: FALLBACK_FETCH_PAGE_SIZE,
   });
   const allResults = Array.isArray(data?.results) ? data.results : [];
+  const matching =
+    yearFrom == null && yearTo == null
+      ? allResults
+      : allResults.filter((s) => storyOverlapsYearWindow(s, yearFrom, yearTo));
   // Decorate-sort-undecorate: compute the historical year once per story,
   // not twice per comparison.
-  const sorted = allResults
+  const sorted = matching
     .map((story) => [getTimelineHistoricalYear(story), story])
     .sort((a, b) => a[0] - b[0])
     .map(([, story]) => story);

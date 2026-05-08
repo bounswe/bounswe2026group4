@@ -7,7 +7,11 @@ vi.mock("../api", () => ({
 }));
 
 import api from "../api";
-import { getTimeline, getTimelineHistoricalYear } from "../timelineService";
+import {
+  getTimeline,
+  getTimelineHistoricalYear,
+  storyOverlapsYearWindow,
+} from "../timelineService";
 
 function story(overrides = {}) {
   return {
@@ -208,6 +212,133 @@ describe("timelineService", () => {
       const page3 = await getTimeline({ q: "x", page: 3, pageSize: 10 });
       expect(page3.results).toHaveLength(5);
       expect(page3.next).toBeNull();
+    });
+  });
+
+  describe("fallback path year semantics (matches /stories/timeline/ behaviour)", () => {
+    it("does NOT forward year_from/year_to to the fallback endpoint", async () => {
+      api.get.mockResolvedValue({
+        data: { count: 0, next: null, previous: null, results: [] },
+      });
+
+      await getTimeline({ q: "Galata", yearFrom: 1870, yearTo: 1880, page: 1, pageSize: 10 });
+
+      // Feed/search use simpler year semantics; we filter client-side instead.
+      const calledWith = api.get.mock.calls[0][1];
+      expect(calledWith.params).not.toHaveProperty("year_from");
+      expect(calledWith.params).not.toHaveProperty("year_to");
+    });
+
+    it("includes a decade story whose interval overlaps the year window (semantic parity with /stories/timeline/)", async () => {
+      api.get.mockResolvedValue({
+        data: {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            // Decade 1870 = represents 1870-1879. /stories/feed/ would have
+            // dropped it for year_from=1875 because year (1870) < 1875. But
+            // /stories/timeline/ includes it via interval overlap. After this
+            // fix, the fallback path also includes it.
+            story({ id: "d", time_type: "decade", year: 1870 }),
+          ],
+        },
+      });
+
+      const result = await getTimeline({ q: "x", yearFrom: 1875, yearTo: 1885, page: 1, pageSize: 10 });
+      expect(result.results.map((s) => s.id)).toEqual(["d"]);
+    });
+
+    it("includes an exact_date story whose year falls in the window", async () => {
+      api.get.mockResolvedValue({
+        data: {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            // /stories/feed/ would drop this — year is null on exact_date —
+            // but /stories/timeline/ matches via date_value__year. Parity.
+            story({ id: "ed", time_type: "exact_date", date_value: "1923-10-29" }),
+          ],
+        },
+      });
+
+      const result = await getTimeline({ q: "x", yearFrom: 1920, yearTo: 1925, page: 1, pageSize: 10 });
+      expect(result.results.map((s) => s.id)).toEqual(["ed"]);
+    });
+
+    it("excludes stories whose interval falls outside the year window", async () => {
+      api.get.mockResolvedValue({
+        data: {
+          count: 3,
+          next: null,
+          previous: null,
+          results: [
+            story({ id: "before", time_type: "exact_year", year: 1850 }),
+            story({ id: "in", time_type: "exact_year", year: 1875 }),
+            story({ id: "after", time_type: "exact_year", year: 1950 }),
+          ],
+        },
+      });
+
+      const result = await getTimeline({ q: "x", yearFrom: 1870, yearTo: 1880, page: 1, pageSize: 10 });
+      expect(result.results.map((s) => s.id)).toEqual(["in"]);
+    });
+  });
+
+  describe("storyOverlapsYearWindow", () => {
+    it("returns true when both bounds are null (no filter)", () => {
+      expect(storyOverlapsYearWindow(story({ time_type: "exact_year", year: 1875 }), null, null)).toBe(
+        true,
+      );
+    });
+
+    it("exact_year — point in [yearFrom, yearTo]", () => {
+      const s = story({ time_type: "exact_year", year: 1875 });
+      expect(storyOverlapsYearWindow(s, 1870, 1880)).toBe(true);
+      expect(storyOverlapsYearWindow(s, 1880, 1890)).toBe(false);
+      expect(storyOverlapsYearWindow(s, 1860, 1870)).toBe(false);
+    });
+
+    it("decade — interval [Y, Y+9] overlaps window (the bug we're fixing)", () => {
+      const s = story({ time_type: "decade", year: 1870 });
+      // Window 1875-1885 overlaps 1870-1879 → INCLUDED
+      expect(storyOverlapsYearWindow(s, 1875, 1885)).toBe(true);
+      // Window 1865-1872 overlaps 1870-1879 → INCLUDED
+      expect(storyOverlapsYearWindow(s, 1865, 1872)).toBe(true);
+      // Window entirely after the decade → EXCLUDED
+      expect(storyOverlapsYearWindow(s, 1880, 1890)).toBe(false);
+      // Window entirely before the decade → EXCLUDED
+      expect(storyOverlapsYearWindow(s, 1850, 1869)).toBe(false);
+    });
+
+    it("year_range — interval [year_start, year_end] overlaps window", () => {
+      const s = story({ time_type: "year_range", year_start: 1850, year_end: 1900 });
+      expect(storyOverlapsYearWindow(s, 1875, 1885)).toBe(true);
+      expect(storyOverlapsYearWindow(s, 1820, 1860)).toBe(true);
+      expect(storyOverlapsYearWindow(s, 1910, 1920)).toBe(false);
+      expect(storyOverlapsYearWindow(s, 1800, 1849)).toBe(false);
+    });
+
+    it("exact_date — year extracted from date_value", () => {
+      const s = story({ time_type: "exact_date", date_value: "1923-10-29" });
+      expect(storyOverlapsYearWindow(s, 1920, 1925)).toBe(true);
+      expect(storyOverlapsYearWindow(s, 1924, 1930)).toBe(false);
+    });
+
+    it("one-sided window — only yearFrom or only yearTo", () => {
+      const s = story({ time_type: "exact_year", year: 1875 });
+      expect(storyOverlapsYearWindow(s, 1870, null)).toBe(true);
+      expect(storyOverlapsYearWindow(s, 1880, null)).toBe(false);
+      expect(storyOverlapsYearWindow(s, null, 1880)).toBe(true);
+      expect(storyOverlapsYearWindow(s, null, 1870)).toBe(false);
+    });
+
+    it("excludes stories with no usable time info when a window is set", () => {
+      expect(storyOverlapsYearWindow(story({ time_type: "exact_year", year: null }), 1870, 1880)).toBe(
+        false,
+      );
+      expect(storyOverlapsYearWindow(null, 1870, 1880)).toBe(false);
     });
   });
 
