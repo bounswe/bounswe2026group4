@@ -28,6 +28,7 @@ import { loadStoryDetail } from '../state/storyDetailController';
 
 interface StoryScreenProps {
   storyId: string;
+  focusedCommentId?: string;
   session?: Pick<Session, 'role' | 'user'>;
   onRequestLogin?: () => void;
   onGoBack?: () => void;
@@ -636,6 +637,8 @@ interface CommentsSectionProps {
   comments: StoryEntity['comments'];
   isAuthenticated: boolean;
   currentUsername?: string;
+  canModerateComments?: boolean;
+  focusedCommentId?: string;
   loginPromptVisible: boolean;
   commentText: string;
   commentError?: string;
@@ -655,6 +658,8 @@ function CommentsSection({
   comments,
   isAuthenticated,
   currentUsername,
+  canModerateComments = false,
+  focusedCommentId,
   loginPromptVisible,
   commentText,
   commentError,
@@ -719,6 +724,7 @@ function CommentsSection({
 
       {displayedComments.map((comment) => {
         const isOwnComment = isAuthenticated && currentUsername === comment.authorName;
+        const canDeleteComment = isOwnComment || canModerateComments;
         const awaitingConfirm = confirmDeleteId === comment.id;
         const authorDisplayName = getDisplayNameWithYouLabel(comment.authorName, isOwnComment);
 
@@ -730,8 +736,8 @@ function CommentsSection({
             padding: spacing.md,
             borderRadius: 16,
             borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.surface,
+            borderColor: focusedCommentId === comment.id ? colors.primary : colors.border,
+            backgroundColor: focusedCommentId === comment.id ? colors.infoSurface : colors.surface,
           }}
         >
           <Text style={{ color: colors.text, fontWeight: '700' }}>{authorDisplayName}</Text>
@@ -758,10 +764,11 @@ function CommentsSection({
                   <Text style={{ color: colors.muted, fontWeight: '700' }}>Report</Text>
                 </Pressable>
               ) : null}
-              {isOwnComment ? (
+              {canDeleteComment ? (
                 <Pressable
                   onPress={() => onDeleteRequest(comment.id)}
                   accessibilityRole="button"
+                  accessibilityLabel={`Delete comment by ${authorDisplayName}`}
                   style={({ pressed }) => ({
                     minHeight: 44,
                     justifyContent: 'center',
@@ -806,6 +813,7 @@ function CommentsSection({
 
 export function StoryScreen({
   storyId,
+  focusedCommentId,
   session,
   onRequestLogin,
   onGoBack,
@@ -839,7 +847,9 @@ export function StoryScreen({
   const [contributorPhotoUrl, setContributorPhotoUrl] = useState<string | null>(null);
   const [isNarrativeExpanded, setIsNarrativeExpanded] = useState(false);
   const [narrativeTop, setNarrativeTop] = useState(0);
+  const [commentsTop, setCommentsTop] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const hasScrolledToFocusedCommentRef = useRef(false);
   const deletedCommentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -861,6 +871,8 @@ export function StoryScreen({
     setContributorPhotoUrl(null);
     setIsNarrativeExpanded(false);
     setNarrativeTop(0);
+    setCommentsTop(0);
+    hasScrolledToFocusedCommentRef.current = false;
     deletedCommentIdsRef.current = new Set();
 
     loadStoryDetail(storyId, session?.role, getStory).then((nextState) => {
@@ -899,6 +911,21 @@ export function StoryScreen({
       isMounted = false;
     };
   }, [getStory, session?.role, storyId]);
+
+  useEffect(() => {
+    hasScrolledToFocusedCommentRef.current = false;
+  }, [focusedCommentId, storyId]);
+
+  useEffect(() => {
+    if (!focusedCommentId || !commentsTop || hasScrolledToFocusedCommentRef.current || !comments.length) {
+      return;
+    }
+
+    hasScrolledToFocusedCommentRef.current = true;
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: Math.max(0, commentsTop - spacing.md), animated: true });
+    });
+  }, [comments.length, commentsTop, focusedCommentId, spacing.md]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1471,10 +1498,13 @@ export function StoryScreen({
         <Text style={{ marginTop: spacing.sm, color: colors.danger }}>{interactionError}</Text>
       ) : null}
 
+      <View testID="story-comments-section" onLayout={(event) => setCommentsTop(event.nativeEvent.layout.y)}>
       <CommentsSection
         comments={comments}
         isAuthenticated={state.isAuthenticated}
         currentUsername={session?.user.username}
+        canModerateComments={session?.role === roles.admin}
+        focusedCommentId={focusedCommentId}
         loginPromptVisible={state.loginPromptVisible}
         commentText={commentText}
         commentError={commentError}
@@ -1499,6 +1529,7 @@ export function StoryScreen({
         }}
         onReportRequest={(commentId) => handleReportRequest('comment', commentId)}
       />
+      </View>
       <ReportSheet
         key={reportTarget ? `${reportTarget.targetType}-${reportTarget.targetId}` : 'hidden-report-sheet'}
         visible={Boolean(reportTarget)}

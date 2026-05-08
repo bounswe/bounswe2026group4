@@ -20,15 +20,17 @@ import { useToast } from '../../shared/hooks/useToast';
 import { APP_NAME } from '../../core/constants/app';
 import { NotificationScreen, notificationService } from '../../features/notifications';
 import { NotificationEntity } from '../../features/notifications/domain/entities';
+import { ModerationScreen } from '../../features/moderation';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 interface RouteSnapshot {
   route: AppRoute;
   storyId?: string | null;
+  commentId?: string | null;
   userId?: string | null;
 }
 
-const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION, ROUTES.NOTIFICATIONS];
+const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION, ROUTES.NOTIFICATIONS, ROUTES.ADMIN_HOME];
 const NOTIFICATION_REFRESH_INTERVAL_MS = 45000;
 const MAIN_PAGER_ROUTES: AppRoute[] = [ROUTES.MAP, ROUTES.TIMELINE, ROUTES.FEED];
 
@@ -360,6 +362,7 @@ export function RootNavigator() {
   const { width } = useWindowDimensions();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
+  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string } | null>(null);
   const [shouldCompleteProfileAfterLogin, setShouldCompleteProfileAfterLogin] = useState(false);
@@ -379,9 +382,10 @@ export function RootNavigator() {
     () => ({
       route: currentRoute,
       storyId: currentRoute === ROUTES.STORY_DETAIL ? activeStoryId : null,
+      commentId: currentRoute === ROUTES.STORY_DETAIL ? focusedCommentId : null,
       userId: currentRoute === ROUTES.USER_PROFILE ? activeUserId : null,
     }),
-    [activeStoryId, activeUserId, currentRoute],
+    [activeStoryId, activeUserId, currentRoute, focusedCommentId],
   );
   const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
   const canGoBack = backStack.length > 0;
@@ -419,6 +423,7 @@ export function RootNavigator() {
   const restoreSnapshot = useCallback((snapshot: RouteSnapshot) => {
     setCurrentRoute(snapshot.route);
     setActiveStoryId(snapshot.route === ROUTES.STORY_DETAIL ? snapshot.storyId ?? null : null);
+    setFocusedCommentId(snapshot.route === ROUTES.STORY_DETAIL ? snapshot.commentId ?? null : null);
     setActiveUserId(snapshot.route === ROUTES.USER_PROFILE ? snapshot.userId ?? null : null);
   }, []);
 
@@ -455,6 +460,7 @@ export function RootNavigator() {
         !options?.resetStack &&
         snapshot.route === currentSnapshot.route &&
         snapshot.storyId === currentSnapshot.storyId &&
+        snapshot.commentId === currentSnapshot.commentId &&
         snapshot.userId === currentSnapshot.userId
       ) {
         return;
@@ -469,6 +475,7 @@ export function RootNavigator() {
           if (
             previous?.route === currentSnapshot.route &&
             previous?.storyId === currentSnapshot.storyId &&
+            previous?.commentId === currentSnapshot.commentId &&
             previous?.userId === currentSnapshot.userId
           ) {
             return current;
@@ -561,7 +568,9 @@ export function RootNavigator() {
       showAuthRequiredMessage(
         route === ROUTES.PROFILE
           ? 'Please sign in to view your profile.'
-          : 'Please sign in to submit a story.',
+          : route === ROUTES.ADMIN_HOME
+            ? 'Please sign in with an admin account to continue.'
+            : 'Please sign in to submit a story.',
       );
       return;
     }
@@ -627,6 +636,7 @@ export function RootNavigator() {
       if (
         previousSnapshot?.route === resolvedRedirectTarget.route &&
         previousSnapshot?.storyId === resolvedRedirectTarget.storyId &&
+        previousSnapshot?.commentId === resolvedRedirectTarget.commentId &&
         previousSnapshot?.userId === resolvedRedirectTarget.userId
       ) {
         nextStack.pop();
@@ -714,6 +724,10 @@ export function RootNavigator() {
 
   const handleOpenStoryDetail = (storyId: string) => {
     navigateToSnapshot({ route: ROUTES.STORY_DETAIL, storyId });
+  };
+
+  const handleOpenStoryComment = (storyId: string, commentId: string) => {
+    navigateToSnapshot({ route: ROUTES.STORY_DETAIL, storyId, commentId });
   };
 
   const handleViewTimelineNearPin = useCallback(
@@ -895,10 +909,31 @@ export function RootNavigator() {
         </ScreenShell>
       </ProtectedScreen>
     );
+  } else if (currentRoute === ROUTES.ADMIN_HOME) {
+    content = (
+      <ProtectedScreen
+        title="Admin tools require sign-in"
+        description="Sign in with an admin account to continue."
+        onAuthenticated={handleLoginComplete}
+        onRegistrationPending={handleRegistrationPending}
+      >
+        <ScreenShell
+          title="Admin moderation"
+          description="Review reports, stories, and tags."
+          framed={false}
+          fillContent
+          hideHeader
+          flushBottom
+        >
+          <ModerationScreen onOpenStory={handleOpenStoryDetail} onOpenComment={handleOpenStoryComment} />
+        </ScreenShell>
+      </ProtectedScreen>
+    );
   } else if (currentRoute === ROUTES.STORY_DETAIL && activeStoryId) {
     content = (
       <StoryScreen
         storyId={activeStoryId}
+        focusedCommentId={focusedCommentId ?? undefined}
         session={user ? { role: user.role, user } : undefined}
         onRequestLogin={() => showAuthRequiredMessage('Please sign in to like stories and join the discussion.')}
         onGoBack={handleBack}
@@ -1070,6 +1105,13 @@ export function RootNavigator() {
           )}
           {isAuthenticated ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              {user?.role === 'admin' ? (
+                <TopIconButton
+                  label="Admin"
+                  filled={currentRoute === ROUTES.ADMIN_HOME}
+                  onPress={() => handleNavigate(ROUTES.ADMIN_HOME)}
+                />
+              ) : null}
               <NotificationBellButton
                 unreadCount={unreadNotificationCount}
                 onPress={() => handleNavigate(ROUTES.NOTIFICATIONS)}

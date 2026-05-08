@@ -1,1 +1,1 @@
-export const moderationService = {};
+export * from './adminService';
