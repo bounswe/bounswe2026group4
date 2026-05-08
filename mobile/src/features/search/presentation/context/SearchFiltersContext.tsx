@@ -20,6 +20,7 @@ export interface SearchFiltersState {
   proximityRadiusKm?: ProximityRadiusKm;
   proximityCoordinates?: ProximityCoordinates;
   proximitySource?: ProximitySource;
+  proximityLabel?: string;
   timeFrom: string;
   timeTo: string;
   tags: string[];
@@ -43,6 +44,7 @@ const initialFilters: SearchFiltersState = {
   proximityRadiusKm: undefined,
   proximityCoordinates: undefined,
   proximitySource: undefined,
+  proximityLabel: undefined,
   timeFrom: '',
   timeTo: '',
   tags: [],
@@ -154,9 +156,10 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
             ...currentFilters,
             [key]: key === 'tags' ? [] : '',
             ...(key === 'location' ? { locationBounds: undefined } : {}),
-            ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined } : {}),
-            ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined } : {}),
-            ...(key === 'proximitySource' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined } : {}),
+            ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
+            ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
+            ...(key === 'proximitySource' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
+            ...(key === 'proximityLabel' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
           }),
           { refresh: true },
         );
@@ -236,6 +239,7 @@ function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): S
     proximityRadiusKm: normalizeProximityRadius(filters?.proximityRadiusKm),
     proximityCoordinates: normalizeProximityCoordinates(filters?.proximityCoordinates),
     proximitySource: normalizeProximitySource(filters?.proximitySource),
+    proximityLabel: normalizeOptionalString(filters?.proximityLabel),
     timeFrom: filters?.timeFrom ?? '',
     timeTo: filters?.timeTo ?? '',
     tags: normalizeTags(filters?.tags),
@@ -275,6 +279,12 @@ function normalizeProximityCoordinates(coordinates?: ProximityCoordinates | null
     latitude,
     longitude,
   };
+}
+
+function normalizeOptionalString(value?: string | null): string | undefined {
+  const normalized = value?.trim();
+
+  return normalized ? normalized : undefined;
 }
 
 function normalizeLocationBounds(bounds?: LocationBounds | null): LocationBounds | undefined {

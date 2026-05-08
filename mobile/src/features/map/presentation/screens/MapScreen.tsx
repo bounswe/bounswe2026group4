@@ -21,7 +21,7 @@ interface MapScreenProps {
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
   onMarkerPreviewRequested?: (targetY: number) => void;
-  onViewTimeline?: (coordinates: { latitude: number; longitude: number }) => void;
+  onViewTimeline?: (target: { latitude: number; longitude: number; label?: string }) => void;
   showSearchControls?: boolean;
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
   onMapTouchChange?: (isTouchingMap: boolean) => void;
@@ -46,6 +46,7 @@ const KILOMETERS_PER_LATITUDE_DEGREE = 111;
 const MAX_AUTO_REGION_DELTA = 20;
 const CLUSTER_RADIUS_REGION_FRACTION = 0.1;
 const MIN_CLUSTER_RADIUS_DEGREES = 0.0008;
+const MIN_CLUSTER_ZOOM_DELTA = 0.00001;
 type StatusIndicatorMode = 'hidden' | 'filters' | 'area';
 
 export function MapScreen({
@@ -69,6 +70,8 @@ export function MapScreen({
   const [visibleRegion, setVisibleRegion] = useState<Region | undefined>();
   const [hasInteractedWithArea, setHasInteractedWithArea] = useState(false);
   const [statusIndicatorMode, setStatusIndicatorMode] = useState<StatusIndicatorMode>('hidden');
+  const [zoomedMarkerIds, setZoomedMarkerIds] = useState<Set<string>>(() => new Set());
+  const [expandedMarkerIds, setExpandedMarkerIds] = useState<Set<string>>(() => new Set());
   const lastAutoZoomContextKeyRef = useRef<string | null>(null);
   const previousMapPinFilterKeyRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
@@ -136,7 +139,7 @@ export function MapScreen({
     try {
       const markers = await getMarkerGroups(activeFilters);
       const selectedMarkerId = getPreferredMarkerId(markers, activeFilters);
-      const nextAutoRegion = getAutoZoomRegion(markers, activeFilters);
+      const nextAutoRegion = getAutoZoomRegion(markers, activeFilters, filters.proximitySource);
 
       if (requestId !== loadRequestIdRef.current) {
         return;
@@ -149,6 +152,8 @@ export function MapScreen({
         markers,
         selectedMarkerId,
       });
+      setZoomedMarkerIds(new Set());
+      setExpandedMarkerIds(new Set());
 
       if (nextAutoRegion && lastAutoZoomContextKeyRef.current !== autoZoomContextKey) {
         lastAutoZoomContextKeyRef.current = autoZoomContextKey;
@@ -167,7 +172,7 @@ export function MapScreen({
         selectedMarkerId: undefined,
       });
     }
-  }, [activeFilters, autoZoomContextKey, getMarkerGroups]);
+  }, [activeFilters, autoZoomContextKey, filters.proximitySource, getMarkerGroups]);
 
   useEffect(() => {
     if (!isHydrated) {
@@ -239,16 +244,18 @@ export function MapScreen({
     [filters, state.markers],
   );
   const displayMarkers = useMemo(
-    () => clusterMarkersForRegion(state.markers, mapRegion),
-    [mapRegion, state.markers],
+    () => clusterMarkersForRegion(state.markers, mapRegion, expandedMarkerIds),
+    [expandedMarkerIds, mapRegion, state.markers],
   );
   const displayedSelectedMarkerId = useMemo(
     () => getDisplayedMarkerId(state.selectedMarkerId, displayMarkers, state.markers),
     [displayMarkers, state.markers, state.selectedMarkerId],
   );
   const displayedHighlightedMarkerId = useMemo(
-    () => getDisplayedMarkerId(mapPinFilterMarkerId, displayMarkers, state.markers),
-    [displayMarkers, mapPinFilterMarkerId, state.markers],
+    () =>
+      getDisplayedMarkerId(mapPinFilterMarkerId, displayMarkers, state.markers) ??
+      getDisplayedMapPinCoordinateMarkerId(displayMarkers, filters),
+    [displayMarkers, filters, mapPinFilterMarkerId, state.markers],
   );
   const statusStoryCount = useMemo(() => {
     if (statusIndicatorMode !== 'area' || !hasInteractedWithArea || !visibleRegion) {
@@ -324,14 +331,29 @@ export function MapScreen({
           userLocation={userLocation}
           onSelectMarker={(markerId) => {
             const selectedMarker = displayMarkers.find((marker) => marker.id === markerId);
-            const shouldOpenPreview = displayedSelectedMarkerId !== markerId;
+            const shouldZoomCluster = Boolean(
+              selectedMarker?.isCluster && hasDistinctStoryCoordinates(selectedMarker),
+            );
+            const shouldOpenPreview = displayedSelectedMarkerId !== markerId || shouldZoomCluster;
 
             setState((current) => ({
               ...current,
-              selectedMarkerId: displayedSelectedMarkerId === markerId ? undefined : markerId,
+              selectedMarkerId: displayedSelectedMarkerId === markerId && !shouldZoomCluster ? undefined : markerId,
             }));
 
-            if (selectedMarker?.isCluster && shouldOpenPreview) {
+            if (selectedMarker?.isCluster && shouldZoomCluster) {
+              const isSourceMarker = state.markers.some((marker) => marker.id === selectedMarker.id);
+
+              if (isSourceMarker) {
+                const hasZoomedMarkerBefore = zoomedMarkerIds.has(selectedMarker.id);
+
+                setZoomedMarkerIds((current) => new Set(current).add(selectedMarker.id));
+
+                if (hasZoomedMarkerBefore) {
+                  setExpandedMarkerIds((current) => new Set(current).add(selectedMarker.id));
+                }
+              }
+
               const nextRegion = getRegionForCluster(selectedMarker, mapRegion);
               setMapRegion(nextRegion);
               setVisibleRegion(nextRegion);
@@ -430,9 +452,15 @@ function countStoriesInRegion(markers: MapMarkerGroup[], region: Region) {
   }, 0);
 }
 
-function clusterMarkersForRegion(markers: MapMarkerGroup[], region: Region): MapMarkerGroup[] {
-  if (markers.length < 2) {
-    return markers;
+function clusterMarkersForRegion(
+  markers: MapMarkerGroup[],
+  region: Region,
+  expandedMarkerIds: Set<string>,
+): MapMarkerGroup[] {
+  const clusterableMarkers = expandDistinctStoryMarkers(markers, expandedMarkerIds);
+
+  if (clusterableMarkers.length < 2) {
+    return clusterableMarkers;
   }
 
   const clusterRadius = Math.max(
@@ -441,7 +469,7 @@ function clusterMarkersForRegion(markers: MapMarkerGroup[], region: Region): Map
   );
   const clusters: MapMarkerGroup[][] = [];
 
-  markers.forEach((marker) => {
+  clusterableMarkers.forEach((marker) => {
     const matchingCluster = clusters.find((cluster) => {
       const center = getWeightedClusterCenter(cluster);
 
@@ -480,6 +508,23 @@ function clusterMarkersForRegion(markers: MapMarkerGroup[], region: Region): Map
   });
 }
 
+function expandDistinctStoryMarkers(markers: MapMarkerGroup[], expandedMarkerIds: Set<string>) {
+  return markers.flatMap((marker) => {
+    if (!expandedMarkerIds.has(marker.id) || !marker.isCluster || !hasDistinctStoryCoordinates(marker)) {
+      return [marker];
+    }
+
+    return marker.stories.map((story) => ({
+      id: `${marker.id}:story:${story.id}`,
+      latitude: story.latitude,
+      longitude: story.longitude,
+      stories: [story],
+      count: 1,
+      isCluster: false,
+    }));
+  });
+}
+
 function getWeightedClusterCenter(markers: MapMarkerGroup[]) {
   const totalCount = markers.reduce((sum, marker) => sum + marker.count, 0);
   const latitude = markers.reduce((sum, marker) => sum + marker.latitude * marker.count, 0) / totalCount;
@@ -506,17 +551,29 @@ function getRegionForCluster(marker: MapMarkerGroup, currentRegion: Region): Reg
   const maxLatitude = Math.max(...latitudes, marker.latitude);
   const minLongitude = Math.min(...longitudes, marker.longitude);
   const maxLongitude = Math.max(...longitudes, marker.longitude);
-  const latitudeDelta = Math.max((maxLatitude - minLatitude) * FIT_PADDING_FACTOR, MIN_LOCATION_DELTA);
-  const longitudeDelta = Math.max((maxLongitude - minLongitude) * FIT_PADDING_FACTOR, MIN_LOCATION_DELTA);
-  const nextLatitudeDelta = Math.min(latitudeDelta, Math.max(currentRegion.latitudeDelta * 0.45, MIN_LOCATION_DELTA));
-  const nextLongitudeDelta = Math.min(longitudeDelta, Math.max(currentRegion.longitudeDelta * 0.45, MIN_LOCATION_DELTA));
+  const latitudeDelta = Math.max((maxLatitude - minLatitude) * FIT_PADDING_FACTOR, MIN_CLUSTER_ZOOM_DELTA);
+  const longitudeDelta = Math.max((maxLongitude - minLongitude) * FIT_PADDING_FACTOR, MIN_CLUSTER_ZOOM_DELTA);
+  const nextLatitudeDelta = Math.min(latitudeDelta, Math.max(currentRegion.latitudeDelta * 0.45, MIN_CLUSTER_ZOOM_DELTA));
+  const nextLongitudeDelta = Math.min(longitudeDelta, Math.max(currentRegion.longitudeDelta * 0.45, MIN_CLUSTER_ZOOM_DELTA));
 
   return {
     latitude: (minLatitude + maxLatitude) / 2,
     longitude: (minLongitude + maxLongitude) / 2,
-    latitudeDelta: clampRegionDelta(nextLatitudeDelta, MIN_LOCATION_DELTA),
-    longitudeDelta: clampRegionDelta(nextLongitudeDelta, MIN_LOCATION_DELTA),
+    latitudeDelta: clampRegionDelta(nextLatitudeDelta, MIN_CLUSTER_ZOOM_DELTA),
+    longitudeDelta: clampRegionDelta(nextLongitudeDelta, MIN_CLUSTER_ZOOM_DELTA),
   };
+}
+
+function hasDistinctStoryCoordinates(marker: MapMarkerGroup) {
+  const [firstStory] = marker.stories;
+
+  if (!firstStory) {
+    return false;
+  }
+
+  return marker.stories.some(
+    (story) => story.latitude !== firstStory.latitude || story.longitude !== firstStory.longitude,
+  );
 }
 
 function getDisplayedMarkerId(
@@ -565,7 +622,24 @@ function getMapPinFilterMarkerId(markers: MapMarkerGroup[], filters: SearchFilte
 
   const { latitude, longitude } = filters.proximityCoordinates;
   const matchingMarker = markers.find(
-    (marker) => coordinatesEqual(marker.latitude, latitude) && coordinatesEqual(marker.longitude, longitude),
+    (marker) =>
+      (coordinatesEqual(marker.latitude, latitude) && coordinatesEqual(marker.longitude, longitude)) ||
+      marker.stories.some((story) => coordinatesEqual(story.latitude, latitude) && coordinatesEqual(story.longitude, longitude)),
+  );
+
+  return matchingMarker?.id;
+}
+
+function getDisplayedMapPinCoordinateMarkerId(markers: MapMarkerGroup[], filters: SearchFiltersState) {
+  if (filters.proximitySource !== 'map_pin' || !filters.proximityCoordinates) {
+    return undefined;
+  }
+
+  const { latitude, longitude } = filters.proximityCoordinates;
+  const matchingMarker = markers.find(
+    (marker) =>
+      (coordinatesEqual(marker.latitude, latitude) && coordinatesEqual(marker.longitude, longitude)) ||
+      marker.stories.some((story) => coordinatesEqual(story.latitude, latitude) && coordinatesEqual(story.longitude, longitude)),
   );
 
   return matchingMarker?.id;
@@ -595,7 +669,11 @@ function buildAutoZoomContextKey(filters: StoryFilters) {
   });
 }
 
-function getAutoZoomRegion(markers: MapMarkerGroup[], filters: StoryFilters): Region | undefined {
+function getAutoZoomRegion(markers: MapMarkerGroup[], filters: StoryFilters, proximitySource?: SearchFiltersState['proximitySource']): Region | undefined {
+  if (proximitySource === 'map_pin') {
+    return undefined;
+  }
+
   if (filters.locationBounds) {
     return getRegionForLocationBounds(filters.locationBounds);
   }
