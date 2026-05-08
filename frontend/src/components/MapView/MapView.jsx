@@ -25,6 +25,10 @@ const ISTANBUL_CENTER = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 12;
 const SINGLE_FEATURE_MAX_ZOOM = 15;
 const FIT_BOUNDS_PADDING = [40, 40];
+const KM_PER_LATITUDE_DEGREE = 111;
+// Pads the radius circle bounds so the radius isn't flush with the viewport
+// edge — matches PROXIMITY_PADDING_FACTOR on mobile.
+const PROXIMITY_BOUNDS_PADDING_FACTOR = 1.2;
 
 // Intercepts clicks on story links inside popup HTML so they perform
 // client-side navigation instead of a full page reload. Captures the
@@ -67,7 +71,30 @@ function isValidBbox(bbox) {
   );
 }
 
-function FitBoundsToFeatures({ features, bbox }) {
+function isValidProximity(proximity) {
+  return (
+    proximity != null &&
+    Number.isFinite(proximity.latitude) &&
+    Number.isFinite(proximity.longitude) &&
+    Number.isFinite(proximity.radiusKm) &&
+    proximity.radiusKm > 0
+  );
+}
+
+// Returns Leaflet bounds covering a circle of `radiusKm` around the given
+// point. Mirrors mobile's getRegionForProximityFilter so both clients zoom to
+// the same area for the same filter.
+function proximityBounds({ latitude, longitude, radiusKm }) {
+  const latDelta = (radiusKm / KM_PER_LATITUDE_DEGREE) * PROXIMITY_BOUNDS_PADDING_FACTOR;
+  const cosLat = Math.max(Math.cos((latitude * Math.PI) / 180), 0.2);
+  const lngDelta = (radiusKm / (KM_PER_LATITUDE_DEGREE * cosLat)) * PROXIMITY_BOUNDS_PADDING_FACTOR;
+  return L.latLngBounds([
+    [latitude - latDelta, longitude - lngDelta],
+    [latitude + latDelta, longitude + lngDelta],
+  ]);
+}
+
+function FitBoundsToFeatures({ features, bbox, proximity }) {
   const map = useMap();
   // Skip re-fitting when the inputs are unchanged — refetches that return the
   // same bbox + stories shouldn't snap the map back over the user's pan.
@@ -76,26 +103,35 @@ function FitBoundsToFeatures({ features, bbox }) {
   useEffect(() => {
     if (!map) return;
     const hasBbox = isValidBbox(bbox);
-    if (!hasBbox && features.length === 0) {
+    const hasProximity = !hasBbox && isValidProximity(proximity);
+    if (!hasBbox && !hasProximity && features.length === 0) {
       lastFitKeyRef.current = null;
       return;
     }
     const bboxKey = hasBbox
       ? `${bbox.latMin}|${bbox.latMax}|${bbox.lngMin}|${bbox.lngMax}`
       : "";
+    const proximityKey = hasProximity
+      ? `${proximity.latitude}|${proximity.longitude}|${proximity.radiusKm}`
+      : "";
     const featuresKey = features.map((f) => f.id).join("|");
-    const fitKey = `${bboxKey}::${featuresKey}`;
+    const fitKey = `${bboxKey}::${proximityKey}::${featuresKey}`;
     if (fitKey === lastFitKeyRef.current) return;
     lastFitKeyRef.current = fitKey;
 
     // Bbox takes priority so the user always sees the area they searched
-    // for, even if no markers fall inside it.
+    // for, even if no markers fall inside it. Proximity is the next-best
+    // signal; markers are only used when neither is set.
     if (hasBbox) {
       const bounds = L.latLngBounds([
         [bbox.latMin, bbox.lngMin],
         [bbox.latMax, bbox.lngMax],
       ]);
       map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING });
+      return;
+    }
+    if (hasProximity) {
+      map.fitBounds(proximityBounds(proximity), { padding: FIT_BOUNDS_PADDING });
       return;
     }
     const latlngs = features.map(featureLatLng).filter(Boolean);
@@ -106,7 +142,7 @@ function FitBoundsToFeatures({ features, bbox }) {
         ? { maxZoom: SINGLE_FEATURE_MAX_ZOOM }
         : { padding: FIT_BOUNDS_PADDING };
     map.fitBounds(bounds, options);
-  }, [map, features, bbox]);
+  }, [map, features, bbox, proximity]);
   return null;
 }
 
@@ -141,7 +177,7 @@ function ClusteredMarkers({ features }) {
   return null;
 }
 
-function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false, bbox = null }) {
+function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false, bbox = null, proximity = null }) {
   const features = useMemo(
     () => featureCollection?.features ?? [],
     [featureCollection],
@@ -160,7 +196,7 @@ function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ClusteredMarkers features={features} />
-        <FitBoundsToFeatures features={features} bbox={bbox} />
+        <FitBoundsToFeatures features={features} bbox={bbox} proximity={proximity} />
         <StoryLinkInterceptor />
       </MapContainer>
       {loading && (
