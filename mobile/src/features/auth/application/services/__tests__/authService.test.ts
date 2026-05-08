@@ -49,4 +49,46 @@ describe('authService email verification', () => {
       },
     ]);
   });
+
+  it('requests a password reset through /auth/password-reset/', async () => {
+    const requests: Array<{ method: string; url?: string; data?: unknown }> = [];
+
+    setApiTransport(async (method: any, config: any) => {
+      requests.push({ method, url: config.url, data: config.data });
+      return { status: 200, data: { message: 'ok' } as never, config };
+    });
+
+    await authService.forgotPassword(' Traveler@Example.COM ');
+
+    expect(requests).toEqual([
+      {
+        method: 'POST',
+        url: '/auth/password-reset/',
+        data: { email: 'traveler@example.com' },
+      },
+    ]);
+  });
+
+  it('resets a password through /auth/password-reset/confirm/', async () => {
+    const requests: Array<{ method: string; url?: string; data?: unknown }> = [];
+
+    setApiTransport(async (method: any, config: any) => {
+      requests.push({ method, url: config.url, data: config.data });
+      return { status: 200, data: { message: 'ok' } as never, config };
+    });
+
+    await authService.resetPassword(' reset-token ', 'NewPassword1');
+
+    expect(requests).toEqual([
+      {
+        method: 'POST',
+        url: '/auth/password-reset/confirm/',
+        data: {
+          token: 'reset-token',
+          new_password: 'NewPassword1',
+          new_password_confirmation: 'NewPassword1',
+        },
+      },
+    ]);
+  });
 });

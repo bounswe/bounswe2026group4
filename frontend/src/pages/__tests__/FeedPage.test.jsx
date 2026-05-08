@@ -377,4 +377,19 @@ describe("FeedPage", () => {
       expect(screen.getByText(/5 stories found/i)).toBeInTheDocument();
     });
   });
+
+  it("forwards latitude, longitude and radiusKm from the URL to getStories", async () => {
+    getStories.mockResolvedValue(makeResponse({ count: 0, results: [] }));
+    renderPage(["/?latitude=41.0&longitude=28.9&radius_km=1"]);
+
+    await waitFor(() => {
+      expect(getStories).toHaveBeenCalledWith(
+        expect.objectContaining({
+          latitude: 41.0,
+          longitude: 28.9,
+          radiusKm: 1,
+        }),
+      );
+    });
+  });
 });

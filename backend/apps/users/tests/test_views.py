@@ -1097,7 +1097,7 @@ class TestUserBookmarksView:
 class TestUserStoriesView:
     url = '/users/{user_id}/stories/'
 
-    def _make_story(self, user, title='Story', status=Story.STATUS_PUBLISHED):
+    def _make_story(self, user, title='Story', status=Story.STATUS_PUBLISHED, contributor_visible=True):
         return Story.objects.create(
             user=user,
             title=title,
@@ -1108,6 +1108,7 @@ class TestUserStoriesView:
             location_name='Istanbul',
             time_type=Story.TIME_EXACT,
             year=2000,
+            contributor_visible=contributor_visible,
         )
 
     def test_unauthenticated_returns_200(self, client, user):
@@ -1121,6 +1122,28 @@ class TestUserStoriesView:
         response = client.get(self.url.format(user_id=user.pk))
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Published'
+
+    def test_public_profile_hides_anonymous_stories_from_other_viewers(self, client, user, second_user):
+        self._make_story(user, title='Visible Story')
+        self._make_story(user, title='Anonymous Story', contributor_visible=False)
+        client.force_authenticate(user=second_user)
+
+        response = client.get(self.url.format(user_id=user.pk))
+
+        assert response.status_code == 200
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Visible Story'
+
+    def test_owner_profile_includes_own_anonymous_stories(self, client, user):
+        self._make_story(user, title='Visible Story')
+        self._make_story(user, title='Anonymous Story', contributor_visible=False)
+        client.force_authenticate(user=user)
+
+        response = client.get(self.url.format(user_id=user.pk))
+
+        assert response.status_code == 200
+        assert response.data['count'] == 2
+        assert {story['title'] for story in response.data['results']} == {'Visible Story', 'Anonymous Story'}
 
     def test_response_is_paginated(self, client, user):
         response = client.get(self.url.format(user_id=user.pk))

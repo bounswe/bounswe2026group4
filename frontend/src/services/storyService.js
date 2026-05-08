@@ -7,6 +7,14 @@ const PAGE_SIZE = 12;
  * When `q` is provided, uses the /stories/search/ endpoint (title + location search).
  * Otherwise uses /stories/feed/ with optional year and location filters.
  */
+function applyProximityParams(params, latitude, longitude, radiusKm) {
+  if (latitude != null && longitude != null && radiusKm != null) {
+    params.latitude = latitude;
+    params.longitude = longitude;
+    params.radius_km = radiusKm;
+  }
+}
+
 export async function getStories({
   q,
   yearFrom,
@@ -16,6 +24,9 @@ export async function getStories({
   latMax,
   lngMin,
   lngMax,
+  latitude,
+  longitude,
+  radiusKm,
   tags = [],
   page = 1,
   pageSize = PAGE_SIZE,
@@ -35,6 +46,7 @@ export async function getStories({
     } else if (location?.trim()) {
       params.location = location.trim();
     }
+    applyProximityParams(params, latitude, longitude, radiusKm);
     if (tags.length > 0) params.tags = tags;
     const response = await api.get("/stories/search/", { params });
     return response.data; // { count, next, previous, results }
@@ -51,6 +63,7 @@ export async function getStories({
   } else if (location?.trim()) {
     params.location = location.trim();
   }
+  applyProximityParams(params, latitude, longitude, radiusKm);
   if (tags.length > 0) params.tags = tags;
 
   const response = await api.get("/stories/feed/", { params });
@@ -91,7 +104,7 @@ function storyToFeature(story) {
  *   FeatureCollection on the client, since the search endpoint still returns
  *   the legacy paginated story list.
  */
-export async function getMapStories({ q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags = [] } = {}) {
+export async function getMapStories({ q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags = [] } = {}) {
   const hasBbox = latMin != null && latMax != null && lngMin != null && lngMax != null;
   if (q?.trim()) {
     // Hard cap — pins beyond MAP_SEARCH_CAP are silently dropped.
@@ -106,6 +119,7 @@ export async function getMapStories({ q, yearFrom, yearTo, location, latMin, lat
     } else if (location?.trim()) {
       params.location = location.trim();
     }
+    applyProximityParams(params, latitude, longitude, radiusKm);
     if (tags.length > 0) params.tags = tags;
     const response = await api.get("/stories/search/", { params });
     const features = response.data.results
@@ -129,6 +143,7 @@ export async function getMapStories({ q, yearFrom, yearTo, location, latMin, lat
   } else if (location?.trim()) {
     params.location = location.trim();
   }
+  applyProximityParams(params, latitude, longitude, radiusKm);
   if (tags.length > 0) params.tags = tags;
 
   const response = await api.get("/stories/map/", { params });

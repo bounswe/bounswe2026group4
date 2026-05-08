@@ -243,4 +243,40 @@ describe("MapPage", () => {
       });
     });
   });
+
+  describe("proximity filter", () => {
+    it("forwards latitude, longitude and radiusKm from the URL to getMapStories", async () => {
+      getMapStories.mockResolvedValue(makeFeatureCollection([]));
+      render(
+        <MemoryRouter initialEntries={["/?latitude=41.0082&longitude=28.9784&radius_km=10"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(getMapStories).toHaveBeenCalledWith(
+          expect.objectContaining({
+            latitude: 41.0082,
+            longitude: 28.9784,
+            radiusKm: 10,
+          }),
+        );
+      });
+    });
+
+    it("does not forward proximity when only a partial set is in the URL", async () => {
+      getMapStories.mockResolvedValue(makeFeatureCollection([]));
+      render(
+        <MemoryRouter initialEntries={["/?latitude=41.0&longitude=28.9"]}>
+          <MapPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(getMapStories).toHaveBeenCalled();
+      });
+      const call = getMapStories.mock.calls[0][0];
+      expect(call.radiusKm).toBeNull();
+    });
+  });
 });

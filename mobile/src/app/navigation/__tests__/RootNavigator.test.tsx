@@ -264,6 +264,23 @@ function installAuthTransport() {
       };
     }
 
+    if (
+      method === 'GET' &&
+      (config.url === '/users/12/stories/?page=1&page_size=10' ||
+        config.url === '/users/1/stories/?page=1&page_size=10')
+    ) {
+      return {
+        status: 200,
+        data: {
+          count: feedResults.length,
+          next: null,
+          previous: null,
+          results: feedResults,
+        } as never,
+        config,
+      };
+    }
+
     if (method === 'GET' && config.url?.startsWith('/notifications/')) {
       if (config.url === '/notifications/preferences/') {
         return {
@@ -1190,6 +1207,25 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
+  it('opens story detail from a public profile published story card', async () => {
+    render(
+      <AppProviders>
+        <RootNavigator />
+      </AppProviders>,
+    );
+
+    await screen.findByLabelText('Read story: Harbor Memory');
+    fireEvent.press(screen.getByLabelText('Read story: Harbor Memory'));
+    expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Open profile: Aylin'));
+    expect(await screen.findByText('Published Stories')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Read story: Harbor Memory'));
+
+    expect(await screen.findByText('It still lives in local memory.')).toBeTruthy();
+  });
+
   it('opens the signed-in user profile when the contributor is the current user', async () => {
     setApiTransport(async (method, config) => {
       if (method === 'GET' && (config.url?.startsWith('/stories/feed/') || config.url?.startsWith('/stories/search/'))) {
@@ -1255,6 +1291,27 @@ describe('RootNavigator auth flow', () => {
         return {
           status: 200,
           data: profileDetail as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/1/') {
+        return {
+          status: 200,
+          data: ownPublicProfileDetail as never,
+          config,
+        };
+      }
+
+      if (method === 'GET' && config.url === '/users/1/stories/?page=1&page_size=10') {
+        return {
+          status: 200,
+          data: {
+            count: feedResults.length,
+            next: null,
+            previous: null,
+            results: feedResults,
+          } as never,
           config,
         };
       }

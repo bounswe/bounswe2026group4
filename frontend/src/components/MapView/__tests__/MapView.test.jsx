@@ -297,6 +297,87 @@ describe("MapView auto-zoom with bbox (geocoded location filter)", () => {
   });
 });
 
+describe("MapView auto-zoom with proximity (radius filter)", () => {
+  const PROXIMITY = { latitude: 41.0, longitude: 28.9, radiusKm: 10 };
+
+  it("fits to a circle around the user when proximity is set and there are zero markers", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([]), proximity: PROXIMITY });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(leafletMocks.latLngBounds).toHaveBeenCalledTimes(1);
+    const [[swLat, swLng], [neLat, neLng]] = leafletMocks.latLngBounds.mock.calls[0][0];
+    // Bounds should be centered on the user with positive lat/lng deltas.
+    expect((swLat + neLat) / 2).toBeCloseTo(PROXIMITY.latitude, 5);
+    expect((swLng + neLng) / 2).toBeCloseTo(PROXIMITY.longitude, 5);
+    expect(neLat).toBeGreaterThan(swLat);
+    expect(neLng).toBeGreaterThan(swLng);
+  });
+
+  it("prefers the bbox over proximity when both are present", () => {
+    const bbox = { latMin: 41.0, latMax: 41.1, lngMin: 28.9, lngMax: 29.0 };
+    renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1)]),
+      bbox,
+      proximity: PROXIMITY,
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(leafletMocks.latLngBounds).toHaveBeenCalledWith([
+      [bbox.latMin, bbox.lngMin],
+      [bbox.latMax, bbox.lngMax],
+    ]);
+  });
+
+  it("prefers proximity over marker bounds when bbox is absent", () => {
+    renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+      proximity: PROXIMITY,
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    // The bounds passed in must be the user-centered ones, not the marker hull.
+    const [[swLat], [neLat]] = leafletMocks.latLngBounds.mock.calls[0][0];
+    expect((swLat + neLat) / 2).toBeCloseTo(PROXIMITY.latitude, 5);
+  });
+
+  it("does not re-fit when re-rendered with the same proximity and same marker set", () => {
+    const fc = makeFeatureCollection([makeFeature(1)]);
+    const { rerender } = renderMapView({ featureCollection: fc, proximity: PROXIMITY });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <MapView featureCollection={fc} proximity={{ ...PROXIMITY }} />
+      </MemoryRouter>,
+    );
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-fits when the proximity radius changes", () => {
+    const fc = makeFeatureCollection([makeFeature(1)]);
+    const { rerender } = renderMapView({ featureCollection: fc, proximity: PROXIMITY });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <MapView featureCollection={fc} proximity={{ ...PROXIMITY, radiusKm: 100 }} />
+      </MemoryRouter>,
+    );
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores a partial proximity (missing radiusKm) and falls back to marker bounds", () => {
+    renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1)]),
+      proximity: { latitude: 41.0, longitude: 28.9, radiusKm: null },
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(fakeMap.fitBounds.mock.calls[0][1]).toMatchObject({ maxZoom: 15 });
+  });
+
+  it("does not call fitBounds when neither bbox, proximity, nor markers are present", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([]), proximity: null });
+    expect(fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+});
+
 describe("MapView pin clustering", () => {
   it("creates a marker cluster group when features are present", () => {
     renderMapView({ featureCollection: makeFeatureCollection([makeFeature(1)]) });

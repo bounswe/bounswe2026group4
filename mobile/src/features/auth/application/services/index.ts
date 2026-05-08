@@ -17,6 +17,12 @@ export const authService = {
   async resendVerificationCode(email: string): Promise<void> {
     return repository.resendVerificationCode(email);
   },
+  async forgotPassword(email: string): Promise<void> {
+    return repository.forgotPassword(email);
+  },
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    return repository.resetPassword(token, newPassword);
+  },
   async restore(): Promise<AuthSessionEntity | null> {
     return repository.restore();
   },

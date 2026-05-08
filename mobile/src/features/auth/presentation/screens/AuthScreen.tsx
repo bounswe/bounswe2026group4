@@ -6,10 +6,12 @@ import { useToast } from '../../../../shared/hooks/useToast';
 import { useAuth } from '../../context/AuthContext';
 import { AuthFieldErrors, AuthFormCard, AuthMode, PasswordRule } from '../components/AuthFormCard';
 import { AuthUiState } from '../state/authUiState';
+import { getPasswordError, passwordRules } from '../utils/passwordRules';
 
 interface AuthScreenProps {
   onAuthenticated?: (context: { source: 'signIn' | 'register' }) => void;
   onRegistrationPending?: (context: { email: string; password: string }) => void;
+  onForgotPassword?: () => void;
 }
 
 const initialState: AuthUiState = {
@@ -25,29 +27,6 @@ const initialFieldErrors: AuthFieldErrors = {
   confirmPassword: undefined,
 };
 
-const passwordRules = [
-  {
-    id: 'length',
-    label: 'At least 8 characters',
-    test: (password: string) => password.length >= 8,
-  },
-  {
-    id: 'uppercase',
-    label: 'One uppercase letter',
-    test: (password: string) => /[A-Z]/.test(password),
-  },
-  {
-    id: 'lowercase',
-    label: 'One lowercase letter',
-    test: (password: string) => /[a-z]/.test(password),
-  },
-  {
-    id: 'number',
-    label: 'One number',
-    test: (password: string) => /[0-9]/.test(password),
-  },
-];
-
 interface AuthFormState extends AuthUiState {
   username: string;
   confirmPassword: string;
@@ -62,26 +41,6 @@ const initialFormState: AuthFormState = {
   successMessage: undefined,
   fieldErrors: initialFieldErrors,
 };
-
-function getPasswordError(password: string) {
-  if (password.length < 8) {
-    return 'Password must be at least 8 characters long.';
-  }
-
-  if (!/[A-Z]/.test(password)) {
-    return 'Password must contain at least one uppercase letter.';
-  }
-
-  if (!/[a-z]/.test(password)) {
-    return 'Password must contain at least one lowercase letter.';
-  }
-
-  if (!/[0-9]/.test(password)) {
-    return 'Password must contain at least one number.';
-  }
-
-  return undefined;
-}
 
 function extractRegisterErrors(error: unknown): {
   error?: string;
@@ -131,7 +90,7 @@ function extractRegisterErrors(error: unknown): {
   };
 }
 
-export function AuthScreen({ onAuthenticated, onRegistrationPending }: AuthScreenProps) {
+export function AuthScreen({ onAuthenticated, onRegistrationPending, onForgotPassword }: AuthScreenProps) {
   const { login, register, loading } = useAuth();
   const { colors, spacing, typography } = useAppTheme();
   const { toast } = useToast();
@@ -366,6 +325,7 @@ export function AuthScreen({ onAuthenticated, onRegistrationPending }: AuthScree
             onSubmit={submit}
             passwordInputRef={passwordInputRef}
             onToggleMode={toggleMode}
+            onForgotPassword={onForgotPassword}
           />
         </View>
       </ScrollView>

@@ -12,6 +12,7 @@ import FollowButton from "@/components/Follow/FollowButton";
 import FollowListSheet from "@/components/Follow/FollowListSheet";
 import EditProfileForm from "@/components/Profile/EditProfileForm";
 import SavedStoriesTab from "@/components/Profile/SavedStoriesTab";
+import BadgeGrid from "@/components/Profile/BadgeGrid";
 
 function formatBirthDate(dateStr) {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -171,9 +172,20 @@ function ProfilePage() {
                 </div>
 
                 <div className="space-y-1">
-                  <h1 className="text-2xl font-bold tracking-tight">
-                    {profile.username}
-                  </h1>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <h1 className="text-2xl font-bold tracking-tight">
+                      {profile.username}
+                    </h1>
+                    <span
+                      data-testid="profile-points"
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-sm font-medium text-primary"
+                    >
+                      <Star className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>
+                        {Number(profile.total_points ?? 0).toLocaleString("en-US")} points
+                      </span>
+                    </span>
+                  </div>
 
                   {/* Name — own profile: show even if private */}
                   {(() => {
@@ -245,13 +257,6 @@ function ProfilePage() {
                     );
                   })()}
 
-                  {profile.total_points > 0 && (
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Star className="h-4 w-4" aria-hidden="true" />
-                      <span>{profile.total_points} points</span>
-                    </div>
-                  )}
-
                   {/* Bio — own profile: show even if set (bio has no privacy flag) */}
                   {(() => {
                     const op = ownProfileData?.profile;
@@ -320,6 +325,11 @@ function ProfilePage() {
             </button>
           </div>
         </div>
+
+        <section className="mb-8">
+          <h2 className="mb-4 text-xl font-semibold tracking-tight">Badges</h2>
+          <BadgeGrid userId={profile.id} />
+        </section>
 
         {/* Stories Section */}
         <div className="flex items-center gap-2 text-muted-foreground">

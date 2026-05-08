@@ -3,26 +3,41 @@ import { useSearchParams } from "react-router-dom";
 
 /**
  * Manages search/filter state via URL query parameters.
- * Supported params: q, year_from, year_to, location, lat_min, lat_max, lng_min, lng_max, tags, page, sort_by
+ * Supported params: q, year_from, year_to, location, lat_min, lat_max, lng_min, lng_max,
+ * latitude, longitude, radius_km, tags, page, sort_by
  * Tags are stored as a comma-separated string: tags=foo,bar
  */
 export function useFilterState() {
   const [searchParams, setSearchParams] = useSearchParams();
 
+  function readNumberParam(key) {
+    const raw = searchParams.get(key);
+    if (raw == null || raw === "") return null;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+
   const q = searchParams.get("q") || "";
   const yearFrom = searchParams.get("year_from") ? Number(searchParams.get("year_from")) : "";
   const yearTo = searchParams.get("year_to") ? Number(searchParams.get("year_to")) : "";
   const location = searchParams.get("location") || "";
-  const latMin = searchParams.get("lat_min") != null && searchParams.get("lat_min") !== "" ? Number(searchParams.get("lat_min")) : null;
-  const latMax = searchParams.get("lat_max") != null && searchParams.get("lat_max") !== "" ? Number(searchParams.get("lat_max")) : null;
-  const lngMin = searchParams.get("lng_min") != null && searchParams.get("lng_min") !== "" ? Number(searchParams.get("lng_min")) : null;
-  const lngMax = searchParams.get("lng_max") != null && searchParams.get("lng_max") !== "" ? Number(searchParams.get("lng_max")) : null;
+  const latMin = readNumberParam("lat_min");
+  const latMax = readNumberParam("lat_max");
+  const lngMin = readNumberParam("lng_min");
+  const lngMax = readNumberParam("lng_max");
+  const latitude = readNumberParam("latitude");
+  const longitude = readNumberParam("longitude");
+  const radiusKm = readNumberParam("radius_km");
   const page = searchParams.get("page") ? Number(searchParams.get("page")) : 1;
   const sortBy = searchParams.get("sort_by") || "recent";
   const tagsRaw = searchParams.get("tags") || "";
   const tags = useMemo(() => (tagsRaw ? tagsRaw.split(",").filter(Boolean) : []), [tagsRaw]);
 
-  const hasActiveFilters = Boolean(q || yearFrom || yearTo || location || tags.length > 0);
+  const hasProximity =
+    latitude != null && longitude != null && radiusKm != null;
+  const hasActiveFilters = Boolean(
+    q || yearFrom || yearTo || location || tags.length > 0 || hasProximity
+  );
 
   /**
    * Update one or more URL params.
@@ -103,9 +118,13 @@ export function useFilterState() {
     latMax,
     lngMin,
     lngMax,
+    latitude,
+    longitude,
+    radiusKm,
     page,
     sortBy,
     tags,
+    hasProximity,
     hasActiveFilters,
     setFilters,
     removeFilter,

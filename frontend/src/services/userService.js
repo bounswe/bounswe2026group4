@@ -58,3 +58,24 @@ export async function updateCurrentUser({ profile = {}, userFields = {}, profile
   }
   return response.data;
 }
+
+/**
+ * GET /users/<id>/badges/ — public list of badges awarded to a user.
+ *
+ * The backend paginates the response (StoryPagination, default 10 per page),
+ * so we walk `next` until exhausted. Per-user badge counts are bounded
+ * (max ~10–20 in the current catalog), so loading all in one render is fine.
+ */
+export async function getUserBadges(userId) {
+  const allResults = [];
+  // First page asks for a large page so the typical user finishes in one round-trip.
+  let response = await api.get(`/users/${userId}/badges/`, {
+    params: { page_size: 100 },
+  });
+  while (response) {
+    const { results = [], next = null } = response.data ?? {};
+    allResults.push(...results);
+    response = next ? await api.get(next) : null;
+  }
+  return allResults;
+}

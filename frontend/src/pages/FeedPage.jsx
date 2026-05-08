@@ -13,7 +13,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 const PAGE_SIZE = 12;
 
 function FeedPage() {
-  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, tags, lngMax, page, sortBy, hasActiveFilters, setFilters } =
+  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, tags, lngMax, latitude, longitude, radiusKm, page, sortBy, hasActiveFilters, setFilters } =
     useFilterState();
 
   const [stories, setStories] = useState([]);
@@ -29,7 +29,7 @@ function FeedPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getStories({ q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags, page, pageSize: PAGE_SIZE, sortBy });
+      const data = await getStories({ q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags, page, pageSize: PAGE_SIZE, sortBy });
       setStories(data.results);
       setTotalCount(data.count);
       setHasNext(Boolean(data.next));
@@ -43,7 +43,7 @@ function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags, page, sortBy]);
+  }, [q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags, page, sortBy]);
 
   useEffect(() => {
     fetchStories();

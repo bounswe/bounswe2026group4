@@ -43,6 +43,8 @@ describe('userService', () => {
             username: 'Traveler',
             total_points: 5,
             published_story_count: 3,
+            followers_count: 14,
+            following_count: 6,
             birth_year: 1995,
             location: 'Istanbul',
             bio: 'Collecting neighborhood memories.',
@@ -60,6 +62,8 @@ describe('userService', () => {
       email: 'traveler@example.com',
       location: 'Istanbul',
       publishedStoryCount: 3,
+      followersCount: 14,
+      followingCount: 6,
       birthYear: 1995,
     });
   });
@@ -238,6 +242,57 @@ describe('userService', () => {
           timePeriod: '1978',
           likeCount: 4,
           savedByViewer: true,
+        },
+      ],
+    });
+  });
+
+  it('loads public user stories from the published stories endpoint', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'GET' && config.url === '/users/12/stories/?page=3&page_size=10') {
+        return {
+          status: 200,
+          data: {
+            count: 21,
+            next: 'next-page',
+            previous: 'previous-page',
+            results: [
+              {
+                id: 'story-9',
+                title: 'Published Harbor',
+                location_name: 'Golden Horn',
+                time_type: 'exact_year',
+                year: 1980,
+                preview_text: 'A public profile story.',
+                submitted_at: '2026-04-12T09:00:00Z',
+                like_count: 6,
+                user_has_liked: true,
+                user_has_saved: true,
+                tags: [{ name: 'Culture' }],
+              },
+            ],
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.getUserStories('12', 3)).resolves.toMatchObject({
+      page: 3,
+      totalCount: 21,
+      hasNextPage: true,
+      items: [
+        {
+          id: 'story-9',
+          title: 'Published Harbor',
+          locationName: 'Golden Horn',
+          timePeriod: '1980',
+          likeCount: 6,
+          likedByViewer: true,
+          savedByViewer: true,
+          tags: ['Culture'],
         },
       ],
     });

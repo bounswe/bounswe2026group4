@@ -33,6 +33,7 @@ const BIO_MAX_LENGTH = 280;
 const MIN_BIRTH_YEAR = 1900;
 const FOLLOW_STATE_LOOKUP_MAX_PAGES = 10;
 const FOLLOW_LIST_DRAG_THRESHOLD = 8;
+const PUBLISHED_STORIES_COLLAPSED_LIMIT = 3;
 const followStateOverrides = new Map<string, boolean>();
 const MONTH_OPTIONS = [
   'January',
@@ -58,12 +59,14 @@ interface ProfileScreenProps {
   uploadProfilePhoto?: typeof userService.uploadProfilePhoto;
   removeProfilePhoto?: typeof userService.removeProfilePhoto;
   deleteAccount?: typeof userService.deleteAccount;
+  requestPasswordReset?: typeof authService.forgotPassword;
   followUser?: typeof userService.followUser;
   unfollowUser?: typeof userService.unfollowUser;
   banUser?: typeof adminService.banUser;
   getFollowers?: typeof userService.getFollowers;
   getFollowing?: typeof userService.getFollowing;
   getSavedStories?: typeof userService.getSavedStories;
+  getUserStories?: typeof userService.getUserStories;
   getUserPoints?: typeof userService.getUserPoints;
   getUserBadges?: typeof userService.getUserBadges;
   unbookmarkStory?: typeof interactionService.unbookmarkStory;
@@ -490,6 +493,21 @@ function validatePendingPhoto(photo: PendingPhotoState | null) {
   }
 
   return undefined;
+}
+
+function getPublishedStoriesErrorMessage(error: unknown) {
+  const responseStatus =
+    error && typeof error === 'object' && 'response' in error
+      ? (error as { response?: { status?: unknown } }).response?.status
+      : undefined;
+  const message = error instanceof Error ? error.message : '';
+  const normalizedMessage = message.toLowerCase();
+
+  if (responseStatus === 404 || normalizedMessage.includes('404') || normalizedMessage.includes('not found')) {
+    return 'This profile is unavailable or no longer active.';
+  }
+
+  return message || 'Unable to load published stories.';
 }
 
 function LoadingState() {
@@ -1307,6 +1325,165 @@ function FieldCard({
   );
 }
 
+function PublishedStoriesSection({
+  userId,
+  getUserStories,
+  onOpenStory,
+}: {
+  userId: string;
+  getUserStories: (userId: string, page?: number) => Promise<FeedPageEntity>;
+  onOpenStory?: (storyId: string) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const [stories, setStories] = useState<FeedEntity[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string>();
+  const [totalCount, setTotalCount] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const storyRequestIdRef = useRef(0);
+
+  const loadPage = useCallback(
+    async (nextPage: number, append: boolean) => {
+      const requestId = storyRequestIdRef.current + 1;
+      storyRequestIdRef.current = requestId;
+
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      setError(undefined);
+
+      try {
+        const result = await getUserStories(userId, nextPage);
+
+        if (storyRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setStories((current) => (append ? [...current, ...result.items] : result.items));
+        setPage(nextPage);
+        setHasMore(result.hasNextPage);
+        setTotalCount(result.totalCount);
+      } catch (loadError) {
+        if (storyRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setError(getPublishedStoriesErrorMessage(loadError));
+      } finally {
+        if (storyRequestIdRef.current === requestId) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [getUserStories, userId],
+  );
+
+  useEffect(() => {
+    setStories([]);
+    setPage(1);
+    setHasMore(false);
+    setTotalCount(0);
+    setIsExpanded(false);
+    void loadPage(1, false);
+
+    return () => {
+      storyRequestIdRef.current += 1;
+    };
+  }, [loadPage]);
+
+  const hasHiddenPublishedStories = stories.length > PUBLISHED_STORIES_COLLAPSED_LIMIT;
+  const shouldShowPublishedStoryToggle =
+    hasHiddenPublishedStories || totalCount > PUBLISHED_STORIES_COLLAPSED_LIMIT;
+  const displayedStories =
+    hasHiddenPublishedStories && !isExpanded
+      ? stories.slice(0, PUBLISHED_STORIES_COLLAPSED_LIMIT)
+      : stories;
+
+  return (
+    <View
+      accessibilityLabel="Published stories section"
+      style={{
+        padding: spacing.lg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ gap: spacing.xs }}>
+        <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+          Published Stories
+        </Text>
+        <Text style={{ color: colors.muted }}>
+          {totalCount > 0
+            ? `${totalCount} ${totalCount === 1 ? 'story' : 'stories'} published by this user.`
+            : 'Stories published by this user.'}
+        </Text>
+      </View>
+
+      {isLoading && stories.length === 0 ? <Loader message="Loading published stories..." /> : null}
+
+      {error && stories.length === 0 ? (
+        <ErrorState
+          title="Published stories unavailable"
+          message={error}
+          retryLabel="Try again"
+          onRetry={() => {
+            void loadPage(1, false);
+          }}
+        />
+      ) : null}
+
+      {!isLoading && !error && stories.length === 0 ? (
+        <EmptyState
+          title="No published stories yet"
+          message="This user has not published any stories yet."
+        />
+      ) : null}
+
+      {stories.length > 0 ? (
+        <View style={{ gap: spacing.md }}>
+          {displayedStories.map((story) => (
+            <FeedCard
+              key={story.id}
+              story={story}
+              onPress={onOpenStory}
+            />
+          ))}
+          {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
+          {shouldShowPublishedStoryToggle ? (
+            <Button
+              variant="outline"
+              onPress={() => setIsExpanded((current) => !current)}
+            >
+              {isExpanded ? 'Show less stories' : 'Show more stories'}
+            </Button>
+          ) : null}
+          {hasMore && (!shouldShowPublishedStoryToggle || isExpanded) ? (
+            <Button
+              variant="outline"
+              onPress={() => {
+                void loadPage(page + 1, true);
+              }}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? 'Loading...' : 'Load more stories'}
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function SavedStoriesSection({
   userId,
   getSavedStories,
@@ -1488,12 +1665,14 @@ export function ProfileScreen({
   uploadProfilePhoto = userService.uploadProfilePhoto,
   removeProfilePhoto = userService.removeProfilePhoto,
   deleteAccount = userService.deleteAccount,
+  requestPasswordReset = authService.forgotPassword,
   followUser = userService.followUser,
   unfollowUser = userService.unfollowUser,
   banUser = adminService.banUser,
   getFollowers = userService.getFollowers,
   getFollowing = userService.getFollowing,
   getSavedStories = userService.getSavedStories,
+  getUserStories = userService.getUserStories,
   getUserPoints = userService.getUserPoints,
   getUserBadges = userService.getUserBadges,
   unbookmarkStory = interactionService.unbookmarkStory,
@@ -1522,6 +1701,7 @@ export function ProfileScreen({
   const deletePasswordRef = useRef('');
   const [deleteError, setDeleteError] = useState<string>();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
   const [error, setError] = useState<string>();
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [followersCount, setFollowersCount] = useState(0);
@@ -1857,6 +2037,29 @@ export function ProfileScreen({
       setIsDeleting(false);
     }
   }, [deleteAccount, toast]);
+
+  const handleRequestPasswordReset = useCallback(async () => {
+    const resetEmail = profile?.email ?? user?.email;
+
+    if (!resetEmail || isRequestingPasswordReset) {
+      return;
+    }
+
+    setIsRequestingPasswordReset(true);
+
+    try {
+      await requestPasswordReset(resetEmail);
+      toast.success('Password reset link sent. Check your inbox.');
+    } catch (passwordResetError) {
+      const message =
+        passwordResetError instanceof Error
+          ? passwordResetError.message
+          : 'Unable to send a password reset link right now.';
+      toast.error(message);
+    } finally {
+      setIsRequestingPasswordReset(false);
+    }
+  }, [isRequestingPasswordReset, profile?.email, requestPasswordReset, toast, user?.email]);
 
   const handleRequestLoginForFollow = useCallback(() => {
     toast.info('Please sign in to follow users.');
@@ -2416,6 +2619,14 @@ export function ProfileScreen({
             ) : (
               <>
                 <NotificationPreferencesSection />
+                <Button
+                  variant="outline"
+                  accessibilityLabel="Send password reset link"
+                  onPress={() => void handleRequestPasswordReset()}
+                  disabled={isRequestingPasswordReset || !(profile.email ?? user?.email)}
+                >
+                  {isRequestingPasswordReset ? 'Sending reset link...' : 'Reset password'}
+                </Button>
                 <Button variant="outline" onPress={() => void logout()}>
                   Sign out
                 </Button>
@@ -2441,24 +2652,20 @@ export function ProfileScreen({
           </View>
         ) : null}
 
+        {isSelfMode && activeSelfTab === 'profile' ? (
+          <PublishedStoriesSection
+            userId={profile.id}
+            getUserStories={getUserStories}
+            onOpenStory={onOpenStory}
+          />
+        ) : null}
+
         {!isSelfMode ? (
-          <View
-            style={{
-              padding: spacing.lg,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-              gap: spacing.sm,
-            }}
-          >
-            <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
-              Stories
-            </Text>
-            <Text style={{ color: colors.muted }}>
-              Stories are intentionally out of scope for this profile version and will be added later.
-            </Text>
-          </View>
+          <PublishedStoriesSection
+            userId={profile.id}
+            getUserStories={getUserStories}
+            onOpenStory={onOpenStory}
+          />
         ) : null}
       </ScrollView>
 

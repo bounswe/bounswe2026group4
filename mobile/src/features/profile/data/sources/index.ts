@@ -166,6 +166,17 @@ export const profileRemoteSource = {
     };
   },
 
+  async getUserStories(userId: string, page = 1) {
+    return (await apiClient.get<Record<string, unknown>>(
+      `/users/${userId}/stories/${buildQueryString({ page, page_size: 10 })}`,
+    )) ?? {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    };
+  },
+
   async getUserPoints(userId: string) {
     return (await apiClient.get<Record<string, unknown>>(`/users/${userId}/points/`)) ?? {
       user_id: userId,

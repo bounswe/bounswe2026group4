@@ -1,5 +1,7 @@
 export type RootStackParamList = {
   Auth: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { token?: string };
   VerifyEmail: { email: string };
   GuestHome: undefined;
   UserHome: undefined;

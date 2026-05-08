@@ -150,4 +150,35 @@ describe("ActiveFilters", () => {
     expect(screen.getByText("From 1900")).toBeInTheDocument();
     expect(screen.getByText("ottoman")).toBeInTheDocument();
   });
+
+  it("renders a 'Within X km' chip when radiusKm is a whole-km value", () => {
+    renderFilters({ radiusKm: 10, hasProximity: true });
+    expect(screen.getByText("Within 10 km")).toBeInTheDocument();
+  });
+
+  it("formats sub-kilometre radii in metres (500 m option)", () => {
+    renderFilters({ radiusKm: 0.5, hasProximity: true });
+    expect(screen.getByText("Within 500 m")).toBeInTheDocument();
+  });
+
+  it("does not render a proximity chip when radiusKm is null", () => {
+    renderFilters({ radiusKm: null });
+    expect(screen.queryByText(/^within /i)).not.toBeInTheDocument();
+  });
+
+  it("does not render a proximity chip when radiusKm is set but hasProximity is false", () => {
+    // e.g. hand-edited URL with radius_km but no latitude/longitude.
+    renderFilters({ radiusKm: 10, hasProximity: false });
+    expect(screen.queryByText(/^within /i)).not.toBeInTheDocument();
+  });
+
+  it("emits the 'proximity' remove key when the radius chip is dismissed", async () => {
+    const user = userEvent.setup();
+    const onRemove = vi.fn();
+    renderFilters({ radiusKm: 1, hasProximity: true, onRemove });
+
+    await user.click(screen.getByRole("button", { name: /remove filter: within 1 km/i }));
+
+    expect(onRemove).toHaveBeenCalledWith("proximity");
+  });
 });
