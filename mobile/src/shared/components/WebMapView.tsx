@@ -7,6 +7,7 @@ type MarkerItem = {
   latitude: number;
   longitude: number;
   selected?: boolean;
+  visualRole?: 'timeline' | 'selected';
   label?: string;
 };
 
@@ -46,7 +47,7 @@ type MapUpdatePayload = {
   transitionDurationMs?: number;
 };
 
-const MAP_HTML_VERSION = 'colored-cluster-markers-v1';
+const MAP_HTML_VERSION = 'colored-cluster-markers-v2';
 
 const mapHtml = ({
   region,
@@ -127,6 +128,13 @@ const mapHtml = ({
         box-shadow: 0 4px 12px rgba(220, 38, 38, 0.32);
       }
 
+      .marker-pin-current {
+        background: #059669;
+        box-shadow:
+          0 0 0 5px rgba(5, 150, 105, 0.18),
+          0 4px 12px rgba(5, 150, 105, 0.34);
+      }
+
       .marker-cluster {
         position: relative;
         width: 38px;
@@ -145,6 +153,12 @@ const mapHtml = ({
         border-color: #ffffff;
         box-shadow:
           0 0 0 4px rgba(220, 38, 38, 0.18),
+          0 5px 16px rgba(15, 23, 42, 0.3);
+      }
+
+      .marker.cluster.current-selected .marker-cluster {
+        box-shadow:
+          0 0 0 4px rgba(5, 150, 105, 0.22),
           0 5px 16px rgba(15, 23, 42, 0.3);
       }
 
@@ -328,16 +342,18 @@ const mapHtml = ({
       const createStoryMarker = (marker) => {
         const element = document.createElement('div');
         const isCluster = Boolean(marker.label);
+        const visualRole = marker.visualRole || (marker.selected ? 'timeline' : null);
         element.className = [
           'marker',
           isCluster ? 'cluster' : '',
-          marker.selected ? 'selected' : '',
+          visualRole ? 'selected' : '',
+          visualRole === 'selected' ? 'current-selected' : '',
         ].filter(Boolean).join(' ');
         const markerBody = document.createElement('div');
         markerBody.className = isCluster
           ? 'marker-cluster ' + getClusterSizeClass(marker.label)
-          : marker.selected
-            ? 'marker-pin'
+          : visualRole
+            ? ['marker-pin', visualRole === 'selected' ? 'marker-pin-current' : ''].filter(Boolean).join(' ')
             : 'marker-dot';
         element.appendChild(markerBody);
 
@@ -355,7 +371,7 @@ const mapHtml = ({
           );
         });
 
-        return new maplibregl.Marker({ element, anchor: marker.selected && !isCluster ? 'bottom' : 'center' })
+        return new maplibregl.Marker({ element, anchor: visualRole && !isCluster ? 'bottom' : 'center' })
           .setLngLat([marker.longitude, marker.latitude])
           .addTo(map);
       };
@@ -682,6 +698,7 @@ function markersEqual(left: MarkerItem[], right: MarkerItem[]) {
       marker.latitude === nextMarker.latitude &&
       marker.longitude === nextMarker.longitude &&
       marker.selected === nextMarker.selected &&
+      marker.visualRole === nextMarker.visualRole &&
       marker.label === nextMarker.label
     );
   });
