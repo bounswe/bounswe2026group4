@@ -165,6 +165,11 @@ describe('ProfileScreen', () => {
       items: [],
       totalCount: 0,
     }));
+    jest.spyOn(userService, 'getUserPoints').mockImplementation(async (userId) => ({
+      userId,
+      totalPoints: userId === publicProfile.id ? publicProfile.totalPoints : selfProfile.totalPoints,
+    }));
+    jest.spyOn(userService, 'getUserBadges').mockResolvedValue([]);
     mockAuthUser = {
       id: 7,
       email: 'traveler@example.com',
@@ -231,6 +236,103 @@ describe('ProfileScreen', () => {
 
     expect(await screen.findByText('Traveler')).toBeTruthy();
     expect(screen.getByText('May 20, 1995')).toBeTruthy();
+  });
+
+  it('renders points and earned badges with a badge detail modal', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => ({
+          ...selfProfile,
+          totalPoints: 100,
+        })}
+        getUserPoints={async () => ({
+          userId: '7',
+          totalPoints: 1250,
+        })}
+        getUserBadges={async () => [
+          {
+            id: 'badge-1',
+            name: 'First Story',
+            description: 'Published one story.',
+            criteriaType: 'stories_published',
+            criteriaThreshold: 1,
+            awardedAt: '2026-05-01T12:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(await screen.findByText('1,250')).toBeTruthy();
+    expect(await screen.findByText('First Story')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Open badge details: First Story'));
+
+    expect(await screen.findByText('Published one story.')).toBeTruthy();
+    expect(screen.getAllByText('Awarded for publishing your first story.').length).toBeGreaterThan(0);
+    expect(screen.getByText('Earned on May 1, 2026')).toBeTruthy();
+  });
+
+  it('shows points and the badge empty state on public profiles', async () => {
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="45"
+        getPublicProfile={async () => ({
+          ...publicProfile,
+          id: '45',
+          totalPoints: 300,
+          followersCount: 2,
+          followingCount: 1,
+        })}
+        getUserPoints={async () => ({
+          userId: '45',
+          totalPoints: 500,
+        })}
+        getUserBadges={async () => []}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+    expect(await screen.findByText('500')).toBeTruthy();
+    expect(await screen.findByText('No badges earned yet')).toBeTruthy();
+    expect(screen.queryByText('Saved Stories')).toBeNull();
+  });
+
+  it('shows a loading state while badges are being fetched', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        getUserBadges={() => new Promise<never>(() => undefined)}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getAllByText('Loading badges...').length).toBeGreaterThan(0);
+  });
+
+  it('keeps profile points visible and shows a badge error when badge loading fails', async () => {
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => ({
+          ...selfProfile,
+          totalPoints: 42,
+        })}
+        getUserPoints={async () => {
+          throw new Error('Points unavailable');
+        }}
+        getUserBadges={async () => {
+          throw new Error('Badges unavailable');
+        }}
+      />,
+    );
+
+    expect(await screen.findByText('Traveler')).toBeTruthy();
+    expect(screen.getByText('42')).toBeTruthy();
+    expect(await screen.findByText('Unable to load badges right now.')).toBeTruthy();
   });
 
   it('renders saved stories on the signed-in user profile', async () => {

@@ -1,14 +1,17 @@
-import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
+import { useEffect, useMemo, useRef } from "react";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import { useNavigate, useLocation } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 import { EMPTY_FEATURE_COLLECTION } from "@/services/storyService";
-import { pointToLayer, onEachFeature } from "./mapFeatureUtils";
+import { featurePopupHtml } from "./mapFeatureUtils";
 
 // Fix Leaflet default marker icon paths for Vite bundler
 delete L.Icon.Default.prototype._getIconUrl;
@@ -20,6 +23,8 @@ L.Icon.Default.mergeOptions({
 
 const ISTANBUL_CENTER = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 12;
+const SINGLE_FEATURE_MAX_ZOOM = 15;
+const FIT_BOUNDS_PADDING = [40, 40];
 
 // Intercepts clicks on story links inside popup HTML so they perform
 // client-side navigation instead of a full page reload. Captures the
@@ -45,16 +50,101 @@ function StoryLinkInterceptor() {
   return null;
 }
 
-function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false }) {
+function featureLatLng(feature) {
+  const coords = feature?.geometry?.coordinates;
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  const [lng, lat] = coords;
+  return [lat, lng];
+}
+
+function isValidBbox(bbox) {
+  return (
+    bbox != null &&
+    Number.isFinite(bbox.latMin) &&
+    Number.isFinite(bbox.latMax) &&
+    Number.isFinite(bbox.lngMin) &&
+    Number.isFinite(bbox.lngMax)
+  );
+}
+
+function FitBoundsToFeatures({ features, bbox }) {
+  const map = useMap();
+  // Skip re-fitting when the inputs are unchanged — refetches that return the
+  // same bbox + stories shouldn't snap the map back over the user's pan.
+  const lastFitKeyRef = useRef(null);
+
+  useEffect(() => {
+    if (!map) return;
+    const hasBbox = isValidBbox(bbox);
+    if (!hasBbox && features.length === 0) {
+      lastFitKeyRef.current = null;
+      return;
+    }
+    const bboxKey = hasBbox
+      ? `${bbox.latMin}|${bbox.latMax}|${bbox.lngMin}|${bbox.lngMax}`
+      : "";
+    const featuresKey = features.map((f) => f.id).join("|");
+    const fitKey = `${bboxKey}::${featuresKey}`;
+    if (fitKey === lastFitKeyRef.current) return;
+    lastFitKeyRef.current = fitKey;
+
+    // Bbox takes priority so the user always sees the area they searched
+    // for, even if no markers fall inside it.
+    if (hasBbox) {
+      const bounds = L.latLngBounds([
+        [bbox.latMin, bbox.lngMin],
+        [bbox.latMax, bbox.lngMax],
+      ]);
+      map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING });
+      return;
+    }
+    const latlngs = features.map(featureLatLng).filter(Boolean);
+    if (latlngs.length === 0) return;
+    const bounds = L.latLngBounds(latlngs);
+    const options =
+      latlngs.length === 1
+        ? { maxZoom: SINGLE_FEATURE_MAX_ZOOM }
+        : { padding: FIT_BOUNDS_PADDING };
+    map.fitBounds(bounds, options);
+  }, [map, features, bbox]);
+  return null;
+}
+
+function ClusteredMarkers({ features }) {
+  const map = useMap();
+  const groupRef = useRef(null);
+
+  useEffect(() => {
+    if (!map) return undefined;
+    const group = L.markerClusterGroup();
+    groupRef.current = group;
+    map.addLayer(group);
+    return () => {
+      map.removeLayer(group);
+      groupRef.current = null;
+    };
+  }, [map]);
+
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    group.clearLayers();
+    features.forEach((feature) => {
+      const latlng = featureLatLng(feature);
+      if (!latlng) return;
+      const marker = L.marker(latlng);
+      marker.bindPopup(() => featurePopupHtml(feature));
+      group.addLayer(marker);
+    });
+  }, [features]);
+
+  return null;
+}
+
+function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false, bbox = null }) {
   const features = useMemo(
     () => featureCollection?.features ?? [],
     [featureCollection],
-  );
-  // react-leaflet's <GeoJSON> only initializes the layer once, so force a
-  // remount whenever the feature set changes (filter/search results).
-  const geoJSONKey = useMemo(
-    () => features.map((f) => f.id).join("|"),
-    [features],
   );
 
   return (
@@ -69,14 +159,8 @@ function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {features.length > 0 && (
-          <GeoJSON
-            key={geoJSONKey}
-            data={featureCollection}
-            pointToLayer={pointToLayer}
-            onEachFeature={onEachFeature}
-          />
-        )}
+        <ClusteredMarkers features={features} />
+        <FitBoundsToFeatures features={features} bbox={bbox} />
         <StoryLinkInterceptor />
       </MapContainer>
       {loading && (

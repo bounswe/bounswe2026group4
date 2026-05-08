@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 import MapView from "@/components/MapView/MapView";
 import SearchFilter from "@/components/SearchFilter/SearchFilter";
@@ -13,6 +13,11 @@ function MapPage() {
   const [featureCollection, setFeatureCollection] = useState(EMPTY_FEATURE_COLLECTION);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const bbox = useMemo(() => {
+    if (latMin == null || latMax == null || lngMin == null || lngMax == null) return null;
+    return { latMin, latMax, lngMin, lngMax };
+  }, [latMin, latMax, lngMin, lngMax]);
 
   const fetchPins = useCallback(async () => {
     setLoading(true);
@@ -37,7 +42,7 @@ function MapPage() {
 
   return (
     <div className="relative isolate" style={{ height: "calc(100vh - 3.5rem)" }}>
-      <MapView featureCollection={featureCollection} loading={loading} />
+      <MapView featureCollection={featureCollection} loading={loading} bbox={bbox} />
 
       {/* Search & filter overlay */}
       <div className="absolute top-3 left-3 right-3 z-[1000] sm:left-4 sm:right-auto sm:w-[32rem]">

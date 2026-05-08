@@ -5,11 +5,27 @@ import { MemoryRouter } from "react-router-dom";
 
 import CommentSection from "../CommentSection";
 
+const navigateMock = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
 vi.mock("@/hooks/useAuth");
 vi.mock("@/services/interactionService", () => ({
   getComments: vi.fn(),
   addComment: vi.fn(),
   deleteComment: vi.fn(),
+}));
+vi.mock("@/components/Report/ReportModal", () => ({
+  default: ({ isOpen, targetType, targetId }) =>
+    isOpen ? (
+      <div
+        data-testid="report-modal"
+        data-target-type={targetType}
+        data-target-id={String(targetId)}
+      />
+    ) : null,
 }));
 
 import { useAuth } from "@/hooks/useAuth";
@@ -361,6 +377,68 @@ describe("CommentSection", () => {
         expect(screen.getByRole("alert")).toHaveTextContent(/failed to delete comment/i);
       });
       expect(screen.getByText("My comment")).toBeInTheDocument();
+    });
+  });
+
+  describe("report button", () => {
+    it("renders the Flag button for unauthenticated visitors and navigates to /login on click", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ isAuthenticated: false, user: null });
+      getComments.mockResolvedValue([
+        makeComment({ id: 1, author_username: "bob", text: "Hello" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => screen.getByText("Hello"));
+      const flag = screen.getByRole("button", { name: /report comment/i });
+
+      await user.click(flag);
+
+      expect(navigateMock).toHaveBeenCalledWith("/login");
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
+    });
+
+    it("renders a Flag button only on comments not owned by the current user", async () => {
+      useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
+      getComments.mockResolvedValue([
+        makeComment({ id: 1, author_username: "alice", text: "Mine" }),
+        makeComment({ id: 2, author_username: "bob", text: "Theirs" }),
+        makeComment({ id: 3, author_username: "carol", text: "Hers" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => {
+        expect(screen.getAllByRole("button", { name: /report comment/i })).toHaveLength(2);
+      });
+    });
+
+    it("opens the report modal with the comment id when Flag is clicked", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
+      getComments.mockResolvedValue([
+        makeComment({ id: 99, author_username: "bob", text: "Theirs" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => screen.getByRole("button", { name: /report comment/i }));
+      expect(screen.queryByTestId("report-modal")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /report comment/i }));
+
+      const modal = screen.getByTestId("report-modal");
+      expect(modal).toHaveAttribute("data-target-type", "comment");
+      expect(modal).toHaveAttribute("data-target-id", "99");
+    });
+
+    it("does not render the Flag button on the current user's own comment", async () => {
+      useAuth.mockReturnValue({ isAuthenticated: true, user: { username: "alice" } });
+      getComments.mockResolvedValue([
+        makeComment({ id: 5, author_username: "alice", text: "My comment" }),
+      ]);
+      renderSection();
+
+      await waitFor(() => screen.getByRole("button", { name: /delete comment/i }));
+      expect(screen.queryByRole("button", { name: /report comment/i })).not.toBeInTheDocument();
     });
   });
 

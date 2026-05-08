@@ -55,3 +55,17 @@ export interface FollowListResult {
   previous: string | null;
   count: number;
 }
+
+export interface PointsSummaryEntity {
+  userId: string;
+  totalPoints: number;
+}
+
+export interface BadgeEntity {
+  id: string;
+  name: string;
+  description: string | null;
+  criteriaType: string | null;
+  criteriaThreshold: number | null;
+  awardedAt: string | null;
+}

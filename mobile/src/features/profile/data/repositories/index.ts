@@ -1,11 +1,20 @@
 import {
+  BadgeEntity,
   FollowListResult,
+  PointsSummaryEntity,
   ProfileEntity,
   ProfilePhotoUploadInput,
   UpdateProfileInput,
 } from '../../domain/entities';
 import { ProfileRepository } from '../../domain/repositories';
-import { mapCurrentProfile, mapFollowList, mapPublicProfile, mergePublicProfileSummary } from '../mappers';
+import {
+  mapCurrentProfile,
+  mapFollowList,
+  mapPointsSummary,
+  mapPublicProfile,
+  mapUserBadges,
+  mergePublicProfileSummary,
+} from '../mappers';
 import { profileRemoteSource } from '../sources';
 import { mapFeedPage } from '../../../feed/data/mappers';
 
@@ -79,5 +88,15 @@ export class ProfileRepositoryImpl implements ProfileRepository {
   async getUserStories(userId: string, page = 1) {
     const payload = await profileRemoteSource.getUserStories(userId, page);
     return mapFeedPage(payload, page, 10);
+  }
+
+  async getUserPoints(userId: string): Promise<PointsSummaryEntity> {
+    const payload = await profileRemoteSource.getUserPoints(userId);
+    return mapPointsSummary(payload);
+  }
+
+  async getUserBadges(userId: string): Promise<BadgeEntity[]> {
+    const payload = await profileRemoteSource.getUserBadges(userId);
+    return mapUserBadges(payload);
   }
 }

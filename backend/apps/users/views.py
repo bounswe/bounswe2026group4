@@ -36,6 +36,7 @@ from apps.users.services import (
     login_user,
     logout_user,
     register_user,
+    send_registration_verification,
     request_password_reset,
     resend_verification,
     reset_password,
@@ -55,7 +56,8 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user, email_sent = register_user(serializer.validated_data)
+        user = register_user(serializer.validated_data)
+        email_sent = send_registration_verification(user)
         message = (
             'Registration successful. Please verify your email.'
             if email_sent

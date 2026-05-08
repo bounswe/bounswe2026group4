@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { MapPin, Calendar, ArrowLeft, MessageSquare, Trash2, Loader2, Music } from "lucide-react";
+import { MapPin, Calendar, ArrowLeft, MessageSquare, Trash2, Loader2, Music, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/loading-skeleton";
@@ -25,6 +25,7 @@ import LikeButton from "@/components/Interactions/LikeButton";
 import BookmarkButton from "@/components/Interactions/BookmarkButton";
 import CommentSection from "@/components/Interactions/CommentSection";
 import StructuredData from "@/components/StructuredData/StructuredData";
+import ReportModal from "@/components/Report/ReportModal";
 
 function formatDate(isoString) {
   if (!isoString) return null;
@@ -73,6 +74,7 @@ function StoryDetailPage() {
   const [imageErrors, setImageErrors] = useState({});
   const [videoErrors, setVideoErrors] = useState({});
   const [audioErrors, setAudioErrors] = useState({});
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const canDelete = story && (user?.id === story.user || user?.role === "admin");
 
@@ -384,7 +386,33 @@ function StoryDetailPage() {
                   toast.success(newBookmarked ? "Story saved." : "Story removed from saved.");
                 }}
               />
+              {(!user || user.id !== story.user) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    if (!user) {
+                      navigate("/login");
+                      return;
+                    }
+                    setShowReportModal(true);
+                  }}
+                  aria-label="Report story"
+                >
+                  <Flag className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              )}
             </div>
+
+            {user && (
+              <ReportModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetType="story"
+                targetId={story.id}
+              />
+            )}
 
             <CommentSection
               storyId={story.id}

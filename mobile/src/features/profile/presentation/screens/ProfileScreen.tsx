@@ -15,7 +15,14 @@ import { interactionService } from '../../../interactions/application/services';
 import { FeedCard } from '../../../feed/presentation/components/FeedCard';
 import { FeedEntity, FeedPageEntity } from '../../../feed/domain/entities';
 import { userService } from '../../application/services';
-import { FollowListResult, FollowUserEntity, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../../domain/entities';
+import {
+  BadgeEntity,
+  FollowListResult,
+  FollowUserEntity,
+  ProfileEntity,
+  ProfilePhotoUploadInput,
+  UpdateProfileInput,
+} from '../../domain/entities';
 import { AuthUser } from '../../../../core/auth/session';
 
 type ProfileMode = 'self' | 'public';
@@ -57,6 +64,8 @@ interface ProfileScreenProps {
   getFollowing?: typeof userService.getFollowing;
   getSavedStories?: typeof userService.getSavedStories;
   getUserStories?: typeof userService.getUserStories;
+  getUserPoints?: typeof userService.getUserPoints;
+  getUserBadges?: typeof userService.getUserBadges;
   unbookmarkStory?: typeof interactionService.unbookmarkStory;
   onOpenUserProfile?: (userId: string) => void;
   onOpenStory?: (storyId: string) => void;
@@ -149,6 +158,119 @@ function formatJoinedDate(value?: string) {
     month: 'long',
     year: 'numeric',
   });
+}
+
+function formatPoints(value: number) {
+  return Math.max(0, value).toLocaleString('en-US');
+}
+
+function formatAwardedDate(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return undefined;
+  }
+
+  return parsedDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function describeBadgeCondition(badge: BadgeEntity) {
+  const threshold = badge.criteriaThreshold;
+
+  if (badge.criteriaType === 'registration') {
+    return 'Awarded for completing registration.';
+  }
+
+  if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
+    if (threshold === 1) {
+      return 'Awarded for publishing your first story.';
+    }
+
+    if (threshold) {
+      return `Awarded for publishing ${threshold} stories.`;
+    }
+  }
+
+  if (badge.criteriaType === 'points' || badge.criteriaType === 'points_total') {
+    if (threshold) {
+      return `Awarded for reaching ${formatPoints(threshold)} points.`;
+    }
+  }
+
+  return badge.description ?? 'Earned through profile activity.';
+}
+
+function getBadgeInitial(badge: BadgeEntity) {
+  if (badge.criteriaType === 'registration') {
+    return '01';
+  }
+
+  if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
+    return 'S';
+  }
+
+  if (badge.criteriaType === 'points' || badge.criteriaType === 'points_total') {
+    return 'P';
+  }
+
+  return badge.name.slice(0, 1).toUpperCase();
+}
+
+function getBadgePalette(badge: BadgeEntity) {
+  if (badge.criteriaType === 'registration') {
+    return {
+      background: '#FEF3C7',
+      border: '#F59E0B',
+      inner: '#FDE68A',
+      ribbon: '#D97706',
+      ribbonEdge: '#B45309',
+      text: '#92400E',
+      shine: '#FFFBEB',
+    };
+  }
+
+  if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
+    return {
+      background: '#DBEAFE',
+      border: '#2563EB',
+      inner: '#BFDBFE',
+      ribbon: '#1D4ED8',
+      ribbonEdge: '#1E40AF',
+      text: '#1E3A8A',
+      shine: '#EFF6FF',
+    };
+  }
+
+  if (badge.criteriaType === 'points' || badge.criteriaType === 'points_total') {
+    return {
+      background: '#DCFCE7',
+      border: '#16A34A',
+      inner: '#BBF7D0',
+      ribbon: '#15803D',
+      ribbonEdge: '#166534',
+      text: '#166534',
+      shine: '#F0FDF4',
+    };
+  }
+
+  return {
+    background: '#F3E8FF',
+    border: '#9333EA',
+    inner: '#E9D5FF',
+    ribbon: '#7E22CE',
+    ribbonEdge: '#6B21A8',
+    text: '#581C87',
+    shine: '#FAF5FF',
+  };
 }
 
 function formatBirthDateLabel(value: string) {
@@ -514,6 +636,377 @@ function StatButton({
       </Text>
       <Text style={{ color: selected ? colors.primary : colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>{value}</Text>
     </Pressable>
+  );
+}
+
+function BadgesSection({
+  badges,
+  isLoading,
+  error,
+  onSelectBadge,
+}: {
+  badges: BadgeEntity[];
+  isLoading: boolean;
+  error?: string | null;
+  onSelectBadge: (badge: BadgeEntity) => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <View
+      accessibilityLabel="Earned badges section"
+      style={{
+        padding: spacing.lg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800' }}>
+            Earned badges
+          </Text>
+          <Text style={{ color: colors.muted }}>
+            {isLoading && badges.length === 0
+              ? 'Loading badges...'
+              : badges.length === 1
+                ? '1 badge earned'
+                : `${badges.length} badges earned`}
+          </Text>
+        </View>
+      </View>
+
+      {isLoading && badges.length === 0 ? <Loader message="Loading badges..." /> : null}
+
+      {error && badges.length === 0 ? (
+        <Text style={{ color: colors.danger }}>{error}</Text>
+      ) : null}
+
+      {!isLoading && !error && badges.length === 0 ? (
+        <View
+          style={{
+            padding: spacing.md,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.background,
+          }}
+        >
+          <Text style={{ color: colors.text, fontWeight: '700' }}>No badges earned yet</Text>
+          <Text style={{ marginTop: spacing.xs, color: colors.muted }}>
+            Publish stories and collect points to unlock badges.
+          </Text>
+        </View>
+      ) : null}
+
+      {badges.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.sm }}
+        >
+          {badges.map((badge) => {
+            const badgePalette = getBadgePalette(badge);
+
+            return (
+              <Pressable
+                key={badge.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open badge details: ${badge.name}`}
+                onPress={() => onSelectBadge(badge)}
+                style={({ pressed }) => ({
+                  width: 88,
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  opacity: pressed ? 0.76 : 1,
+                  transform: [{ scale: pressed ? 0.96 : 1 }],
+                })}
+              >
+                <View
+                  style={{
+                    width: 72,
+                    height: 78,
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                  }}
+                >
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 42,
+                      left: 18,
+                      flexDirection: 'row',
+                      zIndex: 0,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 16,
+                        height: 30,
+                        borderBottomLeftRadius: 4,
+                        borderBottomRightRadius: 4,
+                        borderWidth: 1,
+                        borderColor: badgePalette.ribbonEdge,
+                        backgroundColor: badgePalette.ribbon,
+                        transform: [{ rotate: '10deg' }],
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 16,
+                        height: 30,
+                        marginLeft: -2,
+                        borderBottomLeftRadius: 4,
+                        borderBottomRightRadius: 4,
+                        borderWidth: 1,
+                        borderColor: badgePalette.ribbonEdge,
+                        backgroundColor: badgePalette.ribbon,
+                        transform: [{ rotate: '-10deg' }],
+                      }}
+                    />
+                  </View>
+                  <View
+                    style={{
+                      width: 58,
+                      height: 58,
+                      borderRadius: 29,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 2,
+                      borderColor: badgePalette.border,
+                      backgroundColor: badgePalette.background,
+                      shadowColor: badgePalette.border,
+                      shadowOpacity: 0.24,
+                      shadowRadius: 9,
+                      shadowOffset: { width: 0, height: 3 },
+                      elevation: 3,
+                      zIndex: 1,
+                    }}
+                  >
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        left: 10,
+                        width: 17,
+                        height: 9,
+                        borderRadius: 9,
+                        backgroundColor: badgePalette.shine,
+                        opacity: 0.9,
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 21,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: badgePalette.border,
+                        backgroundColor: badgePalette.inner,
+                      }}
+                    >
+                      <Text style={{ color: badgePalette.text, fontSize: 17, fontWeight: '900' }}>
+                        {getBadgeInitial(badge)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    minHeight: 34,
+                    color: colors.text,
+                    fontSize: typography.caption,
+                    fontWeight: '800',
+                    textAlign: 'center',
+                  }}
+                >
+                  {badge.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
+function BadgeDetailsModal({
+  badge,
+  onClose,
+}: {
+  badge: BadgeEntity | null;
+  onClose: () => void;
+}) {
+  const { colors, spacing, typography } = useAppTheme();
+  const awardedDate = formatAwardedDate(badge?.awardedAt);
+  const badgePalette = badge ? getBadgePalette(badge) : null;
+
+  return (
+    <Modal animationType="fade" transparent visible={Boolean(badge)} onRequestClose={onClose}>
+      <View
+        style={{
+          flex: 1,
+          padding: spacing.lg,
+          backgroundColor: 'rgba(10, 10, 10, 0.34)',
+          justifyContent: 'center',
+        }}
+      >
+        <Pressable
+          style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+          onPress={onClose}
+        />
+        <View
+          style={{
+            padding: spacing.lg,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.background,
+            gap: spacing.md,
+            shadowColor: '#000000',
+            shadowOpacity: 0.18,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 6,
+          }}
+        >
+          {badge && badgePalette ? (
+            <>
+              <View
+                style={{
+                  alignSelf: 'center',
+                  width: 106,
+                  height: 122,
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                }}
+              >
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 66,
+                    left: 28,
+                    flexDirection: 'row',
+                    zIndex: 0,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 24,
+                      height: 44,
+                      borderBottomLeftRadius: 6,
+                      borderBottomRightRadius: 6,
+                      borderWidth: 1,
+                      borderColor: badgePalette.ribbonEdge,
+                      backgroundColor: badgePalette.ribbon,
+                      transform: [{ rotate: '10deg' }],
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: 24,
+                      height: 44,
+                      marginLeft: -3,
+                      borderBottomLeftRadius: 6,
+                      borderBottomRightRadius: 6,
+                      borderWidth: 1,
+                      borderColor: badgePalette.ribbonEdge,
+                      backgroundColor: badgePalette.ribbon,
+                      transform: [{ rotate: '-10deg' }],
+                    }}
+                  />
+                </View>
+                <View
+                  style={{
+                    width: 84,
+                    height: 84,
+                    borderRadius: 42,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 3,
+                    borderColor: badgePalette.border,
+                    backgroundColor: badgePalette.background,
+                    shadowColor: badgePalette.border,
+                    shadowOpacity: 0.28,
+                    shadowRadius: 14,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: 5,
+                    zIndex: 1,
+                  }}
+                >
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 12,
+                      left: 15,
+                      width: 26,
+                      height: 13,
+                      borderRadius: 13,
+                      backgroundColor: badgePalette.shine,
+                      opacity: 0.92,
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 30,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1,
+                      borderColor: badgePalette.border,
+                      backgroundColor: badgePalette.inner,
+                    }}
+                  >
+                    <Text style={{ color: badgePalette.text, fontSize: 25, fontWeight: '900' }}>
+                      {getBadgeInitial(badge)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <View style={{ alignItems: 'center', gap: spacing.xs }}>
+                <Text style={{ color: colors.text, fontSize: typography.title, fontWeight: '800', textAlign: 'center' }}>
+                  {badge.name}
+                </Text>
+                <Text style={{ color: colors.text, textAlign: 'center' }}>
+                  {badge.description ?? describeBadgeCondition(badge)}
+                </Text>
+              </View>
+              <View
+                style={{
+                  padding: spacing.md,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  gap: spacing.xs,
+                }}
+              >
+                <Text style={{ color: colors.muted, fontSize: typography.caption, textTransform: 'uppercase' }}>
+                  Requirement
+                </Text>
+                <Text style={{ color: colors.text, fontWeight: '700' }}>
+                  {describeBadgeCondition(badge)}
+                </Text>
+                {awardedDate ? (
+                  <Text style={{ color: colors.muted }}>Earned on {awardedDate}</Text>
+                ) : null}
+              </View>
+            </>
+          ) : null}
+          <Button variant="outline" onPress={onClose} fullWidth>
+            Close
+          </Button>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -1175,6 +1668,8 @@ export function ProfileScreen({
   getFollowing = userService.getFollowing,
   getSavedStories = userService.getSavedStories,
   getUserStories = userService.getUserStories,
+  getUserPoints = userService.getUserPoints,
+  getUserBadges = userService.getUserBadges,
   unbookmarkStory = interactionService.unbookmarkStory,
   onOpenUserProfile,
   onOpenStory,
@@ -1211,6 +1706,11 @@ export function ProfileScreen({
   const [isFollowListVisible, setIsFollowListVisible] = useState(false);
   const [activeSelfTab, setActiveSelfTab] = useState<SelfProfileTab>('profile');
   const [savedStoriesCount, setSavedStoriesCount] = useState<number | null>(null);
+  const [pointsTotal, setPointsTotal] = useState<number | null>(null);
+  const [badges, setBadges] = useState<BadgeEntity[]>([]);
+  const [isGamificationLoading, setIsGamificationLoading] = useState(true);
+  const [gamificationError, setGamificationError] = useState<string | null>(null);
+  const [selectedBadge, setSelectedBadge] = useState<BadgeEntity | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const savedStoriesSectionYRef = useRef(0);
   const shouldScrollToSavedStoriesRef = useRef(false);
@@ -1248,6 +1748,11 @@ export function ProfileScreen({
         });
       }
 
+      setPointsTotal(nextProfile.totalPoints);
+      setBadges([]);
+      setGamificationError(null);
+      setSelectedBadge(null);
+      setIsGamificationLoading(true);
       setProfile(nextProfile);
       setFollowersCount(nextProfile.followersCount ?? 0);
       setFollowingCount(nextProfile.followingCount ?? 0);
@@ -1297,6 +1802,55 @@ export function ProfileScreen({
       isActive = false;
     };
   }, [getSavedStories, isSelfMode, profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) {
+      setPointsTotal(null);
+      setBadges([]);
+      setGamificationError(null);
+      return;
+    }
+
+    let isActive = true;
+
+    setPointsTotal(profile.totalPoints);
+    setBadges([]);
+    setGamificationError(null);
+    setIsGamificationLoading(true);
+
+    Promise.allSettled([
+      getUserPoints(profile.id),
+      getUserBadges(profile.id),
+    ])
+      .then(([pointsResult, badgesResult]) => {
+        if (!isActive) {
+          return;
+        }
+
+        if (pointsResult.status === 'fulfilled') {
+          setPointsTotal(pointsResult.value.totalPoints);
+        } else {
+          setPointsTotal(profile.totalPoints);
+        }
+
+        if (badgesResult.status === 'fulfilled') {
+          setBadges(badgesResult.value);
+          setGamificationError(null);
+        } else {
+          setBadges([]);
+          setGamificationError('Unable to load badges right now.');
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsGamificationLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [getUserBadges, getUserPoints, profile?.id, profile?.totalPoints]);
 
   const validateForm = useCallback(() => {
     const nextErrors: FormErrors = {};
@@ -1676,7 +2230,7 @@ export function ProfileScreen({
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
             {joinedDate ? <StatChip label="Joined" value={joinedDate} /> : null}
-            {isSelfMode ? <StatChip label="Points" value={String(profile.totalPoints)} /> : null}
+            <StatChip label="Points" value={formatPoints(pointsTotal ?? profile.totalPoints)} />
             <StatChip label="Stories" value={String(profile.publishedStoryCount ?? 0)} />
             <StatButton
               label={followersCount === 1 ? 'Follower' : 'Followers'}
@@ -1724,6 +2278,13 @@ export function ProfileScreen({
             </FieldCard>
           ) : null}
         </View>
+
+        <BadgesSection
+          badges={badges}
+          isLoading={isGamificationLoading}
+          error={gamificationError}
+          onSelectBadge={setSelectedBadge}
+        />
 
         {isSelfMode && activeSelfTab === 'saved' ? (
           <View
@@ -2029,6 +2590,11 @@ export function ProfileScreen({
         showCurrentUserAtTop={isFollowing}
         onClose={() => setIsFollowListVisible(false)}
         onOpenUserProfile={handleOpenFollowUserProfile}
+      />
+
+      <BadgeDetailsModal
+        badge={selectedBadge}
+        onClose={() => setSelectedBadge(null)}
       />
 
       <Modal

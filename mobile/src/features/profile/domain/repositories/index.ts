@@ -1,4 +1,11 @@
-import { FollowListResult, ProfileEntity, ProfilePhotoUploadInput, UpdateProfileInput } from '../entities';
+import {
+  BadgeEntity,
+  FollowListResult,
+  PointsSummaryEntity,
+  ProfileEntity,
+  ProfilePhotoUploadInput,
+  UpdateProfileInput,
+} from '../entities';
 import { FeedPageEntity } from '../../../feed/domain/entities';
 
 export interface ProfileRepository {
@@ -14,4 +21,6 @@ export interface ProfileRepository {
   getFollowing(userId: string, page?: number): Promise<FollowListResult>;
   getSavedStories(userId: string, page?: number): Promise<FeedPageEntity>;
   getUserStories(userId: string, page?: number): Promise<FeedPageEntity>;
+  getUserPoints(userId: string): Promise<PointsSummaryEntity>;
+  getUserBadges(userId: string): Promise<BadgeEntity[]>;
 }
