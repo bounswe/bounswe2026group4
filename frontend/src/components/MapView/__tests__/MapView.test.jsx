@@ -219,6 +219,84 @@ describe("MapView auto-zoom (fit bounds)", () => {
   });
 });
 
+describe("MapView auto-zoom with bbox (geocoded location filter)", () => {
+  const BBOX = { latMin: 41.0, latMax: 41.1, lngMin: 28.9, lngMax: 29.0 };
+
+  it("fits to the bbox when bbox is provided and there are zero markers", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([]), bbox: BBOX });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(leafletMocks.latLngBounds).toHaveBeenCalledWith([
+      [BBOX.latMin, BBOX.lngMin],
+      [BBOX.latMax, BBOX.lngMax],
+    ]);
+    expect(fakeMap.fitBounds.mock.calls[0][1]).toMatchObject({ padding: [40, 40] });
+  });
+
+  it("prefers the bbox over marker bounds when both are present", () => {
+    renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+      bbox: BBOX,
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(leafletMocks.latLngBounds).toHaveBeenCalledWith([
+      [BBOX.latMin, BBOX.lngMin],
+      [BBOX.latMax, BBOX.lngMax],
+    ]);
+  });
+
+  it("falls back to marker bounds when bbox is not provided", () => {
+    renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1), makeFeature(2)]),
+      bbox: null,
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(fakeMap.fitBounds.mock.calls[0][1]).toMatchObject({ padding: [40, 40] });
+  });
+
+  it("does not call fitBounds when neither bbox nor markers are present", () => {
+    renderMapView({ featureCollection: makeFeatureCollection([]), bbox: null });
+    expect(fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("does not re-fit when re-rendered with the same bbox and same marker set", () => {
+    const fc = makeFeatureCollection([makeFeature(1), makeFeature(2)]);
+    const { rerender } = renderMapView({ featureCollection: fc, bbox: BBOX });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <MapView featureCollection={fc} bbox={{ ...BBOX }} />
+      </MemoryRouter>,
+    );
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-fits when bbox changes even if the marker set is identical", () => {
+    const fc = makeFeatureCollection([makeFeature(1)]);
+    const { rerender } = renderMapView({ featureCollection: fc, bbox: BBOX });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <MapView
+          featureCollection={fc}
+          bbox={{ latMin: 40.0, latMax: 40.5, lngMin: 28.0, lngMax: 28.5 }}
+        />
+      </MemoryRouter>,
+    );
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores a partial bbox and uses marker bounds instead", () => {
+    renderMapView({
+      featureCollection: makeFeatureCollection([makeFeature(1)]),
+      bbox: { latMin: 41.0, latMax: 41.1, lngMin: null, lngMax: null },
+    });
+    expect(fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+    expect(fakeMap.fitBounds.mock.calls[0][1]).toMatchObject({ maxZoom: 15 });
+  });
+});
+
 describe("MapView pin clustering", () => {
   it("creates a marker cluster group when features are present", () => {
     renderMapView({ featureCollection: makeFeatureCollection([makeFeature(1)]) });
