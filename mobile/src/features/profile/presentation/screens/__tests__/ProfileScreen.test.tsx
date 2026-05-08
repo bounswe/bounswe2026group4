@@ -31,6 +31,7 @@ let mockIsAuthenticated = true;
 jest.mock('../../../../auth/application/services', () => ({
   authService: {
     clear: mockAuthClear,
+    forgotPassword: jest.fn(async () => undefined),
   },
 }));
 
@@ -1087,6 +1088,26 @@ describe('ProfileScreen', () => {
 
     expect(await screen.findByText('Re-enter your password to continue.')).toBeTruthy();
     expect(deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('sends a password reset link from the signed-in profile', async () => {
+    const requestPasswordReset = jest.fn(async () => undefined);
+
+    render(
+      <ProfileScreen
+        mode="self"
+        getCurrentProfile={async () => selfProfile}
+        requestPasswordReset={requestPasswordReset}
+      />,
+    );
+
+    await screen.findByText('Traveler');
+    fireEvent.press(screen.getByLabelText('Send password reset link'));
+
+    await waitFor(() => {
+      expect(requestPasswordReset).toHaveBeenCalledWith('traveler@example.com');
+    });
+    expect(mockToastSuccess).toHaveBeenCalledWith('Password reset link sent. Check your inbox.');
   });
 
   it('can dismiss the delete account modal without triggering deletion', async () => {

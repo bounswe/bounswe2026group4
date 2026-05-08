@@ -4,6 +4,8 @@ import { ThemeProvider } from '../../../../../app/providers/ThemeProvider';
 import { AuthFormCard } from '../AuthFormCard';
 
 function renderCard(mode: 'signIn' | 'register' = 'signIn') {
+  const onForgotPassword = jest.fn();
+
   return render(
     <ThemeProvider>
       <AuthFormCard
@@ -24,6 +26,7 @@ function renderCard(mode: 'signIn' | 'register' = 'signIn') {
         onConfirmPasswordChange={() => undefined}
         onSubmit={() => undefined}
         onToggleMode={() => undefined}
+        onForgotPassword={onForgotPassword}
       />
     </ThemeProvider>,
   );
@@ -53,5 +56,55 @@ describe('AuthFormCard', () => {
 
     fireEvent.press(screen.getByLabelText('Show confirm password'));
     expect(screen.getByLabelText('Confirm password').props.secureTextEntry).toBe(false);
+  });
+
+  it('shows the forgot password action on sign in only', () => {
+    const { rerender } = render(
+      <ThemeProvider>
+        <AuthFormCard
+          mode="signIn"
+          username=""
+          email="traveler@example.com"
+          password="Password1"
+          confirmPassword="Password1"
+          fieldErrors={{}}
+          isLoading={false}
+          passwordRules={[]}
+          onUsernameChange={() => undefined}
+          onEmailChange={() => undefined}
+          onPasswordChange={() => undefined}
+          onConfirmPasswordChange={() => undefined}
+          onSubmit={() => undefined}
+          onToggleMode={() => undefined}
+          onForgotPassword={() => undefined}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText('Forgot your password?')).toBeTruthy();
+
+    rerender(
+      <ThemeProvider>
+        <AuthFormCard
+          mode="register"
+          username=""
+          email="traveler@example.com"
+          password="Password1"
+          confirmPassword="Password1"
+          fieldErrors={{}}
+          isLoading={false}
+          passwordRules={[]}
+          onUsernameChange={() => undefined}
+          onEmailChange={() => undefined}
+          onPasswordChange={() => undefined}
+          onConfirmPasswordChange={() => undefined}
+          onSubmit={() => undefined}
+          onToggleMode={() => undefined}
+          onForgotPassword={() => undefined}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(screen.queryByText('Forgot your password?')).toBeNull();
   });
 });
