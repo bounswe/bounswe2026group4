@@ -57,22 +57,47 @@ function featureLatLng(feature) {
   return [lat, lng];
 }
 
-function FitBoundsToFeatures({ features }) {
+function isValidBbox(bbox) {
+  return (
+    bbox != null &&
+    Number.isFinite(bbox.latMin) &&
+    Number.isFinite(bbox.latMax) &&
+    Number.isFinite(bbox.lngMin) &&
+    Number.isFinite(bbox.lngMax)
+  );
+}
+
+function FitBoundsToFeatures({ features, bbox }) {
   const map = useMap();
-  // Skip re-fitting when the feature set is unchanged — refetches that
-  // return the same stories shouldn't snap the map back over the user's pan.
+  // Skip re-fitting when the inputs are unchanged — refetches that return the
+  // same bbox + stories shouldn't snap the map back over the user's pan.
   const lastFitKeyRef = useRef(null);
 
   useEffect(() => {
     if (!map) return;
-    if (features.length === 0) {
+    const hasBbox = isValidBbox(bbox);
+    if (!hasBbox && features.length === 0) {
       lastFitKeyRef.current = null;
       return;
     }
-    const fitKey = features.map((f) => f.id).join("|");
+    const bboxKey = hasBbox
+      ? `${bbox.latMin}|${bbox.latMax}|${bbox.lngMin}|${bbox.lngMax}`
+      : "";
+    const featuresKey = features.map((f) => f.id).join("|");
+    const fitKey = `${bboxKey}::${featuresKey}`;
     if (fitKey === lastFitKeyRef.current) return;
     lastFitKeyRef.current = fitKey;
 
+    // Bbox takes priority so the user always sees the area they searched
+    // for, even if no markers fall inside it.
+    if (hasBbox) {
+      const bounds = L.latLngBounds([
+        [bbox.latMin, bbox.lngMin],
+        [bbox.latMax, bbox.lngMax],
+      ]);
+      map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING });
+      return;
+    }
     const latlngs = features.map(featureLatLng).filter(Boolean);
     if (latlngs.length === 0) return;
     const bounds = L.latLngBounds(latlngs);
@@ -81,7 +106,7 @@ function FitBoundsToFeatures({ features }) {
         ? { maxZoom: SINGLE_FEATURE_MAX_ZOOM }
         : { padding: FIT_BOUNDS_PADDING };
     map.fitBounds(bounds, options);
-  }, [map, features]);
+  }, [map, features, bbox]);
   return null;
 }
 
@@ -116,7 +141,7 @@ function ClusteredMarkers({ features }) {
   return null;
 }
 
-function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false }) {
+function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false, bbox = null }) {
   const features = useMemo(
     () => featureCollection?.features ?? [],
     [featureCollection],
@@ -135,7 +160,7 @@ function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ClusteredMarkers features={features} />
-        <FitBoundsToFeatures features={features} />
+        <FitBoundsToFeatures features={features} bbox={bbox} />
         <StoryLinkInterceptor />
       </MapContainer>
       {loading && (
