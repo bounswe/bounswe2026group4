@@ -187,11 +187,9 @@ async function getTimelineViaFallback({
   latitude,
   longitude,
   radiusKm,
-  // hasImage is intentionally accepted but unused in the fallback path —
-  // see note below.
-  hasImage: _hasImage,
   page,
   pageSize,
+  // hasImage is deliberately not destructured here — see note below.
 }) {
   // storyService.getStories already routes between /stories/search/ (with q)
   // and /stories/feed/, and it builds exactly the bbox/location/proximity/
