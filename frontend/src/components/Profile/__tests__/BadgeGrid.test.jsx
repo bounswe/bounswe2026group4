@@ -17,7 +17,7 @@ function makeBadge(overrides = {}) {
       name: overrides.name ?? "First Story",
       description:
         overrides.description ?? "Awarded for publishing your first story",
-      criteria_type: overrides.criteria_type ?? "story_count",
+      criteria_type: overrides.criteria_type ?? "stories_published",
       criteria_threshold: overrides.criteria_threshold ?? 1,
     },
     awarded_at: overrides.awarded_at ?? "2026-04-01T12:00:00Z",
@@ -58,7 +58,7 @@ describe("BadgeGrid", () => {
 
   it("renders a card with name visible for each badge", async () => {
     getUserBadges.mockResolvedValue([
-      makeBadge({ id: 1, name: "First Story", criteria_type: "story_count" }),
+      makeBadge({ id: 1, name: "First Story", criteria_type: "stories_published" }),
       makeBadge({
         id: 2,
         badgeId: 2,
@@ -113,8 +113,8 @@ describe("BadgeGrid", () => {
   it("applies a distinct color halo per criteria_type", async () => {
     getUserBadges.mockResolvedValue([
       makeBadge({ id: 1, criteria_type: "registration" }),
-      makeBadge({ id: 2, badgeId: 2, criteria_type: "story_count" }),
-      makeBadge({ id: 3, badgeId: 3, criteria_type: "points" }),
+      makeBadge({ id: 2, badgeId: 2, criteria_type: "stories_published" }),
+      makeBadge({ id: 3, badgeId: 3, criteria_type: "points_total" }),
       makeBadge({ id: 4, badgeId: 4, criteria_type: "something_unknown" }),
     ]);
     render(<BadgeGrid userId={1} />);
@@ -127,8 +127,8 @@ describe("BadgeGrid", () => {
         .find((c) => c.dataset.criteria === criteria)
         ?.querySelector("span")?.className;
     const reg = haloOf("registration");
-    const story = haloOf("story_count");
-    const pts = haloOf("points");
+    const story = haloOf("stories_published");
+    const pts = haloOf("points_total");
     const unknown = haloOf("something_unknown");
     expect(reg).toMatch(/blue/);
     expect(story).toMatch(/emerald/);
@@ -136,16 +136,16 @@ describe("BadgeGrid", () => {
     expect(unknown).toMatch(/violet/);
   });
 
-  it("uses the BookOpen icon for story_count badges", async () => {
+  it("uses the BookOpen icon for stories_published badges", async () => {
     getUserBadges.mockResolvedValue([
-      makeBadge({ name: "Storyteller", criteria_type: "story_count" }),
+      makeBadge({ name: "Storyteller", criteria_type: "stories_published" }),
     ]);
     render(<BadgeGrid userId={1} />);
     await waitFor(() =>
       expect(screen.getByText("Storyteller")).toBeInTheDocument()
     );
     const card = screen.getByTestId("badge-card");
-    expect(card).toHaveAttribute("data-criteria", "story_count");
+    expect(card).toHaveAttribute("data-criteria", "stories_published");
     expect(card.querySelector(".lucide-book-open")).toBeInTheDocument();
   });
 
@@ -162,9 +162,9 @@ describe("BadgeGrid", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses the Star icon for points badges", async () => {
+  it("uses the Star icon for points_total badges", async () => {
     getUserBadges.mockResolvedValue([
-      makeBadge({ name: "Centurion", criteria_type: "points" }),
+      makeBadge({ name: "Centurion", criteria_type: "points_total" }),
     ]);
     render(<BadgeGrid userId={1} />);
     await waitFor(() =>

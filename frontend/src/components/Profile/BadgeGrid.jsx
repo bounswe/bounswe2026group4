@@ -16,11 +16,11 @@ const BADGE_VARIANTS = {
     Icon: Award,
     halo: "bg-blue-100 text-blue-700 ring-1 ring-blue-200/80 dark:bg-blue-950/60 dark:text-blue-300 dark:ring-blue-900/60",
   },
-  story_count: {
+  stories_published: {
     Icon: BookOpen,
     halo: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900/60",
   },
-  points: {
+  points_total: {
     Icon: Star,
     halo: "bg-amber-100 text-amber-700 ring-1 ring-amber-200/80 dark:bg-amber-950/60 dark:text-amber-300 dark:ring-amber-900/60",
   },

@@ -153,7 +153,7 @@ describe("userService", () => {
             id: 1,
             name: "First Story",
             description: "Awarded for publishing your first story",
-            criteria_type: "story_count",
+            criteria_type: "stories_published",
             criteria_threshold: 1,
           },
           awarded_at: "2026-04-01T12:00:00Z",
