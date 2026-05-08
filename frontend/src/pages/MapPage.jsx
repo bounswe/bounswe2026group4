@@ -8,7 +8,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 
 function MapPage() {
-  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags, hasActiveFilters } = useFilterState();
+  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags, hasActiveFilters } = useFilterState();
 
   const [featureCollection, setFeatureCollection] = useState(EMPTY_FEATURE_COLLECTION);
   const [loading, setLoading] = useState(true);
@@ -19,11 +19,16 @@ function MapPage() {
     return { latMin, latMax, lngMin, lngMax };
   }, [latMin, latMax, lngMin, lngMax]);
 
+  const proximity = useMemo(() => {
+    if (latitude == null || longitude == null || radiusKm == null) return null;
+    return { latitude, longitude, radiusKm };
+  }, [latitude, longitude, radiusKm]);
+
   const fetchPins = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getMapStories({ q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags });
+      const data = await getMapStories({ q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags });
       setFeatureCollection(data ?? EMPTY_FEATURE_COLLECTION);
     } catch (err) {
       setError(
@@ -34,7 +39,7 @@ function MapPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags]);
+  }, [q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags]);
 
   useEffect(() => {
     fetchPins();
@@ -42,7 +47,7 @@ function MapPage() {
 
   return (
     <div className="relative isolate" style={{ height: "calc(100vh - 3.5rem)" }}>
-      <MapView featureCollection={featureCollection} loading={loading} bbox={bbox} />
+      <MapView featureCollection={featureCollection} loading={loading} bbox={bbox} proximity={proximity} />
 
       {/* Search & filter overlay */}
       <div className="absolute top-3 left-3 right-3 z-[1000] sm:left-4 sm:right-auto sm:w-[32rem]">

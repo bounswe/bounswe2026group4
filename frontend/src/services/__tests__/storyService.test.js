@@ -143,6 +143,36 @@ describe("storyService", () => {
       });
     });
 
+    it("passes proximity params to feed API when latitude, longitude and radiusKm are all provided", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ latitude: 41.0082, longitude: 28.9784, radiusKm: 10 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/feed/", {
+        params: { page: 1, page_size: 12, sort_by: "recent", latitude: 41.0082, longitude: 28.9784, radius_km: 10 },
+      });
+    });
+
+    it("omits proximity params when only a partial set is provided", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ latitude: 41.0082, longitude: 28.9784 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/feed/", {
+        params: { page: 1, page_size: 12, sort_by: "recent" },
+      });
+    });
+
+    it("passes proximity params alongside q to the search API", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+      await getStories({ q: "bridge", latitude: 41.0, longitude: 28.9, radiusKm: 1 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/search/", {
+        params: { q: "bridge", page: 1, page_size: 12, latitude: 41.0, longitude: 28.9, radius_km: 1 },
+      });
+    });
+
     it("uses feed API when q is empty string", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
@@ -263,6 +293,16 @@ describe("storyService", () => {
 
       expect(api.get).toHaveBeenCalledWith("/stories/map/", {
         params: { location: "Galata" },
+      });
+    });
+
+    it("passes proximity params to map API when latitude, longitude and radiusKm are all provided", async () => {
+      api.get.mockResolvedValue({ data: emptyFeatureCollection });
+
+      await getMapStories({ latitude: 41.0, longitude: 28.9, radiusKm: 100 });
+
+      expect(api.get).toHaveBeenCalledWith("/stories/map/", {
+        params: { latitude: 41.0, longitude: 28.9, radius_km: 100 },
       });
     });
 

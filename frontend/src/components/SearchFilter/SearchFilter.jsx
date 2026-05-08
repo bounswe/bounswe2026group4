@@ -6,9 +6,13 @@ import ActiveFilters from "./ActiveFilters";
 import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
 
-/** Count how many non-search filters (year, location, tags) are active. */
-function countActiveFilters({ yearFrom, yearTo, location, tags }) {
-  return [yearFrom, yearTo, location].filter(Boolean).length + tags.length;
+/** Count how many non-search filters (year, location, distance, tags) are active. */
+function countActiveFilters({ yearFrom, yearTo, location, hasProximity, tags }) {
+  return (
+    [yearFrom, yearTo, location].filter(Boolean).length +
+    (hasProximity ? 1 : 0) +
+    tags.length
+  );
 }
 
 /**
@@ -17,7 +21,7 @@ function countActiveFilters({ yearFrom, yearTo, location, tags }) {
  * Must be rendered inside a React Router context.
  */
 function SearchFilter({ className }) {
-  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, tags, setFilters, removeFilter, removeTag, clearAll } = useFilterState();
+  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags, hasProximity, setFilters, removeFilter, removeTag, clearAll } = useFilterState();
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -26,7 +30,7 @@ function SearchFilter({ className }) {
     [setFilters]
   );
 
-  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc, latMin, latMax, lngMin, lngMax, tags: tgs}) {
+  function handleFilterApply({ yearFrom: yf, yearTo: yt, location: loc, latMin, latMax, lngMin, lngMax, latitude: lat, longitude: lng, radiusKm: rKm, tags: tgs}) {
     setFilters({
       year_from: yf,
       year_to: yt,
@@ -35,6 +39,9 @@ function SearchFilter({ className }) {
       lat_max: latMax ?? "",
       lng_min: lngMin ?? "",
       lng_max: lngMax ?? "",
+      latitude: lat ?? "",
+      longitude: lng ?? "",
+      radius_km: rKm ?? "",
       tags: tgs
     }, { replace: true });
   }
@@ -44,12 +51,14 @@ function SearchFilter({ className }) {
       setFilters({ year_from: "", year_to: "" }, { replace: true });
     } else if (key === "location") {
       setFilters({ location: "", lat_min: "", lat_max: "", lng_min: "", lng_max: "" }, { replace: true });
+    } else if (key === "proximity") {
+      setFilters({ latitude: "", longitude: "", radius_km: "" }, { replace: true });
     } else {
       removeFilter(key);
     }
   }
 
-  const activeFilterCount = countActiveFilters({ yearFrom, yearTo, location, tags });
+  const activeFilterCount = countActiveFilters({ yearFrom, yearTo, location, hasProximity, tags });
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -61,7 +70,7 @@ function SearchFilter({ className }) {
           />
         </div>
         <FilterPanel
-          key={`${yearFrom}-${yearTo}-${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${tags.join(",")}`}
+          key={`${yearFrom}-${yearTo}-${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${latitude}-${longitude}-${radiusKm}-${tags.join(",")}`}
           yearFrom={yearFrom}
           yearTo={yearTo}
           location={location}
@@ -69,6 +78,9 @@ function SearchFilter({ className }) {
           latMax={latMax}
           lngMin={lngMin}
           lngMax={lngMax}
+          latitude={latitude}
+          longitude={longitude}
+          radiusKm={radiusKm}
           tags={tags}
           onApply={handleFilterApply}
           activeCount={activeFilterCount}
@@ -79,6 +91,8 @@ function SearchFilter({ className }) {
         yearFrom={yearFrom}
         yearTo={yearTo}
         location={location}
+        radiusKm={radiusKm}
+        hasProximity={hasProximity}
         tags={tags}
         onRemove={handleRemoveFilter}
         onRemoveTag={removeTag}

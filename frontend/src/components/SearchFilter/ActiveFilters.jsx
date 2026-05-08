@@ -52,6 +52,8 @@ function ActiveFilters({
   yearFrom = "",
   yearTo = "",
   location = "",
+  radiusKm = null,
+  hasProximity = false,
   tags = [],
   onRemove,
   onRemoveTag,
@@ -73,6 +75,11 @@ function ActiveFilters({
 
   if (location) {
     chips.push({ key: "location", label: `Location: ${location}` });
+  }
+
+  if (hasProximity && radiusKm != null) {
+    const distanceLabel = radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
+    chips.push({ key: "proximity", label: `Within ${distanceLabel}` });
   }
 
   if (chips.length === 0 && tags.length === 0) return null;
