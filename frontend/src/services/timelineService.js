@@ -1,4 +1,5 @@
 import api from "./api";
+import { getStories } from "./storyService";
 
 const KEY_MAP = {
   yearFrom: "year_from",
@@ -130,33 +131,26 @@ async function getTimelineViaFallback({
   page,
   pageSize,
 }) {
-  const trimmedQ = q?.trim();
-  const path = trimmedQ ? "/stories/search/" : "/stories/feed/";
-  const params = { page_size: FALLBACK_FETCH_PAGE_SIZE };
-  if (trimmedQ) params.q = trimmedQ;
-  else params.sort_by = "recent";
-  if (yearFrom != null) params.year_from = yearFrom;
-  if (yearTo != null) params.year_to = yearTo;
-  const hasBbox = latMin != null && latMax != null && lngMin != null && lngMax != null;
-  if (hasBbox) {
-    params.lat_min = latMin;
-    params.lat_max = latMax;
-    params.lng_min = lngMin;
-    params.lng_max = lngMax;
-  } else if (location?.trim()) {
-    params.location = location.trim();
-  }
-  if (latitude != null && longitude != null && radiusKm != null) {
-    params.latitude = latitude;
-    params.longitude = longitude;
-    params.radius_km = radiusKm;
-  }
-  if (Array.isArray(tags) && tags.length > 0) {
-    params.tags = tags;
-  }
-
-  const response = await api.get(path, { params });
-  const allResults = Array.isArray(response.data?.results) ? response.data.results : [];
+  // storyService.getStories already routes between /stories/search/ (with q)
+  // and /stories/feed/, and it builds exactly the bbox/location/proximity/
+  // tags param shape we need. We just borrow it as the underlying fetch.
+  const data = await getStories({
+    q,
+    yearFrom,
+    yearTo,
+    location,
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
+    latitude,
+    longitude,
+    radiusKm,
+    tags,
+    page: 1,
+    pageSize: FALLBACK_FETCH_PAGE_SIZE,
+  });
+  const allResults = Array.isArray(data?.results) ? data.results : [];
   // Decorate-sort-undecorate: compute the historical year once per story,
   // not twice per comparison.
   const sorted = allResults
