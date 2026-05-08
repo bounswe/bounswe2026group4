@@ -222,25 +222,6 @@ export function MapScreen({
     setStatusIndicatorMode('filters');
   }, [activeFilters, hasActiveFilters]);
 
-  const activeFilterSummary = useMemo(() => {
-    const parts = [];
-
-    if (state.filters.q) {
-      parts.push(`Search: ${state.filters.q}`);
-    }
-    if (state.filters.location) {
-      parts.push(`Place: ${state.filters.location}`);
-    }
-    if (state.filters.yearFrom || state.filters.yearTo) {
-      parts.push(`Years: ${state.filters.yearFrom ?? 'Any'}-${state.filters.yearTo ?? 'Any'}`);
-    }
-    if (state.filters.tags?.length) {
-      parts.push(`Tag: ${state.filters.tags.join(', ')}`);
-    }
-
-    return parts;
-  }, [state.filters]);
-
   const totalStoryCount = useMemo(
     () => state.markers.reduce((sum, marker) => sum + marker.count, 0),
     [state.markers],
@@ -323,7 +304,6 @@ export function MapScreen({
   return (
     <View style={{ gap: spacing.md }}>
       {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
-      {activeFilterSummary.length ? <Text style={{ color: colors.muted }}>{activeFilterSummary.join('  |  ')}</Text> : null}
 
       <View
         testID="map-card-container"
