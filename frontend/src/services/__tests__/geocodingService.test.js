@@ -116,15 +116,26 @@ describe("searchLocationSuggestions", () => {
     });
   });
 
-  it("sets bbox to null when backend returns null bbox", async () => {
-    mockGet([{ id: "1", title: "SomePlace", subtitle: null, bbox: null }]);
+  it("filters out suggestions with no bbox (cannot be selected on the map)", async () => {
+    mockGet([
+      { id: "1", title: "Has bbox", subtitle: null, bbox: { lat_min: 1, lat_max: 2, lng_min: 3, lng_max: 4 } },
+      { id: "2", title: "No bbox", subtitle: null, bbox: null },
+    ]);
 
-    const results = await searchLocationSuggestions("SomePlace");
-    expect(results[0].bbox).toBeNull();
+    const results = await searchLocationSuggestions("Mixed");
+    expect(results).toHaveLength(1);
+    expect(results[0].id).toBe("1");
   });
 
   it("sets subtitle to undefined when backend returns null subtitle", async () => {
-    mockGet([{ id: "1", title: "SomePlace", subtitle: null, bbox: null }]);
+    mockGet([
+      {
+        id: "1",
+        title: "SomePlace",
+        subtitle: null,
+        bbox: { lat_min: 1, lat_max: 2, lng_min: 3, lng_max: 4 },
+      },
+    ]);
 
     const results = await searchLocationSuggestions("SomePlace");
     expect(results[0].subtitle).toBeUndefined();
