@@ -15,6 +15,12 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"  # web inbox UI
+      - "1025:1025"  # SMTP
+
   web:
     build:
       context: .
@@ -29,9 +35,18 @@ services:
     environment:
       # Override DB_HOST from .env so Django connects to the db service, not localhost
       DB_HOST: db
+      # Route outgoing email through the local Mailpit catcher in development
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: "1025"
+      EMAIL_USE_TLS: "False"
+      EMAIL_USE_SSL: "False"
+      EMAIL_HOST_PASSWORD: ""
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
   frontend:
     build:
