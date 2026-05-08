@@ -4,7 +4,6 @@ import { Loader2 } from "lucide-react";
 
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -12,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteAccount } from "@/services/userService";
@@ -105,7 +105,15 @@ function DeleteAccountForm({ onOpenChange }) {
         <AlertDialogCancel disabled={submitting} type="button">
           Cancel
         </AlertDialogCancel>
-        <AlertDialogAction
+        {/*
+         * NOTE: This is a plain <Button>, not an <AlertDialogAction>.
+         * Radix's AlertDialogAction wraps Dialog.Close, which calls
+         * onOpenChange(false) on click — that would unmount the form
+         * before our async API call resolves, hiding the loading state
+         * and any inline error. We close the dialog ourselves only after
+         * a successful deletion (in handleConfirm).
+         */}
+        <Button
           type="submit"
           variant="destructive"
           disabled={submitting || !password}
@@ -114,7 +122,7 @@ function DeleteAccountForm({ onOpenChange }) {
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           )}
           {submitting ? "Deleting…" : "Delete my account"}
-        </AlertDialogAction>
+        </Button>
       </AlertDialogFooter>
     </form>
   );

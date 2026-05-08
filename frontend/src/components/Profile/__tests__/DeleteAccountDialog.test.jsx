@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -165,5 +166,80 @@ describe("DeleteAccountDialog", () => {
       "delete-account-error"
     );
     expect(screen.getByRole("alert")).toHaveAttribute("id", "delete-account-error");
+  });
+
+  // Regression guard: Radix's AlertDialogAction wraps Dialog.Close, which
+  // auto-fires onOpenChange(false) on click. If the destructive button is
+  // an AlertDialogAction, the dialog unmounts before the API call resolves,
+  // hiding the loading state and any inline error. These two tests use a
+  // controlled `open` prop (production wiring) to lock in that the dialog
+  // stays mounted across the entire request lifecycle.
+  describe("with controlled `open` (production wiring)", () => {
+    function ControlledHarness() {
+      const [open, setOpen] = useState(true);
+      return <DeleteAccountDialog open={open} onOpenChange={setOpen} />;
+    }
+
+    it("keeps the dialog mounted while the request is in flight", async () => {
+      let resolve;
+      deleteAccount.mockReturnValue(new Promise((r) => { resolve = r; }));
+
+      render(
+        <MemoryRouter>
+          <ControlledHarness />
+        </MemoryRouter>
+      );
+
+      fireEvent.change(screen.getByLabelText(/confirm with your password/i), {
+        target: { value: "hunter2" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /deleting…/i })).toBeInTheDocument()
+      );
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      resolve();
+    });
+
+    it("keeps the dialog open and surfaces inline error on backend failure", async () => {
+      deleteAccount.mockRejectedValue({
+        response: { status: 400, data: { password: ["Incorrect password."] } },
+      });
+
+      render(
+        <MemoryRouter>
+          <ControlledHarness />
+        </MemoryRouter>
+      );
+
+      fireEvent.change(screen.getByLabelText(/confirm with your password/i), {
+        target: { value: "wrong" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("alert")).toHaveTextContent(/incorrect password/i)
+      );
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      expect(screen.getByLabelText(/confirm with your password/i)).toBeInTheDocument();
+    });
+
+    it("submits via Enter key in the password input", async () => {
+      deleteAccount.mockResolvedValue(undefined);
+
+      render(
+        <MemoryRouter>
+          <ControlledHarness />
+        </MemoryRouter>
+      );
+
+      const passwordInput = screen.getByLabelText(/confirm with your password/i);
+      fireEvent.change(passwordInput, { target: { value: "hunter2" } });
+      fireEvent.submit(passwordInput.closest("form"));
+
+      await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith("hunter2", true));
+      expect(deleteAccount).toHaveBeenCalledTimes(1);
+    });
   });
 });
