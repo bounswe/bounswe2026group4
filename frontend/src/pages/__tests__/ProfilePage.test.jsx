@@ -54,6 +54,12 @@ vi.mock("@/components/Profile/SavedStoriesTab", () => ({
   ),
 }));
 
+vi.mock("@/components/Profile/PublishedStoriesTab", () => ({
+  default: ({ userId }) => (
+    <div data-testid="published-stories-tab" data-user-id={userId} />
+  ),
+}));
+
 vi.mock("@/components/Profile/BadgeGrid", () => ({
   default: ({ userId }) => (
     <div data-testid="badge-grid" data-user-id={userId} />
@@ -116,15 +122,17 @@ describe("ProfilePage", () => {
     expect(getProfile).toHaveBeenCalledWith(1);
   });
 
-  it("shows story listing coming soon message", async () => {
+  it("renders the published stories section with the correct userId", async () => {
     getProfile.mockResolvedValue(mockProfileData);
     renderPage();
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Story listing will be available soon.")
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("published-stories-tab")).toBeInTheDocument();
     });
+    expect(screen.getByTestId("published-stories-tab")).toHaveAttribute(
+      "data-user-id",
+      "1"
+    );
   });
 
   it("shows error state on API failure", async () => {

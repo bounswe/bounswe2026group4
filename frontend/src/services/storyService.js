@@ -178,3 +178,10 @@ export async function uploadStoryMedia(storyId, file) {
   const response = await api.post(`/stories/${storyId}/media/`, formData);
   return response.data;
 }
+
+export async function getUserStories(userId, { page = 1, pageSize = 10 } = {}) {
+  const response = await api.get(`/users/${userId}/stories/`, {
+    params: { page, page_size: pageSize },
+  });
+  return response.data; // { count, next, previous, results }
+}
