@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,10 @@ import { ErrorState } from "@/components/ui/error-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 import TimelineView from "@/components/Timeline/TimelineView";
+import SearchBar from "@/components/SearchFilter/SearchBar";
+import FilterPanel from "@/components/SearchFilter/FilterPanel";
+import ActiveFilters from "@/components/SearchFilter/ActiveFilters";
+import { useFilterState } from "@/hooks/useFilterState";
 import { getTimeline } from "@/services/timelineService";
 
 const PAGE_SIZE = 10;
@@ -20,12 +23,6 @@ const MODE_LABELS = {
   range: "Range",
   decade: "Decade",
 };
-
-function parseFloatOrUndef(v) {
-  if (v == null) return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
-}
 
 const YEAR_RE = /^\d{4}$/;
 
@@ -92,20 +89,33 @@ function deriveYearFilter(mode, yearInput, rangeFrom, rangeTo) {
   return { ...base, yearFrom: from, yearTo: to, label: `${from}–${to}` };
 }
 
-function TimelinePage() {
-  const [searchParams] = useSearchParams();
+/**
+ * Count filters that aren't represented by the time-window mode UI.
+ * The time-window selector owns yearFrom/yearTo visually, so they're not
+ * surfaced through the filter chip badge / chips.
+ */
+function countActiveFilters({ location, hasProximity, tags }) {
+  return (location ? 1 : 0) + (hasProximity ? 1 : 0) + tags.length;
+}
 
-  // Bounding-box passthrough — issue #488 will use these.
-  const bbox = useMemo(() => {
-    const latMin = parseFloatOrUndef(searchParams.get("lat_min"));
-    const latMax = parseFloatOrUndef(searchParams.get("lat_max"));
-    const lngMin = parseFloatOrUndef(searchParams.get("lng_min"));
-    const lngMax = parseFloatOrUndef(searchParams.get("lng_max"));
-    if ([latMin, latMax, lngMin, lngMax].some((v) => v === undefined)) {
-      return null;
-    }
-    return { latMin, latMax, lngMin, lngMax };
-  }, [searchParams]);
+function TimelinePage() {
+  const {
+    q,
+    location,
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
+    latitude,
+    longitude,
+    radiusKm,
+    tags,
+    hasProximity,
+    setFilters,
+    removeFilter,
+    removeTag,
+    clearAll,
+  } = useFilterState();
 
   const [mode, setMode] = useState("all");
   const [yearInput, setYearInput] = useState("");
@@ -139,10 +149,16 @@ function TimelinePage() {
         const data = await getTimeline({
           yearFrom: filter.yearFrom,
           yearTo: filter.yearTo,
-          latMin: bbox?.latMin,
-          latMax: bbox?.latMax,
-          lngMin: bbox?.lngMin,
-          lngMax: bbox?.lngMax,
+          q,
+          location,
+          tags,
+          latMin: latMin ?? undefined,
+          latMax: latMax ?? undefined,
+          lngMin: lngMin ?? undefined,
+          lngMax: lngMax ?? undefined,
+          latitude: latitude ?? undefined,
+          longitude: longitude ?? undefined,
+          radiusKm: radiusKm ?? undefined,
           page: pageToLoad,
           pageSize: PAGE_SIZE,
         });
@@ -165,7 +181,20 @@ function TimelinePage() {
         }
       }
     },
-    [filter.yearFrom, filter.yearTo, bbox],
+    [
+      filter.yearFrom,
+      filter.yearTo,
+      q,
+      location,
+      tags,
+      latMin,
+      latMax,
+      lngMin,
+      lngMax,
+      latitude,
+      longitude,
+      radiusKm,
+    ],
   );
 
   // Refetch from page 1 whenever the filter changes (or on mount). Skip while
@@ -184,6 +213,81 @@ function TimelinePage() {
     fetchPage(1, { append: false });
   }
 
+  const handleSearchChange = useCallback(
+    (value) => {
+      setFilters({ q: value }, { replace: true });
+    },
+    [setFilters],
+  );
+
+  function handleFilterApply({
+    location: loc,
+    latMin: lMin,
+    latMax: lMax,
+    lngMin: gMin,
+    lngMax: gMax,
+    latitude: lat,
+    longitude: lng,
+    radiusKm: rKm,
+    tags: tgs,
+  }) {
+    setFilters(
+      {
+        location: loc,
+        lat_min: lMin ?? "",
+        lat_max: lMax ?? "",
+        lng_min: gMin ?? "",
+        lng_max: gMax ?? "",
+        latitude: lat ?? "",
+        longitude: lng ?? "",
+        radius_km: rKm ?? "",
+        tags: tgs,
+      },
+      { replace: true },
+    );
+  }
+
+  function handleRemoveFilter(key) {
+    if (key === "location") {
+      setFilters(
+        { location: "", lat_min: "", lat_max: "", lng_min: "", lng_max: "" },
+        { replace: true },
+      );
+    } else if (key === "proximity") {
+      setFilters({ latitude: "", longitude: "", radius_km: "" }, { replace: true });
+    } else {
+      removeFilter(key);
+    }
+  }
+
+  // Roving-tabindex bookkeeping for the WAI-ARIA radiogroup. Only the
+  // currently-checked option sits in the tab order; arrow keys both move
+  // focus and select the next option. Matches the authoring practice for
+  // role="radiogroup".
+  const modeRefs = useRef({});
+
+  function handleModeKeyDown(e, currentIndex) {
+    let nextIndex = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      nextIndex = (currentIndex + 1) % MODES.length;
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      nextIndex = (currentIndex - 1 + MODES.length) % MODES.length;
+    } else if (e.key === "Home") {
+      nextIndex = 0;
+    } else if (e.key === "End") {
+      nextIndex = MODES.length - 1;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    const nextMode = MODES[nextIndex];
+    setMode(nextMode);
+    const el = modeRefs.current[nextMode];
+    if (el) el.focus();
+  }
+
+  const activeFilterCount = countActiveFilters({ location, hasProximity, tags });
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -194,30 +298,74 @@ function TimelinePage() {
           </p>
         </div>
 
-        {/* Filter card */}
+        {/* Search + filters */}
+        <div className="mb-6 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <SearchBar
+                defaultValue={q}
+                onSearch={handleSearchChange}
+                placeholder="Search by title or place…"
+              />
+            </div>
+            <FilterPanel
+              key={`${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${latitude}-${longitude}-${radiusKm}-${tags.join(",")}`}
+              location={location}
+              latMin={latMin}
+              latMax={latMax}
+              lngMin={lngMin}
+              lngMax={lngMax}
+              latitude={latitude}
+              longitude={longitude}
+              radiusKm={radiusKm}
+              tags={tags}
+              onApply={handleFilterApply}
+              activeCount={activeFilterCount}
+              hideYearRange
+            />
+          </div>
+          <ActiveFilters
+            q={q}
+            location={location}
+            radiusKm={radiusKm}
+            hasProximity={hasProximity}
+            tags={tags}
+            onRemove={handleRemoveFilter}
+            onRemoveTag={removeTag}
+            onClearAll={clearAll}
+          />
+        </div>
+
+        {/* Time-window selector */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Choose a time window</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div role="radiogroup" aria-label="Time window mode" className="flex flex-wrap gap-2">
-              {MODES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === m}
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
-                    mode === m
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input bg-background text-foreground hover:bg-muted",
-                  )}
-                >
-                  {MODE_LABELS[m]}
-                </button>
-              ))}
+              {MODES.map((m, i) => {
+                const isChecked = mode === m;
+                return (
+                  <button
+                    key={m}
+                    ref={(el) => { modeRefs.current[m] = el; }}
+                    type="button"
+                    role="radio"
+                    aria-checked={isChecked}
+                    tabIndex={isChecked ? 0 : -1}
+                    onClick={() => setMode(m)}
+                    onKeyDown={(e) => handleModeKeyDown(e, i)}
+                    className={cn(
+                      "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
+                      isChecked
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-input bg-background text-foreground hover:bg-muted",
+                    )}
+                  >
+                    {MODE_LABELS[m]}
+                  </button>
+                );
+              })}
             </div>
 
             {mode === "year" && (

@@ -11,12 +11,60 @@ const KEY_MAP = {
   pageSize: "page_size",
 };
 
+// How many stories to fetch from the search/feed fallback before client-sorting
+// and paginating. Mirrors the cap mobile uses for the same fallback path —
+// large enough for the realistic timeline corpus, small enough to keep the
+// payload reasonable. Stories beyond this cap are not represented.
+const FALLBACK_FETCH_PAGE_SIZE = 100;
+
+/**
+ * Compute the historical-year midpoint for a story so the client can sort
+ * fallback-fetched results the same way the timeline endpoint does on the
+ * server. Returns Number.MAX_SAFE_INTEGER for stories with no usable time
+ * info so they sink to the bottom rather than crash the comparator.
+ *
+ * Mirrors the server-side CASE expression in
+ * `backend/apps/stories/services.py::get_story_timeline`.
+ */
+export function getTimelineHistoricalYear(story) {
+  if (!story || typeof story !== "object") return Number.MAX_SAFE_INTEGER;
+  const { time_type, year, year_start, year_end, date_value } = story;
+  if (time_type === "year_range" && Number.isFinite(year_start) && Number.isFinite(year_end)) {
+    return (year_start + year_end) / 2;
+  }
+  if (time_type === "decade" && Number.isFinite(year)) {
+    return year + 5;
+  }
+  if (time_type === "exact_date" && typeof date_value === "string") {
+    const parsedYear = Number.parseInt(date_value.slice(0, 4), 10);
+    return Number.isFinite(parsedYear) ? parsedYear : Number.MAX_SAFE_INTEGER;
+  }
+  if (Number.isFinite(year)) return year;
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function hasUnsupportedTimelineFilters({ q, tags, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm }) {
+  if (q?.trim()) return true;
+  if (Array.isArray(tags) && tags.length > 0) return true;
+  if (latitude != null && longitude != null && radiusKm != null) return true;
+  // A location string with no bbox can't be passed to /stories/timeline/ —
+  // that endpoint doesn't accept a `location` text param.
+  const hasBbox = latMin != null && latMax != null && lngMin != null && lngMax != null;
+  if (location?.trim() && !hasBbox) return true;
+  return false;
+}
+
 /**
  * Fetch stories ordered by time period for the timeline view.
  *
- * Calls `GET /stories/timeline/`. Accepts camelCase JS args and translates them
- * to snake_case query params expected by the backend. Undefined args are
- * omitted from the request.
+ * When the active filter set is supported by `/stories/timeline/` (year +
+ * bbox), this proxies that endpoint directly so the server's historical
+ * ordering and pagination are preserved. When the filter set includes text
+ * search, tags, proximity, or a location string without a bbox, the timeline
+ * endpoint can't honour it — so we fall back to `/stories/search/` (when q
+ * is present) or `/stories/feed/`, then re-sort client-side by historical
+ * midpoint and paginate locally. This mirrors the strategy in
+ * `mobile/src/features/timeline/data/sources/index.ts`.
  */
 export async function getTimeline({
   yearFrom,
@@ -25,15 +73,101 @@ export async function getTimeline({
   latMax,
   lngMin,
   lngMax,
+  q,
+  tags,
+  location,
+  latitude,
+  longitude,
+  radiusKm,
   page,
   pageSize,
 } = {}) {
-  const args = { yearFrom, yearTo, latMin, latMax, lngMin, lngMax, page, pageSize };
-  const params = {};
-  for (const [key, value] of Object.entries(args)) {
-    if (value === undefined) continue;
-    params[KEY_MAP[key]] = value;
+  const filters = { q, tags, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm };
+
+  if (!hasUnsupportedTimelineFilters(filters)) {
+    const args = { yearFrom, yearTo, latMin, latMax, lngMin, lngMax, page, pageSize };
+    const params = {};
+    for (const [key, value] of Object.entries(args)) {
+      if (value === undefined) continue;
+      params[KEY_MAP[key]] = value;
+    }
+    const response = await api.get("/stories/timeline/", { params });
+    return response.data;
   }
-  const response = await api.get("/stories/timeline/", { params });
-  return response.data;
+
+  return getTimelineViaFallback({
+    yearFrom,
+    yearTo,
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
+    q,
+    tags,
+    location,
+    latitude,
+    longitude,
+    radiusKm,
+    page: page ?? 1,
+    pageSize: pageSize ?? 10,
+  });
+}
+
+async function getTimelineViaFallback({
+  yearFrom,
+  yearTo,
+  latMin,
+  latMax,
+  lngMin,
+  lngMax,
+  q,
+  tags,
+  location,
+  latitude,
+  longitude,
+  radiusKm,
+  page,
+  pageSize,
+}) {
+  const trimmedQ = q?.trim();
+  const path = trimmedQ ? "/stories/search/" : "/stories/feed/";
+  const params = { page_size: FALLBACK_FETCH_PAGE_SIZE };
+  if (trimmedQ) params.q = trimmedQ;
+  else params.sort_by = "recent";
+  if (yearFrom != null) params.year_from = yearFrom;
+  if (yearTo != null) params.year_to = yearTo;
+  const hasBbox = latMin != null && latMax != null && lngMin != null && lngMax != null;
+  if (hasBbox) {
+    params.lat_min = latMin;
+    params.lat_max = latMax;
+    params.lng_min = lngMin;
+    params.lng_max = lngMax;
+  } else if (location?.trim()) {
+    params.location = location.trim();
+  }
+  if (latitude != null && longitude != null && radiusKm != null) {
+    params.latitude = latitude;
+    params.longitude = longitude;
+    params.radius_km = radiusKm;
+  }
+  if (Array.isArray(tags) && tags.length > 0) {
+    params.tags = tags;
+  }
+
+  const response = await api.get(path, { params });
+  const allResults = Array.isArray(response.data?.results) ? response.data.results : [];
+  const sorted = [...allResults].sort(
+    (a, b) => getTimelineHistoricalYear(a) - getTimelineHistoricalYear(b),
+  );
+
+  const startIndex = (page - 1) * pageSize;
+  const pageResults = sorted.slice(startIndex, startIndex + pageSize);
+  const hasNext = startIndex + pageSize < sorted.length;
+
+  return {
+    count: sorted.length,
+    next: hasNext ? "client-next-page" : null,
+    previous: page > 1 ? "client-previous-page" : null,
+    results: pageResults,
+  };
 }

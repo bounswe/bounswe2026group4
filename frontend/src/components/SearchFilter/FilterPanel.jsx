@@ -28,7 +28,7 @@ const PROXIMITY_OPTIONS = [
  * The parent should pass a `key` tied to the current filter values so that
  * the component resets its local form whenever filters are cleared externally.
  */
-function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, latitude = null, longitude = null, radiusKm = null, tags = [], onApply, activeCount = 0 }) {
+function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, latitude = null, longitude = null, radiusKm = null, tags = [], onApply, activeCount = 0, hideYearRange = false }) {
   const [open, setOpen] = useState(false);
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
@@ -267,6 +267,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
         >
           <div className="space-y-4">
             {/* Year range */}
+            {!hideYearRange && (
             <fieldset>
               <legend className="mb-2 text-sm font-medium">Year range</legend>
               <div className="flex items-center gap-2">
@@ -344,6 +345,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                 </p>
               )}
             </fieldset>
+            )}
 
             {/* Location */}
             <div>

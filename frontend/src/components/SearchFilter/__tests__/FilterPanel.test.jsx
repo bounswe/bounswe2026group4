@@ -492,4 +492,24 @@ describe("FilterPanel", () => {
       );
     });
   });
+
+  describe("hideYearRange prop", () => {
+    it("renders the year-range fieldset by default", async () => {
+      const user = userEvent.setup();
+      renderPanel();
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      expect(screen.getByLabelText(/from year/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/to year/i)).toBeInTheDocument();
+    });
+
+    it("omits the year-range fieldset when hideYearRange is true", async () => {
+      const user = userEvent.setup();
+      renderPanel({ hideYearRange: true });
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      expect(screen.queryByLabelText(/from year/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/to year/i)).not.toBeInTheDocument();
+      // Other fields still present
+      expect(screen.getByLabelText(/location filter/i)).toBeInTheDocument();
+    });
+  });
 });

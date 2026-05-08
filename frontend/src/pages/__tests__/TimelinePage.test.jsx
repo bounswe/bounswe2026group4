@@ -243,4 +243,132 @@ describe("TimelinePage", () => {
     expect(args.lngMin).toBe(28);
     expect(args.lngMax).toBe(29);
   });
+
+  describe("search bar (q)", () => {
+    it("renders the search input with mobile-parity placeholder", () => {
+      renderPage();
+      expect(screen.getByPlaceholderText(/search by title or place/i)).toBeInTheDocument();
+    });
+
+    it("forwards a typed query to getTimeline (debounced)", async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+
+      await user.type(screen.getByPlaceholderText(/search by title or place/i), "Galata");
+
+      await waitFor(() => {
+        const matched = getTimeline.mock.calls.some(([arg]) => arg?.q === "Galata");
+        expect(matched).toBe(true);
+      });
+    });
+
+    it("seeds the search bar with q from the URL on mount", async () => {
+      renderPage(["/timeline?q=Hagia"]);
+      await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+      const firstArg = getTimeline.mock.calls[0][0];
+      expect(firstArg.q).toBe("Hagia");
+    });
+  });
+
+  describe("URL filter passthrough", () => {
+    it("forwards location/tags/proximity from the URL to getTimeline", async () => {
+      renderPage([
+        "/timeline?location=Galata&tags=ottoman,mosque&latitude=41&longitude=29&radius_km=1",
+      ]);
+      await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+      const firstArg = getTimeline.mock.calls[0][0];
+      expect(firstArg.location).toBe("Galata");
+      expect(firstArg.tags).toEqual(["ottoman", "mosque"]);
+      expect(firstArg.latitude).toBe(41);
+      expect(firstArg.longitude).toBe(29);
+      expect(firstArg.radiusKm).toBe(1);
+    });
+  });
+
+  describe("active filter chips", () => {
+    it("renders chips for q / location / tags / proximity", async () => {
+      renderPage([
+        "/timeline?q=war&location=Galata&tags=ottoman&latitude=41&longitude=29&radius_km=1",
+      ]);
+      await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+      expect(screen.getByLabelText(/active filters/i)).toBeInTheDocument();
+      expect(screen.getByText('"war"')).toBeInTheDocument();
+      expect(screen.getByText(/location: galata/i)).toBeInTheDocument();
+      expect(screen.getByText("ottoman")).toBeInTheDocument();
+      expect(screen.getByText(/within 1 km/i)).toBeInTheDocument();
+    });
+
+    it("removing a tag chip refetches without that tag", async () => {
+      const user = userEvent.setup();
+      renderPage(["/timeline?tags=ottoman,mosque"]);
+      await waitFor(() => expect(getTimeline).toHaveBeenCalled());
+
+      await user.click(screen.getByRole("button", { name: /remove tag filter: ottoman/i }));
+
+      await waitFor(() => {
+        const last = getTimeline.mock.calls[getTimeline.mock.calls.length - 1][0];
+        expect(last.tags).toEqual(["mosque"]);
+      });
+    });
+  });
+
+  describe("radiogroup roving tabindex (a11y)", () => {
+    it("only the checked radio is in the tab order on mount (default: All)", () => {
+      renderPage();
+      const all = screen.getByRole("radio", { name: /^all$/i });
+      const year = screen.getByRole("radio", { name: /^year$/i });
+      const range = screen.getByRole("radio", { name: /^range$/i });
+      const decade = screen.getByRole("radio", { name: /^decade$/i });
+      expect(all).toHaveAttribute("tabindex", "0");
+      expect(year).toHaveAttribute("tabindex", "-1");
+      expect(range).toHaveAttribute("tabindex", "-1");
+      expect(decade).toHaveAttribute("tabindex", "-1");
+    });
+
+    it("ArrowRight from All moves focus to and selects Year", async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const all = screen.getByRole("radio", { name: /^all$/i });
+      all.focus();
+      await user.keyboard("{ArrowRight}");
+
+      const year = screen.getByRole("radio", { name: /^year$/i });
+      expect(year).toHaveAttribute("aria-checked", "true");
+      expect(year).toHaveAttribute("tabindex", "0");
+      expect(all).toHaveAttribute("tabindex", "-1");
+      expect(year).toHaveFocus();
+    });
+
+    it("ArrowLeft from All wraps around to Decade", async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const all = screen.getByRole("radio", { name: /^all$/i });
+      all.focus();
+      await user.keyboard("{ArrowLeft}");
+
+      const decade = screen.getByRole("radio", { name: /^decade$/i });
+      expect(decade).toHaveAttribute("aria-checked", "true");
+      expect(decade).toHaveFocus();
+    });
+
+    it("Home / End jump to first / last", async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const range = screen.getByRole("radio", { name: /^range$/i });
+      // Click range first so we have somewhere to jump from.
+      await user.click(range);
+      range.focus();
+      await user.keyboard("{Home}");
+      expect(screen.getByRole("radio", { name: /^all$/i })).toHaveAttribute("aria-checked", "true");
+
+      const all = screen.getByRole("radio", { name: /^all$/i });
+      all.focus();
+      await user.keyboard("{End}");
+      expect(screen.getByRole("radio", { name: /^decade$/i })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+    });
+  });
 });
