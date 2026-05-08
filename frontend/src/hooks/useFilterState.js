@@ -4,8 +4,9 @@ import { useSearchParams } from "react-router-dom";
 /**
  * Manages search/filter state via URL query parameters.
  * Supported params: q, year_from, year_to, location, lat_min, lat_max, lng_min, lng_max,
- * latitude, longitude, radius_km, tags, page, sort_by
+ * latitude, longitude, radius_km, tags, has_image, page, sort_by
  * Tags are stored as a comma-separated string: tags=foo,bar
+ * has_image is the literal string "true" when active; absent otherwise.
  */
 export function useFilterState() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +29,7 @@ export function useFilterState() {
   const latitude = readNumberParam("latitude");
   const longitude = readNumberParam("longitude");
   const radiusKm = readNumberParam("radius_km");
+  const hasImage = searchParams.get("has_image") === "true";
   const page = searchParams.get("page") ? Number(searchParams.get("page")) : 1;
   const sortBy = searchParams.get("sort_by") || "recent";
   const tagsRaw = searchParams.get("tags") || "";
@@ -36,7 +38,7 @@ export function useFilterState() {
   const hasProximity =
     latitude != null && longitude != null && radiusKm != null;
   const hasActiveFilters = Boolean(
-    q || yearFrom || yearTo || location || tags.length > 0 || hasProximity
+    q || yearFrom || yearTo || location || tags.length > 0 || hasProximity || hasImage
   );
 
   /**
@@ -121,6 +123,7 @@ export function useFilterState() {
     latitude,
     longitude,
     radiusKm,
+    hasImage,
     page,
     sortBy,
     tags,

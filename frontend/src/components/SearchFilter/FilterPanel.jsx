@@ -28,13 +28,14 @@ const PROXIMITY_OPTIONS = [
  * The parent should pass a `key` tied to the current filter values so that
  * the component resets its local form whenever filters are cleared externally.
  */
-function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, latitude = null, longitude = null, radiusKm = null, tags = [], onApply, activeCount = 0 }) {
+function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, latitude = null, longitude = null, radiusKm = null, tags = [], hasImage = false, onApply, activeCount = 0, hideYearRange = false, showHasImage = false }) {
   const [open, setOpen] = useState(false);
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
   const [localLocation, setLocalLocation] = useState(location);
   const [suggestionsQuery, setSuggestionsQuery] = useState("");
   const [localTags, setLocalTags] = useState(tags);
+  const [localHasImage, setLocalHasImage] = useState(hasImage);
   const [yearError, setYearError] = useState("");
   const [lockedBbox, setLockedBbox] = useState(
     () => latMin != null && latMax != null && lngMin != null && lngMax != null
@@ -201,7 +202,8 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
       latitude: proximityActive ? localCoords.latitude : null,
       longitude: proximityActive ? localCoords.longitude : null,
       radiusKm: proximityActive ? localRadiusKm : null,
-      tags: localTags
+      tags: localTags,
+      ...(showHasImage ? { hasImage: localHasImage } : {}),
     });
     setOpen(false);
   }
@@ -218,6 +220,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     setProximityResolving(false);
     setProximityStatus(null);
     setLocalTags([]);
+    setLocalHasImage(false);
     setYearError("");
     clearSuggestions();
     onApply({
@@ -232,6 +235,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
       longitude: null,
       radiusKm: null,
       tags: [],
+      ...(showHasImage ? { hasImage: false } : {}),
     });
     setOpen(false);
   }
@@ -267,6 +271,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
         >
           <div className="space-y-4">
             {/* Year range */}
+            {!hideYearRange && (
             <fieldset>
               <legend className="mb-2 text-sm font-medium">Year range</legend>
               <div className="flex items-center gap-2">
@@ -344,6 +349,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                 </p>
               )}
             </fieldset>
+            )}
 
             {/* Location */}
             <div>
@@ -462,6 +468,22 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
 
             {/* Tags */}
             <TagFilterInput value={localTags} onChange={setLocalTags} />
+
+            {showHasImage && (
+              <fieldset>
+                <legend className="sr-only">Image presence</legend>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={localHasImage}
+                    onChange={(e) => setLocalHasImage(e.target.checked)}
+                    aria-label="Only stories with an image"
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <span>Only stories with an image</span>
+                </label>
+              </fieldset>
+            )}
 
             {/* Actions */}
             <div className="flex items-center justify-between gap-2 pt-1">

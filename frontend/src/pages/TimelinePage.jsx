@@ -1,121 +1,47 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { cn } from "@/lib/utils";
 import TimelineView from "@/components/Timeline/TimelineView";
+import SearchBar from "@/components/SearchFilter/SearchBar";
+import FilterPanel from "@/components/SearchFilter/FilterPanel";
+import ActiveFilters from "@/components/SearchFilter/ActiveFilters";
+import { useFilterState } from "@/hooks/useFilterState";
 import { getTimeline } from "@/services/timelineService";
 
 const PAGE_SIZE = 10;
 
-const MODES = ["all", "year", "range", "decade"];
-const MODE_LABELS = {
-  all: "All",
-  year: "Year",
-  range: "Range",
-  decade: "Decade",
-};
-
-function parseFloatOrUndef(v) {
-  if (v == null) return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
-}
-
-const YEAR_RE = /^\d{4}$/;
-
-/**
- * Parse a 4-digit year string. Returns undefined for blank or partial input —
- * this prevents firing requests on every keystroke while the user is typing.
- */
-function parseFullYear(v) {
-  if (typeof v !== "string" || !YEAR_RE.test(v.trim())) return undefined;
-  return Number.parseInt(v, 10);
-}
-
-function decadeStart(year) {
-  return Math.floor(year / 10) * 10;
-}
-
-/**
- * Derive the year_from / year_to filter pair for the current mode + inputs.
- * Returns { yearFrom, yearTo, label } where label is the human-readable
- * period for the status row. yearFrom/yearTo are undefined when no filter
- * should be applied — partial input (less than 4 digits) is treated as
- * not-yet-ready and skips the fetch.
- */
-function deriveYearFilter(mode, yearInput, rangeFrom, rangeTo) {
-  const base = { yearFrom: undefined, yearTo: undefined, invalid: false, skip: false };
-  if (mode === "all") {
-    return { ...base, label: "All time periods" };
-  }
-  if (mode === "year") {
-    const y = parseFullYear(yearInput);
-    if (y === undefined) {
-      return {
-        ...base,
-        label: yearInput ? "Enter a 4-digit year" : "All time periods",
-        skip: Boolean(yearInput),
-      };
-    }
-    return { ...base, yearFrom: y, yearTo: y, label: String(y) };
-  }
-  if (mode === "decade") {
-    const y = parseFullYear(yearInput);
-    if (y === undefined) {
-      return {
-        ...base,
-        label: yearInput ? "Enter a 4-digit year" : "All time periods",
-        skip: Boolean(yearInput),
-      };
-    }
-    const start = decadeStart(y);
-    return { ...base, yearFrom: start, yearTo: start + 9, label: `${start}s` };
-  }
-  // range — require both endpoints to be complete 4-digit years before fetching
-  if (!rangeFrom && !rangeTo) {
-    return { ...base, label: "All time periods" };
-  }
-  const from = parseFullYear(rangeFrom);
-  const to = parseFullYear(rangeTo);
-  if (from === undefined || to === undefined) {
-    return { ...base, label: "Enter start and end years", skip: true };
-  }
-  if (from > to) {
-    return { ...base, label: "Invalid range", invalid: true };
-  }
-  return { ...base, yearFrom: from, yearTo: to, label: `${from}–${to}` };
+function countActiveFilters({ yearFrom, yearTo, location, hasProximity, tags, hasImage }) {
+  return (
+    [yearFrom, yearTo, location].filter(Boolean).length +
+    (hasProximity ? 1 : 0) +
+    (hasImage ? 1 : 0) +
+    tags.length
+  );
 }
 
 function TimelinePage() {
-  const [searchParams] = useSearchParams();
-
-  // Bounding-box passthrough — issue #488 will use these.
-  const bbox = useMemo(() => {
-    const latMin = parseFloatOrUndef(searchParams.get("lat_min"));
-    const latMax = parseFloatOrUndef(searchParams.get("lat_max"));
-    const lngMin = parseFloatOrUndef(searchParams.get("lng_min"));
-    const lngMax = parseFloatOrUndef(searchParams.get("lng_max"));
-    if ([latMin, latMax, lngMin, lngMax].some((v) => v === undefined)) {
-      return null;
-    }
-    return { latMin, latMax, lngMin, lngMax };
-  }, [searchParams]);
-
-  const [mode, setMode] = useState("all");
-  const [yearInput, setYearInput] = useState("");
-  const [rangeFrom, setRangeFrom] = useState("");
-  const [rangeTo, setRangeTo] = useState("");
-
-  const filter = useMemo(
-    () => deriveYearFilter(mode, yearInput, rangeFrom, rangeTo),
-    [mode, yearInput, rangeFrom, rangeTo],
-  );
+  const {
+    q,
+    yearFrom,
+    yearTo,
+    location,
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
+    latitude,
+    longitude,
+    radiusKm,
+    tags,
+    hasImage,
+    hasProximity,
+    setFilters,
+    removeFilter,
+    removeTag,
+    clearAll,
+  } = useFilterState();
 
   const [stories, setStories] = useState([]);
   const [count, setCount] = useState(0);
@@ -125,8 +51,8 @@ function TimelinePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch generation counter — guards against out-of-order responses when
-  // the user changes the filter while a request is in flight.
+  // Fetch generation counter — guards against out-of-order responses when the
+  // user changes the filter while a request is in flight.
   const generationRef = useRef(0);
 
   const fetchPage = useCallback(
@@ -137,16 +63,23 @@ function TimelinePage() {
       setError(null);
       try {
         const data = await getTimeline({
-          yearFrom: filter.yearFrom,
-          yearTo: filter.yearTo,
-          latMin: bbox?.latMin,
-          latMax: bbox?.latMax,
-          lngMin: bbox?.lngMin,
-          lngMax: bbox?.lngMax,
+          yearFrom: yearFrom === "" ? undefined : yearFrom,
+          yearTo: yearTo === "" ? undefined : yearTo,
+          q,
+          location,
+          tags,
+          latMin: latMin ?? undefined,
+          latMax: latMax ?? undefined,
+          lngMin: lngMin ?? undefined,
+          lngMax: lngMax ?? undefined,
+          latitude: latitude ?? undefined,
+          longitude: longitude ?? undefined,
+          radiusKm: radiusKm ?? undefined,
+          hasImage,
           page: pageToLoad,
           pageSize: PAGE_SIZE,
         });
-        if (myGen !== generationRef.current) return; // stale response
+        if (myGen !== generationRef.current) return;
         setCount(data.count);
         setHasNext(Boolean(data.next));
         setPage(pageToLoad);
@@ -165,15 +98,26 @@ function TimelinePage() {
         }
       }
     },
-    [filter.yearFrom, filter.yearTo, bbox],
+    [
+      yearFrom,
+      yearTo,
+      q,
+      location,
+      tags,
+      latMin,
+      latMax,
+      lngMin,
+      lngMax,
+      latitude,
+      longitude,
+      radiusKm,
+      hasImage,
+    ],
   );
 
-  // Refetch from page 1 whenever the filter changes (or on mount). Skip while
-  // the user is mid-input (partial year, one-sided range) or the range is invalid.
   useEffect(() => {
-    if (filter.invalid || filter.skip) return;
     fetchPage(1, { append: false });
-  }, [fetchPage, filter.invalid, filter.skip]);
+  }, [fetchPage]);
 
   function handleLoadMore() {
     if (!hasNext || loading || loadingMore) return;
@@ -182,6 +126,123 @@ function TimelinePage() {
 
   function handleRetry() {
     fetchPage(1, { append: false });
+  }
+
+  const handleSearchChange = useCallback(
+    (value) => {
+      setFilters({ q: value }, { replace: true });
+    },
+    [setFilters],
+  );
+
+  function handleFilterApply({
+    yearFrom: yf,
+    yearTo: yt,
+    location: loc,
+    latMin: lMin,
+    latMax: lMax,
+    lngMin: gMin,
+    lngMax: gMax,
+    latitude: lat,
+    longitude: lng,
+    radiusKm: rKm,
+    tags: tgs,
+    hasImage: hImg,
+  }) {
+    setFilters(
+      {
+        year_from: yf,
+        year_to: yt,
+        location: loc,
+        lat_min: lMin ?? "",
+        lat_max: lMax ?? "",
+        lng_min: gMin ?? "",
+        lng_max: gMax ?? "",
+        latitude: lat ?? "",
+        longitude: lng ?? "",
+        radius_km: rKm ?? "",
+        tags: tgs,
+        has_image: hImg ? "true" : "",
+      },
+      { replace: true },
+    );
+  }
+
+  function handleRemoveFilter(key) {
+    if (key === "year_range") {
+      setFilters({ year_from: "", year_to: "" }, { replace: true });
+    } else if (key === "location") {
+      setFilters(
+        { location: "", lat_min: "", lat_max: "", lng_min: "", lng_max: "" },
+        { replace: true },
+      );
+    } else if (key === "proximity") {
+      setFilters({ latitude: "", longitude: "", radius_km: "" }, { replace: true });
+    } else if (key === "has_image") {
+      setFilters({ has_image: "" }, { replace: true });
+    } else {
+      removeFilter(key);
+    }
+  }
+
+  const activeFilterCount = countActiveFilters({
+    yearFrom,
+    yearTo,
+    location,
+    hasProximity,
+    tags,
+    hasImage,
+  });
+
+  const filterPanelKey = useMemo(
+    () =>
+      `${yearFrom}-${yearTo}-${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${latitude}-${longitude}-${radiusKm}-${tags.join(",")}-${hasImage}`,
+    [
+      yearFrom,
+      yearTo,
+      location,
+      latMin,
+      latMax,
+      lngMin,
+      lngMax,
+      latitude,
+      longitude,
+      radiusKm,
+      tags,
+      hasImage,
+    ],
+  );
+
+  function renderContent() {
+    if (error) return <ErrorState message={error} onRetry={handleRetry} />;
+    if (loading) {
+      return (
+        <div
+          className="flex justify-center py-16"
+          aria-busy="true"
+          aria-label="Loading timeline"
+        >
+          <LoadingSpinner />
+        </div>
+      );
+    }
+    if (count === 0) {
+      return (
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          No stories found for these filters.
+        </p>
+      );
+    }
+    return (
+      <>
+        <TimelineView stories={stories} />
+        <div className="mt-8 flex justify-center">
+          <Button variant="outline" onClick={handleLoadMore} disabled={!hasNext || loadingMore}>
+            {loadingMore ? "Loading…" : hasNext ? "Load more" : "No more stories"}
+          </Button>
+        </div>
+      </>
+    );
   }
 
   return (
@@ -194,102 +255,50 @@ function TimelinePage() {
           </p>
         </div>
 
-        {/* Filter card */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Choose a time window</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div role="radiogroup" aria-label="Time window mode" className="flex flex-wrap gap-2">
-              {MODES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === m}
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
-                    mode === m
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input bg-background text-foreground hover:bg-muted",
-                  )}
-                >
-                  {MODE_LABELS[m]}
-                </button>
-              ))}
+        <div className="mb-6 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <SearchBar
+                defaultValue={q}
+                onSearch={handleSearchChange}
+                placeholder="Search by title or place…"
+              />
             </div>
+            <FilterPanel
+              key={filterPanelKey}
+              yearFrom={yearFrom}
+              yearTo={yearTo}
+              location={location}
+              latMin={latMin}
+              latMax={latMax}
+              lngMin={lngMin}
+              lngMax={lngMax}
+              latitude={latitude}
+              longitude={longitude}
+              radiusKm={radiusKm}
+              tags={tags}
+              hasImage={hasImage}
+              onApply={handleFilterApply}
+              activeCount={activeFilterCount}
+              showHasImage
+            />
+          </div>
+          <ActiveFilters
+            q={q}
+            yearFrom={yearFrom}
+            yearTo={yearTo}
+            location={location}
+            radiusKm={radiusKm}
+            hasProximity={hasProximity}
+            tags={tags}
+            hasImage={hasImage}
+            onRemove={handleRemoveFilter}
+            onRemoveTag={removeTag}
+            onClearAll={clearAll}
+          />
+        </div>
 
-            {mode === "year" && (
-              <div className="max-w-[160px] space-y-1.5">
-                <Label htmlFor="timeline-year">Year</Label>
-                <Input
-                  id="timeline-year"
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="e.g. 1875"
-                  value={yearInput}
-                  onChange={(e) => setYearInput(e.target.value)}
-                />
-              </div>
-            )}
-
-            {mode === "decade" && (
-              <div className="max-w-[200px] space-y-1.5">
-                <Label htmlFor="timeline-decade">Decade (any year)</Label>
-                <Input
-                  id="timeline-decade"
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="e.g. 1875"
-                  value={yearInput}
-                  onChange={(e) => setYearInput(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Snaps to the start of the decade.
-                </p>
-              </div>
-            )}
-
-            {mode === "range" && (
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="timeline-range-from">From</Label>
-                  <Input
-                    id="timeline-range-from"
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="e.g. 1850"
-                    className="w-32"
-                    value={rangeFrom}
-                    onChange={(e) => setRangeFrom(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="timeline-range-to">To</Label>
-                  <Input
-                    id="timeline-range-to"
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="e.g. 1900"
-                    className="w-32"
-                    value={rangeTo}
-                    onChange={(e) => setRangeTo(e.target.value)}
-                  />
-                </div>
-                {filter.invalid && (
-                  <p className="text-xs text-destructive">
-                    "From" must be less than or equal to "To".
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Status row */}
-        <div className="mb-4 flex items-center justify-between text-sm">
-          <span className="font-medium text-foreground">{filter.label}</span>
+        <div className="mb-4 flex items-center justify-end text-sm">
           {!loading && !error && (
             <span className="text-muted-foreground" aria-live="polite">
               {count} {count === 1 ? "story" : "stories"}
@@ -297,35 +306,7 @@ function TimelinePage() {
           )}
         </div>
 
-        {/* Content */}
-        {error ? (
-          <ErrorState message={error} onRetry={handleRetry} />
-        ) : loading ? (
-          <div
-            className="flex justify-center py-16"
-            aria-busy="true"
-            aria-label="Loading timeline"
-          >
-            <LoadingSpinner />
-          </div>
-        ) : count === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            No stories found for this time window.
-          </p>
-        ) : (
-          <>
-            <TimelineView stories={stories} />
-            <div className="mt-8 flex justify-center">
-              <Button
-                variant="outline"
-                onClick={handleLoadMore}
-                disabled={!hasNext || loadingMore}
-              >
-                {loadingMore ? "Loading…" : hasNext ? "Load more" : "No more stories"}
-              </Button>
-            </div>
-          </>
-        )}
+        {renderContent()}
       </div>
     </main>
   );

@@ -238,4 +238,40 @@ describe("useFilterState", () => {
     expect(result.current.radiusKm).toBeNull();
     expect(result.current.hasActiveFilters).toBe(false);
   });
+
+  it("parses has_image=true as a boolean true", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?has_image=true"]),
+    });
+    expect(result.current.hasImage).toBe(true);
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it("treats absent / non-true has_image values as false", () => {
+    const absent = renderHook(() => useFilterState(), { wrapper: makeWrapper() });
+    expect(absent.result.current.hasImage).toBe(false);
+
+    const falsy = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?has_image=false"]),
+    });
+    expect(falsy.result.current.hasImage).toBe(false);
+
+    const garbage = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?has_image=1"]),
+    });
+    expect(garbage.result.current.hasImage).toBe(false);
+  });
+
+  it("removes has_image when setFilters is called with empty value", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?has_image=true"]),
+    });
+    expect(result.current.hasImage).toBe(true);
+
+    act(() => {
+      result.current.setFilters({ has_image: "" });
+    });
+
+    expect(result.current.hasImage).toBe(false);
+  });
 });

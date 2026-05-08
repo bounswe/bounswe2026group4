@@ -181,4 +181,23 @@ describe("ActiveFilters", () => {
 
     expect(onRemove).toHaveBeenCalledWith("proximity");
   });
+
+  it("renders a 'Has image' chip when hasImage is true", () => {
+    renderFilters({ hasImage: true });
+    expect(screen.getByText(/has image/i)).toBeInTheDocument();
+  });
+
+  it("does not render the 'Has image' chip when hasImage is false / unset", () => {
+    renderFilters({});
+    expect(screen.queryByText(/has image/i)).not.toBeInTheDocument();
+  });
+
+  it("calls onRemove with 'has_image' when the Has-image chip X is clicked", async () => {
+    const user = userEvent.setup();
+    const onRemove = vi.fn();
+    renderFilters({ hasImage: true, onRemove });
+
+    await user.click(screen.getByRole("button", { name: /remove filter: has image/i }));
+    expect(onRemove).toHaveBeenCalledWith("has_image");
+  });
 });
