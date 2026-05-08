@@ -1,3 +1,5 @@
+import { ReportContentInput, ReportEntity } from '../entities';
+
 export interface ReportRepository {
-  placeholder(): Promise<void>;
+  reportContent(input: ReportContentInput): Promise<ReportEntity>;
 }

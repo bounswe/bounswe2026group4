@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Bookmark, Calendar, Clock, MapPin, Pause, Play, Trash2, Volume2 } from 'lucide-react-native';
+import { Bookmark, Calendar, Clock, Flag, MapPin, Pause, Play, Trash2, Volume2 } from 'lucide-react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { roles } from '../../../../core/auth/roles';
@@ -9,6 +9,9 @@ import { Session } from '../../../../core/auth/session';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { interactionService } from '../../../interactions/application/services';
 import { StoryCommentEntity } from '../../../interactions/domain/entities';
+import { reportService } from '../../../reports/application/services';
+import { ReportReason, ReportTargetType } from '../../../reports/domain/entities';
+import { ReportSheet } from '../../../reports/presentation/components/ReportSheet';
 import { storyService } from '../../application/services';
 import { StoryEntity, StoryMediaItem } from '../../domain/entities';
 import { ErrorState } from '../../../../shared/ui/ErrorState';
@@ -18,6 +21,7 @@ import { Loader } from '../../../../shared/ui/Loader';
 import { NotFoundPage } from '../../../../shared/ui/NotFoundPage';
 import { WebMapView } from '../../../../shared/components/WebMapView';
 import { TagChip } from '../../../../shared/components/TagChip';
+import { useToast } from '../../../../shared/hooks/useToast';
 import { userService } from '../../../profile/application/services';
 import { createInitialStoryDetailUiState } from '../state/storiesUiState';
 import { loadStoryDetail } from '../state/storyDetailController';
@@ -39,6 +43,11 @@ interface StoryScreenProps {
   getStory?: typeof storyService.getStory;
   deleteStory?: typeof storyService.deleteStory;
   getPublicProfile?: typeof userService.getPublicProfile;
+}
+
+interface ReportTarget {
+  targetType: ReportTargetType;
+  targetId: string;
 }
 
 function formatDate(dateString: string) {
@@ -639,6 +648,7 @@ interface CommentsSectionProps {
   onDeleteRequest: (commentId: string) => void;
   onDeleteCancel: () => void;
   onDeleteConfirm: (commentId: string) => void;
+  onReportRequest: (commentId: string) => void;
 }
 
 function CommentsSection({
@@ -657,6 +667,7 @@ function CommentsSection({
   onDeleteRequest,
   onDeleteCancel,
   onDeleteConfirm,
+  onReportRequest,
 }: CommentsSectionProps) {
   const { colors, spacing, typography } = useAppTheme();
   const displayedComments = useMemo(() => sortCommentsNewestFirst(comments), [comments]);
@@ -728,11 +739,38 @@ function CommentsSection({
             {formatDate(comment.createdAt)}
           </Text>
           <Text style={{ marginTop: spacing.sm, color: colors.text }}>{comment.body}</Text>
-          {isOwnComment && !awaitingConfirm ? (
-            <View style={{ marginTop: spacing.md, alignItems: 'flex-end' }}>
-              <Pressable onPress={() => onDeleteRequest(comment.id)} accessibilityRole="button">
-                <Text style={{ color: colors.danger, fontWeight: '700' }}>Delete comment</Text>
-              </Pressable>
+          {!awaitingConfirm ? (
+            <View style={{ marginTop: spacing.md, flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.md }}>
+              {!isOwnComment ? (
+                <Pressable
+                  onPress={() => onReportRequest(comment.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Report comment by ${authorDisplayName}`}
+                  style={({ pressed }) => ({
+                    minHeight: 44,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Flag size={16} color={colors.muted} strokeWidth={2.2} />
+                  <Text style={{ color: colors.muted, fontWeight: '700' }}>Report</Text>
+                </Pressable>
+              ) : null}
+              {isOwnComment ? (
+                <Pressable
+                  onPress={() => onDeleteRequest(comment.id)}
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    minHeight: 44,
+                    justifyContent: 'center',
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.danger, fontWeight: '700' }}>Delete comment</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
           {awaitingConfirm ? (
@@ -780,6 +818,7 @@ export function StoryScreen({
   getPublicProfile = userService.getPublicProfile,
 }: StoryScreenProps) {
   const { colors, spacing, typography } = useAppTheme();
+  const { toast } = useToast();
   const [state, setState] = useState(() =>
     createInitialStoryDetailUiState(session?.role !== undefined && session.role !== roles.guest),
   );
@@ -791,6 +830,9 @@ export function StoryScreen({
   const [storyDeleteError, setStoryDeleteError] = useState<string>();
   const [isCommentSubmitting, setIsCommentSubmitting] = useState(false);
   const [isStoryDeleting, setIsStoryDeleting] = useState(false);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+  const [isReportSubmitting, setIsReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState<string>();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string>();
   const [interactionError, setInteractionError] = useState<string>();
   const [contributorVisibilityOverride, setContributorVisibilityOverride] = useState<string | null>(null);
@@ -810,6 +852,9 @@ export function StoryScreen({
     setCommentError(undefined);
     setDeleteError(undefined);
     setStoryDeleteError(undefined);
+    setReportTarget(null);
+    setIsReportSubmitting(false);
+    setReportError(undefined);
     setConfirmDeleteId(undefined);
     setInteractionError(undefined);
     setContributorVisibilityOverride(null);
@@ -1070,6 +1115,52 @@ export function StoryScreen({
     onRequestLogin?.();
   };
 
+  const handleReportRequest = (targetType: ReportTargetType, targetId: string) => {
+    if (!state.isAuthenticated) {
+      setState((current) => ({
+        ...current,
+        loginPromptVisible: true,
+      }));
+      onRequestLogin?.();
+      return;
+    }
+
+    setReportError(undefined);
+    setReportTarget({ targetType, targetId });
+  };
+
+  const handleSubmitReport = async ({
+    reason,
+    description,
+  }: {
+    reason: ReportReason;
+    description?: string;
+  }) => {
+    if (!reportTarget || isReportSubmitting) {
+      return;
+    }
+
+    setIsReportSubmitting(true);
+    setReportError(undefined);
+
+    try {
+      await reportService.reportContent({
+        ...reportTarget,
+        reason,
+        description,
+      });
+      setReportTarget(null);
+      toast.success('Report submitted. Our team will review it.');
+    } catch (error) {
+      const message = extractInteractionError(error, 'Failed to submit report. Please try again.');
+      setReportError(message.toLowerCase().includes('already reported')
+        ? 'You have already reported this content.'
+        : message);
+    } finally {
+      setIsReportSubmitting(false);
+    }
+  };
+
   const handleSubmitComment = async () => {
     const trimmedText = commentText.trim();
 
@@ -1156,6 +1247,7 @@ export function StoryScreen({
   const story = state.story;
   const isStoryOwner = session?.user?.id !== undefined && String(session.user.id) === story.contributorUserId;
   const canDeleteStory = session?.role === roles.admin || isStoryOwner;
+  const canReportStory = !isStoryOwner;
   const contributorName = contributorVisibilityOverride ?? getResolvedContributorName(story);
   const shouldShowContributor = contributorName.trim().length > 0;
   const contributorDisplayName = shouldShowContributor ? getDisplayNameWithYouLabel(contributorName, isStoryOwner) : undefined;
@@ -1344,11 +1436,35 @@ export function StoryScreen({
             {story.savedByViewer ? 'Saved' : 'Save'}
           </Text>
         </Pressable>
+
+        {canReportStory ? (
+          <Pressable
+            onPress={() => handleReportRequest('story', story.id)}
+            style={({ pressed }) => ({
+              paddingVertical: spacing.md,
+              paddingHorizontal: spacing.lg,
+              borderRadius: 999,
+              alignSelf: 'flex-start',
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xs,
+              opacity: pressed ? 0.75 : 1,
+            })}
+            accessibilityRole="button"
+            accessibilityLabel="Report story"
+          >
+            <Flag size={18} color={colors.muted} strokeWidth={2.2} />
+            <Text style={{ color: colors.muted, fontWeight: '700' }}>Report</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {state.loginPromptVisible ? (
         <Text style={{ marginTop: spacing.sm, color: colors.muted }}>
-          Log in to like, bookmark, or comment on this story.
+          Log in to like, bookmark, comment, or report this story.
         </Text>
       ) : null}
       {interactionError ? (
@@ -1380,6 +1496,23 @@ export function StoryScreen({
         onDeleteCancel={() => setConfirmDeleteId(undefined)}
         onDeleteConfirm={(commentId) => {
           void handleDeleteComment(commentId);
+        }}
+        onReportRequest={(commentId) => handleReportRequest('comment', commentId)}
+      />
+      <ReportSheet
+        key={reportTarget ? `${reportTarget.targetType}-${reportTarget.targetId}` : 'hidden-report-sheet'}
+        visible={Boolean(reportTarget)}
+        targetType={reportTarget?.targetType}
+        isSubmitting={isReportSubmitting}
+        error={reportError}
+        onClose={() => {
+          if (!isReportSubmitting) {
+            setReportTarget(null);
+            setReportError(undefined);
+          }
+        }}
+        onSubmit={(input) => {
+          void handleSubmitReport(input);
         }}
       />
       <StoryMiniMap story={story} />

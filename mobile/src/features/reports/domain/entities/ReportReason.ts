@@ -1,7 +1,7 @@
 export type ReportReason =
   | 'spam'
-  | 'false-misleading'
-  | 'harassment-abuse'
-  | 'privacy-violation'
-  | 'explicit-inappropriate-media'
+  | 'false_content'
+  | 'harassment'
+  | 'privacy_violation'
+  | 'explicit_media'
   | 'other';
