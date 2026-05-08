@@ -100,6 +100,32 @@ describe("timelineService", () => {
     await expect(getTimeline()).rejects.toThrow("Network error");
   });
 
+  describe("has_image filter", () => {
+    it("forwards has_image=true to /stories/timeline/ on the primary path", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+      await getTimeline({ hasImage: true });
+      expect(api.get).toHaveBeenCalledWith(
+        "/stories/timeline/",
+        expect.objectContaining({ params: expect.objectContaining({ has_image: true }) }),
+      );
+    });
+
+    it("omits has_image when the toggle is false (no filter)", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+      await getTimeline({ hasImage: false });
+      const params = api.get.mock.calls[0][1].params;
+      expect(params).not.toHaveProperty("has_image");
+    });
+
+    it("does NOT forward has_image to the fallback endpoint (search/feed reject it)", async () => {
+      api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+      // q triggers the fallback path; has_image must not leak through.
+      await getTimeline({ q: "galata", hasImage: true });
+      const params = api.get.mock.calls[0][1].params;
+      expect(params).not.toHaveProperty("has_image");
+    });
+  });
+
   describe("fallback path (filters not supported by /stories/timeline/)", () => {
     it("routes to /stories/search/ when q is set, sorted by historical year", async () => {
       api.get.mockResolvedValue({
@@ -212,6 +238,33 @@ describe("timelineService", () => {
       const page3 = await getTimeline({ q: "x", page: 3, pageSize: 10 });
       expect(page3.results).toHaveLength(5);
       expect(page3.next).toBeNull();
+    });
+
+    it("requests at most page_size=100 from the fallback endpoint (documenting the cap)", async () => {
+      api.get.mockResolvedValue({
+        data: { count: 0, next: null, previous: null, results: [] },
+      });
+
+      await getTimeline({ q: "x", page: 1, pageSize: 10 });
+
+      const params = api.get.mock.calls[0][1].params;
+      // The fallback always asks for the cap regardless of the caller's
+      // requested pageSize — the slice happens client-side. Stories beyond
+      // the 100th in the underlying endpoint's order are not reachable.
+      expect(params.page_size).toBe(100);
+    });
+
+    it("count reflects only stories within the fallback fetch window (cap is observable)", async () => {
+      // Simulate a corpus where the underlying endpoint has 100 results to
+      // hand back (max page size). The timeline view's `count` will read 100,
+      // not the true backend count of any larger result set.
+      const stories = Array.from({ length: 100 }, (_, i) => story({ id: `s${i}`, year: 1900 + i }));
+      api.get.mockResolvedValue({
+        data: { count: 999, next: "url-to-page-2", previous: null, results: stories },
+      });
+
+      const result = await getTimeline({ q: "x", page: 1, pageSize: 10 });
+      expect(result.count).toBe(100);
     });
   });
 

@@ -8,14 +8,24 @@ const KEY_MAP = {
   latMax: "lat_max",
   lngMin: "lng_min",
   lngMax: "lng_max",
+  hasImage: "has_image",
   page: "page",
   pageSize: "page_size",
 };
 
-// How many stories to fetch from the search/feed fallback before client-sorting
-// and paginating. Mirrors the cap mobile uses for the same fallback path —
-// large enough for the realistic timeline corpus, small enough to keep the
-// payload reasonable. Stories beyond this cap are not represented.
+// Hard cap on the fallback fetch (mirrors the backend's StoryPagination
+// max_page_size and the cap mobile uses for the same fallback path).
+//
+// Known limitation: when an unsupported filter combination forces the
+// fallback (q / tags / proximity / free-text location), the client fetches
+// at most this many stories from /stories/search/ or /stories/feed/, sorts
+// them by historical year, and paginates the slice. Stories that match the
+// filter set but rank beyond the 100th in the underlying endpoint's order
+// (recent-first by default, or relevance for q) are NOT reachable via the
+// timeline view, and the `count` returned reflects only what was fetched —
+// not the true backend count. Same trade-off mobile makes; lifting it would
+// require a backend change to expose timeline-specific filtering across the
+// full result set.
 const FALLBACK_FETCH_PAGE_SIZE = 100;
 
 /**
@@ -115,13 +125,27 @@ export async function getTimeline({
   latitude,
   longitude,
   radiusKm,
+  hasImage,
   page,
   pageSize,
 } = {}) {
   const filters = { q, tags, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm };
 
   if (!hasUnsupportedTimelineFilters(filters)) {
-    const args = { yearFrom, yearTo, latMin, latMax, lngMin, lngMax, page, pageSize };
+    // Forward has_image only when explicitly true. The timeline endpoint
+    // treats absent has_image as "no image filter," which matches our intent
+    // when the toggle is off.
+    const args = {
+      yearFrom,
+      yearTo,
+      latMin,
+      latMax,
+      lngMin,
+      lngMax,
+      page,
+      pageSize,
+      ...(hasImage ? { hasImage: true } : {}),
+    };
     const params = {};
     for (const [key, value] of Object.entries(args)) {
       if (value === undefined) continue;
@@ -144,6 +168,7 @@ export async function getTimeline({
     latitude,
     longitude,
     radiusKm,
+    hasImage,
     page: page ?? 1,
     pageSize: pageSize ?? 10,
   });
@@ -162,6 +187,9 @@ async function getTimelineViaFallback({
   latitude,
   longitude,
   radiusKm,
+  // hasImage is intentionally accepted but unused in the fallback path —
+  // see note below.
+  hasImage: _hasImage,
   page,
   pageSize,
 }) {
@@ -174,6 +202,12 @@ async function getTimelineViaFallback({
   // stories the timeline endpoint would include via interval overlap. We
   // re-apply year filtering below with storyOverlapsYearWindow so the fallback
   // path matches the primary path's semantics.
+  //
+  // has_image is also NOT applied in this branch: /stories/search/ and
+  // /stories/feed/ neither accept the filter param nor expose a per-story
+  // image flag in StoryFeedSerializer, so a client-side filter has nothing
+  // to read. The toggle silently no-ops in fallback mode; would need a
+  // backend addition to apply consistently across both paths.
   const data = await getStories({
     q,
     location,
