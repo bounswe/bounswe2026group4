@@ -85,6 +85,11 @@ export class ProfileRepositoryImpl implements ProfileRepository {
     return mapFeedPage(payload, page, 10);
   }
 
+  async getUserStories(userId: string, page = 1) {
+    const payload = await profileRemoteSource.getUserStories(userId, page);
+    return mapFeedPage(payload, page, 10);
+  }
+
   async getUserPoints(userId: string): Promise<PointsSummaryEntity> {
     const payload = await profileRemoteSource.getUserPoints(userId);
     return mapPointsSummary(payload);

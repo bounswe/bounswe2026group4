@@ -48,6 +48,9 @@ export const userService = {
   async getSavedStories(userId: string, page = 1): Promise<FeedPageEntity> {
     return repository.getSavedStories(userId, page);
   },
+  async getUserStories(userId: string, page = 1): Promise<FeedPageEntity> {
+    return repository.getUserStories(userId, page);
+  },
   async getUserPoints(userId: string): Promise<PointsSummaryEntity> {
     return repository.getUserPoints(userId);
   },

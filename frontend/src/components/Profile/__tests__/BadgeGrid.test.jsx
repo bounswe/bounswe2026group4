@@ -1,0 +1,198 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+
+import BadgeGrid from "../BadgeGrid";
+
+vi.mock("@/services/userService", () => ({
+  getUserBadges: vi.fn(),
+}));
+
+import { getUserBadges } from "@/services/userService";
+
+function makeBadge(overrides = {}) {
+  return {
+    id: overrides.id ?? 1,
+    badge: {
+      id: overrides.badgeId ?? 1,
+      name: overrides.name ?? "First Story",
+      description:
+        overrides.description ?? "Awarded for publishing your first story",
+      criteria_type: overrides.criteria_type ?? "stories_published",
+      criteria_threshold: overrides.criteria_threshold ?? 1,
+    },
+    awarded_at: overrides.awarded_at ?? "2026-04-01T12:00:00Z",
+  };
+}
+
+describe("BadgeGrid", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows a loading state while fetching", () => {
+    getUserBadges.mockReturnValue(new Promise(() => {}));
+    render(<BadgeGrid userId={1} />);
+    expect(screen.getByLabelText(/loading badges/i)).toBeInTheDocument();
+  });
+
+  it("shows the empty state message when no badges are returned", async () => {
+    getUserBadges.mockResolvedValue([]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: /no badges yet/i })
+      ).toBeInTheDocument()
+    );
+    expect(
+      screen.getByText(/badges will appear here as you earn them/i)
+    ).toBeInTheDocument();
+  });
+
+  it("shows an error state when the request fails", async () => {
+    getUserBadges.mockRejectedValue(new Error("Network error"));
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText(/failed to load badges/i)).toBeInTheDocument()
+    );
+  });
+
+  it("renders a card with name visible for each badge", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ id: 1, name: "First Story", criteria_type: "stories_published" }),
+      makeBadge({
+        id: 2,
+        badgeId: 2,
+        name: "Welcome Aboard",
+        criteria_type: "registration",
+        description: "Awarded for registering",
+      }),
+    ]);
+
+    render(<BadgeGrid userId={1} />);
+
+    await waitFor(() =>
+      expect(screen.getByText("First Story")).toBeInTheDocument()
+    );
+    expect(screen.getByText("Welcome Aboard")).toBeInTheDocument();
+  });
+
+  it("renders the description directly on each card (no hover required)", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({
+        id: 1,
+        name: "First Story",
+        description: "Awarded for publishing your first story",
+      }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("First Story")).toBeInTheDocument()
+    );
+    expect(
+      screen.getByText("Awarded for publishing your first story")
+    ).toBeInTheDocument();
+  });
+
+  it("renders cards as a <ul>/<li> list (not buttons) with an accessible label", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ id: 1, name: "First Story" }),
+      makeBadge({ id: 2, badgeId: 2, name: "Storyteller" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("First Story")).toBeInTheDocument()
+    );
+    const list = screen.getByRole("list", { name: /earned badges/i });
+    expect(list).toBeInTheDocument();
+    const cards = screen.getAllByTestId("badge-card");
+    expect(cards).toHaveLength(2);
+    cards.forEach((card) => expect(card.tagName).toBe("LI"));
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("applies a distinct color halo per criteria_type", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ id: 1, criteria_type: "registration" }),
+      makeBadge({ id: 2, badgeId: 2, criteria_type: "stories_published" }),
+      makeBadge({ id: 3, badgeId: 3, criteria_type: "points_total" }),
+      makeBadge({ id: 4, badgeId: 4, criteria_type: "something_unknown" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("badge-card")).toHaveLength(4)
+    );
+    const cards = screen.getAllByTestId("badge-card");
+    const haloOf = (criteria) =>
+      cards
+        .find((c) => c.dataset.criteria === criteria)
+        ?.querySelector("span")?.className;
+    const reg = haloOf("registration");
+    const story = haloOf("stories_published");
+    const pts = haloOf("points_total");
+    const unknown = haloOf("something_unknown");
+    expect(reg).toMatch(/blue/);
+    expect(story).toMatch(/emerald/);
+    expect(pts).toMatch(/amber/);
+    expect(unknown).toMatch(/violet/);
+  });
+
+  it("uses the BookOpen icon for stories_published badges", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ name: "Storyteller", criteria_type: "stories_published" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("Storyteller")).toBeInTheDocument()
+    );
+    const card = screen.getByTestId("badge-card");
+    expect(card).toHaveAttribute("data-criteria", "stories_published");
+    expect(card.querySelector(".lucide-book-open")).toBeInTheDocument();
+  });
+
+  it("uses the Award icon for registration badges", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ name: "Newcomer", criteria_type: "registration" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("Newcomer")).toBeInTheDocument()
+    );
+    expect(
+      screen.getByTestId("badge-card").querySelector(".lucide-award")
+    ).toBeInTheDocument();
+  });
+
+  it("uses the Star icon for points_total badges", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ name: "Centurion", criteria_type: "points_total" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("Centurion")).toBeInTheDocument()
+    );
+    expect(
+      screen.getByTestId("badge-card").querySelector(".lucide-star")
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to Trophy icon for unknown criteria types", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ name: "Mystery", criteria_type: "something_unknown" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("Mystery")).toBeInTheDocument()
+    );
+    expect(
+      screen.getByTestId("badge-card").querySelector(".lucide-trophy")
+    ).toBeInTheDocument();
+  });
+
+  it("calls getUserBadges with the provided userId", async () => {
+    getUserBadges.mockResolvedValue([]);
+    render(<BadgeGrid userId={42} />);
+    await waitFor(() =>
+      expect(getUserBadges).toHaveBeenCalledWith(42)
+    );
+  });
+});

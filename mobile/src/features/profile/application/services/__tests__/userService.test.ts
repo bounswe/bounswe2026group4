@@ -243,6 +243,57 @@ describe('userService', () => {
     });
   });
 
+  it('loads public user stories from the published stories endpoint', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'GET' && config.url === '/users/12/stories/?page=3&page_size=10') {
+        return {
+          status: 200,
+          data: {
+            count: 21,
+            next: 'next-page',
+            previous: 'previous-page',
+            results: [
+              {
+                id: 'story-9',
+                title: 'Published Harbor',
+                location_name: 'Golden Horn',
+                time_type: 'exact_year',
+                year: 1980,
+                preview_text: 'A public profile story.',
+                submitted_at: '2026-04-12T09:00:00Z',
+                like_count: 6,
+                user_has_liked: true,
+                user_has_saved: true,
+                tags: [{ name: 'Culture' }],
+              },
+            ],
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.getUserStories('12', 3)).resolves.toMatchObject({
+      page: 3,
+      totalCount: 21,
+      hasNextPage: true,
+      items: [
+        {
+          id: 'story-9',
+          title: 'Published Harbor',
+          locationName: 'Golden Horn',
+          timePeriod: '1980',
+          likeCount: 6,
+          likedByViewer: true,
+          savedByViewer: true,
+          tags: ['Culture'],
+        },
+      ],
+    });
+  });
+
   it('loads a user point summary from the gamification endpoint', async () => {
     setApiTransport(async (method: any, config: any) => {
       if (method === 'GET' && config.url === '/users/12/points/') {
