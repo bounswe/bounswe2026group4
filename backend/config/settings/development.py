@@ -23,6 +23,9 @@ EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.
 # Allow the local Vite dev server to call the API
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
 ]
 
 INSTALLED_APPS += ['debug_toolbar']  # noqa: F405
