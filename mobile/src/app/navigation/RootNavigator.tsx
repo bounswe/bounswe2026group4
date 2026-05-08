@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
+import { BackHandler, Linking, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, StatusBar, Text, useWindowDimensions, View } from 'react-native';
 import { Bell, MapPin, Plus } from 'lucide-react-native';
 import { Loader, Screen } from '../../shared';
 import { ROUTES } from './routes';
-import { AuthScreen, useAuth, VerifyEmailScreen } from '../../features/auth';
+import { AuthScreen, ForgotPasswordScreen, ResetPasswordScreen, useAuth, VerifyEmailScreen } from '../../features/auth';
 import { useAppTheme } from '../../core/hooks/useAppTheme';
 import { ProtectedScreen } from './ProtectedScreen';
 import { FeedScreen, FeedStoryInteractionUpdate } from '../../features/feed';
@@ -20,12 +20,14 @@ import { useToast } from '../../shared/hooks/useToast';
 import { APP_NAME } from '../../core/constants/app';
 import { NotificationScreen, notificationService } from '../../features/notifications';
 import { NotificationEntity } from '../../features/notifications/domain/entities';
+import { getResetPasswordTokenFromPath, isForgotPasswordPath } from './linking';
 
 type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 interface RouteSnapshot {
   route: AppRoute;
   storyId?: string | null;
   userId?: string | null;
+  resetToken?: string | null;
 }
 
 const protectedRoutes: AppRoute[] = [ROUTES.PROFILE, ROUTES.SUBMISSION, ROUTES.NOTIFICATIONS];
@@ -361,6 +363,7 @@ export function RootNavigator() {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [activeResetToken, setActiveResetToken] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string } | null>(null);
   const [shouldCompleteProfileAfterLogin, setShouldCompleteProfileAfterLogin] = useState(false);
   const [feedSort, setFeedSort] = useState<FeedSortOption>('recent');
@@ -374,21 +377,28 @@ export function RootNavigator() {
   const isPagerDragActiveRef = useRef(false);
   const pagerDragResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapScrollOffsetRef = useRef(0);
+  const hasHandledInitialLinkRef = useRef(false);
 
   const currentSnapshot = useMemo<RouteSnapshot>(
     () => ({
       route: currentRoute,
       storyId: currentRoute === ROUTES.STORY_DETAIL ? activeStoryId : null,
       userId: currentRoute === ROUTES.USER_PROFILE ? activeUserId : null,
+      resetToken: currentRoute === ROUTES.RESET_PASSWORD ? activeResetToken : null,
     }),
-    [activeStoryId, activeUserId, currentRoute],
+    [activeResetToken, activeStoryId, activeUserId, currentRoute],
   );
   const [redirectTarget, setRedirectTarget] = useState<RouteSnapshot>({ route: ROUTES.PROFILE });
   const canGoBack = backStack.length > 0;
   const isMainRoute = MAIN_PAGER_ROUTES.includes(currentRoute);
   const isProfileCompletionRoute = currentRoute === ROUTES.PROFILE_COMPLETION;
   const resolvedRedirectTarget = useMemo<RouteSnapshot>(() => {
-    if (redirectTarget.route === ROUTES.AUTH || redirectTarget.route === ROUTES.PROFILE_COMPLETION) {
+    if (
+      redirectTarget.route === ROUTES.AUTH ||
+      redirectTarget.route === ROUTES.FORGOT_PASSWORD ||
+      redirectTarget.route === ROUTES.RESET_PASSWORD ||
+      redirectTarget.route === ROUTES.PROFILE_COMPLETION
+    ) {
       return { route: ROUTES.FEED };
     }
 
@@ -420,6 +430,7 @@ export function RootNavigator() {
     setCurrentRoute(snapshot.route);
     setActiveStoryId(snapshot.route === ROUTES.STORY_DETAIL ? snapshot.storyId ?? null : null);
     setActiveUserId(snapshot.route === ROUTES.USER_PROFILE ? snapshot.userId ?? null : null);
+    setActiveResetToken(snapshot.route === ROUTES.RESET_PASSWORD ? snapshot.resetToken ?? null : null);
   }, []);
 
   const scrollMainPagerToRoute = useCallback(
@@ -455,7 +466,8 @@ export function RootNavigator() {
         !options?.resetStack &&
         snapshot.route === currentSnapshot.route &&
         snapshot.storyId === currentSnapshot.storyId &&
-        snapshot.userId === currentSnapshot.userId
+        snapshot.userId === currentSnapshot.userId &&
+        snapshot.resetToken === currentSnapshot.resetToken
       ) {
         return;
       }
@@ -469,7 +481,8 @@ export function RootNavigator() {
           if (
             previous?.route === currentSnapshot.route &&
             previous?.storyId === currentSnapshot.storyId &&
-            previous?.userId === currentSnapshot.userId
+            previous?.userId === currentSnapshot.userId &&
+            previous?.resetToken === currentSnapshot.resetToken
           ) {
             return current;
           }
@@ -569,6 +582,41 @@ export function RootNavigator() {
     navigateToSnapshot({ route });
   };
 
+  const handleDeepLink = useCallback(
+    (url: string | null) => {
+      if (!url) {
+        return;
+      }
+
+      const resetToken = getResetPasswordTokenFromPath(url);
+
+      if (resetToken) {
+        navigateToSnapshot({ route: ROUTES.RESET_PASSWORD, resetToken });
+        return;
+      }
+
+      if (isForgotPasswordPath(url)) {
+        navigateToSnapshot({ route: ROUTES.FORGOT_PASSWORD });
+      }
+    },
+    [navigateToSnapshot],
+  );
+
+  useEffect(() => {
+    if (!hasHandledInitialLinkRef.current) {
+      hasHandledInitialLinkRef.current = true;
+      void Linking.getInitialURL().then(handleDeepLink).catch(() => undefined);
+    }
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [handleDeepLink]);
+
   useEffect(() => {
     if (!isMainRoute) {
       setIsMapTouchActive(false);
@@ -627,7 +675,8 @@ export function RootNavigator() {
       if (
         previousSnapshot?.route === resolvedRedirectTarget.route &&
         previousSnapshot?.storyId === resolvedRedirectTarget.storyId &&
-        previousSnapshot?.userId === resolvedRedirectTarget.userId
+        previousSnapshot?.userId === resolvedRedirectTarget.userId &&
+        previousSnapshot?.resetToken === resolvedRedirectTarget.resetToken
       ) {
         nextStack.pop();
       }
@@ -808,7 +857,27 @@ export function RootNavigator() {
   let content: React.ReactNode;
 
   if (currentRoute === ROUTES.AUTH) {
-    content = <AuthScreen onAuthenticated={handleLoginComplete} onRegistrationPending={handleRegistrationPending} />;
+    content = (
+      <AuthScreen
+        onAuthenticated={handleLoginComplete}
+        onRegistrationPending={handleRegistrationPending}
+        onForgotPassword={() => navigateToSnapshot({ route: ROUTES.FORGOT_PASSWORD })}
+      />
+    );
+  } else if (currentRoute === ROUTES.FORGOT_PASSWORD) {
+    content = (
+      <ForgotPasswordScreen
+        onBackToLogin={() => navigateToSnapshot({ route: ROUTES.AUTH }, { resetStack: true, preserveCurrent: false })}
+      />
+    );
+  } else if (currentRoute === ROUTES.RESET_PASSWORD) {
+    content = (
+      <ResetPasswordScreen
+        token={activeResetToken}
+        onResetSuccess={() => navigateToSnapshot({ route: ROUTES.AUTH }, { resetStack: true, preserveCurrent: false })}
+        onRequestNewLink={() => navigateToSnapshot({ route: ROUTES.FORGOT_PASSWORD })}
+      />
+    );
   } else if (currentRoute === ROUTES.VERIFY_EMAIL && pendingVerification) {
     content = (
       <VerifyEmailScreen

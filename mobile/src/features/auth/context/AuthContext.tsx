@@ -28,6 +28,8 @@ const AUTH_ENDPOINTS = [
   '/auth/logout/',
   '/auth/verify-email/',
   '/auth/resend-verification/',
+  '/auth/password-reset/',
+  '/auth/password-reset/confirm/',
 ];
 
 interface AuthContextValue {

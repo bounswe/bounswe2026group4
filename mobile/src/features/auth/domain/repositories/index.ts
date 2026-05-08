@@ -16,6 +16,8 @@ export interface AuthRepository {
   register(input: RegisterUserInput): Promise<RegisterUserResult>;
   verifyEmail(email: string, code: string): Promise<void>;
   resendVerificationCode(email: string): Promise<void>;
+  forgotPassword(email: string): Promise<void>;
+  resetPassword(token: string, newPassword: string): Promise<void>;
   restore(): Promise<AuthSessionEntity | null>;
   refresh(session: AuthSessionEntity): Promise<AuthSessionEntity>;
   logout(session?: AuthSessionEntity | null): Promise<void>;

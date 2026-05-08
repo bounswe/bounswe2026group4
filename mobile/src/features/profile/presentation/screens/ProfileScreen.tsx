@@ -58,6 +58,7 @@ interface ProfileScreenProps {
   uploadProfilePhoto?: typeof userService.uploadProfilePhoto;
   removeProfilePhoto?: typeof userService.removeProfilePhoto;
   deleteAccount?: typeof userService.deleteAccount;
+  requestPasswordReset?: typeof authService.forgotPassword;
   followUser?: typeof userService.followUser;
   unfollowUser?: typeof userService.unfollowUser;
   getFollowers?: typeof userService.getFollowers;
@@ -1662,6 +1663,7 @@ export function ProfileScreen({
   uploadProfilePhoto = userService.uploadProfilePhoto,
   removeProfilePhoto = userService.removeProfilePhoto,
   deleteAccount = userService.deleteAccount,
+  requestPasswordReset = authService.forgotPassword,
   followUser = userService.followUser,
   unfollowUser = userService.unfollowUser,
   getFollowers = userService.getFollowers,
@@ -1696,6 +1698,7 @@ export function ProfileScreen({
   const deletePasswordRef = useRef('');
   const [deleteError, setDeleteError] = useState<string>();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
   const [error, setError] = useState<string>();
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [followersCount, setFollowersCount] = useState(0);
@@ -2028,6 +2031,29 @@ export function ProfileScreen({
       setIsDeleting(false);
     }
   }, [deleteAccount, toast]);
+
+  const handleRequestPasswordReset = useCallback(async () => {
+    const resetEmail = profile?.email ?? user?.email;
+
+    if (!resetEmail || isRequestingPasswordReset) {
+      return;
+    }
+
+    setIsRequestingPasswordReset(true);
+
+    try {
+      await requestPasswordReset(resetEmail);
+      toast.success('Password reset link sent. Check your inbox.');
+    } catch (passwordResetError) {
+      const message =
+        passwordResetError instanceof Error
+          ? passwordResetError.message
+          : 'Unable to send a password reset link right now.';
+      toast.error(message);
+    } finally {
+      setIsRequestingPasswordReset(false);
+    }
+  }, [isRequestingPasswordReset, profile?.email, requestPasswordReset, toast, user?.email]);
 
   const handleRequestLoginForFollow = useCallback(() => {
     toast.info('Please sign in to follow users.');
@@ -2538,6 +2564,14 @@ export function ProfileScreen({
             ) : (
               <>
                 <NotificationPreferencesSection />
+                <Button
+                  variant="outline"
+                  accessibilityLabel="Send password reset link"
+                  onPress={() => void handleRequestPasswordReset()}
+                  disabled={isRequestingPasswordReset || !(profile.email ?? user?.email)}
+                >
+                  {isRequestingPasswordReset ? 'Sending reset link...' : 'Reset password'}
+                </Button>
                 <Button variant="outline" onPress={() => void logout()}>
                   Sign out
                 </Button>

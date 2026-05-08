@@ -1,5 +1,7 @@
 export const ROUTES = {
   AUTH: 'Auth',
+  FORGOT_PASSWORD: 'ForgotPassword',
+  RESET_PASSWORD: 'ResetPassword',
   VERIFY_EMAIL: 'VerifyEmail',
   GUEST_HOME: 'GuestHome',
   USER_HOME: 'UserHome',
@@ -64,6 +66,18 @@ export const AUTH_ACTION_ROUTES = [
     key: ROUTES.AUTH,
     label: 'Login',
     tabLabel: 'Login',
+    requiresAuth: false,
+  },
+  {
+    key: ROUTES.FORGOT_PASSWORD,
+    label: 'Forgot Password',
+    tabLabel: 'Forgot Password',
+    requiresAuth: false,
+  },
+  {
+    key: ROUTES.RESET_PASSWORD,
+    label: 'Reset Password',
+    tabLabel: 'Reset Password',
     requiresAuth: false,
   },
   {

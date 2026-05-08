@@ -37,6 +37,7 @@ interface AuthFormCardProps {
   onConfirmPasswordChange: (value: string) => void;
   onSubmit: () => void;
   onToggleMode: () => void;
+  onForgotPassword?: () => void;
   passwordInputRef?: RefObject<TextInput | null>;
 }
 
@@ -57,6 +58,7 @@ export function AuthFormCard({
   onConfirmPasswordChange,
   onSubmit,
   onToggleMode,
+  onForgotPassword,
   passwordInputRef,
 }: AuthFormCardProps) {
   const { colors, spacing, typography } = useAppTheme();
@@ -192,6 +194,14 @@ export function AuthFormCard({
       <Button onPress={onSubmit} disabled={isLoading}>
         {isLoading ? (isRegister ? 'Creating account...' : 'Signing in...') : isRegister ? 'Create account' : 'Sign in'}
       </Button>
+
+      {!isRegister && onForgotPassword ? (
+        <Pressable disabled={isLoading} onPress={onForgotPassword} accessibilityRole="button">
+          <Text style={{ color: colors.primary, textAlign: 'center', fontWeight: '700' }}>
+            Forgot your password?
+          </Text>
+        </Pressable>
+      ) : null}
 
       <Pressable disabled={isLoading} onPress={onToggleMode}>
         <Text style={{ color: colors.muted, textAlign: 'center' }}>

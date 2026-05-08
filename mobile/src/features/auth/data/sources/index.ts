@@ -16,6 +16,12 @@ export interface RegisterPayload {
   password_confirmation: string;
 }
 
+export interface ResetPasswordPayload {
+  token: string;
+  new_password: string;
+  new_password_confirmation: string;
+}
+
 interface BackendUser {
   id: number;
   email: string;
@@ -84,6 +90,12 @@ export const authRemoteSource = {
   },
   async resendVerificationCode(email: string): Promise<void> {
     await apiClient.post<void>(`${endpoints.auth}/resend-verification/`, { email });
+  },
+  async forgotPassword(email: string): Promise<void> {
+    await apiClient.post<void>(`${endpoints.auth}/password-reset/`, { email });
+  },
+  async resetPassword(payload: ResetPasswordPayload): Promise<void> {
+    await apiClient.post<void>(`${endpoints.auth}/password-reset/confirm/`, payload);
   },
   async refresh(session: Session): Promise<Pick<Session, 'accessToken' | 'refreshToken'>> {
     const response = await apiClient.post<RefreshResponse>(
