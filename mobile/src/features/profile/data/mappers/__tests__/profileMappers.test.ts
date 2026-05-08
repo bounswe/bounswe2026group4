@@ -56,6 +56,8 @@ describe('profile mappers', () => {
         username: 'Traveler',
         email: 'traveler@example.com',
         totalPoints: 5,
+        followers_count: 8,
+        following_count: '13',
         isUsernamePublic: true,
         profile: {
           firstName: 'Ada',
@@ -72,6 +74,8 @@ describe('profile mappers', () => {
       firstName: 'Ada',
       birthDate: '1994-01-01',
       profilePhoto: 'https://example.com/me.jpg',
+      followersCount: 8,
+      followingCount: 13,
       isUsernamePublic: true,
       isPhotoPublic: true,
     });
@@ -89,16 +93,20 @@ describe('profile mappers', () => {
           stats: {
             publishedStoryCount: 6,
           },
+          followers_count: 11,
+          following_count: 9,
           birthYear: 1994,
         },
       ),
     ).toMatchObject({
       publishedStoryCount: 6,
+      followersCount: 11,
+      followingCount: 9,
       birthYear: 1994,
     });
   });
 
-  it('keeps existing published story count when public summary omits it', () => {
+  it('keeps existing summary counts when public summary omits them', () => {
     expect(
       mergePublicProfileSummary(
         {
@@ -106,6 +114,8 @@ describe('profile mappers', () => {
           username: 'Traveler',
           totalPoints: 5,
           publishedStoryCount: 4,
+          followersCount: 8,
+          followingCount: 13,
         },
         {
           stats: {},
@@ -114,6 +124,8 @@ describe('profile mappers', () => {
       ),
     ).toMatchObject({
       publishedStoryCount: 4,
+      followersCount: 8,
+      followingCount: 13,
       birthYear: 1994,
     });
   });

@@ -68,6 +68,14 @@ function hasPublishedStoryCount(profile: Record<string, unknown>) {
   );
 }
 
+function hasFollowersCount(profile: Record<string, unknown>) {
+  return profile.followers_count !== undefined || profile.followersCount !== undefined;
+}
+
+function hasFollowingCount(profile: Record<string, unknown>) {
+  return profile.following_count !== undefined || profile.followingCount !== undefined;
+}
+
 export function mapCurrentProfile(profile: Record<string, unknown>): ProfileEntity {
   const nestedProfile = getNestedProfile(profile);
 
@@ -112,6 +120,12 @@ export function mapCurrentProfile(profile: Record<string, unknown>): ProfileEnti
       nestedProfile.is_photo_public === undefined && nestedProfile.isPhotoPublic === undefined
         ? undefined
         : Boolean(nestedProfile.is_photo_public ?? nestedProfile.isPhotoPublic),
+    ...(hasFollowersCount(profile)
+      ? { followersCount: asNumber(profile.followers_count ?? profile.followersCount) }
+      : {}),
+    ...(hasFollowingCount(profile)
+      ? { followingCount: asNumber(profile.following_count ?? profile.followingCount) }
+      : {}),
   };
 }
 
@@ -172,6 +186,12 @@ export function mergePublicProfileSummary(
     publishedStoryCount: hasPublishedStoryCount(publicProfile)
       ? mappedPublicProfile.publishedStoryCount
       : profile.publishedStoryCount,
+    followersCount: hasFollowersCount(publicProfile)
+      ? mappedPublicProfile.followersCount
+      : profile.followersCount,
+    followingCount: hasFollowingCount(publicProfile)
+      ? mappedPublicProfile.followingCount
+      : profile.followingCount,
     birthYear: profile.birthDate ? profile.birthYear : mappedPublicProfile.birthYear ?? profile.birthYear,
   };
 }

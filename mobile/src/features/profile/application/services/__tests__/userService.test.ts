@@ -43,6 +43,8 @@ describe('userService', () => {
             username: 'Traveler',
             total_points: 5,
             published_story_count: 3,
+            followers_count: 14,
+            following_count: 6,
             birth_year: 1995,
             location: 'Istanbul',
             bio: 'Collecting neighborhood memories.',
@@ -60,6 +62,8 @@ describe('userService', () => {
       email: 'traveler@example.com',
       location: 'Istanbul',
       publishedStoryCount: 3,
+      followersCount: 14,
+      followingCount: 6,
       birthYear: 1995,
     });
   });
