@@ -33,7 +33,7 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
         latitudeDelta: number;
         longitudeDelta: number;
       };
-      markers?: Array<{ id: string; selected?: boolean }>;
+      markers?: Array<{ id: string; selected?: boolean; label?: string }>;
       userLocation?: {
         latitude: number;
         longitude: number;
@@ -84,6 +84,7 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
             key={marker.id}
             onPress={() => onMarkerPress?.(marker.id)}
             testID="story-marker"
+            accessibilityLabel={`marker:${marker.id}:${marker.label ?? ''}`}
             accessibilityState={{ selected: Boolean(marker.selected) }}
           />
         ))}
@@ -161,6 +162,63 @@ const refreshedMarkerGroups: MapMarkerGroup[] = [
   },
 ];
 
+const zoomClusterMarkerGroups: MapMarkerGroup[] = [
+  {
+    id: 'near-1',
+    latitude: 41,
+    longitude: 29,
+    count: 1,
+    isCluster: false,
+    stories: [
+      {
+        id: 'story-near-1',
+        title: 'First Nearby Memory',
+        placeName: 'Kadikoy',
+        timePeriod: '1970s',
+        previewText: 'A nearby story.',
+        latitude: 41,
+        longitude: 29,
+      },
+    ],
+  },
+  {
+    id: 'near-2',
+    latitude: 41.012,
+    longitude: 29.012,
+    count: 1,
+    isCluster: false,
+    stories: [
+      {
+        id: 'story-near-2',
+        title: 'Second Nearby Memory',
+        placeName: 'Moda',
+        timePeriod: '1980s',
+        previewText: 'Another nearby story.',
+        latitude: 41.012,
+        longitude: 29.012,
+      },
+    ],
+  },
+  {
+    id: 'far-1',
+    latitude: 41.7,
+    longitude: 29.7,
+    count: 1,
+    isCluster: false,
+    stories: [
+      {
+        id: 'story-far-1',
+        title: 'Far Away Memory',
+        placeName: 'Sile',
+        timePeriod: '1990s',
+        previewText: 'A distant story.',
+        latitude: 41.7,
+        longitude: 29.7,
+      },
+    ],
+  },
+];
+
 function getRenderedMapRegion() {
   const label = screen.getByTestId('map-region-props').props.accessibilityLabel as string;
   const [, latitude, longitude, latitudeDelta, longitudeDelta] = label.split(':');
@@ -207,6 +265,35 @@ describe('MapScreen', () => {
       expect(screen.getByTestId('map-region-props').props.accessibilityLabel).toContain('region:41.0192:28.96735:0.06:0.06');
     });
     expect(screen.getByText('Select a story marker to preview.')).toBeTruthy();
+  });
+
+  it('clusters nearby pins while zoomed out and separates them after zooming in', async () => {
+    renderScreen(<MapScreen getMarkerGroups={async () => zoomClusterMarkerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker')).toHaveLength(2);
+    });
+    expect(screen.getByLabelText(/^marker:zoom-cluster:.*:2$/)).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText(/^marker:zoom-cluster:.*:2$/));
+
+    await waitFor(() => {
+      const region = getRenderedMapRegion();
+
+      expect(region.latitude).toBeCloseTo(41.006);
+      expect(region.longitude).toBeCloseTo(29.006);
+      expect(region.latitudeDelta).toBeLessThan(1);
+      expect(region.longitudeDelta).toBeLessThan(1);
+    });
+    expect(screen.getByText('2 stories found in this area')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('map-region-change'));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker')).toHaveLength(3);
+    });
   });
 
   it('shows the selected marker preview and navigates to story detail', async () => {

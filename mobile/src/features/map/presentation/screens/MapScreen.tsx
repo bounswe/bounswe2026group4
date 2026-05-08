@@ -44,6 +44,8 @@ const LOCATION_BOUNDS_PADDING_FACTOR = 1.15;
 const PROXIMITY_PADDING_FACTOR = 2.4;
 const KILOMETERS_PER_LATITUDE_DEGREE = 111;
 const MAX_AUTO_REGION_DELTA = 20;
+const CLUSTER_RADIUS_REGION_FRACTION = 0.1;
+const MIN_CLUSTER_RADIUS_DEGREES = 0.0008;
 type StatusIndicatorMode = 'hidden' | 'filters' | 'area';
 
 export function MapScreen({
@@ -236,6 +238,18 @@ export function MapScreen({
     () => getMapPinFilterMarkerId(state.markers, filters),
     [filters, state.markers],
   );
+  const displayMarkers = useMemo(
+    () => clusterMarkersForRegion(state.markers, mapRegion),
+    [mapRegion, state.markers],
+  );
+  const displayedSelectedMarkerId = useMemo(
+    () => getDisplayedMarkerId(state.selectedMarkerId, displayMarkers, state.markers),
+    [displayMarkers, state.markers, state.selectedMarkerId],
+  );
+  const displayedHighlightedMarkerId = useMemo(
+    () => getDisplayedMarkerId(mapPinFilterMarkerId, displayMarkers, state.markers),
+    [displayMarkers, mapPinFilterMarkerId, state.markers],
+  );
   const statusStoryCount = useMemo(() => {
     if (statusIndicatorMode !== 'area' || !hasInteractedWithArea || !visibleRegion) {
       return totalStoryCount;
@@ -301,20 +315,29 @@ export function MapScreen({
       >
         <MapCard
           region={mapRegion}
-          markers={state.markers}
-          selectedMarkerId={state.selectedMarkerId}
-          highlightedMarkerId={mapPinFilterMarkerId}
+          markers={displayMarkers}
+          selectedMarkerId={displayedSelectedMarkerId}
+          highlightedMarkerId={displayedHighlightedMarkerId}
           isLoading={state.isLoading}
           error={state.error}
           statusBadgeText={statusBadgeText}
           userLocation={userLocation}
           onSelectMarker={(markerId) => {
-            const shouldOpenPreview = state.selectedMarkerId !== markerId;
+            const selectedMarker = displayMarkers.find((marker) => marker.id === markerId);
+            const shouldOpenPreview = displayedSelectedMarkerId !== markerId;
 
             setState((current) => ({
               ...current,
-              selectedMarkerId: current.selectedMarkerId === markerId ? undefined : markerId,
+              selectedMarkerId: displayedSelectedMarkerId === markerId ? undefined : markerId,
             }));
+
+            if (selectedMarker?.isCluster && shouldOpenPreview) {
+              const nextRegion = getRegionForCluster(selectedMarker, mapRegion);
+              setMapRegion(nextRegion);
+              setVisibleRegion(nextRegion);
+              setHasInteractedWithArea(true);
+              setStatusIndicatorMode('area');
+            }
 
             if (shouldOpenPreview) {
               handleMarkerPreviewRequest();
@@ -405,6 +428,122 @@ function countStoriesInRegion(markers: MapMarkerGroup[], region: Region) {
 
     return sum + (isMarkerVisible ? marker.count : 0);
   }, 0);
+}
+
+function clusterMarkersForRegion(markers: MapMarkerGroup[], region: Region): MapMarkerGroup[] {
+  if (markers.length < 2) {
+    return markers;
+  }
+
+  const clusterRadius = Math.max(
+    Math.max(Math.abs(region.latitudeDelta), Math.abs(region.longitudeDelta)) * CLUSTER_RADIUS_REGION_FRACTION,
+    MIN_CLUSTER_RADIUS_DEGREES,
+  );
+  const clusters: MapMarkerGroup[][] = [];
+
+  markers.forEach((marker) => {
+    const matchingCluster = clusters.find((cluster) => {
+      const center = getWeightedClusterCenter(cluster);
+
+      return getProjectedDistance(marker, center) <= clusterRadius;
+    });
+
+    if (matchingCluster) {
+      matchingCluster.push(marker);
+      return;
+    }
+
+    clusters.push([marker]);
+  });
+
+  return clusters.map((cluster) => {
+    if (cluster.length === 1) {
+      return cluster[0];
+    }
+
+    const center = getWeightedClusterCenter(cluster);
+    const stories = cluster.flatMap((marker) => marker.stories);
+    const count = cluster.reduce((sum, marker) => sum + marker.count, 0);
+    const clusterId = cluster
+      .map((marker) => marker.id)
+      .sort()
+      .join('|');
+
+    return {
+      id: `zoom-cluster:${clusterId}`,
+      latitude: center.latitude,
+      longitude: center.longitude,
+      stories,
+      count,
+      isCluster: true,
+    };
+  });
+}
+
+function getWeightedClusterCenter(markers: MapMarkerGroup[]) {
+  const totalCount = markers.reduce((sum, marker) => sum + marker.count, 0);
+  const latitude = markers.reduce((sum, marker) => sum + marker.latitude * marker.count, 0) / totalCount;
+  const longitude = markers.reduce((sum, marker) => sum + marker.longitude * marker.count, 0) / totalCount;
+
+  return { latitude, longitude };
+}
+
+function getProjectedDistance(
+  marker: Pick<MapMarkerGroup, 'latitude' | 'longitude'>,
+  center: { latitude: number; longitude: number },
+) {
+  const latitudeDistance = marker.latitude - center.latitude;
+  const longitudeScale = Math.max(Math.cos((center.latitude * Math.PI) / 180), 0.2);
+  const longitudeDistance = (marker.longitude - center.longitude) * longitudeScale;
+
+  return Math.sqrt(latitudeDistance ** 2 + longitudeDistance ** 2);
+}
+
+function getRegionForCluster(marker: MapMarkerGroup, currentRegion: Region): Region {
+  const latitudes = marker.stories.map((story) => story.latitude);
+  const longitudes = marker.stories.map((story) => story.longitude);
+  const minLatitude = Math.min(...latitudes, marker.latitude);
+  const maxLatitude = Math.max(...latitudes, marker.latitude);
+  const minLongitude = Math.min(...longitudes, marker.longitude);
+  const maxLongitude = Math.max(...longitudes, marker.longitude);
+  const latitudeDelta = Math.max((maxLatitude - minLatitude) * FIT_PADDING_FACTOR, MIN_LOCATION_DELTA);
+  const longitudeDelta = Math.max((maxLongitude - minLongitude) * FIT_PADDING_FACTOR, MIN_LOCATION_DELTA);
+  const nextLatitudeDelta = Math.min(latitudeDelta, Math.max(currentRegion.latitudeDelta * 0.45, MIN_LOCATION_DELTA));
+  const nextLongitudeDelta = Math.min(longitudeDelta, Math.max(currentRegion.longitudeDelta * 0.45, MIN_LOCATION_DELTA));
+
+  return {
+    latitude: (minLatitude + maxLatitude) / 2,
+    longitude: (minLongitude + maxLongitude) / 2,
+    latitudeDelta: clampRegionDelta(nextLatitudeDelta, MIN_LOCATION_DELTA),
+    longitudeDelta: clampRegionDelta(nextLongitudeDelta, MIN_LOCATION_DELTA),
+  };
+}
+
+function getDisplayedMarkerId(
+  markerId: string | undefined,
+  displayMarkers: MapMarkerGroup[],
+  sourceMarkers: MapMarkerGroup[],
+) {
+  if (!markerId) {
+    return undefined;
+  }
+
+  if (displayMarkers.some((marker) => marker.id === markerId)) {
+    return markerId;
+  }
+
+  const sourceMarker = sourceMarkers.find((marker) => marker.id === markerId);
+
+  if (!sourceMarker) {
+    return undefined;
+  }
+
+  const sourceStoryIds = new Set(sourceMarker.stories.map((story) => story.id));
+  const containingMarker = displayMarkers.find((marker) =>
+    marker.stories.some((story) => sourceStoryIds.has(story.id)),
+  );
+
+  return containingMarker?.id;
 }
 
 function formatStoryCount(count: number) {
