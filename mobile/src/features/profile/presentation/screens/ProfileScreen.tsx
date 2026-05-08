@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { GestureResponderEvent } from 'react-native';
 import { navigationRef } from '../../../../app/navigation/navigationRef';
 import { ROUTES } from '../../../../app/navigation/routes';
@@ -12,6 +12,7 @@ import { authService } from '../../../auth/application/services';
 import { useAuth } from '../../../auth';
 import { NotificationPreferencesSection } from '../../../notifications';
 import { interactionService } from '../../../interactions/application/services';
+import { adminService } from '../../../moderation/application/services';
 import { FeedCard } from '../../../feed/presentation/components/FeedCard';
 import { FeedEntity, FeedPageEntity } from '../../../feed/domain/entities';
 import { userService } from '../../application/services';
@@ -61,6 +62,7 @@ interface ProfileScreenProps {
   requestPasswordReset?: typeof authService.forgotPassword;
   followUser?: typeof userService.followUser;
   unfollowUser?: typeof userService.unfollowUser;
+  banUser?: typeof adminService.banUser;
   getFollowers?: typeof userService.getFollowers;
   getFollowing?: typeof userService.getFollowing;
   getSavedStories?: typeof userService.getSavedStories;
@@ -1666,6 +1668,7 @@ export function ProfileScreen({
   requestPasswordReset = authService.forgotPassword,
   followUser = userService.followUser,
   unfollowUser = userService.unfollowUser,
+  banUser = adminService.banUser,
   getFollowers = userService.getFollowers,
   getFollowing = userService.getFollowing,
   getSavedStories = userService.getSavedStories,
@@ -1705,6 +1708,8 @@ export function ProfileScreen({
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [isBanLoading, setIsBanLoading] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
   const [followListMode, setFollowListMode] = useState<'followers' | 'following'>('followers');
   const [isFollowListVisible, setIsFollowListVisible] = useState(false);
   const [activeSelfTab, setActiveSelfTab] = useState<SelfProfileTab>('profile');
@@ -1760,6 +1765,7 @@ export function ProfileScreen({
       setFollowersCount(nextProfile.followersCount ?? 0);
       setFollowingCount(nextProfile.followingCount ?? 0);
       setIsFollowing(Boolean(resolvedFollowState));
+      setIsBanned(false);
       setFormState(createFormState(nextProfile));
       resetPhotoDraft();
       setIsEditing(false);
@@ -2129,6 +2135,43 @@ export function ProfileScreen({
     .join(' ');
   const joinedDate = formatJoinedDate(profile?.dateJoined);
   const birthDateDisplay = isSelfMode ? formatProfileBirthDate(profile?.birthDate) : undefined;
+  const canBanProfileUser = !isSelfMode && user?.role === 'admin' && Boolean(profile) && String(user.id) !== profile?.id;
+
+  const handleBanUser = useCallback(async () => {
+    if (!profile || isBanLoading || isBanned) {
+      return;
+    }
+
+    setIsBanLoading(true);
+
+    try {
+      await banUser(profile.id);
+      setIsBanned(true);
+      toast.success('User banned.');
+    } catch (banError) {
+      toast.error(banError instanceof Error ? banError.message : 'Failed to ban user. Please try again.');
+    } finally {
+      setIsBanLoading(false);
+    }
+  }, [banUser, isBanLoading, isBanned, profile, toast]);
+
+  const promptBanUser = useCallback(() => {
+    if (!profile || isBanLoading || isBanned) {
+      return;
+    }
+
+    Alert.alert('Ban user?', `${resolvedName} will lose access to the app.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Ban',
+        style: 'destructive',
+        onPress: () => {
+          void handleBanUser();
+        },
+      },
+    ]);
+  }, [handleBanUser, isBanLoading, isBanned, profile, resolvedName]);
+
   const isDirty = useMemo(() => {
     if (!profile) {
       return false;
@@ -2289,13 +2332,25 @@ export function ProfileScreen({
           </View>
 
           {!isSelfMode ? (
-            <FollowActionButton
-              isAuthenticated={Boolean(isAuthenticated)}
-              isFollowing={isFollowing}
-              isLoading={isFollowLoading}
-              onToggle={() => void handleToggleFollow()}
-              onRequestLogin={handleRequestLoginForFollow}
-            />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' }}>
+              <FollowActionButton
+                isAuthenticated={Boolean(isAuthenticated)}
+                isFollowing={isFollowing}
+                isLoading={isFollowLoading}
+                onToggle={() => void handleToggleFollow()}
+                onRequestLogin={handleRequestLoginForFollow}
+              />
+              {canBanProfileUser ? (
+                <Button
+                  variant="outline"
+                  disabled={isBanLoading || isBanned}
+                  onPress={promptBanUser}
+                  accessibilityLabel={isBanned ? 'User banned' : `Ban ${resolvedName}`}
+                >
+                  {isBanLoading ? 'Banning...' : isBanned ? 'Banned' : 'Ban user'}
+                </Button>
+              ) : null}
+            </View>
           ) : null}
 
           {profile.bio ? (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, ScrollView } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StoryScreen } from '../StoryScreen';
 import { Session } from '../../../../../core/auth/session';
@@ -821,6 +821,91 @@ describe('StoryScreen', () => {
     await waitFor(() => {
       expect(screen.queryByText('Delete this comment?')).toBeNull();
     });
+  });
+
+  it('lets admins delete comments written by other users', async () => {
+    (interactionService.deleteComment as jest.Mock).mockResolvedValueOnce(undefined);
+    (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'comment-other',
+        authorUsername: 'Someone else',
+        text: 'Moderate this comment',
+        createdAt: '2026-03-20T12:00:00Z',
+      },
+    ]);
+
+    render(
+      <StoryScreen
+        storyId="story-001"
+        session={adminSession}
+        getStory={async () => ({
+          ...baseStory,
+          comments: [
+            {
+              id: 'comment-other',
+              authorName: 'Someone else',
+              body: 'Moderate this comment',
+              createdAt: '2026-03-20T12:00:00Z',
+            },
+          ],
+        })}
+      />,
+    );
+
+    await screen.findByText('Moderate this comment');
+    expect(screen.getByLabelText('Delete comment by Someone else')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Delete comment by Someone else'));
+    fireEvent.press(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(interactionService.deleteComment).toHaveBeenCalledWith('comment-other');
+    });
+  });
+
+  it('scrolls to the comments section when a focused comment is provided', async () => {
+    const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+
+    try {
+      (interactionService.getComments as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'comment-focus',
+          authorUsername: 'Someone else',
+          text: 'Focus this comment',
+          createdAt: '2026-03-20T12:00:00Z',
+        },
+      ]);
+
+      render(
+        <StoryScreen
+          storyId="story-001"
+          focusedCommentId="comment-focus"
+          session={adminSession}
+          getStory={async () => ({
+            ...baseStory,
+            comments: [
+              {
+                id: 'comment-focus',
+                authorName: 'Someone else',
+                body: 'Focus this comment',
+                createdAt: '2026-03-20T12:00:00Z',
+              },
+            ],
+          })}
+        />,
+      );
+
+      await screen.findByText('Focus this comment');
+      fireEvent(screen.getByTestId('story-comments-section'), 'layout', {
+        nativeEvent: { layout: { y: 900 } },
+      });
+
+      await waitFor(() => {
+        expect(scrollToSpy).toHaveBeenCalledWith({ y: 884, animated: true });
+      });
+    } finally {
+      scrollToSpy.mockRestore();
+    }
   });
 
   it('marks the signed-in user on their own comments even when private', async () => {

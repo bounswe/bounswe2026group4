@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { ScrollView } from 'react-native';
+import { Alert, ScrollView } from 'react-native';
 import { ProfileScreen } from '../ProfileScreen';
 import { navigationRef } from '../../../../../app/navigation/navigationRef';
 import { userService } from '../../../application/services';
@@ -17,7 +17,7 @@ let mockAuthUser: {
   id: number;
   email: string;
   username: string;
-  role: 'user';
+  role: 'user' | 'admin';
   isUsernamePublic: boolean;
 } | null = {
   id: 7,
@@ -1055,6 +1055,55 @@ describe('ProfileScreen', () => {
     await waitFor(() => {
       expect(followUser).toHaveBeenCalledWith('13');
     });
+  });
+
+  it('shows a ban action to admins on public profiles and confirms before banning', async () => {
+    mockAuthUser = {
+      id: 7,
+      email: 'admin@example.com',
+      username: 'Admin',
+      role: 'admin',
+      isUsernamePublic: true,
+    };
+    const banUser = jest.fn(async () => undefined);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    render(
+      <ProfileScreen
+        mode="public"
+        userId="12"
+        getPublicProfile={async () => publicProfile}
+        banUser={banUser}
+      />,
+    );
+
+    expect(await screen.findByText('Aylin')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Ban Aylin'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Ban user?',
+      'Aylin will lose access to the app.',
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Cancel' }),
+        expect.objectContaining({ text: 'Ban' }),
+      ]),
+    );
+
+    const buttons = alertSpy.mock.calls[0]?.[2] as Array<{ text: string; onPress?: () => void }>;
+    const banButton = buttons.find((button) => button.text === 'Ban');
+
+    await act(async () => {
+      banButton?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(banUser).toHaveBeenCalledWith('12');
+      expect(mockToastSuccess).toHaveBeenCalledWith('User banned.');
+    });
+    expect(screen.getByLabelText('User banned')).toBeTruthy();
+
+    alertSpy.mockRestore();
   });
 
   it('keeps the following state after leaving and returning when the profile response omits it', async () => {
