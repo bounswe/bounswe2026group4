@@ -33,9 +33,13 @@ const StoryCard = ({ story, onBookmarkChange }) => {
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               <User className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">
-                {story.contributor_name ?? "Anonymous"}
-              </span>
+              {story.contributor_name != null ? (
+                <span className="truncate">{story.contributor_name}</span>
+              ) : (
+                <span className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  Anonymous
+                </span>
+              )}
             </div>
           </CardHeader>
 

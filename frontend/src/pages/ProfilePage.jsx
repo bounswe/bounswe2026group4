@@ -12,6 +12,7 @@ import FollowButton from "@/components/Follow/FollowButton";
 import FollowListSheet from "@/components/Follow/FollowListSheet";
 import EditProfileForm from "@/components/Profile/EditProfileForm";
 import SavedStoriesTab from "@/components/Profile/SavedStoriesTab";
+import PublishedStoriesTab from "@/components/Profile/PublishedStoriesTab";
 import BadgeGrid from "@/components/Profile/BadgeGrid";
 
 function formatBirthDate(dateStr) {
@@ -331,11 +332,11 @@ function ProfilePage() {
           <BadgeGrid userId={profile.id} />
         </section>
 
-        {/* Stories Section */}
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <BookOpen className="h-5 w-5" aria-hidden="true" />
-          <p>Story listing will be available soon.</p>
-        </div>
+        {/* Published Stories Section */}
+        <section className="mb-8">
+          <h2 className="mb-4 text-xl font-semibold tracking-tight">Published Stories</h2>
+          <PublishedStoriesTab userId={profile.id} />
+        </section>
 
         {/* Saved Stories — only shown on own profile */}
         {isOwnProfile && (
