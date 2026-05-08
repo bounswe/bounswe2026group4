@@ -243,6 +243,89 @@ describe('userService', () => {
     });
   });
 
+  it('loads a user point summary from the gamification endpoint', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'GET' && config.url === '/users/12/points/') {
+        return {
+          status: 200,
+          data: {
+            user_id: 12,
+            total_points: 1250,
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.getUserPoints('12')).resolves.toEqual({
+      userId: '12',
+      totalPoints: 1250,
+    });
+  });
+
+  it('loads earned badges from the paginated user badges endpoint', async () => {
+    setApiTransport(async (method: any, config: any) => {
+      if (method === 'GET' && config.url === '/users/12/badges/?page=1&page_size=50') {
+        return {
+          status: 200,
+          data: {
+            count: 2,
+            next: null,
+            previous: null,
+            results: [
+              {
+                id: 22,
+                badge: {
+                  id: 1,
+                  name: 'First Story',
+                  description: 'Published one story.',
+                  criteria_type: 'stories_published',
+                  criteria_threshold: 1,
+                },
+                awarded_at: '2026-05-01T12:00:00Z',
+              },
+              {
+                id: 23,
+                badge: {
+                  id: 2,
+                  name: 'Point Collector',
+                  description: 'Reached 50 points.',
+                  criteria_type: 'points_total',
+                  criteria_threshold: 50,
+                },
+                awarded_at: null,
+              },
+            ],
+          } as never,
+          config,
+        };
+      }
+
+      throw new Error(`Unexpected request: ${method} ${config.url}`);
+    });
+
+    await expect(userService.getUserBadges('12')).resolves.toEqual([
+      {
+        id: '1',
+        name: 'First Story',
+        description: 'Published one story.',
+        criteriaType: 'stories_published',
+        criteriaThreshold: 1,
+        awardedAt: '2026-05-01T12:00:00Z',
+      },
+      {
+        id: '2',
+        name: 'Point Collector',
+        description: 'Reached 50 points.',
+        criteriaType: 'points_total',
+        criteriaThreshold: 50,
+        awardedAt: null,
+      },
+    ]);
+  });
+
   it('updates the authenticated profile via PATCH /users/me/', async () => {
     setApiTransport(async (method: any, config: any) => {
       if (method === 'PATCH' && config.url === '/users/me/') {
