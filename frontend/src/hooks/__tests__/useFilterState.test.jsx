@@ -208,4 +208,34 @@ describe("useFilterState", () => {
     expect(result.current.lngMin).toBeNull();
     expect(result.current.lngMax).toBeNull();
   });
+
+  it("parses proximity query params as numbers", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?latitude=41.0082&longitude=28.9784&radius_km=10"]),
+    });
+
+    expect(result.current.latitude).toBe(41.0082);
+    expect(result.current.longitude).toBe(28.9784);
+    expect(result.current.radiusKm).toBe(10);
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it("returns null for proximity params when absent from URL", () => {
+    const { result } = renderHook(() => useFilterState(), { wrapper: makeWrapper() });
+
+    expect(result.current.latitude).toBeNull();
+    expect(result.current.longitude).toBeNull();
+    expect(result.current.radiusKm).toBeNull();
+  });
+
+  it("does not flag proximity as active when only some of latitude/longitude/radiusKm are present", () => {
+    const { result } = renderHook(() => useFilterState(), {
+      wrapper: makeWrapper(["/?latitude=41.0&longitude=28.9"]),
+    });
+
+    expect(result.current.latitude).toBe(41.0);
+    expect(result.current.longitude).toBe(28.9);
+    expect(result.current.radiusKm).toBeNull();
+    expect(result.current.hasActiveFilters).toBe(false);
+  });
 });
