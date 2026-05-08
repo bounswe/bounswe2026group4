@@ -17,6 +17,7 @@ interface TimelinePeriodSelectorProps {
   value: TimelinePeriodSelection;
   onChange: (nextValue: TimelinePeriodSelection) => void;
   error?: string;
+  headerAccessory?: React.ReactNode;
 }
 
 const MODE_OPTIONS: Array<{ mode: TimelinePeriodMode; label: string }> = [
@@ -56,7 +57,7 @@ function mergeSelection(
   };
 }
 
-export function TimelinePeriodSelector({ value, onChange, error }: TimelinePeriodSelectorProps) {
+export function TimelinePeriodSelector({ value, onChange, error, headerAccessory }: TimelinePeriodSelectorProps) {
   const { colors, spacing, typography } = useAppTheme();
 
   const updateYearField = (field: 'year' | 'rangeFrom' | 'rangeTo' | 'decade') => (nextValue: string) => {
@@ -138,10 +139,11 @@ export function TimelinePeriodSelector({ value, onChange, error }: TimelinePerio
         gap: spacing.sm,
       }}
     >
-      <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
         <Text style={{ color: colors.text, fontSize: typography.body, fontWeight: '800' }}>
           Choose a time window
         </Text>
+        {headerAccessory}
       </View>
 
       <View accessibilityRole="radiogroup" accessibilityLabel="Timeline period mode" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>

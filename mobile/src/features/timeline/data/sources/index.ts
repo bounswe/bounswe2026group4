@@ -142,8 +142,9 @@ async function getTimelineViaFallback({
     ...normalizeFallbackFilters(filters, yearFrom, yearTo),
   };
   const results = await fetchAllPages(path, params);
-  const filteredResults = results
-    .filter((story) => storyMatchesFallbackFilters(story, filters, yearFrom, yearTo))
+  const matchingResults = results.filter((story) => storyMatchesFallbackFilters(story, filters, yearFrom, yearTo));
+  const mediaFilteredResults = await filterStoriesByMediaAvailability(matchingResults, filters.hasMedia);
+  const filteredResults = mediaFilteredResults
     .sort((left, right) => {
       const leftYear = getTimelineHistoricalYear(left) ?? Number.MAX_SAFE_INTEGER;
       const rightYear = getTimelineHistoricalYear(right) ?? Number.MAX_SAFE_INTEGER;
@@ -204,11 +205,17 @@ function normalizeTimelineFilters(filters: StoryFilters, yearFrom?: number, year
     params.tag = firstTag;
   }
 
+  if (filters.hasMedia !== undefined) {
+    params.has_image = filters.hasMedia ? 'true' : 'false';
+  }
+
   return params;
 }
 
 function normalizeFallbackFilters(filters: StoryFilters, yearFrom?: number, yearTo?: number) {
   const params = normalizeTimelineFilters(filters, yearFrom, yearTo);
+
+  delete params.has_image;
 
   if (filters.q?.trim()) {
     params.q = filters.q.trim();
@@ -300,6 +307,137 @@ function storyMatchesFallbackFilters(
   }
 
   return isRecordWithinYearWindow(record, yearFrom, yearTo);
+}
+
+async function filterStoriesByMediaAvailability(stories: unknown[], hasMedia?: boolean) {
+  if (hasMedia === undefined) {
+    return stories;
+  }
+
+  const mediaMatches = await Promise.all(
+    stories.map(async (story) => {
+      if (!story || typeof story !== 'object') {
+        return false;
+      }
+
+      const record = story as Record<string, unknown>;
+      const mediaAvailability = getRecordMediaAvailability(record);
+
+      if (mediaAvailability !== undefined) {
+        return mediaAvailability === hasMedia;
+      }
+
+      const detailedRecord = await fetchStoryDetailRecord(record);
+
+      return detailedRecord ? getRecordMediaAvailability(detailedRecord) === hasMedia : false;
+    }),
+  );
+
+  return stories.filter((_story, index) => mediaMatches[index]);
+}
+
+async function fetchStoryDetailRecord(record: Record<string, unknown>) {
+  const id = getRecordId(record);
+
+  if (!id) {
+    return undefined;
+  }
+
+  try {
+    const detail = await apiClient.get<unknown>(`${endpoints.stories}/${id}/`);
+
+    return detail && typeof detail === 'object' ? detail as Record<string, unknown> : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function getRecordId(record: Record<string, unknown>) {
+  const id = record.id;
+
+  return typeof id === 'string' || typeof id === 'number' ? String(id) : undefined;
+}
+
+function getRecordMediaAvailability(record: Record<string, unknown>): boolean | undefined {
+  if (typeof record.has_image === 'boolean') {
+    return record.has_image;
+  }
+
+  if (typeof record.hasImage === 'boolean') {
+    return record.hasImage;
+  }
+
+  const imageUrlKeys = [
+    'photo_url',
+    'photoUrl',
+    'image_url',
+    'imageUrl',
+    'thumbnail_url',
+    'thumbnailUrl',
+    'cover_image',
+    'coverImage',
+    'media_url',
+    'mediaUrl',
+  ];
+  const hasImageUrlField = imageUrlKeys.some((key) => Object.prototype.hasOwnProperty.call(record, key));
+  const imageUrl = imageUrlKeys.map((key) => asString(record[key])).find(Boolean);
+
+  if (imageUrl) {
+    return true;
+  }
+
+  if (hasImageUrlField) {
+    return false;
+  }
+
+  const mediaItems = getArrayField(record, 'media_items') ?? getArrayField(record, 'mediaItems') ?? getArrayField(record, 'media');
+
+  if (mediaItems) {
+    return mediaItems.some(itemLooksLikeImage);
+  }
+
+  const images = getArrayField(record, 'images') ?? getArrayField(record, 'image');
+
+  if (images) {
+    return images.some(itemLooksLikeImage);
+  }
+
+  if (record.image && typeof record.image === 'object') {
+    return itemLooksLikeImage(record.image);
+  }
+
+  return undefined;
+}
+
+function getArrayField(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+
+  return Array.isArray(value) ? value : undefined;
+}
+
+function itemLooksLikeImage(item: unknown) {
+  if (typeof item === 'string') {
+    return Boolean(item.trim());
+  }
+
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+
+  const itemRecord = item as Record<string, unknown>;
+  const mediaType = asString(itemRecord.media_type) || asString(itemRecord.mediaType) || asString(itemRecord.type);
+  const url =
+    asString(itemRecord.url) ||
+    asString(itemRecord.file) ||
+    asString(itemRecord.image) ||
+    asString(itemRecord.media_url) ||
+    asString(itemRecord.mediaUrl);
+
+  if (!url) {
+    return false;
+  }
+
+  return !mediaType || mediaType === 'image' || mediaType.startsWith('image/');
 }
 
 function getSelectedTags(filters: StoryFilters) {

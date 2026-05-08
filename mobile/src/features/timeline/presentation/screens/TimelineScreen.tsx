@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { EmptyState, ErrorState, Loader, SkeletonCard } from '../../../../shared';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
@@ -39,6 +39,7 @@ interface PeriodDescriptor {
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
+type TimelineImageFilter = 'all' | 'with_image';
 
 export function TimelineScreen({
   initialFilters = EMPTY_FILTERS,
@@ -52,6 +53,7 @@ export function TimelineScreen({
   const debouncedQuery = useDebounce(filters.query, 350);
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [periodSelection, setPeriodSelection] = useState<TimelinePeriodSelection>(EMPTY_TIMELINE_PERIOD_SELECTION);
+  const [imageFilter, setImageFilter] = useState<TimelineImageFilter>(() => getInitialImageFilter(initialFilters));
   const periodDescriptor = useMemo(() => describePeriodSelection(periodSelection), [periodSelection]);
   const [state, setState] = useState<TimelineUiState>(() => createInitialTimelineUiState(initialFilters));
   const stateRef = useRef(state);
@@ -87,8 +89,9 @@ export function TimelineScreen({
     () => ({
       ...initialFilters,
       ...toSearchParams({ ...filters, query: useImmediateQuery ? filters.query : debouncedQuery }),
+      hasMedia: getHasMediaFilter(imageFilter),
     }),
-    [debouncedQuery, filters, initialFilters, useImmediateQuery],
+    [debouncedQuery, filters, imageFilter, initialFilters, useImmediateQuery],
   );
 
   const hasActiveFilters = Boolean(
@@ -99,6 +102,7 @@ export function TimelineScreen({
       activeFilters.yearTo !== undefined ||
       activeFilters.radiusKm ||
       activeFilters.tags?.length ||
+      activeFilters.hasMedia !== undefined ||
       (periodSelection.mode !== 'all' && periodDescriptor.isReady),
   );
 
@@ -207,6 +211,12 @@ export function TimelineScreen({
         value={periodSelection}
         onChange={setPeriodSelection}
         error={periodDescriptor.error}
+        headerAccessory={
+          <TimelineImageFilterToggle
+            isActive={imageFilter === 'with_image'}
+            onPress={() => setImageFilter((current) => (current === 'with_image' ? 'all' : 'with_image'))}
+          />
+        }
       />
 
       <View
@@ -467,5 +477,47 @@ function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersStat
     left.timeFrom === right.timeFrom &&
     left.timeTo === right.timeTo &&
     JSON.stringify(left.tags) === JSON.stringify(right.tags)
+  );
+}
+
+function getInitialImageFilter(filters: StoryFilters): TimelineImageFilter {
+  if (filters.hasMedia === true) {
+    return 'with_image';
+  }
+
+  return 'all';
+}
+
+function getHasMediaFilter(value: TimelineImageFilter) {
+  if (value === 'with_image') {
+    return true;
+  }
+
+  return undefined;
+}
+
+function TimelineImageFilterToggle({ isActive, onPress }: { isActive: boolean; onPress: () => void }) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Timeline image filter With image"
+      accessibilityState={{ selected: isActive }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        paddingHorizontal: spacing.sm + 2,
+        paddingVertical: spacing.xs + 2,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: isActive ? colors.text : colors.border,
+        backgroundColor: isActive ? colors.text : colors.background,
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <Text style={{ color: isActive ? colors.background : colors.text, fontSize: typography.caption + 1, fontWeight: '800' }}>
+        With image
+      </Text>
+    </Pressable>
   );
 }

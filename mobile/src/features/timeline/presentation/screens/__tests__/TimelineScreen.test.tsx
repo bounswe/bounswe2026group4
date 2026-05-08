@@ -246,6 +246,42 @@ describe('TimelineScreen', () => {
     });
   });
 
+  it('applies image availability filters from the timeline controls', async () => {
+    const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
+
+    renderScreen(<TimelineScreen getTimeline={getTimeline} />);
+
+    await screen.findByText('Timeline Story 1');
+    fireEvent.press(screen.getByLabelText('Timeline image filter With image'));
+
+    await waitFor(() => {
+      expect(getTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          filters: expect.objectContaining({
+            hasMedia: true,
+          }),
+        }),
+      );
+    });
+
+    fireEvent.press(screen.getByLabelText('Timeline image filter With image'));
+
+    await waitFor(() => {
+      expect(getTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          filters: expect.objectContaining({
+            hasMedia: undefined,
+          }),
+        }),
+      );
+    });
+
+    expect(screen.queryByLabelText('Timeline image filter All')).toBeNull();
+    expect(screen.queryByLabelText('Timeline image filter Without image')).toBeNull();
+  });
+
   it('shows empty and error states', async () => {
     const { rerender } = render(
       <SearchFiltersProvider>
