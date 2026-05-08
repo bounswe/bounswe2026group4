@@ -288,6 +288,44 @@ function TimelinePage() {
 
   const activeFilterCount = countActiveFilters({ location, hasProximity, tags });
 
+  const filterPanelKey = useMemo(
+    () =>
+      `${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${latitude}-${longitude}-${radiusKm}-${tags.join(",")}`,
+    [location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags],
+  );
+
+  function renderContent() {
+    if (error) return <ErrorState message={error} onRetry={handleRetry} />;
+    if (loading) {
+      return (
+        <div
+          className="flex justify-center py-16"
+          aria-busy="true"
+          aria-label="Loading timeline"
+        >
+          <LoadingSpinner />
+        </div>
+      );
+    }
+    if (count === 0) {
+      return (
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          No stories found for this time window.
+        </p>
+      );
+    }
+    return (
+      <>
+        <TimelineView stories={stories} />
+        <div className="mt-8 flex justify-center">
+          <Button variant="outline" onClick={handleLoadMore} disabled={!hasNext || loadingMore}>
+            {loadingMore ? "Loading…" : hasNext ? "Load more" : "No more stories"}
+          </Button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -298,7 +336,6 @@ function TimelinePage() {
           </p>
         </div>
 
-        {/* Search + filters */}
         <div className="mb-6 space-y-2">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
@@ -309,7 +346,7 @@ function TimelinePage() {
               />
             </div>
             <FilterPanel
-              key={`${location}-${latMin}-${latMax}-${lngMin}-${lngMax}-${latitude}-${longitude}-${radiusKm}-${tags.join(",")}`}
+              key={filterPanelKey}
               location={location}
               latMin={latMin}
               latMax={latMax}
@@ -336,7 +373,6 @@ function TimelinePage() {
           />
         </div>
 
-        {/* Time-window selector */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Choose a time window</CardTitle>
@@ -435,7 +471,6 @@ function TimelinePage() {
           </CardContent>
         </Card>
 
-        {/* Status row */}
         <div className="mb-4 flex items-center justify-between text-sm">
           <span className="font-medium text-foreground">{filter.label}</span>
           {!loading && !error && (
@@ -445,35 +480,7 @@ function TimelinePage() {
           )}
         </div>
 
-        {/* Content */}
-        {error ? (
-          <ErrorState message={error} onRetry={handleRetry} />
-        ) : loading ? (
-          <div
-            className="flex justify-center py-16"
-            aria-busy="true"
-            aria-label="Loading timeline"
-          >
-            <LoadingSpinner />
-          </div>
-        ) : count === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            No stories found for this time window.
-          </p>
-        ) : (
-          <>
-            <TimelineView stories={stories} />
-            <div className="mt-8 flex justify-center">
-              <Button
-                variant="outline"
-                onClick={handleLoadMore}
-                disabled={!hasNext || loadingMore}
-              >
-                {loadingMore ? "Loading…" : hasNext ? "Load more" : "No more stories"}
-              </Button>
-            </div>
-          </>
-        )}
+        {renderContent()}
       </div>
     </main>
   );
