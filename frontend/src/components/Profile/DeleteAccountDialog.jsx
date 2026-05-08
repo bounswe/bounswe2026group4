@@ -24,7 +24,6 @@ function DeleteAccountForm({ onOpenChange }) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [password, setPassword] = useState("");
-  const [deleteStories, setDeleteStories] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,7 +36,9 @@ function DeleteAccountForm({ onOpenChange }) {
     setSubmitting(true);
     setError("");
     try {
-      await deleteAccount(password, deleteStories);
+      // Aligned with mobile: account deletion always hard-deletes the user's
+      // stories, comments, and uploads — no opt-in checkbox.
+      await deleteAccount(password, true);
       // tokenStore.clear() dispatches an "auth:logout" event that the
       // AuthContext listens for to drop the in-memory user.
       clearTokens();
@@ -67,27 +68,8 @@ function DeleteAccountForm({ onOpenChange }) {
 
       <div className="mt-4 space-y-4">
         <p className="text-sm text-muted-foreground">
-          By default, your stories will remain on the platform but your name
-          will be replaced with <span className="font-medium">Anonymous</span>.
+          Your stories, comments, and likes will also be permanently deleted.
         </p>
-
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={deleteStories}
-            onChange={(e) => setDeleteStories(e.target.checked)}
-            disabled={submitting}
-            className="mt-0.5 h-4 w-4 rounded border-input"
-            data-testid="delete-stories-checkbox"
-          />
-          <span>
-            Also delete all my stories.
-            <span className="block text-xs text-muted-foreground">
-              Story content, comments, and uploads will be permanently removed.
-              This is irreversible.
-            </span>
-          </span>
-        </label>
 
         <div className="space-y-1.5">
           <Label htmlFor="delete-account-password">
@@ -103,11 +85,17 @@ function DeleteAccountForm({ onOpenChange }) {
             }}
             disabled={submitting}
             autoComplete="current-password"
+            aria-describedby={error ? "delete-account-error" : undefined}
+            aria-invalid={error ? true : undefined}
           />
         </div>
 
         {error && (
-          <p className="text-sm text-destructive" role="alert">
+          <p
+            id="delete-account-error"
+            className="text-sm text-destructive"
+            role="alert"
+          >
             {error}
           </p>
         )}
@@ -121,7 +109,6 @@ function DeleteAccountForm({ onOpenChange }) {
           type="submit"
           variant="destructive"
           disabled={submitting || !password}
-          onClick={handleConfirm}
         >
           {submitting && (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

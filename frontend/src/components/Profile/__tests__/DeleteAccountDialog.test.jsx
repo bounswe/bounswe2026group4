@@ -43,13 +43,13 @@ beforeEach(() => {
 });
 
 describe("DeleteAccountDialog", () => {
-  it("renders the title, anonymisation notice, checkbox, and password field when open", () => {
+  it("renders the title, hard-delete notice, and password field when open", () => {
     renderDialog();
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByText(/delete your account\?/i)).toBeInTheDocument();
-    expect(screen.getByText(/will be replaced with/i)).toBeInTheDocument();
-    expect(screen.getByText(/anonymous/i)).toBeInTheDocument();
-    expect(screen.getByTestId("delete-stories-checkbox")).toBeInTheDocument();
+    expect(
+      screen.getByText(/stories, comments, and likes will also be permanently deleted/i)
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/confirm with your password/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /delete my account/i })
@@ -71,37 +71,17 @@ describe("DeleteAccountDialog", () => {
     expect(screen.getByRole("button", { name: /delete my account/i })).toBeDisabled();
   });
 
-  it("toggles the 'also delete my stories' checkbox", () => {
-    renderDialog();
-    const checkbox = screen.getByTestId("delete-stories-checkbox");
-    expect(checkbox).not.toBeChecked();
-    fireEvent.click(checkbox);
-    expect(checkbox).toBeChecked();
-  });
-
-  it("calls deleteAccount with password and hard_delete=false when checkbox is unchecked", async () => {
+  it("calls deleteAccount with hard_delete=true exactly once on confirm", async () => {
     deleteAccount.mockResolvedValue(undefined);
     renderDialog();
 
-    fireEvent.change(screen.getByLabelText(/confirm with your password/i), {
-      target: { value: "hunter2" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
-
-    await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith("hunter2", false));
-  });
-
-  it("calls deleteAccount with hard_delete=true when 'also delete' is checked", async () => {
-    deleteAccount.mockResolvedValue(undefined);
-    renderDialog();
-
-    fireEvent.click(screen.getByTestId("delete-stories-checkbox"));
     fireEvent.change(screen.getByLabelText(/confirm with your password/i), {
       target: { value: "hunter2" },
     });
     fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
 
     await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith("hunter2", true));
+    expect(deleteAccount).toHaveBeenCalledTimes(1);
   });
 
   it("on success: clears auth state, closes the dialog, shows a toast, and navigates home", async () => {
@@ -165,5 +145,25 @@ describe("DeleteAccountDialog", () => {
       expect(screen.getByRole("button", { name: /deleting…/i })).toBeInTheDocument()
     );
     resolve();
+  });
+
+  it("links the password input to the inline error via aria-describedby", async () => {
+    deleteAccount.mockRejectedValue({
+      response: { status: 400, data: { password: ["Incorrect password."] } },
+    });
+    renderDialog();
+
+    const passwordInput = screen.getByLabelText(/confirm with your password/i);
+    expect(passwordInput).not.toHaveAttribute("aria-describedby");
+
+    fireEvent.change(passwordInput, { target: { value: "wrong" } });
+    fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(passwordInput).toHaveAttribute(
+      "aria-describedby",
+      "delete-account-error"
+    );
+    expect(screen.getByRole("alert")).toHaveAttribute("id", "delete-account-error");
   });
 });

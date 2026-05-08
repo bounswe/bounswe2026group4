@@ -84,17 +84,17 @@ export async function getUserBadges(userId) {
 /**
  * DELETE /users/me/ — permanently delete the authenticated user's account.
  *
- * @param {string} password           Current password, required for confirmation.
- * @param {boolean} deleteStories     true → hard-delete (also wipes stories);
- *                                    false → soft-delete (anonymises stories,
- *                                    replacing contributor with "Anonymous").
+ * @param {string} password    Current password, required for confirmation.
+ * @param {boolean} hardDelete true → also wipes stories, comments, and uploads;
+ *                             false → soft-delete (anonymises stories,
+ *                             replacing contributor with "Anonymous").
  * The current refresh token is forwarded so the backend can blacklist it.
  */
-export async function deleteAccount(password, deleteStories) {
+export async function deleteAccount(password, hardDelete) {
   await api.delete("/users/me/", {
     data: {
       password,
-      hard_delete: Boolean(deleteStories),
+      hard_delete: hardDelete,
       refresh: getRefreshToken() ?? "",
     },
   });

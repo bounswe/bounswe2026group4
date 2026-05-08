@@ -247,7 +247,7 @@ describe("userService", () => {
       });
     });
 
-    it("sends hard_delete=false when stories should be anonymised (deleteStories=false)", async () => {
+    it("sends hard_delete=false when stories should be anonymised (hardDelete=false)", async () => {
       api.delete.mockResolvedValue({ status: 204, data: null });
       getRefreshToken.mockReturnValue("refresh-xyz");
 
