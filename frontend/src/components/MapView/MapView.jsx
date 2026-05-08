@@ -35,10 +35,12 @@ const PROXIMITY_BOUNDS_PADDING_FACTOR = 1.2;
 // MIN_LOCATION_DELTA (0.02), so the half-extent equivalent is 0.01.
 const MIN_PROXIMITY_HALF_DELTA = 0.01;
 
-// Intercepts clicks on story links inside popup HTML so they perform
+// Intercepts clicks on internal app links inside popup HTML so they perform
 // client-side navigation instead of a full page reload. Captures the
 // current map URL (including search params) as `from` state so back-
 // navigation preserves active filters.
+const POPUP_LINK_SELECTOR = "a[href^='/stories/'], a[href^='/nearby-timeline']";
+
 function StoryLinkInterceptor() {
   const map = useMap();
   const navigate = useNavigate();
@@ -48,7 +50,7 @@ function StoryLinkInterceptor() {
     if (!container) return undefined;
     const from = `${location.pathname}${location.search}`;
     const handler = (event) => {
-      const anchor = event.target.closest?.("a[href^='/stories/']");
+      const anchor = event.target.closest?.(POPUP_LINK_SELECTOR);
       if (!anchor || event.defaultPrevented) return;
       event.preventDefault();
       navigate(anchor.getAttribute("href"), { state: { from } });

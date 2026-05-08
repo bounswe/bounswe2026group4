@@ -11,6 +11,8 @@ describe("StoryPopup", () => {
     id: 42,
     title: "The Old Bridge",
     location_name: "Istanbul",
+    location_lat: 41.01,
+    location_lng: 28.97,
     time_type: "exact_year",
     year: 1920,
   };
@@ -35,5 +37,27 @@ describe("StoryPopup", () => {
 
     const link = screen.getByText("Read more");
     expect(link.closest("a")).toHaveAttribute("href", "/stories/42");
+  });
+
+  it("renders a 'View Timeline' link with the pin coordinates when both are present", () => {
+    renderPopup(baseStory);
+
+    const link = screen.getByText("View Timeline");
+    expect(link.closest("a")).toHaveAttribute(
+      "href",
+      "/nearby-timeline?latitude=41.01&longitude=28.97",
+    );
+  });
+
+  it("omits the 'View Timeline' link when coordinates are missing", () => {
+    renderPopup({ ...baseStory, location_lat: undefined, location_lng: undefined });
+
+    expect(screen.queryByText("View Timeline")).not.toBeInTheDocument();
+  });
+
+  it("omits the 'View Timeline' link when coordinates are non-numeric", () => {
+    renderPopup({ ...baseStory, location_lat: "n/a", location_lng: "n/a" });
+
+    expect(screen.queryByText("View Timeline")).not.toBeInTheDocument();
   });
 });

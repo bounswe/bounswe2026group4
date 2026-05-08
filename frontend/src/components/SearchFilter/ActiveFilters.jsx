@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTagColorClass } from "@/utils/tagUtils";
+import { formatDistanceKm } from "@/utils/distance";
 import { cn } from "@/lib/utils";
 
 function FilterChip({ label, onRemove }) {
@@ -79,8 +80,7 @@ function ActiveFilters({
   }
 
   if (hasProximity && radiusKm != null) {
-    const distanceLabel = radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
-    chips.push({ key: "proximity", label: `Within ${distanceLabel}` });
+    chips.push({ key: "proximity", label: `Within ${formatDistanceKm(radiusKm)}` });
   }
 
   if (hasImage) {

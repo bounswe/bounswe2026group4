@@ -453,6 +453,15 @@ describe("featurePopupHtml", () => {
     expect(html).toContain("Story 7");
     expect(html).not.toContain("Location 7");
   });
+
+  it("includes a View Timeline link with the feature's coordinates", () => {
+    // makeFeature(7) → coordinates [28.97, 41.07] (lng, lat per RFC 7946)
+    const html = featurePopupHtml(makeFeature(7));
+    expect(html).toContain("View Timeline");
+    expect(html).toContain(
+      'href="/nearby-timeline?latitude=41.07&amp;longitude=28.97"',
+    );
+  });
 });
 
 describe("StoryLinkInterceptor", () => {
@@ -480,6 +489,7 @@ describe("StoryLinkInterceptor", () => {
             }
           />
           <Route path="/stories/:id" element={<LocationProbe />} />
+          <Route path="/nearby-timeline" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     );
@@ -501,6 +511,25 @@ describe("StoryLinkInterceptor", () => {
     expect(screen.getByTestId("current-pathname").textContent).toBe("/stories/99");
     // Filter state must survive the SPA navigation so Back returns the user
     // to the filtered map.
+    expect(screen.getByTestId("current-state-from").textContent).toBe(
+      "/map?category=nature",
+    );
+  });
+
+  it("intercepts clicks on /nearby-timeline anchors inside the map and navigates via react-router", async () => {
+    const user = userEvent.setup();
+    render(<Harness initialEntries={["/map?category=nature"]} />);
+
+    const anchor = document.createElement("a");
+    anchor.setAttribute("href", "/nearby-timeline?lat=41&lng=29");
+    anchor.textContent = "View Timeline";
+    fakeMapContainer.appendChild(anchor);
+
+    await user.click(anchor);
+
+    expect(screen.getByTestId("current-pathname").textContent).toBe(
+      "/nearby-timeline",
+    );
     expect(screen.getByTestId("current-state-from").textContent).toBe(
       "/map?category=nature",
     );
