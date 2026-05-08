@@ -54,6 +54,12 @@ vi.mock("@/components/Profile/SavedStoriesTab", () => ({
   ),
 }));
 
+vi.mock("@/components/Profile/BadgeGrid", () => ({
+  default: ({ userId }) => (
+    <div data-testid="badge-grid" data-user-id={userId} />
+  ),
+}));
+
 import { getProfile, getOwnProfile } from "@/services/userService";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -184,14 +190,43 @@ describe("ProfilePage", () => {
     expect(screen.queryByText("History lover")).not.toBeInTheDocument();
   });
 
-  it("hides total_points when zero", async () => {
+  it("displays 0 points prominently when total_points is zero", async () => {
     getProfile.mockResolvedValue({ ...mockProfileData, total_points: 0 });
     renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("historian")).toBeInTheDocument();
     });
-    expect(screen.queryByText(/points/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("profile-points")).toHaveTextContent(/0\s*points/i);
+  });
+
+  it("formats large point totals with comma separators", async () => {
+    getProfile.mockResolvedValue({ ...mockProfileData, total_points: 1250 });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("historian")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("profile-points")).toHaveTextContent(/1,250\s*points/i);
+  });
+
+  it("renders the BadgeGrid for the profile user", async () => {
+    getProfile.mockResolvedValue(mockProfileData);
+    renderPage();
+
+    const badgeGrid = await screen.findByTestId("badge-grid");
+    expect(badgeGrid).toHaveAttribute("data-user-id", "1");
+  });
+
+  it("shows a Badges section heading", async () => {
+    getProfile.mockResolvedValue(mockProfileData);
+    renderPage();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /^badges$/i })
+      ).toBeInTheDocument();
+    });
   });
 
   describe("follow integration", () => {
