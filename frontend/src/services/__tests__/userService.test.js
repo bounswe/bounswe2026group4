@@ -145,7 +145,7 @@ describe("userService", () => {
   });
 
   describe("getUserBadges", () => {
-    it("calls GET /users/<id>/badges/ and returns the results array", async () => {
+    it("calls GET /users/<id>/badges/ with page_size=100 on the first page", async () => {
       const results = [
         {
           id: 12,
@@ -165,8 +165,48 @@ describe("userService", () => {
 
       const result = await getUserBadges(7);
 
-      expect(api.get).toHaveBeenCalledWith("/users/7/badges/");
+      expect(api.get).toHaveBeenCalledTimes(1);
+      expect(api.get).toHaveBeenCalledWith("/users/7/badges/", {
+        params: { page_size: 100 },
+      });
       expect(result).toEqual(results);
+    });
+
+    it("walks the `next` link until exhausted and concatenates results", async () => {
+      const page1 = [{ id: 1, badge: { id: 1, name: "A" } }];
+      const page2 = [{ id: 2, badge: { id: 2, name: "B" } }];
+      const page3 = [{ id: 3, badge: { id: 3, name: "C" } }];
+      api.get
+        .mockResolvedValueOnce({
+          data: {
+            count: 3,
+            next: "/users/7/badges/?page=2",
+            previous: null,
+            results: page1,
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            count: 3,
+            next: "/users/7/badges/?page=3",
+            previous: null,
+            results: page2,
+          },
+        })
+        .mockResolvedValueOnce({
+          data: { count: 3, next: null, previous: null, results: page3 },
+        });
+
+      const result = await getUserBadges(7);
+
+      expect(api.get).toHaveBeenCalledTimes(3);
+      expect(api.get.mock.calls[0]).toEqual([
+        "/users/7/badges/",
+        { params: { page_size: 100 } },
+      ]);
+      expect(api.get.mock.calls[1]).toEqual(["/users/7/badges/?page=2"]);
+      expect(api.get.mock.calls[2]).toEqual(["/users/7/badges/?page=3"]);
+      expect(result).toEqual([...page1, ...page2, ...page3]);
     });
 
     it("returns an empty array when no badges are awarded", async () => {

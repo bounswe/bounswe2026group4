@@ -76,6 +76,66 @@ describe("BadgeGrid", () => {
     expect(screen.getByText("Welcome Aboard")).toBeInTheDocument();
   });
 
+  it("renders the description directly on each card (no hover required)", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({
+        id: 1,
+        name: "First Story",
+        description: "Awarded for publishing your first story",
+      }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("First Story")).toBeInTheDocument()
+    );
+    expect(
+      screen.getByText("Awarded for publishing your first story")
+    ).toBeInTheDocument();
+  });
+
+  it("renders cards as a <ul>/<li> list (not buttons) with an accessible label", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ id: 1, name: "First Story" }),
+      makeBadge({ id: 2, badgeId: 2, name: "Storyteller" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("First Story")).toBeInTheDocument()
+    );
+    const list = screen.getByRole("list", { name: /earned badges/i });
+    expect(list).toBeInTheDocument();
+    const cards = screen.getAllByTestId("badge-card");
+    expect(cards).toHaveLength(2);
+    cards.forEach((card) => expect(card.tagName).toBe("LI"));
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("applies a distinct color halo per criteria_type", async () => {
+    getUserBadges.mockResolvedValue([
+      makeBadge({ id: 1, criteria_type: "registration" }),
+      makeBadge({ id: 2, badgeId: 2, criteria_type: "story_count" }),
+      makeBadge({ id: 3, badgeId: 3, criteria_type: "points" }),
+      makeBadge({ id: 4, badgeId: 4, criteria_type: "something_unknown" }),
+    ]);
+    render(<BadgeGrid userId={1} />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("badge-card")).toHaveLength(4)
+    );
+    const cards = screen.getAllByTestId("badge-card");
+    const haloOf = (criteria) =>
+      cards
+        .find((c) => c.dataset.criteria === criteria)
+        ?.querySelector("span")?.className;
+    const reg = haloOf("registration");
+    const story = haloOf("story_count");
+    const pts = haloOf("points");
+    const unknown = haloOf("something_unknown");
+    expect(reg).toMatch(/blue/);
+    expect(story).toMatch(/emerald/);
+    expect(pts).toMatch(/amber/);
+    expect(unknown).toMatch(/violet/);
+  });
+
   it("uses the BookOpen icon for story_count badges", async () => {
     getUserBadges.mockResolvedValue([
       makeBadge({ name: "Storyteller", criteria_type: "story_count" }),
@@ -86,7 +146,7 @@ describe("BadgeGrid", () => {
     );
     const card = screen.getByTestId("badge-card");
     expect(card).toHaveAttribute("data-criteria", "story_count");
-    expect(card.querySelector('[data-icon="BookOpen"]')).toBeInTheDocument();
+    expect(card.querySelector(".lucide-book-open")).toBeInTheDocument();
   });
 
   it("uses the Award icon for registration badges", async () => {
@@ -98,7 +158,7 @@ describe("BadgeGrid", () => {
       expect(screen.getByText("Newcomer")).toBeInTheDocument()
     );
     expect(
-      screen.getByTestId("badge-card").querySelector('[data-icon="Award"]')
+      screen.getByTestId("badge-card").querySelector(".lucide-award")
     ).toBeInTheDocument();
   });
 
@@ -111,7 +171,7 @@ describe("BadgeGrid", () => {
       expect(screen.getByText("Centurion")).toBeInTheDocument()
     );
     expect(
-      screen.getByTestId("badge-card").querySelector('[data-icon="Star"]')
+      screen.getByTestId("badge-card").querySelector(".lucide-star")
     ).toBeInTheDocument();
   });
 
@@ -124,7 +184,7 @@ describe("BadgeGrid", () => {
       expect(screen.getByText("Mystery")).toBeInTheDocument()
     );
     expect(
-      screen.getByTestId("badge-card").querySelector('[data-icon="Trophy"]')
+      screen.getByTestId("badge-card").querySelector(".lucide-trophy")
     ).toBeInTheDocument();
   });
 
