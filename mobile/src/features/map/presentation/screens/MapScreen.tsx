@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
+import { StoryMapPin } from '../../../stories/domain/entities';
 import { StoryFilters } from '../../../stories/domain/repositories';
 import { MapMarkerGroup } from '../../domain/entities';
 import { mapService } from '../../application/services';
@@ -21,7 +22,7 @@ interface MapScreenProps {
   onOpenStory?: (storyId: string) => void;
   getMarkerGroups?: (filters?: StoryFilters) => Promise<MapMarkerGroup[]>;
   onMarkerPreviewRequested?: (targetY: number) => void;
-  onViewTimeline?: (target: { latitude: number; longitude: number; label?: string }) => void;
+  onViewTimeline?: (target: { latitude: number; longitude: number; label?: string; storyId?: string }) => void;
   showSearchControls?: boolean;
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
   onMapTouchChange?: (isTouchingMap: boolean) => void;
@@ -48,6 +49,16 @@ const CLUSTER_RADIUS_REGION_FRACTION = 0.1;
 const MIN_CLUSTER_RADIUS_DEGREES = 0.0008;
 const MIN_CLUSTER_ZOOM_DELTA = 0.00001;
 type StatusIndicatorMode = 'hidden' | 'filters' | 'area';
+interface MapPinTimelineTarget {
+  latitude: number;
+  longitude: number;
+  label?: string;
+  storyId?: string;
+}
+interface PinnedStoryMarker {
+  id: string;
+  story: StoryMapPin;
+}
 
 export function MapScreen({
   initialFilters = EMPTY_FILTERS,
@@ -239,23 +250,22 @@ export function MapScreen({
     filters.proximityRadiusKm && filters.proximityCoordinates && filters.proximitySource !== 'map_pin'
       ? filters.proximityCoordinates
       : undefined;
-  const mapPinFilterMarkerId = useMemo(
-    () => getMapPinFilterMarkerId(state.markers, filters),
-    [filters, state.markers],
+  const mapPinTimelineTarget = useMemo(() => getMapPinTimelineTarget(filters), [filters]);
+  const pinnedStoryMarkers = useMemo(
+    () => getPinnedStoryMarkers(state.markers, state.selectedMarkerId, mapPinTimelineTarget),
+    [mapPinTimelineTarget, state.markers, state.selectedMarkerId],
   );
   const displayMarkers = useMemo(
-    () => clusterMarkersForRegion(state.markers, mapRegion, expandedMarkerIds),
-    [expandedMarkerIds, mapRegion, state.markers],
+    () => clusterMarkersForRegion(state.markers, mapRegion, expandedMarkerIds, pinnedStoryMarkers),
+    [expandedMarkerIds, mapRegion, pinnedStoryMarkers, state.markers],
   );
   const displayedSelectedMarkerId = useMemo(
     () => getDisplayedMarkerId(state.selectedMarkerId, displayMarkers, state.markers),
     [displayMarkers, state.markers, state.selectedMarkerId],
   );
   const displayedHighlightedMarkerId = useMemo(
-    () =>
-      getDisplayedMarkerId(mapPinFilterMarkerId, displayMarkers, state.markers) ??
-      getDisplayedMapPinCoordinateMarkerId(displayMarkers, filters),
-    [displayMarkers, filters, mapPinFilterMarkerId, state.markers],
+    () => getDisplayedMapPinTimelineMarkerId(displayMarkers, mapPinTimelineTarget),
+    [displayMarkers, mapPinTimelineTarget],
   );
   const statusStoryCount = useMemo(() => {
     if (statusIndicatorMode !== 'area' || !hasInteractedWithArea || !visibleRegion) {
@@ -456,11 +466,17 @@ function clusterMarkersForRegion(
   markers: MapMarkerGroup[],
   region: Region,
   expandedMarkerIds: Set<string>,
+  pinnedStoryMarkers: PinnedStoryMarker[] = [],
 ): MapMarkerGroup[] {
-  const clusterableMarkers = expandDistinctStoryMarkers(markers, expandedMarkerIds);
+  const pinnedStoryIds = new Set(pinnedStoryMarkers.map((marker) => marker.story.id));
+  const pinnedMarkers = pinnedStoryMarkers.map(createPinnedStoryMarker);
+  const clusterableMarkers = expandDistinctStoryMarkers(
+    pinnedStoryIds.size ? removeStoriesFromMarkers(markers, pinnedStoryIds) : markers,
+    expandedMarkerIds,
+  );
 
   if (clusterableMarkers.length < 2) {
-    return clusterableMarkers;
+    return pinnedMarkers.length ? [...clusterableMarkers, ...pinnedMarkers] : clusterableMarkers;
   }
 
   const clusterRadius = Math.max(
@@ -484,7 +500,7 @@ function clusterMarkersForRegion(
     clusters.push([marker]);
   });
 
-  return clusters.map((cluster) => {
+  const clusteredMarkers = clusters.map((cluster) => {
     if (cluster.length === 1) {
       return cluster[0];
     }
@@ -505,6 +521,136 @@ function clusterMarkersForRegion(
       count,
       isCluster: true,
     };
+  });
+
+  return pinnedMarkers.length ? [...clusteredMarkers, ...pinnedMarkers] : clusteredMarkers;
+}
+
+function getPinnedStoryMarkers(
+  markers: MapMarkerGroup[],
+  selectedMarkerId: string | undefined,
+  mapPinTimelineTarget?: MapPinTimelineTarget,
+) {
+  const pinnedByStoryId = new Map<string, PinnedStoryMarker>();
+  const selectedPinnedStory = selectedMarkerId
+    ? findSelectedPinnedStoryMarker(markers, selectedMarkerId)
+    : undefined;
+
+  if (selectedPinnedStory) {
+    pinnedByStoryId.set(selectedPinnedStory.story.id, selectedPinnedStory);
+  }
+
+  const mapPinStory = mapPinTimelineTarget ? findMapPinTimelineStory(markers, mapPinTimelineTarget) : undefined;
+
+  if (mapPinStory) {
+    pinnedByStoryId.set(mapPinStory.id, {
+      id: getPinnedStoryMarkerId(mapPinStory.id),
+      story: mapPinStory,
+    });
+  }
+
+  return Array.from(pinnedByStoryId.values());
+}
+
+function findSelectedPinnedStoryMarker(
+  markers: MapMarkerGroup[],
+  selectedMarkerId: string,
+): PinnedStoryMarker | undefined {
+  const sourceMarker = markers.find((marker) => marker.id === selectedMarkerId);
+
+  if (sourceMarker && !sourceMarker.isCluster && sourceMarker.stories.length === 1) {
+    return {
+      id: sourceMarker.id,
+      story: sourceMarker.stories[0],
+    };
+  }
+
+  for (const marker of markers) {
+    const story = marker.stories.find((candidate) => selectedMarkerId === `${marker.id}:story:${candidate.id}`);
+
+    if (story) {
+      return {
+        id: selectedMarkerId,
+        story,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+function findMapPinTimelineStory(markers: MapMarkerGroup[], target: MapPinTimelineTarget) {
+  const stories = markers.flatMap((marker) => marker.stories);
+  const matchingStoryById = target.storyId
+    ? stories.find((story) => story.id === target.storyId)
+    : undefined;
+
+  if (matchingStoryById) {
+    return matchingStoryById;
+  }
+
+  const matchingStoryByLabel = target.label
+    ? stories.find((story) => story.title === target.label && storyMatchesCoordinates(story, target))
+    : undefined;
+
+  if (matchingStoryByLabel) {
+    return matchingStoryByLabel;
+  }
+
+  return stories.find((story) => storyMatchesCoordinates(story, target));
+}
+
+function storyMatchesCoordinates(story: StoryMapPin, target: Pick<MapPinTimelineTarget, 'latitude' | 'longitude'>) {
+  return coordinatesEqual(story.latitude, target.latitude) && coordinatesEqual(story.longitude, target.longitude);
+}
+
+function createPinnedStoryMarker({ id, story }: PinnedStoryMarker): MapMarkerGroup {
+  return {
+    id,
+    latitude: story.latitude,
+    longitude: story.longitude,
+    stories: [story],
+    count: 1,
+    isCluster: false,
+  };
+}
+
+function getPinnedStoryMarkerId(storyId: string) {
+  return `map-pin-story:${storyId}`;
+}
+
+function removeStoriesFromMarkers(markers: MapMarkerGroup[], storyIds: Set<string>): MapMarkerGroup[] {
+  return markers.flatMap((marker) => {
+    const stories = marker.stories.filter((story) => !storyIds.has(story.id));
+
+    if (!stories.length) {
+      return [];
+    }
+
+    if (stories.length === marker.stories.length) {
+      return [marker];
+    }
+
+    const latitude =
+      stories.length === 1
+        ? stories[0].latitude
+        : stories.reduce((sum, story) => sum + story.latitude, 0) / stories.length;
+    const longitude =
+      stories.length === 1
+        ? stories[0].longitude
+        : stories.reduce((sum, story) => sum + story.longitude, 0) / stories.length;
+
+    return [
+      {
+        ...marker,
+        id: `${marker.id}:without:${Array.from(storyIds).sort().join(':')}`,
+        latitude,
+        longitude,
+        stories,
+        count: stories.length,
+        isCluster: stories.length > 1,
+      },
+    ];
   });
 }
 
@@ -612,34 +758,47 @@ function getMapPinFilterKey(filters: SearchFiltersState) {
     return null;
   }
 
-  return `${filters.proximityCoordinates.latitude}:${filters.proximityCoordinates.longitude}:${filters.proximityRadiusKm ?? ''}`;
+  return [
+    filters.proximityCoordinates.latitude,
+    filters.proximityCoordinates.longitude,
+    filters.proximityRadiusKm ?? '',
+    filters.proximityStoryId ?? '',
+    filters.proximityLabel ?? '',
+  ].join(':');
 }
 
-function getMapPinFilterMarkerId(markers: MapMarkerGroup[], filters: SearchFiltersState) {
+function getMapPinTimelineTarget(filters: SearchFiltersState): MapPinTimelineTarget | undefined {
   if (filters.proximitySource !== 'map_pin' || !filters.proximityCoordinates) {
     return undefined;
   }
 
-  const { latitude, longitude } = filters.proximityCoordinates;
-  const matchingMarker = markers.find(
-    (marker) =>
-      (coordinatesEqual(marker.latitude, latitude) && coordinatesEqual(marker.longitude, longitude)) ||
-      marker.stories.some((story) => coordinatesEqual(story.latitude, latitude) && coordinatesEqual(story.longitude, longitude)),
-  );
-
-  return matchingMarker?.id;
+  return {
+    latitude: filters.proximityCoordinates.latitude,
+    longitude: filters.proximityCoordinates.longitude,
+    label: filters.proximityLabel,
+    storyId: filters.proximityStoryId,
+  };
 }
 
-function getDisplayedMapPinCoordinateMarkerId(markers: MapMarkerGroup[], filters: SearchFiltersState) {
-  if (filters.proximitySource !== 'map_pin' || !filters.proximityCoordinates) {
+function getDisplayedMapPinTimelineMarkerId(
+  markers: MapMarkerGroup[],
+  target: MapPinTimelineTarget | undefined,
+) {
+  if (!target) {
     return undefined;
   }
 
-  const { latitude, longitude } = filters.proximityCoordinates;
+  const targetStoryId = target.storyId;
+  const matchingPinnedStory = targetStoryId
+    ? markers.find((marker) => marker.id === getPinnedStoryMarkerId(targetStoryId))
+    : undefined;
+
+  if (matchingPinnedStory) {
+    return matchingPinnedStory.id;
+  }
+
   const matchingMarker = markers.find(
-    (marker) =>
-      (coordinatesEqual(marker.latitude, latitude) && coordinatesEqual(marker.longitude, longitude)) ||
-      marker.stories.some((story) => coordinatesEqual(story.latitude, latitude) && coordinatesEqual(story.longitude, longitude)),
+    (marker) => marker.stories.some((story) => storyMatchesCoordinates(story, target)),
   );
 
   return matchingMarker?.id;

@@ -33,7 +33,7 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
         latitudeDelta: number;
         longitudeDelta: number;
       };
-      markers?: Array<{ id: string; selected?: boolean; label?: string }>;
+      markers?: Array<{ id: string; selected?: boolean; visualRole?: 'timeline' | 'selected'; label?: string }>;
       userLocation?: {
         latitude: number;
         longitude: number;
@@ -79,6 +79,17 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
             })
           }
         />
+        <Pressable
+          testID="map-region-wide"
+          onPress={() =>
+            onRegionChangeComplete?.({
+              latitude: 41.02,
+              longitude: 28.97,
+              latitudeDelta: 1,
+              longitudeDelta: 1,
+            })
+          }
+        />
         {markers.map((marker) => (
           <Pressable
             key={marker.id}
@@ -86,6 +97,7 @@ jest.mock('../../../../../shared/components/WebMapView', () => {
             testID="story-marker"
             accessibilityLabel={`marker:${marker.id}:${marker.label ?? ''}`}
             accessibilityState={{ selected: Boolean(marker.selected) }}
+            accessibilityValue={{ text: marker.visualRole ?? 'default' }}
           />
         ))}
       </View>
@@ -398,6 +410,7 @@ describe('MapScreen', () => {
       latitude: 41.0284,
       longitude: 28.9647,
       label: 'The Day the Harbor Fell Silent',
+      storyId: 'story-001',
     });
   });
 
@@ -414,7 +427,7 @@ describe('MapScreen', () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('story-marker')[0].props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('marker:map-pin-story:story-001:').props.accessibilityState.selected).toBe(true);
     });
 
     fireEvent.press(screen.getByLabelText('Remove Distance: 500 m from red location pin'));
@@ -424,14 +437,40 @@ describe('MapScreen', () => {
     });
   });
 
+  it('shows separate pins for the timeline filter and current selected story', async () => {
+    await storage.set(storageKeys.mapSearchFilters, {
+      proximityRadiusKm: 0.5,
+      proximityCoordinates: {
+        latitude: 41,
+        longitude: 29,
+      },
+      proximitySource: 'map_pin',
+      proximityLabel: 'First Nearby Memory',
+      proximityStoryId: 'story-near-1',
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={async () => zoomClusterMarkerGroups} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:map-pin-story:story-near-1:').props.accessibilityValue.text).toBe('timeline');
+    });
+
+    fireEvent.press(screen.getByLabelText('marker:far-1:'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:far-1:').props.accessibilityValue.text).toBe('selected');
+    });
+    expect(screen.getByLabelText('marker:map-pin-story:story-near-1:').props.accessibilityValue.text).toBe('timeline');
+  });
+
   it('hides the selected marker preview when the same marker is pressed again', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
     await screen.findByText('Select a story marker to preview.');
-    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    fireEvent.press(screen.getByLabelText('marker:41.02:28.96:'));
     expect(await screen.findByText('The Day the Harbor Fell Silent')).toBeTruthy();
 
-    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    fireEvent.press(screen.getByLabelText('marker:41.02:28.96:'));
 
     await waitFor(() => {
       expect(screen.queryByText('The Day the Harbor Fell Silent')).toBeNull();
@@ -458,6 +497,25 @@ describe('MapScreen', () => {
     });
   });
 
+  it('keeps a selected red story pin fixed when zooming out into nearby stories', async () => {
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getByLabelText('marker:41.02:28.96:'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:41.02:28.96:').props.accessibilityState.selected).toBe(true);
+    });
+
+    fireEvent.press(screen.getByTestId('map-region-wide'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:41.02:28.96:').props.accessibilityState.selected).toBe(true);
+    });
+    expect(screen.getByLabelText('marker:41.01:28.97:2')).toBeTruthy();
+    expect(screen.queryByLabelText(/^marker:zoom-cluster:.*:3$/)).toBeNull();
+  });
+
   it('shows nearby stories when a clustered marker is pressed', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
@@ -471,33 +529,18 @@ describe('MapScreen', () => {
     expect(screen.getByText('Voices of the Ferry Pier')).toBeTruthy();
   });
 
-  it('shows a selected grouped marker as a red pin while the group timeline action is visible', async () => {
+  it('does not offer a group timeline action for a selected grouped marker', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
     await screen.findByText('Select a story marker to preview.');
     fireEvent.press(screen.getByLabelText('marker:41.01:28.97:2'));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('View timeline near 2 nearby stories')).toBeTruthy();
+      expect(screen.getByText('2 nearby stories')).toBeTruthy();
     });
+    expect(screen.queryByLabelText('View timeline near 2 nearby stories')).toBeNull();
     expect(screen.getByLabelText('marker:41.01:28.97:').props.accessibilityState.selected).toBe(true);
     expect(screen.queryByLabelText('marker:41.01:28.97:2')).toBeNull();
-  });
-
-  it('offers a timeline action for a clustered marker', async () => {
-    const onViewTimeline = jest.fn();
-
-    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} onViewTimeline={onViewTimeline} />);
-
-    await screen.findByText('Select a story marker to preview.');
-    fireEvent.press(screen.getAllByTestId('story-marker')[1]);
-    fireEvent.press(await screen.findByLabelText('View timeline near 2 nearby stories'));
-
-    expect(onViewTimeline).toHaveBeenCalledWith({
-      latitude: 41.01,
-      longitude: 28.97,
-      label: '2 nearby stories',
-    });
   });
 
   it('offers story-specific timeline actions inside a clustered marker', async () => {
@@ -513,10 +556,65 @@ describe('MapScreen', () => {
       latitude: 41.0249,
       longitude: 28.9548,
       label: 'Lanterns Above the Hill Market',
+      storyId: 'story-002',
     });
   });
 
-  it('highlights the grouped marker when a map-pin timeline filter targets a story inside it', async () => {
+  it('shows a red story pin apart from cluster pins when zoomed out', async () => {
+    await storage.set(storageKeys.mapSearchFilters, {
+      proximityRadiusKm: 0.5,
+      proximityCoordinates: {
+        latitude: 41.01,
+        longitude: 28.97,
+      },
+      proximitySource: 'map_pin',
+      proximityLabel: 'Backend Group One',
+      proximityStoryId: 'backend-story-1',
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={async () => backendGroupedDistinctMarkerGroups} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:map-pin-story:backend-story-1:').props.accessibilityState.selected).toBe(true);
+    });
+    expect(screen.getByLabelText('marker:backend-group:without:backend-story-1:2')).toBeTruthy();
+  });
+
+  it('keeps the red story pin out of grouping after zoom changes', async () => {
+    await storage.set(storageKeys.mapSearchFilters, {
+      proximityRadiusKm: 0.5,
+      proximityCoordinates: {
+        latitude: 41.01,
+        longitude: 28.97,
+      },
+      proximitySource: 'map_pin',
+      proximityLabel: 'Backend Group One',
+      proximityStoryId: 'backend-story-1',
+    });
+
+    renderScreen(<MapScreen getMarkerGroups={async () => backendGroupedDistinctMarkerGroups} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:map-pin-story:backend-story-1:').props.accessibilityState.selected).toBe(true);
+    });
+    expect(screen.getByLabelText('marker:backend-group:without:backend-story-1:2')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('map-region-empty'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:map-pin-story:backend-story-1:').props.accessibilityState.selected).toBe(true);
+    });
+    expect(screen.getByLabelText('marker:backend-group:without:backend-story-1:2')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('map-region-change'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('marker:map-pin-story:backend-story-1:').props.accessibilityState.selected).toBe(true);
+    });
+    expect(screen.getByLabelText('marker:backend-group:without:backend-story-1:2')).toBeTruthy();
+  });
+
+  it('falls back to the story title when highlighting a map-pin timeline filter', async () => {
     await storage.set(storageKeys.mapSearchFilters, {
       proximityRadiusKm: 0.5,
       proximityCoordinates: {
@@ -530,30 +628,28 @@ describe('MapScreen', () => {
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('story-marker').props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('marker:map-pin-story:story-002:').props.accessibilityState.selected).toBe(true);
     });
   });
 
-  it('shows a red pin instead of a cluster bubble for an active group timeline filter', async () => {
-    await storage.set(storageKeys.mapSearchFilters, {
-      proximityRadiusKm: 0.5,
-      proximityCoordinates: {
-        latitude: 41.01,
-        longitude: 28.97,
-      },
-      proximitySource: 'map_pin',
-      proximityLabel: '2 nearby stories',
-    });
+  it('switches the red marker to the story selected from a clustered marker timeline action', async () => {
+    const onViewTimeline = jest.fn();
 
-    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
+    renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} onViewTimeline={onViewTimeline} />);
 
-    await waitFor(() => {
-      expect(screen.getByLabelText(/^marker:zoom-cluster:.*:$/).props.accessibilityState.selected).toBe(true);
+    await screen.findByText('Select a story marker to preview.');
+    fireEvent.press(screen.getAllByTestId('story-marker')[1]);
+    fireEvent.press(await screen.findByLabelText('View timeline near Voices of the Ferry Pier'));
+
+    expect(onViewTimeline).toHaveBeenCalledWith({
+      latitude: 41.016,
+      longitude: 28.98,
+      label: 'Voices of the Ferry Pier',
+      storyId: 'story-003',
     });
-    expect(screen.queryByLabelText(/^marker:.*:2$/)).toBeNull();
   });
 
-  it('keeps a client-side group timeline target red when only the displayed cluster coordinate matches', async () => {
+  it('does not highlight a client-side group timeline coordinate after group timelines are removed', async () => {
     await storage.set(storageKeys.mapSearchFilters, {
       proximityRadiusKm: 0.5,
       proximityCoordinates: {
@@ -566,10 +662,8 @@ describe('MapScreen', () => {
 
     renderScreen(<MapScreen getMarkerGroups={async () => markerGroups} />);
 
-    await waitFor(() => {
-      expect(screen.getByLabelText(/^marker:zoom-cluster:.*:$/).props.accessibilityState.selected).toBe(true);
-    });
-    expect(screen.queryByLabelText(/^marker:zoom-cluster:.*:2$/)).toBeNull();
+    await screen.findByText('Select a story marker to preview.');
+    expect(screen.queryByLabelText(/^marker:zoom-cluster:.*:$/)).toBeNull();
   });
 
   it('requests scrolling to the preview when a marker is pressed', async () => {

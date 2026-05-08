@@ -25,7 +25,7 @@ function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): Fi
 
     chips.push({
       key: 'proximityRadiusKm',
-      label: `Distance: ${formatDistance(filters.proximityRadiusKm)} from ${filters.proximityLabel ?? ''}`.trim(),
+      label: `Distance: ${formatDistance(filters.proximityRadiusKm)} from`,
       visual: isMapPinFilter ? 'redPin' : 'bluePin',
       visualAccessibilityLabel: isMapPinFilter ? 'red location pin' : 'current location blue pin',
     });
