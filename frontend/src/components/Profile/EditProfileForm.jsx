@@ -302,7 +302,7 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
         <h3 className="text-sm font-medium">Danger zone</h3>
         <div className="mt-2 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
           <p className="text-xs text-muted-foreground">
-            Permanently delete your account and (optionally) your stories.
+            Permanently delete your account, stories, comments, and uploads.
           </p>
           <Button
             type="button"
