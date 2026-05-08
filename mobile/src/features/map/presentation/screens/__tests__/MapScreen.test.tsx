@@ -318,6 +318,28 @@ describe('MapScreen', () => {
     expect(screen.getByText('Select a story marker to preview.')).toBeTruthy();
   });
 
+  it('does not repeat active filters above the map', async () => {
+    renderScreen(
+      <MapScreen
+        initialFilters={{
+          q: 'hidden query',
+          location: 'Hidden Place',
+          yearFrom: 1900,
+          yearTo: 1950,
+          tags: ['History'],
+        }}
+        getMarkerGroups={async () => markerGroups}
+        showSearchControls={false}
+      />,
+    );
+
+    expect(await screen.findByTestId('story-map')).toBeTruthy();
+    expect(screen.queryByText('Search: hidden query')).toBeNull();
+    expect(screen.queryByText('Place: Hidden Place')).toBeNull();
+    expect(screen.queryByText('Years: 1900-1950')).toBeNull();
+    expect(screen.queryByText('History')).toBeNull();
+  });
+
   it('clusters nearby pins while zoomed out and separates them after zooming in', async () => {
     renderScreen(<MapScreen getMarkerGroups={async () => zoomClusterMarkerGroups} />);
 
