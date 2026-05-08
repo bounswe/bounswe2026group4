@@ -168,4 +168,33 @@ describe("SearchFilter", () => {
       expect(screen.queryByText("1900–2000")).not.toBeInTheDocument();
     });
   });
+
+  it("renders the proximity chip when latitude/longitude/radius_km are in the URL", () => {
+    renderSearchFilter(["/?latitude=41&longitude=29&radius_km=10"]);
+    expect(screen.getByText("Within 10 km")).toBeInTheDocument();
+  });
+
+  it("counts proximity in the active-filter badge on the Filters button", () => {
+    renderSearchFilter(["/?latitude=41&longitude=29&radius_km=1"]);
+    expect(
+      screen.getByRole("button", { name: /filters \(1 active\)/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("removing the proximity chip clears latitude, longitude, and radius_km together", async () => {
+    const user = userEvent.setup();
+    renderSearchFilter(["/?latitude=41&longitude=29&radius_km=10&q=bridge"]);
+
+    expect(screen.getByText("Within 10 km")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /remove filter: within 10 km/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Within 10 km")).not.toBeInTheDocument();
+    });
+    // Unrelated filters survive the proximity removal.
+    expect(screen.getByText('"bridge"')).toBeInTheDocument();
+  });
 });

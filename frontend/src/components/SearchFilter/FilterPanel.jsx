@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useLocationSuggestions } from "@/hooks/useLocationSuggestions";
+import { getCurrentDeviceCoordinates } from "@/services/deviceLocationService";
 import TagFilterInput from "./TagFilterInput";
 
 const YEAR_MIN = 1000;
@@ -13,13 +14,21 @@ const YEAR_MAX = 2030;
 const YEAR_SPINNER_FROM = 1980;
 const YEAR_SPINNER_TO = new Date().getFullYear();
 
+const PROXIMITY_OPTIONS = [
+  { value: null, label: "Anywhere" },
+  { value: 0.5, label: "500 m" },
+  { value: 1, label: "1 km" },
+  { value: 10, label: "10 km" },
+  { value: 100, label: "100 km" },
+];
+
 /**
  * Collapsible filter panel for year range, location, and tags.
  * Maintains local form state; commits to URL only on "Apply".
  * The parent should pass a `key` tied to the current filter values so that
  * the component resets its local form whenever filters are cleared externally.
  */
-function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, tags = [], onApply, activeCount = 0 }) {
+function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null, latMax = null, lngMin = null, lngMax = null, latitude = null, longitude = null, radiusKm = null, tags = [], onApply, activeCount = 0 }) {
   const [open, setOpen] = useState(false);
   const [localYearFrom, setLocalYearFrom] = useState(yearFrom);
   const [localYearTo, setLocalYearTo] = useState(yearTo);
@@ -32,6 +41,17 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
       ? { latMin, latMax, lngMin, lngMax }
       : null
   );
+  const [localRadiusKm, setLocalRadiusKm] = useState(radiusKm);
+  const [localCoords, setLocalCoords] = useState(
+    () => (latitude != null && longitude != null ? { latitude, longitude } : null)
+  );
+  const [proximityResolving, setProximityResolving] = useState(false);
+  const [proximityStatus, setProximityStatus] = useState(
+    radiusKm != null && latitude != null && longitude != null
+      ? { kind: "ok", message: "Using your current location." }
+      : null
+  );
+  const proximityRequestIdRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const locationRef = useRef(null);
@@ -90,6 +110,56 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     }
   }
 
+  async function handleProximityRadiusChange(nextRadiusKm) {
+    const requestId = proximityRequestIdRef.current + 1;
+    proximityRequestIdRef.current = requestId;
+    setLocalRadiusKm(nextRadiusKm);
+
+    if (nextRadiusKm == null) {
+      setLocalCoords(null);
+      setProximityResolving(false);
+      setProximityStatus(null);
+      return;
+    }
+
+    // Reuse coordinates if we already have them so toggling between radii
+    // doesn't re-prompt the user for permission on every click.
+    if (localCoords) {
+      setProximityStatus({ kind: "ok", message: "Using your current location." });
+      return;
+    }
+
+    setProximityResolving(true);
+    setProximityStatus({ kind: "info", message: "Fetching your current location..." });
+
+    const result = await getCurrentDeviceCoordinates();
+
+    // Bail out if a newer change has been issued (e.g. user clicked Anywhere
+    // before the position came back).
+    if (proximityRequestIdRef.current !== requestId) return;
+
+    setProximityResolving(false);
+
+    if (result.status === "granted") {
+      setLocalCoords(result.coordinates);
+      setProximityStatus({ kind: "ok", message: "Using your current location." });
+      return;
+    }
+
+    // Keep the radius selected so the user can retry by clicking another
+    // option — switching them back to Anywhere makes the filter feel broken.
+    // Apply gates on coords being present, so a selected-but-unresolved
+    // radius stays a no-op until a future attempt succeeds.
+    setLocalCoords(null);
+    setProximityStatus({
+      kind: "error",
+      message:
+        result.status === "denied"
+          ? "Location disabled. Enable location permission, then pick a radius again."
+          : "Current location is unavailable. Try again or choose Anywhere.",
+    });
+  }
+
   function handleApply() {
     const from = localYearFrom === "" ? "" : Number(localYearFrom);
     const to = localYearTo === "" ? "" : Number(localYearTo);
@@ -105,6 +175,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
 
     // Only use a bbox if the user explicitly selected a suggestion.
     const effectiveBbox = lockedBbox;
+    const proximityActive = localRadiusKm != null && localCoords != null;
 
     setYearError("");
     clearSuggestions();
@@ -116,21 +187,41 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
       latMax: effectiveBbox?.latMax ?? null,
       lngMin: effectiveBbox?.lngMin ?? null,
       lngMax: effectiveBbox?.lngMax ?? null,
+      latitude: proximityActive ? localCoords.latitude : null,
+      longitude: proximityActive ? localCoords.longitude : null,
+      radiusKm: proximityActive ? localRadiusKm : null,
       tags: localTags
     });
     setOpen(false);
   }
 
   function handleReset() {
+    proximityRequestIdRef.current += 1;
     setLocalYearFrom("");
     setLocalYearTo("");
     setLocalLocation("");
     setSuggestionsQuery("");
     setLockedBbox(null);
+    setLocalRadiusKm(null);
+    setLocalCoords(null);
+    setProximityResolving(false);
+    setProximityStatus(null);
     setLocalTags([]);
     setYearError("");
     clearSuggestions();
-    onApply({ yearFrom: "", yearTo: "", location: "", latMin: null, latMax: null, lngMin: null, lngMax: null, tags: [] });
+    onApply({
+      yearFrom: "",
+      yearTo: "",
+      location: "",
+      latMin: null,
+      latMax: null,
+      lngMin: null,
+      lngMax: null,
+      latitude: null,
+      longitude: null,
+      radiusKm: null,
+      tags: [],
+    });
     setOpen(false);
   }
 
@@ -303,6 +394,60 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                 )}
               </div>
             </div>
+
+            {/* Distance / proximity */}
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium">Distance</legend>
+              <div
+                role="radiogroup"
+                aria-label="Distance from current location"
+                className="flex flex-wrap gap-1.5"
+              >
+                {PROXIMITY_OPTIONS.map((option) => {
+                  const isSelected = localRadiusKm === option.value;
+                  const id = `proximity-${option.value ?? "off"}`;
+                  return (
+                    <label
+                      key={id}
+                      htmlFor={id}
+                      className={cn(
+                        "cursor-pointer rounded-full border px-3 py-1 text-sm transition-colors",
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "bg-background hover:bg-accent"
+                      )}
+                    >
+                      <input
+                        id={id}
+                        type="radio"
+                        name="proximity-radius"
+                        className="sr-only"
+                        checked={isSelected}
+                        onChange={() => handleProximityRadiusChange(option.value)}
+                      />
+                      {option.label}
+                    </label>
+                  );
+                })}
+              </div>
+              {(proximityResolving || proximityStatus) && (
+                <p
+                  className={cn(
+                    "mt-2 flex items-center gap-1.5 text-xs",
+                    proximityStatus?.kind === "error"
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                  )}
+                  role={proximityStatus?.kind === "error" ? "alert" : undefined}
+                  aria-live="polite"
+                >
+                  {proximityResolving && (
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                  )}
+                  {proximityStatus?.message}
+                </p>
+              )}
+            </fieldset>
 
             {/* Tags */}
             <TagFilterInput value={localTags} onChange={setLocalTags} />

@@ -6,7 +6,12 @@ vi.mock("@/hooks/useLocationSuggestions", () => ({
   useLocationSuggestions: vi.fn(() => ({ suggestions: [], isLoading: false, clearSuggestions: vi.fn() })),
 }));
 
+vi.mock("@/services/deviceLocationService", () => ({
+  getCurrentDeviceCoordinates: vi.fn(),
+}));
+
 import FilterPanel from "../FilterPanel";
+import { getCurrentDeviceCoordinates } from "@/services/deviceLocationService";
 
 vi.mock("@/services/tagService", () => ({
   searchTags: vi.fn().mockResolvedValue([
@@ -81,7 +86,7 @@ describe("FilterPanel", () => {
     await user.type(screen.getByLabelText("Location filter"), "Galata");
     await user.click(screen.getByRole("button", { name: /apply/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata", latMin: null, latMax: null, lngMin: null, lngMax: null, tags: [] });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: 1900, yearTo: 2000, location: "Galata", latMin: null, latMax: null, lngMin: null, lngMax: null, latitude: null, longitude: null, radiusKm: null, tags: [] });
   });
 
 
@@ -109,7 +114,7 @@ describe("FilterPanel", () => {
     await user.click(screen.getByRole("button", { name: /filters/i }));
     await user.click(screen.getByRole("button", { name: /reset filters/i }));
 
-    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "",  latMin: null, latMax: null, lngMin: null, lngMax: null, tags: [] });
+    expect(onApply).toHaveBeenCalledWith({ yearFrom: "", yearTo: "", location: "",  latMin: null, latMax: null, lngMin: null, lngMax: null, latitude: null, longitude: null, radiusKm: null, tags: [] });
   });
 
   it("shows tag section when panel is open", async () => {
@@ -274,5 +279,217 @@ describe("FilterPanel", () => {
     await user.type(screen.getByLabelText("From year"), "2020");
 
     expect(screen.getByLabelText("From year")).toHaveValue(2020);
+  });
+
+  describe("Distance / proximity", () => {
+    it("renders the predefined options (Anywhere, 500 m, 1 km, 10 km, 100 km) matching mobile", async () => {
+      const user = userEvent.setup();
+      renderPanel();
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+      const group = screen.getByRole("radiogroup", { name: /distance/i });
+      expect(group).toBeInTheDocument();
+      expect(screen.getByLabelText("Anywhere")).toBeInTheDocument();
+      expect(screen.getByLabelText("500 m")).toBeInTheDocument();
+      expect(screen.getByLabelText("1 km")).toBeInTheDocument();
+      expect(screen.getByLabelText("10 km")).toBeInTheDocument();
+      expect(screen.getByLabelText("100 km")).toBeInTheDocument();
+    });
+
+    it("emits a fractional radiusKm (0.5) when 500 m is selected", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      getCurrentDeviceCoordinates.mockResolvedValue({
+        status: "granted",
+        coordinates: { latitude: 41.0, longitude: 28.9 },
+      });
+      renderPanel({ onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("500 m"));
+      await waitFor(() => {
+        expect(screen.getByText(/using your current location/i)).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole("button", { name: /apply/i }));
+
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ radiusKm: 0.5 }),
+      );
+    });
+
+    it("requests geolocation, applies coordinates, and emits proximity on Apply when granted", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      getCurrentDeviceCoordinates.mockResolvedValue({
+        status: "granted",
+        coordinates: { latitude: 41.0082, longitude: 28.9784 },
+      });
+      renderPanel({ onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("10 km"));
+
+      // Loading status while resolving, then success message
+      await waitFor(() => {
+        expect(screen.getByText(/using your current location/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: /apply/i }));
+
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          latitude: 41.0082,
+          longitude: 28.9784,
+          radiusKm: 10,
+        }),
+      );
+    });
+
+    it("shows a 'Location disabled' error and does not apply proximity when permission is denied", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      getCurrentDeviceCoordinates.mockResolvedValue({ status: "denied" });
+      renderPanel({ onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("1 km"));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(/location disabled/i);
+      });
+
+      await user.click(screen.getByRole("button", { name: /apply/i }));
+
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ latitude: null, longitude: null, radiusKm: null }),
+      );
+    });
+
+    it("retries geolocation when the user picks another radius after a denial, instead of resetting to Anywhere", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      getCurrentDeviceCoordinates
+        .mockResolvedValueOnce({ status: "denied" })
+        .mockResolvedValueOnce({
+          status: "granted",
+          coordinates: { latitude: 41.0, longitude: 28.9 },
+        });
+      renderPanel({ onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("1 km"));
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(/location disabled/i);
+      });
+
+      // Selection should remain on 1 km, not snap back to Anywhere.
+      expect(screen.getByLabelText("1 km")).toBeChecked();
+      expect(screen.getByLabelText("Anywhere")).not.toBeChecked();
+
+      // Picking a different radius retries — and this time the user grants.
+      await user.click(screen.getByLabelText("10 km"));
+      await waitFor(() => {
+        expect(screen.getByText(/using your current location/i)).toBeInTheDocument();
+      });
+      expect(getCurrentDeviceCoordinates).toHaveBeenCalledTimes(2);
+
+      await user.click(screen.getByRole("button", { name: /apply/i }));
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ radiusKm: 10, latitude: 41.0, longitude: 28.9 }),
+      );
+    });
+
+    it("shows an 'unavailable' error when geolocation fails for non-permission reasons", async () => {
+      const user = userEvent.setup();
+      getCurrentDeviceCoordinates.mockResolvedValue({ status: "unavailable" });
+      renderPanel();
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("100 km"));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(/unavailable|try again/i);
+      });
+    });
+
+    it("clears proximity when Anywhere is selected after an active radius", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      getCurrentDeviceCoordinates.mockResolvedValue({
+        status: "granted",
+        coordinates: { latitude: 41.0, longitude: 28.9 },
+      });
+      renderPanel({ onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("10 km"));
+      await waitFor(() => {
+        expect(screen.getByText(/using your current location/i)).toBeInTheDocument();
+      });
+      await user.click(screen.getByLabelText("Anywhere"));
+      await user.click(screen.getByRole("button", { name: /apply/i }));
+
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ latitude: null, longitude: null, radiusKm: null }),
+      );
+    });
+
+    it("does not re-prompt for permission when toggling between radii after a successful resolve", async () => {
+      const user = userEvent.setup();
+      getCurrentDeviceCoordinates.mockResolvedValue({
+        status: "granted",
+        coordinates: { latitude: 41.0, longitude: 28.9 },
+      });
+      renderPanel();
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("1 km"));
+      await waitFor(() => {
+        expect(screen.getByText(/using your current location/i)).toBeInTheDocument();
+      });
+      await user.click(screen.getByLabelText("10 km"));
+
+      expect(getCurrentDeviceCoordinates).toHaveBeenCalledTimes(1);
+    });
+
+    it("includes proximity in the activeCount the parent renders by emitting it on Apply", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      getCurrentDeviceCoordinates.mockResolvedValue({
+        status: "granted",
+        coordinates: { latitude: 41.0, longitude: 28.9 },
+      });
+      renderPanel({ onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText("100 km"));
+      await waitFor(() => {
+        expect(screen.getByText(/using your current location/i)).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole("button", { name: /apply/i }));
+
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ radiusKm: 100, latitude: 41.0, longitude: 28.9 }),
+      );
+    });
+
+    it("Reset clears proximity even when one was previously active", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      renderPanel({
+        onApply,
+        latitude: 41.0,
+        longitude: 28.9,
+        radiusKm: 10,
+      });
+
+      await user.click(screen.getByRole("button", { name: /filters/i }));
+      await user.click(screen.getByRole("button", { name: /reset filters/i }));
+
+      expect(onApply).toHaveBeenCalledWith(
+        expect.objectContaining({ latitude: null, longitude: null, radiusKm: null }),
+      );
+    });
   });
 });
