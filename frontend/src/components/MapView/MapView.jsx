@@ -27,8 +27,13 @@ const SINGLE_FEATURE_MAX_ZOOM = 15;
 const FIT_BOUNDS_PADDING = [40, 40];
 const KM_PER_LATITUDE_DEGREE = 111;
 // Pads the radius circle bounds so the radius isn't flush with the viewport
-// edge — matches PROXIMITY_PADDING_FACTOR on mobile.
+// edge. This is a half-extent multiplier (applied per side), so a value of
+// 1.2 yields a total span of 2.4× the radius — matching mobile's
+// PROXIMITY_PADDING_FACTOR (2.4), which is expressed as a full-span factor.
 const PROXIMITY_BOUNDS_PADDING_FACTOR = 1.2;
+// Floor on the half-extent applied per side. Mobile clamps the full delta to
+// MIN_LOCATION_DELTA (0.02), so the half-extent equivalent is 0.01.
+const MIN_PROXIMITY_HALF_DELTA = 0.01;
 
 // Intercepts clicks on story links inside popup HTML so they perform
 // client-side navigation instead of a full page reload. Captures the
@@ -85,9 +90,11 @@ function isValidProximity(proximity) {
 // point. Mirrors mobile's getRegionForProximityFilter so both clients zoom to
 // the same area for the same filter.
 function proximityBounds({ latitude, longitude, radiusKm }) {
-  const latDelta = (radiusKm / KM_PER_LATITUDE_DEGREE) * PROXIMITY_BOUNDS_PADDING_FACTOR;
+  const rawLatDelta = (radiusKm / KM_PER_LATITUDE_DEGREE) * PROXIMITY_BOUNDS_PADDING_FACTOR;
   const cosLat = Math.max(Math.cos((latitude * Math.PI) / 180), 0.2);
-  const lngDelta = (radiusKm / (KM_PER_LATITUDE_DEGREE * cosLat)) * PROXIMITY_BOUNDS_PADDING_FACTOR;
+  const rawLngDelta = (radiusKm / (KM_PER_LATITUDE_DEGREE * cosLat)) * PROXIMITY_BOUNDS_PADDING_FACTOR;
+  const latDelta = Math.max(rawLatDelta, MIN_PROXIMITY_HALF_DELTA);
+  const lngDelta = Math.max(rawLngDelta, MIN_PROXIMITY_HALF_DELTA);
   return L.latLngBounds([
     [latitude - latDelta, longitude - lngDelta],
     [latitude + latDelta, longitude + lngDelta],

@@ -7,10 +7,10 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
 
 /** Count how many non-search filters (year, location, distance, tags) are active. */
-function countActiveFilters({ yearFrom, yearTo, location, radiusKm, tags }) {
+function countActiveFilters({ yearFrom, yearTo, location, hasProximity, tags }) {
   return (
     [yearFrom, yearTo, location].filter(Boolean).length +
-    (radiusKm != null ? 1 : 0) +
+    (hasProximity ? 1 : 0) +
     tags.length
   );
 }
@@ -21,7 +21,7 @@ function countActiveFilters({ yearFrom, yearTo, location, radiusKm, tags }) {
  * Must be rendered inside a React Router context.
  */
 function SearchFilter({ className }) {
-  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags, setFilters, removeFilter, removeTag, clearAll } = useFilterState();
+  const { q, yearFrom, yearTo, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm, tags, hasProximity, setFilters, removeFilter, removeTag, clearAll } = useFilterState();
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -58,7 +58,7 @@ function SearchFilter({ className }) {
     }
   }
 
-  const activeFilterCount = countActiveFilters({ yearFrom, yearTo, location, radiusKm, tags });
+  const activeFilterCount = countActiveFilters({ yearFrom, yearTo, location, hasProximity, tags });
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -92,6 +92,7 @@ function SearchFilter({ className }) {
         yearTo={yearTo}
         location={location}
         radiusKm={radiusKm}
+        hasProximity={hasProximity}
         tags={tags}
         onRemove={handleRemoveFilter}
         onRemoveTag={removeTag}

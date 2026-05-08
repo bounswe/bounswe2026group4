@@ -124,6 +124,7 @@ export function useFilterState() {
     page,
     sortBy,
     tags,
+    hasProximity,
     hasActiveFilters,
     setFilters,
     removeFilter,

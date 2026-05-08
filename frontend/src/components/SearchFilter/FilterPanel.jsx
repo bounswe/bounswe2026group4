@@ -177,6 +177,17 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     const effectiveBbox = lockedBbox;
     const proximityActive = localRadiusKm != null && localCoords != null;
 
+    // If a radius was picked but coords never resolved (e.g. permission denied),
+    // the URL will emit all-null proximity. Clear local state too so reopening
+    // the panel doesn't show a stale selection + lingering error.
+    if (!proximityActive) {
+      proximityRequestIdRef.current += 1;
+      setLocalRadiusKm(null);
+      setLocalCoords(null);
+      setProximityResolving(false);
+      setProximityStatus(null);
+    }
+
     setYearError("");
     clearSuggestions();
     onApply({
