@@ -474,7 +474,6 @@ export function RootNavigator() {
         snapshot.commentId === currentSnapshot.commentId &&
         snapshot.userId === currentSnapshot.userId &&
         snapshot.resetToken === currentSnapshot.resetToken
-        snapshot.commentId === currentSnapshot.commentId
       ) {
         return;
       }
@@ -491,7 +490,6 @@ export function RootNavigator() {
             previous?.commentId === currentSnapshot.commentId &&
             previous?.userId === currentSnapshot.userId &&
             previous?.resetToken === currentSnapshot.resetToken
-            previous?.commentId === currentSnapshot.commentId
           ) {
             return current;
           }
@@ -689,7 +687,6 @@ export function RootNavigator() {
         previousSnapshot?.commentId === resolvedRedirectTarget.commentId &&
         previousSnapshot?.userId === resolvedRedirectTarget.userId &&
         previousSnapshot?.resetToken === resolvedRedirectTarget.resetToken
-        previousSnapshot?.commentId === resolvedRedirectTarget.commentId
       ) {
         nextStack.pop();
       }
