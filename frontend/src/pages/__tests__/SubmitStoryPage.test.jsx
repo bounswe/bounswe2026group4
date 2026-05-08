@@ -760,4 +760,62 @@ describe("SubmitStoryPage", () => {
     expect(toggle).toHaveAttribute("aria-checked", "true");
   });
 
+  it("shows date and time inputs when Specific Date is selected", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(screen.getByLabelText(/time type/i), "exact_date");
+
+    expect(screen.getByLabelText(/^date$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/time \(optional\)/i)).toBeInTheDocument();
+  });
+
+  it("disables the time input until a date is chosen", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(screen.getByLabelText(/time type/i), "exact_date");
+    expect(screen.getByLabelText(/time \(optional\)/i)).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: "1965-04-12" } });
+    expect(screen.getByLabelText(/time \(optional\)/i)).not.toBeDisabled();
+  });
+
+  it("requires a date when exact_date is selected", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(screen.getByLabelText(/time type/i), "exact_date");
+    await user.click(screen.getByRole("button", { name: /submit story/i }));
+
+    expect(screen.getByText(/date is required/i)).toBeInTheDocument();
+  });
+
+  it("submits date_value (and optional time_value) for exact_date", async () => {
+    const user = userEvent.setup();
+    createStory.mockResolvedValue({ id: 99 });
+    renderPage();
+
+    await user.type(screen.getByLabelText(/title/i), "My Story");
+    await user.type(screen.getByLabelText(/narrative/i), "A great narrative");
+    await user.type(screen.getByLabelText(/place name/i), "Istanbul");
+    await user.click(screen.getByTestId("mock-map-click"));
+
+    await user.selectOptions(screen.getByLabelText(/time type/i), "exact_date");
+    fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: "1965-04-12" } });
+    fireEvent.change(screen.getByLabelText(/time \(optional\)/i), { target: { value: "14:30" } });
+
+    await user.click(screen.getByRole("button", { name: /submit story/i }));
+
+    await waitFor(() => {
+      expect(createStory).toHaveBeenCalled();
+    });
+
+    const formData = createStory.mock.calls[0][0];
+    expect(formData.get("time_type")).toBe("exact_date");
+    expect(formData.get("date_value")).toBe("1965-04-12");
+    expect(formData.get("time_value")).toBe("14:30");
+    expect(formData.get("year")).toBeNull();
+  });
+
 });

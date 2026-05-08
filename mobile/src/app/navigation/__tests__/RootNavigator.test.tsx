@@ -453,6 +453,40 @@ describe('RootNavigator auth flow', () => {
     });
   });
 
+  it('opens the timeline tab on the first press even when stale pager momentum fires', async () => {
+    renderNavigator();
+
+    await screen.findByLabelText('Timeline');
+    expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(true);
+
+    fireEvent(screen.getByTestId('main-route-pager'), 'scrollBeginDrag');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+    fireEvent(screen.getByTestId('main-route-pager'), 'momentumScrollEnd', {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 0 },
+      },
+    });
+
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(false);
+
+    fireEvent.press(screen.getByLabelText('Map'));
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(true);
+
+    fireEvent(screen.getByTestId('main-route-pager'), 'scrollBeginDrag');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+    fireEvent(screen.getByTestId('main-route-pager'), 'momentumScrollEnd', {
+      nativeEvent: {
+        contentOffset: { x: 999999, y: 0 },
+      },
+    });
+
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(false);
+  });
+
   it('keeps pull-to-refresh available away from the map and suppresses it during map gestures', async () => {
     renderNavigator();
 
@@ -468,7 +502,7 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByTestId('main-route-pager').props.scrollEnabled).not.toBe(false);
     expect(screen.getByTestId('main-route-pager').props.canCancelContentTouches).toBe(false);
     expect(screen.getByTestId('map-route-scroll').props.scrollEnabled).toBe(true);
-    expect(screen.getByTestId('map-route-scroll').props.canCancelContentTouches).toBe(false);
+    expect(screen.getByTestId('map-route-scroll').props.canCancelContentTouches).toBe(true);
     await waitFor(() => {
       expect(screen.getByTestId('map-route-scroll').props.refreshControl).toBeTruthy();
       expect(screen.getByTestId('map-route-scroll').props.refreshControl.props.enabled).toBe(true);
@@ -1030,6 +1064,15 @@ describe('RootNavigator auth flow', () => {
     });
     fireEvent.press(screen.getAllByTestId('story-marker')[0]);
     fireEvent.press(await screen.findByLabelText('View timeline near Harbor Memory'));
+    fireEvent(screen.getByTestId('main-route-pager'), 'momentumScrollEnd', {
+      nativeEvent: {
+        contentOffset: { x: 999999, y: 0 },
+      },
+    });
+
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
 
     await waitFor(() => {
       expect(apiRequests).toContain(

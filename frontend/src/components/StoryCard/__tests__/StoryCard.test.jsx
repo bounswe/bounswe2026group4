@@ -82,6 +82,23 @@ describe("formatTimePeriod", () => {
     ).toBe("1400\u20131500");
   });
 
+  it("formats exact_date as a human-readable date", () => {
+    const result = formatTimePeriod({
+      time_type: "exact_date",
+      date_value: "1965-04-12",
+    });
+    expect(result).toMatch(/^Apr\s*12,\s*1965$/);
+  });
+
+  it("formats exact_date with a time when provided", () => {
+    const result = formatTimePeriod({
+      time_type: "exact_date",
+      date_value: "1965-04-12",
+      time_value: "14:30",
+    });
+    expect(result).toMatch(/^Apr\s*12,\s*1965\s*14:30$/);
+  });
+
   it("returns empty string for unknown time_type", () => {
     expect(formatTimePeriod({ time_type: "unknown" })).toBe("");
   });

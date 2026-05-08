@@ -1,0 +1,38 @@
+# Normalize line endings: text files use LF in the repo and on checkout.
+# Shell scripts and other files that must have LF on Linux/Docker are listed
+# explicitly so core.autocrlf=true on Windows does not convert them to CRLF.
+
+* text=auto
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.env* text eol=lf
+*.cfg  text eol=lf
+*.ini  text eol=lf
+*.toml text eol=lf
+*.sql  text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.jsx  text eol=lf
+
+# Binary files — never touched
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary

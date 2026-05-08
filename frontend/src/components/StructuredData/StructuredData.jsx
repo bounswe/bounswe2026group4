@@ -1,4 +1,5 @@
 import { SITE_URL } from "./constants";
+import { toISO8601 } from "@/utils/edtf";
 
 function assignIfDefined(target, key, value) {
   if (value !== null && value !== undefined) {
@@ -6,25 +7,16 @@ function assignIfDefined(target, key, value) {
   }
 }
 
+/**
+ * Story.temporalCoverage for JSON-LD must be a valid ISO 8601 string so Google's
+ * Rich Results validator accepts it. We prefer the backend-derived ISO string
+ * (`temporal_coverage_iso`) when present; otherwise we derive a lossy ISO 8601
+ * from the EDTF-aware fields. The full EDTF form lives in `temporal_coverage`
+ * and is used elsewhere in the UI.
+ */
 function deriveTemporalCoverage(story) {
-  if (story.temporal_coverage_iso8601) return story.temporal_coverage_iso8601;
-  const { time_type, year, year_start, year_end } = story;
-  switch (time_type) {
-    case "exact_year":
-    case "approximate_year":
-      return year != null ? String(year) : undefined;
-    case "decade": {
-      if (year == null) return undefined;
-      const start = Math.floor(year / 10) * 10;
-      return `${start}/${start + 9}`;
-    }
-    case "year_range":
-      return year_start != null && year_end != null
-        ? `${year_start}/${year_end}`
-        : undefined;
-    default:
-      return undefined;
-  }
+  if (story.temporal_coverage_iso) return story.temporal_coverage_iso;
+  return toISO8601(story);
 }
 
 function buildStoryStructuredData(story) {

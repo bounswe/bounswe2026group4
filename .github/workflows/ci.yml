@@ -67,6 +67,7 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DJANGO_SETTINGS_MODULE: config.settings.test
+          NOMINATIM_CONTACT_EMAIL: ci-test@example.com
         run: python -m pytest -v
 
   # ──────────────────────────────────────────────────────────────

@@ -239,3 +239,74 @@ class TestGeocodeReverse:
             mock_get.side_effect = requests_lib.exceptions.ConnectionError('unreachable')
             with pytest.raises(NominatimUnavailable):
                 geocode_reverse('41.0', '28.9')
+
+
+# ── _nominatim_get error logging ──────────────────────────────────────────────
+
+class TestNominatimGetErrorLogging:
+    def test_logs_upstream_status_and_body_on_http_error(self):
+        from apps.geocoding.services import NominatimUnavailable
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.text = 'Access denied. See usage policy.'
+        http_error = requests_lib.exceptions.HTTPError(response=mock_resp)
+        http_error.response = mock_resp
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.return_value = mock_resp
+            mock_resp.raise_for_status.side_effect = http_error
+            with patch('apps.geocoding.services.logger') as mock_logger:
+                with pytest.raises(NominatimUnavailable):
+                    geocode_search('Istanbul')
+        mock_logger.error.assert_called_once()
+        call_args = mock_logger.error.call_args[0]
+        assert '403' in str(call_args)
+        assert 'Access denied' in str(call_args)
+
+    def test_logs_n_a_status_on_connection_error(self):
+        from apps.geocoding.services import NominatimUnavailable
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.side_effect = requests_lib.exceptions.ConnectionError('network unreachable')
+            with patch('apps.geocoding.services.logger') as mock_logger:
+                with pytest.raises(NominatimUnavailable):
+                    geocode_search('Istanbul')
+        mock_logger.error.assert_called_once()
+        call_args = mock_logger.error.call_args[0]
+        assert 'N/A' in str(call_args)
+
+    def test_raises_nominatim_unavailable_on_http_error(self):
+        from apps.geocoding.services import NominatimUnavailable
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.text = 'Access denied.'
+        http_error = requests_lib.exceptions.HTTPError(response=mock_resp)
+        http_error.response = mock_resp
+        with patch('apps.geocoding.services.requests.get') as mock_get:
+            mock_get.return_value = mock_resp
+            mock_resp.raise_for_status.side_effect = http_error
+            with pytest.raises(NominatimUnavailable):
+                geocode_search('Paris')
+
+
+# ── GeocodingConfig startup warning ──────────────────────────────────────────
+
+class TestGeocodingConfigReady:
+    def _make_config(self):
+        import apps.geocoding as app_module
+        from apps.geocoding.apps import GeocodingConfig
+        return GeocodingConfig('apps.geocoding', app_module)
+
+    def test_logs_warning_for_example_placeholder_email(self):
+        config = self._make_config()
+        with patch('apps.geocoding.apps.settings') as mock_settings:
+            mock_settings.NOMINATIM_CONTACT_EMAIL = 'admin@example.com'
+            with patch('apps.geocoding.apps.logger') as mock_logger:
+                config.ready()
+        mock_logger.warning.assert_called_once()
+
+    def test_no_warning_for_real_email(self):
+        config = self._make_config()
+        with patch('apps.geocoding.apps.settings') as mock_settings:
+            mock_settings.NOMINATIM_CONTACT_EMAIL = 'real@gmail.com'
+            with patch('apps.geocoding.apps.logger') as mock_logger:
+                config.ready()
+        mock_logger.warning.assert_not_called()

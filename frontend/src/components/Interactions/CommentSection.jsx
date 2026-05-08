@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
-import { Trash2, Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Trash2, Loader2, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,7 @@ import {
   addComment,
   deleteComment,
 } from "@/services/interactionService";
+import ReportModal from "@/components/Report/ReportModal";
 
 function formatCommentDate(isoString) {
   if (!isoString) return "";
@@ -21,6 +22,7 @@ function formatCommentDate(isoString) {
 
 function CommentSection({ storyId, onCountChange, onUserCommentedChange }) {
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,6 +31,7 @@ function CommentSection({ storyId, onCountChange, onUserCommentedChange }) {
   const [submitError, setSubmitError] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [reportingCommentId, setReportingCommentId] = useState(null);
 
   const username = user?.username ?? null;
 
@@ -190,6 +193,23 @@ function CommentSection({ storyId, onCountChange, onUserCommentedChange }) {
                     <span className="text-xs text-muted-foreground">
                       {formatCommentDate(comment.created_at)}
                     </span>
+                    {!isOwn && !awaitingConfirm && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          if (!isAuthenticated) {
+                            navigate("/login");
+                            return;
+                          }
+                          setReportingCommentId(comment.id);
+                        }}
+                        aria-label="Report comment"
+                      >
+                        <Flag className="h-3 w-3" aria-hidden="true" />
+                      </Button>
+                    )}
                     {isOwn && !awaitingConfirm && (
                       <Button
                         variant="ghost"
@@ -240,6 +260,12 @@ function CommentSection({ storyId, onCountChange, onUserCommentedChange }) {
           })}
         </ul>
       )}
+      <ReportModal
+        isOpen={reportingCommentId !== null}
+        onClose={() => setReportingCommentId(null)}
+        targetType="comment"
+        targetId={reportingCommentId}
+      />
     </section>
   );
 }
