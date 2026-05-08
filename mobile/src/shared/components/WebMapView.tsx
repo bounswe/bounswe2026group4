@@ -46,7 +46,7 @@ type MapUpdatePayload = {
   transitionDurationMs?: number;
 };
 
-const MAP_HTML_VERSION = 'current-location-pin-size-v2';
+const MAP_HTML_VERSION = 'colored-cluster-markers-v1';
 
 const mapHtml = ({
   region,
@@ -96,6 +96,16 @@ const mapHtml = ({
         height: 34px;
       }
 
+      .marker.cluster {
+        width: 42px;
+        height: 42px;
+      }
+
+      .marker.cluster.selected {
+        width: 48px;
+        height: 48px;
+      }
+
       .marker-dot {
         position: relative;
         width: 18px;
@@ -117,6 +127,39 @@ const mapHtml = ({
         box-shadow: 0 4px 12px rgba(220, 38, 38, 0.32);
       }
 
+      .marker-cluster {
+        position: relative;
+        width: 38px;
+        height: 38px;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 4px solid rgba(255, 255, 255, 0.82);
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.24);
+      }
+
+      .marker.cluster.selected .marker-cluster {
+        width: 44px;
+        height: 44px;
+        border-color: #ffffff;
+        box-shadow:
+          0 0 0 4px rgba(220, 38, 38, 0.18),
+          0 5px 16px rgba(15, 23, 42, 0.3);
+      }
+
+      .marker-cluster-small {
+        background: rgba(181, 226, 140, 0.94);
+      }
+
+      .marker-cluster-medium {
+        background: rgba(241, 211, 87, 0.96);
+      }
+
+      .marker-cluster-large {
+        background: rgba(253, 156, 115, 0.97);
+      }
+
       .marker.selected .marker-pin {
         width: 18px;
         height: 18px;
@@ -130,8 +173,8 @@ const mapHtml = ({
         min-width: 14px;
         max-width: 18px;
         color: #ffffff;
-        font-size: 10px;
-        font-weight: 700;
+        font-size: 12px;
+        font-weight: 800;
         line-height: 1;
         text-align: center;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -268,11 +311,34 @@ const mapHtml = ({
         }, Math.max(duration, 0) + 120);
       };
 
+      const getClusterSizeClass = (label) => {
+        const count = Number.parseInt(label, 10);
+
+        if (Number.isFinite(count) && count >= 100) {
+          return 'marker-cluster-large';
+        }
+
+        if (Number.isFinite(count) && count >= 10) {
+          return 'marker-cluster-medium';
+        }
+
+        return 'marker-cluster-small';
+      };
+
       const createStoryMarker = (marker) => {
         const element = document.createElement('div');
-        element.className = marker.selected ? 'marker selected' : 'marker';
+        const isCluster = Boolean(marker.label);
+        element.className = [
+          'marker',
+          isCluster ? 'cluster' : '',
+          marker.selected ? 'selected' : '',
+        ].filter(Boolean).join(' ');
         const markerBody = document.createElement('div');
-        markerBody.className = marker.selected ? 'marker-pin' : 'marker-dot';
+        markerBody.className = isCluster
+          ? 'marker-cluster ' + getClusterSizeClass(marker.label)
+          : marker.selected
+            ? 'marker-pin'
+            : 'marker-dot';
         element.appendChild(markerBody);
 
         if (marker.label) {
@@ -289,7 +355,7 @@ const mapHtml = ({
           );
         });
 
-        return new maplibregl.Marker({ element, anchor: marker.selected ? 'bottom' : 'center' })
+        return new maplibregl.Marker({ element, anchor: marker.selected && !isCluster ? 'bottom' : 'center' })
           .setLngLat([marker.longitude, marker.latitude])
           .addTo(map);
       };

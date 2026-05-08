@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, LayoutChangeEvent, ScrollView, Text, View } from 'react-native';
 import { Region } from 'react-native-maps';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
@@ -17,7 +17,7 @@ interface MapCardProps {
   userLocation?: { latitude: number; longitude: number };
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
-  onViewTimeline?: (coordinates: { latitude: number; longitude: number }) => void;
+  onViewTimeline?: (target: { latitude: number; longitude: number; label?: string }) => void;
   onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
   onMapTouchChange?: (isTouchingMap: boolean) => void;
@@ -52,7 +52,9 @@ export function MapCard({
         latitude: marker.latitude,
         longitude: marker.longitude,
         selected: marker.id === (highlightedMarkerId ?? selectedMarkerId),
-        label: marker.isCluster ? String(marker.count) : undefined,
+        label: marker.isCluster && marker.id !== highlightedMarkerId && marker.id !== selectedMarkerId
+          ? String(marker.count)
+          : undefined,
       })),
     [highlightedMarkerId, markers, selectedMarkerId],
   );
@@ -211,9 +213,15 @@ export function MapCard({
             <Button
               variant="outline"
               accessibilityLabel={`View timeline near ${selectedMarker.count} nearby stories`}
-              onPress={() => onViewTimeline?.({ latitude: selectedMarker.latitude, longitude: selectedMarker.longitude })}
+              onPress={() =>
+                onViewTimeline?.({
+                  latitude: selectedMarker.latitude,
+                  longitude: selectedMarker.longitude,
+                  label: `${selectedMarker.count} nearby stories`,
+                })
+              }
             >
-              View Timeline
+              View Group Timeline
             </Button>
             <ScrollView
               style={{ maxHeight: 240 }}
@@ -223,9 +231,8 @@ export function MapCard({
               testID="cluster-preview-list"
             >
               {selectedMarker.stories.map((story) => (
-                <Pressable
+                <View
                   key={story.id}
-                  onPress={() => onOpenStory(story.id)}
                   style={{
                     padding: spacing.md,
                     borderRadius: 16,
@@ -238,7 +245,29 @@ export function MapCard({
                   <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
                   <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
                   <Text {...passivePreviewTextProps} style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
-                </Pressable>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
+                    <Button
+                      style={{ flexGrow: 1, flexBasis: 120 }}
+                      onPress={() => onOpenStory(story.id)}
+                    >
+                      Read full story
+                    </Button>
+                    <Button
+                      variant="outline"
+                      style={{ flexGrow: 1, flexBasis: 120 }}
+                      accessibilityLabel={`View timeline near ${story.title}`}
+                      onPress={() =>
+                        onViewTimeline?.({
+                          latitude: story.latitude,
+                          longitude: story.longitude,
+                          label: story.title,
+                        })
+                      }
+                    >
+                      View Timeline
+                    </Button>
+                  </View>
+                </View>
               ))}
             </ScrollView>
           </>
@@ -261,7 +290,13 @@ export function MapCard({
                 variant="outline"
                 style={{ flexGrow: 1, flexBasis: 140 }}
                 accessibilityLabel={`View timeline near ${selectedMarker.stories[0].title}`}
-                onPress={() => onViewTimeline?.({ latitude: selectedMarker.latitude, longitude: selectedMarker.longitude })}
+                onPress={() =>
+                  onViewTimeline?.({
+                    latitude: selectedMarker.stories[0].latitude,
+                    longitude: selectedMarker.stories[0].longitude,
+                    label: selectedMarker.stories[0].title,
+                  })
+                }
               >
                 View Timeline
               </Button>
