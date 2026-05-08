@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Location from 'expo-location';
 import { RootNavigator } from '../RootNavigator';
 import { storage } from '../../../core/storage/storage';
 import { storageKeys } from '../../../core/storage/keys';
@@ -440,6 +441,15 @@ describe('RootNavigator auth flow', () => {
   beforeEach(async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValue(null);
     (searchLocationSuggestions as jest.Mock).mockResolvedValue([]);
+    jest.mocked(Location.requestForegroundPermissionsAsync).mockResolvedValue({ granted: true } as never);
+    jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
+    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValue(null);
+    jest.mocked(Location.getCurrentPositionAsync).mockResolvedValue({
+      coords: {
+        latitude: 41.0082,
+        longitude: 28.9784,
+      },
+    } as never);
     await storage.clear();
     apiRequests.length = 0;
     nearbyTimelineFeedResults = undefined;
@@ -1012,6 +1022,25 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
   });
 
+  it('switches to the map tab when a proximity filter is applied', async () => {
+    renderNavigator();
+
+    await screen.findByLabelText('Timeline');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Distance 1 km'));
+    expect(await screen.findByText('Filtering within 1000 m of 41.0082, 28.9784.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(true);
+    });
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Remove Distance: 1000 m from current location blue pin')).toBeTruthy();
+  });
+
   it('keeps the timeline tab active when an existing filter is removed after a stale pager drag', async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
 
@@ -1101,6 +1130,32 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(await screen.findByLabelText('Open timeline story: Harbor Memory'));
 
     expect(await screen.findByText('Harbor Memory')).toBeTruthy();
+  });
+
+  it('uses the current location when a map pin timeline 500 m proximity filter is applied', async () => {
+    renderNavigator();
+
+    fireEvent.press(await screen.findByLabelText('Map'));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('story-marker').length).toBeGreaterThan(0);
+    });
+    fireEvent.press(screen.getAllByTestId('story-marker')[0]);
+    fireEvent.press(await screen.findByLabelText('View timeline near Harbor Memory'));
+
+    expect(await screen.findByLabelText('Remove Distance: 500 m from red location pin')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Show filters'));
+    expect(await screen.findByText('Filtering within 500 m of the selected story. Choose a distance to use your current location.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(apiRequests).toContain(
+        'GET /stories/feed/?page_size=100&sort_by=recent&latitude=41.0082&longitude=28.9784&radius_km=0.5&page=1',
+      );
+    });
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Remove Distance: 500 m from current location blue pin')).toBeTruthy();
   });
 
   it('shows an empty state for a map pin nearby timeline with no stories', async () => {
