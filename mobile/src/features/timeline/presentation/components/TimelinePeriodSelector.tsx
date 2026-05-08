@@ -16,7 +16,9 @@ export interface TimelinePeriodSelection {
 interface TimelinePeriodSelectorProps {
   value: TimelinePeriodSelection;
   onChange: (nextValue: TimelinePeriodSelection) => void;
+  onSubmit: () => void;
   error?: string;
+  headerAccessory?: React.ReactNode;
 }
 
 const MODE_OPTIONS: Array<{ mode: TimelinePeriodMode; label: string }> = [
@@ -39,7 +41,7 @@ function normalizeYearInput(value: string) {
     return value;
   }
 
-  if (!/^\d{0,4}$/.test(value)) {
+  if (!/^-?\d{0,5}$/.test(value)) {
     return null;
   }
 
@@ -56,7 +58,14 @@ function mergeSelection(
   };
 }
 
-export function TimelinePeriodSelector({ value, onChange, error }: TimelinePeriodSelectorProps) {
+function selectionForMode(mode: TimelinePeriodMode): TimelinePeriodSelection {
+  return {
+    ...EMPTY_TIMELINE_PERIOD_SELECTION,
+    mode,
+  };
+}
+
+export function TimelinePeriodSelector({ value, onChange, onSubmit, error, headerAccessory }: TimelinePeriodSelectorProps) {
   const { colors, spacing, typography } = useAppTheme();
 
   const updateYearField = (field: 'year' | 'rangeFrom' | 'rangeTo' | 'decade') => (nextValue: string) => {
@@ -78,8 +87,9 @@ export function TimelinePeriodSelector({ value, onChange, error }: TimelinePerio
               value={value.year}
               onChangeText={updateYearField('year')}
               placeholder="Year, e.g. 1923"
-              keyboardType="number-pad"
+              keyboardType="numbers-and-punctuation"
               returnKeyType="done"
+              onSubmitEditing={onSubmit}
               accessibilityLabel="Timeline year"
             />
           </View>
@@ -92,8 +102,9 @@ export function TimelinePeriodSelector({ value, onChange, error }: TimelinePerio
                 value={value.rangeFrom}
                 onChangeText={updateYearField('rangeFrom')}
                 placeholder="Start"
-                keyboardType="number-pad"
+                keyboardType="numbers-and-punctuation"
                 returnKeyType="done"
+                onSubmitEditing={onSubmit}
                 accessibilityLabel="Timeline start year"
                 style={{ flex: 1 }}
               />
@@ -101,8 +112,9 @@ export function TimelinePeriodSelector({ value, onChange, error }: TimelinePerio
                 value={value.rangeTo}
                 onChangeText={updateYearField('rangeTo')}
                 placeholder="End"
-                keyboardType="number-pad"
+                keyboardType="numbers-and-punctuation"
                 returnKeyType="done"
+                onSubmitEditing={onSubmit}
                 accessibilityLabel="Timeline end year"
                 style={{ flex: 1 }}
               />
@@ -116,8 +128,9 @@ export function TimelinePeriodSelector({ value, onChange, error }: TimelinePerio
               value={value.decade}
               onChangeText={updateYearField('decade')}
               placeholder="Decade, e.g. 1980"
-              keyboardType="number-pad"
+              keyboardType="numbers-and-punctuation"
               returnKeyType="done"
+              onSubmitEditing={onSubmit}
               accessibilityLabel="Timeline decade"
             />
           </View>
@@ -138,10 +151,11 @@ export function TimelinePeriodSelector({ value, onChange, error }: TimelinePerio
         gap: spacing.sm,
       }}
     >
-      <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
         <Text style={{ color: colors.text, fontSize: typography.body, fontWeight: '800' }}>
           Choose a time window
         </Text>
+        {headerAccessory}
       </View>
 
       <View accessibilityRole="radiogroup" accessibilityLabel="Timeline period mode" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
@@ -154,7 +168,7 @@ export function TimelinePeriodSelector({ value, onChange, error }: TimelinePerio
               accessibilityRole="radio"
               accessibilityLabel={`Timeline mode ${option.label}`}
               accessibilityState={{ selected: isSelected }}
-              onPress={() => onChange(mergeSelection(value, { mode: option.mode }))}
+              onPress={() => onChange(selectionForMode(option.mode))}
               style={({ pressed }) => ({
                 paddingHorizontal: spacing.sm + 2,
                 paddingVertical: spacing.xs + 2,

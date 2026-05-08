@@ -15,6 +15,7 @@ export interface StoryFilters {
   latitude?: number;
   longitude?: number;
   radiusKm?: number;
+  hasMedia?: boolean;
 }
 
 export interface StoryRepository {

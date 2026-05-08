@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { EmptyState, ErrorState, Loader, SkeletonCard } from '../../../../shared';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
@@ -39,6 +39,7 @@ interface PeriodDescriptor {
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
+type TimelineImageFilter = 'all' | 'with_image';
 
 export function TimelineScreen({
   initialFilters = EMPTY_FILTERS,
@@ -52,7 +53,9 @@ export function TimelineScreen({
   const debouncedQuery = useDebounce(filters.query, 350);
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [periodSelection, setPeriodSelection] = useState<TimelinePeriodSelection>(EMPTY_TIMELINE_PERIOD_SELECTION);
-  const periodDescriptor = useMemo(() => describePeriodSelection(periodSelection), [periodSelection]);
+  const [appliedPeriodSelection, setAppliedPeriodSelection] = useState<TimelinePeriodSelection>(EMPTY_TIMELINE_PERIOD_SELECTION);
+  const [imageFilter, setImageFilter] = useState<TimelineImageFilter>(() => getInitialImageFilter(initialFilters));
+  const periodDescriptor = useMemo(() => describePeriodSelection(appliedPeriodSelection), [appliedPeriodSelection]);
   const [state, setState] = useState<TimelineUiState>(() => createInitialTimelineUiState(initialFilters));
   const stateRef = useRef(state);
   const hasRequestedNextPage = useRef(false);
@@ -87,8 +90,9 @@ export function TimelineScreen({
     () => ({
       ...initialFilters,
       ...toSearchParams({ ...filters, query: useImmediateQuery ? filters.query : debouncedQuery }),
+      hasMedia: getHasMediaFilter(imageFilter),
     }),
-    [debouncedQuery, filters, initialFilters, useImmediateQuery],
+    [debouncedQuery, filters, imageFilter, initialFilters, useImmediateQuery],
   );
 
   const hasActiveFilters = Boolean(
@@ -99,7 +103,8 @@ export function TimelineScreen({
       activeFilters.yearTo !== undefined ||
       activeFilters.radiusKm ||
       activeFilters.tags?.length ||
-      (periodSelection.mode !== 'all' && periodDescriptor.isReady),
+      activeFilters.hasMedia !== undefined ||
+      (periodDescriptor.isReady && Object.keys(periodDescriptor.request).length > 0),
   );
 
   const loadPage = useCallback(
@@ -182,6 +187,24 @@ export function TimelineScreen({
     });
   };
 
+  const handlePeriodSelectionChange = (nextSelection: TimelinePeriodSelection) => {
+    setPeriodSelection((currentSelection) => {
+      if (nextSelection.mode !== currentSelection.mode) {
+        if (nextSelection.mode === 'all') {
+          setAppliedPeriodSelection(nextSelection);
+        } else if (Object.keys(periodDescriptor.request).length > 0) {
+          setAppliedPeriodSelection(EMPTY_TIMELINE_PERIOD_SELECTION);
+        }
+      }
+
+      return nextSelection;
+    });
+  };
+
+  const handlePeriodSelectionSubmit = () => {
+    setAppliedPeriodSelection(periodSelection);
+  };
+
   const handleRetry = () => {
     if (periodDescriptor.error || !periodDescriptor.isReady) {
       return;
@@ -205,8 +228,15 @@ export function TimelineScreen({
 
       <TimelinePeriodSelector
         value={periodSelection}
-        onChange={setPeriodSelection}
+        onChange={handlePeriodSelectionChange}
+        onSubmit={handlePeriodSelectionSubmit}
         error={periodDescriptor.error}
+        headerAccessory={
+          <TimelineImageFilterToggle
+            isActive={imageFilter === 'with_image'}
+            onPress={() => setImageFilter((current) => (current === 'with_image' ? 'all' : 'with_image'))}
+          />
+        }
       />
 
       <View
@@ -231,7 +261,9 @@ export function TimelineScreen({
     return <Loader message="Restoring timeline filters..." />;
   }
 
-  if (state.isLoading && !state.items.length) {
+  const shouldShowInitialSkeleton = state.isLoading && !state.items.length && !hasActiveFilters;
+
+  if (shouldShowInitialSkeleton) {
     return (
       <View accessibilityLabel="Loading timeline stories" style={{ flex: 1, gap: spacing.md }}>
         {controls}
@@ -281,9 +313,9 @@ export function TimelineScreen({
       testID="timeline-list"
       data={state.items}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <View style={{ paddingHorizontal: spacing.lg }}>
-          <TimelineCard story={item} onPress={onOpenStory} />
+          <TimelineCard story={item} onPress={onOpenStory} isLast={index === state.items.length - 1} />
         </View>
       )}
       ListHeaderComponent={controls}
@@ -308,13 +340,21 @@ export function TimelineScreen({
 }
 
 function parseCompleteYear(value: string) {
-  if (!/^\d{4}$/.test(value.trim())) {
+  if (!/^-?\d{1,5}$/.test(value.trim())) {
     return undefined;
   }
 
   const parsed = Number(value);
 
-  return Number.isFinite(parsed) ? parsed : undefined;
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function formatDescriptorYear(year: number) {
+  return year < 0 ? `${Math.abs(year)} BC` : String(year);
 }
 
 function describePeriodSelection(selection: TimelinePeriodSelection): PeriodDescriptor {
@@ -322,15 +362,23 @@ function describePeriodSelection(selection: TimelinePeriodSelection): PeriodDesc
     case 'all':
       return { request: {}, label: 'All time periods', key: 'all', isReady: true };
     case 'year': {
+      if (!selection.year) {
+        return { request: {}, label: 'All time periods', key: 'year-empty', isReady: true };
+      }
+
       const year = parseCompleteYear(selection.year);
 
       if (year === undefined) {
-        return { request: {}, label: 'Enter a 4-digit year', key: `year-draft-${selection.year}`, isReady: false };
+        return { request: {}, label: 'Enter a year', key: `year-draft-${selection.year}`, isReady: false };
       }
 
-      return { request: { year }, label: `Year ${year}`, key: `year-${year}`, isReady: true };
+      return { request: { year }, label: `Year ${formatDescriptorYear(year)}`, key: `year-${year}`, isReady: true };
     }
     case 'range': {
+      if (!selection.rangeFrom && !selection.rangeTo) {
+        return { request: {}, label: 'All time periods', key: 'range-empty', isReady: true };
+      }
+
       const from = parseCompleteYear(selection.rangeFrom);
       const to = parseCompleteYear(selection.rangeTo);
 
@@ -353,18 +401,23 @@ function describePeriodSelection(selection: TimelinePeriodSelection): PeriodDesc
         };
       }
 
-      return { request: { yearRange: { from, to } }, label: `${from}-${to}`, key: `range-${from}-${to}`, isReady: true };
+      return { request: { yearRange: { from, to } }, label: `${formatDescriptorYear(from)}-${formatDescriptorYear(to)}`, key: `range-${from}-${to}`, isReady: true };
     }
     case 'decade': {
+      if (!selection.decade) {
+        return { request: {}, label: 'All time periods', key: 'decade-empty', isReady: true };
+      }
+
       const decadeYear = parseCompleteYear(selection.decade);
 
       if (decadeYear === undefined) {
-        return { request: {}, label: 'Enter a 4-digit decade year', key: `decade-draft-${selection.decade}`, isReady: false };
+        return { request: {}, label: 'Enter a decade year', key: `decade-draft-${selection.decade}`, isReady: false };
       }
 
-      const decade = Math.floor(decadeYear / 10) * 10;
+      const decade = Math.floor(Math.abs(decadeYear) / 10) * 10;
+      const requestDecade = decadeYear < 0 ? -decade : decade;
 
-      return { request: { decade }, label: `${decade}s`, key: `decade-${decade}`, isReady: true };
+      return { request: { decade: requestDecade }, label: decadeYear < 0 ? `${decade}s BC` : `${decade}s`, key: `decade-${requestDecade}`, isReady: true };
     }
     default:
       return { request: {}, label: 'All time periods', key: 'all', isReady: true };
@@ -467,5 +520,47 @@ function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersStat
     left.timeFrom === right.timeFrom &&
     left.timeTo === right.timeTo &&
     JSON.stringify(left.tags) === JSON.stringify(right.tags)
+  );
+}
+
+function getInitialImageFilter(filters: StoryFilters): TimelineImageFilter {
+  if (filters.hasMedia === true) {
+    return 'with_image';
+  }
+
+  return 'all';
+}
+
+function getHasMediaFilter(value: TimelineImageFilter) {
+  if (value === 'with_image') {
+    return true;
+  }
+
+  return undefined;
+}
+
+function TimelineImageFilterToggle({ isActive, onPress }: { isActive: boolean; onPress: () => void }) {
+  const { colors, spacing, typography } = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Timeline image filter With image"
+      accessibilityState={{ selected: isActive }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        paddingHorizontal: spacing.sm + 2,
+        paddingVertical: spacing.xs + 2,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: isActive ? colors.text : colors.border,
+        backgroundColor: isActive ? colors.text : colors.background,
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <Text style={{ color: isActive ? colors.background : colors.text, fontSize: typography.caption + 1, fontWeight: '800' }}>
+        With image
+      </Text>
+    </Pressable>
   );
 }

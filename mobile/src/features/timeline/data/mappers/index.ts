@@ -121,6 +121,15 @@ function getDateYear(value?: string) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function formatHistoricalYear(year: number) {
+  return year < 0 ? `${Math.abs(year)} BC` : String(year);
+}
+
+function formatDecade(year: number) {
+  const decade = Math.floor(Math.abs(year) / 10) * 10;
+  return year < 0 ? `${decade}s BC` : `${decade}s`;
+}
+
 function formatTimePeriod(record: TimelineApiRecord) {
   const timeType = asString(record.time_type) || asString(record.timeType);
   const year = asNumber(record.year);
@@ -131,13 +140,15 @@ function formatTimePeriod(record: TimelineApiRecord) {
 
   switch (timeType) {
     case 'exact_year':
-      return year !== undefined ? String(year) : '';
+      return year !== undefined ? formatHistoricalYear(year) : '';
     case 'approximate_year':
-      return year !== undefined ? `c. ${year}` : '';
+      return year !== undefined ? `c. ${formatHistoricalYear(year)}` : '';
     case 'decade':
-      return year !== undefined ? `${Math.floor(year / 10) * 10}s` : '';
+      return year !== undefined ? formatDecade(year) : '';
     case 'year_range':
-      return yearStart !== undefined && yearEnd !== undefined ? `${yearStart}-${yearEnd}` : '';
+      return yearStart !== undefined && yearEnd !== undefined
+        ? `${formatHistoricalYear(yearStart)}-${formatHistoricalYear(yearEnd)}`
+        : '';
     case 'exact_date':
       return dateValue ? `${dateValue}${timeValue ? ` ${timeValue.slice(0, 5)}` : ''}` : '';
     default:
