@@ -1,4 +1,5 @@
 import api from "./api";
+import { getRefreshToken } from "./tokenStore";
 
 /** GET /users/<id>/ — public profile, visibility-filtered by server */
 export async function getPublicProfile(userId) {
@@ -78,4 +79,23 @@ export async function getUserBadges(userId) {
     response = next ? await api.get(next) : null;
   }
   return allResults;
+}
+
+/**
+ * DELETE /users/me/ — permanently delete the authenticated user's account.
+ *
+ * @param {string} password           Current password, required for confirmation.
+ * @param {boolean} deleteStories     true → hard-delete (also wipes stories);
+ *                                    false → soft-delete (anonymises stories,
+ *                                    replacing contributor with "Anonymous").
+ * The current refresh token is forwarded so the backend can blacklist it.
+ */
+export async function deleteAccount(password, deleteStories) {
+  await api.delete("/users/me/", {
+    data: {
+      password,
+      hard_delete: Boolean(deleteStories),
+      refresh: getRefreshToken() ?? "",
+    },
+  });
 }

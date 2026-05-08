@@ -9,7 +9,12 @@ vi.mock("../api", () => ({
   },
 }));
 
+vi.mock("../tokenStore", () => ({
+  getRefreshToken: vi.fn(),
+}));
+
 import api from "../api";
+import { getRefreshToken } from "../tokenStore";
 import {
   getPublicProfile,
   getProfile,
@@ -18,6 +23,7 @@ import {
   uploadProfilePhoto,
   removeProfilePhoto,
   getUserBadges,
+  deleteAccount,
 } from "../userService";
 
 describe("userService", () => {
@@ -222,6 +228,54 @@ describe("userService", () => {
     it("propagates API errors", async () => {
       api.get.mockRejectedValue(new Error("Network error"));
       await expect(getUserBadges(7)).rejects.toThrow("Network error");
+    });
+  });
+
+  describe("deleteAccount", () => {
+    it("sends DELETE /users/me/ with password, hard_delete=true, and the refresh token", async () => {
+      api.delete.mockResolvedValue({ status: 204, data: null });
+      getRefreshToken.mockReturnValue("refresh-abc");
+
+      await deleteAccount("hunter2", true);
+
+      expect(api.delete).toHaveBeenCalledWith("/users/me/", {
+        data: {
+          password: "hunter2",
+          hard_delete: true,
+          refresh: "refresh-abc",
+        },
+      });
+    });
+
+    it("sends hard_delete=false when stories should be anonymised (deleteStories=false)", async () => {
+      api.delete.mockResolvedValue({ status: 204, data: null });
+      getRefreshToken.mockReturnValue("refresh-xyz");
+
+      await deleteAccount("hunter2", false);
+
+      expect(api.delete.mock.calls[0][1].data).toMatchObject({
+        hard_delete: false,
+        refresh: "refresh-xyz",
+      });
+    });
+
+    it("forwards an empty refresh token when none is stored", async () => {
+      api.delete.mockResolvedValue({ status: 204, data: null });
+      getRefreshToken.mockReturnValue(null);
+
+      await deleteAccount("hunter2", true);
+
+      expect(api.delete.mock.calls[0][1].data.refresh).toBe("");
+    });
+
+    it("propagates API errors (e.g., wrong password 400)", async () => {
+      const err = Object.assign(new Error("Bad Request"), {
+        response: { status: 400, data: { password: ["Incorrect password."] } },
+      });
+      api.delete.mockRejectedValue(err);
+      getRefreshToken.mockReturnValue("");
+
+      await expect(deleteAccount("wrong", true)).rejects.toBe(err);
     });
   });
 });
