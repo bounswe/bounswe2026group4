@@ -226,4 +226,88 @@ describe("MapPicker — location search & autocomplete", () => {
     mapEventHandlers.click({ latlng: { lat: 40.0, lng: 30.0 } });
     expect(onChange).toHaveBeenCalledWith({ lat: 40.0, lng: 30.0 });
   });
+
+  it("dropdown stays closed after suggestion select even when the same title would re-search (Bug 1 regression)", async () => {
+    vi.useFakeTimers();
+    searchLocationSuggestions.mockResolvedValue([
+      { id: "1", title: "Istanbul", subtitle: "Türkiye", bbox: ISTANBUL_BBOX },
+    ]);
+    render(<MapPicker value={null} onChange={vi.fn()} />);
+
+    setQuery("Istanbul");
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await flushPromises();
+
+    fireEvent.mouseDown(screen.getByText("Istanbul"));
+    await flushPromises();
+
+    // The chosen title is now in the input. If the hook's debounce wasn't
+    // suppressed, it would re-fire 300 ms later and reopen the listbox.
+    await act(async () => { vi.advanceTimersByTime(500); });
+    await flushPromises();
+
+    expect(
+      screen.queryByRole("listbox", { name: /location suggestions/i })
+    ).not.toBeInTheDocument();
+    // searchLocationSuggestions was called once for the initial type, not a second time after select.
+    expect(searchLocationSuggestions).toHaveBeenCalledTimes(1);
+  });
+
+  it("'No results found' does not appear after a suggestion is selected (Bug 2 regression)", async () => {
+    vi.useFakeTimers();
+    searchLocationSuggestions.mockResolvedValue([
+      { id: "1", title: "Istanbul", subtitle: "Türkiye", bbox: ISTANBUL_BBOX },
+    ]);
+    render(<MapPicker value={null} onChange={vi.fn()} />);
+
+    setQuery("Istanbul");
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await flushPromises();
+
+    fireEvent.mouseDown(screen.getByText("Istanbul"));
+    await flushPromises();
+    await act(async () => { vi.advanceTimersByTime(500); });
+    await flushPromises();
+
+    expect(screen.queryByText(/no results found/i)).not.toBeInTheDocument();
+  });
+
+  it("filters out null-bbox suggestions defensively at the picker (won't crash if one slips through)", async () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    // Force-feed the picker a suggestion with bbox: null (bypassing the service filter).
+    searchLocationSuggestions.mockResolvedValue([
+      { id: "1", title: "Mystery Place", subtitle: null, bbox: null },
+    ]);
+    render(<MapPicker value={null} onChange={onChange} />);
+
+    setQuery("Mystery");
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await flushPromises();
+
+    // Clicking the suggestion must not throw.
+    expect(() => fireEvent.mouseDown(screen.getByText("Mystery Place"))).not.toThrow();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(fakeMap.setView).not.toHaveBeenCalled();
+  });
+
+  it("input is wired to the listbox via aria-controls / id", async () => {
+    vi.useFakeTimers();
+    searchLocationSuggestions.mockResolvedValue([
+      { id: "1", title: "Istanbul", subtitle: "Türkiye", bbox: ISTANBUL_BBOX },
+    ]);
+    render(<MapPicker value={null} onChange={vi.fn()} />);
+
+    expect(searchInput()).toHaveAttribute("aria-controls", "mappicker-listbox");
+
+    setQuery("Istanbul");
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await flushPromises();
+
+    expect(screen.getByRole("listbox", { name: /location suggestions/i })).toHaveAttribute(
+      "id",
+      "mappicker-listbox"
+    );
+  });
 });
+

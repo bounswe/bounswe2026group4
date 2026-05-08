@@ -38,7 +38,8 @@ export async function geocodeLocation(query) {
 
 /**
  * Fetch up to 5 location suggestions for a query (min 3 chars) via the backend proxy.
- * Each suggestion includes a display title, optional subtitle, and optional bbox.
+ * Suggestions without a bbox are dropped — selecting them would have no map target
+ * to pan to and would crash the bbox-centre helper.
  */
 export async function searchLocationSuggestions(query) {
   const normalized = query?.trim();
@@ -51,19 +52,19 @@ export async function searchLocationSuggestions(query) {
 
   if (!Array.isArray(data)) return [];
 
-  const suggestions = data.map((r) => ({
-    id: r.id,
-    title: r.title,
-    subtitle: r.subtitle ?? undefined,
-    bbox: r.bbox
-      ? {
-          latMin: r.bbox.lat_min,
-          latMax: r.bbox.lat_max,
-          lngMin: r.bbox.lng_min,
-          lngMax: r.bbox.lng_max,
-        }
-      : null,
-  }));
+  const suggestions = data
+    .filter((r) => r.bbox)
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      subtitle: r.subtitle ?? undefined,
+      bbox: {
+        latMin: r.bbox.lat_min,
+        latMax: r.bbox.lat_max,
+        lngMin: r.bbox.lng_min,
+        lngMax: r.bbox.lng_max,
+      },
+    }));
 
   suggestionsCache.set(key, suggestions);
   return suggestions;

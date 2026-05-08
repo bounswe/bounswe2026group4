@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLocationSuggestions } from "@/hooks/useLocationSuggestions";
 import { cn } from "@/lib/utils";
+import { bboxCenter } from "./bbox";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -21,13 +22,6 @@ L.Icon.Default.mergeOptions({
 const ISTANBUL_CENTER = [41.0082, 28.9784];
 const DEFAULT_ZOOM = 12;
 const SELECTED_ZOOM = 15;
-
-function bboxCenter(bbox) {
-  return {
-    lat: (bbox.latMin + bbox.latMax) / 2,
-    lng: (bbox.lngMin + bbox.lngMax) / 2,
-  };
-}
 
 function ClickHandler({ onChange }) {
   useMapEvents({
@@ -58,24 +52,27 @@ function MapPicker({ value, onChange }) {
   const [target, setTarget] = useState(null);
   const containerRef = useRef(null);
 
-  const { suggestions, isLoading, clearSuggestions } = useLocationSuggestions(query);
+  const { suggestions, isLoading, hasSearched, cancel } = useLocationSuggestions(query);
 
   // Dismiss the suggestions panel when clicking outside the search field.
   useEffect(() => {
     function handleClickOutside(e) {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
-        clearSuggestions();
+        cancel();
         setActiveIndex(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [clearSuggestions]);
+  }, [cancel]);
 
   function selectSuggestion(s) {
+    if (!s.bbox) return;
     const center = bboxCenter(s.bbox);
+    // Suppress the next search for this exact query so writing the title back
+    // into the input doesn't re-fetch and reopen the dropdown 300 ms later.
+    cancel(s.title);
     setQuery(s.title);
-    clearSuggestions();
     setActiveIndex(-1);
     onChange(center);
     setTarget({ ...center, zoom: SELECTED_ZOOM });
@@ -94,14 +91,14 @@ function MapPicker({ value, onChange }) {
       selectSuggestion(suggestions[activeIndex]);
     } else if (e.key === "Escape") {
       e.preventDefault();
-      clearSuggestions();
+      cancel();
       setActiveIndex(-1);
     }
   }
 
   const trimmed = query.trim();
   const showNoResults =
-    trimmed.length >= 3 && !isLoading && suggestions.length === 0;
+    trimmed.length >= 3 && !isLoading && hasSearched && suggestions.length === 0;
 
   return (
     <>
@@ -117,6 +114,7 @@ function MapPicker({ value, onChange }) {
           onKeyDown={handleKeyDown}
           aria-label="Search for a location"
           aria-autocomplete="list"
+          aria-controls="mappicker-listbox"
           aria-expanded={suggestions.length > 0}
           aria-activedescendant={
             activeIndex >= 0
@@ -134,6 +132,7 @@ function MapPicker({ value, onChange }) {
         )}
         {suggestions.length > 0 && (
           <ul
+            id="mappicker-listbox"
             role="listbox"
             aria-label="Location suggestions"
             className="absolute left-0 right-0 top-full z-[1100] mt-1 max-h-56 overflow-y-auto rounded-md border bg-background shadow-md"
