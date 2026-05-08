@@ -1079,7 +1079,7 @@ describe('RootNavigator auth flow', () => {
         'GET /stories/feed/?page_size=100&sort_by=recent&latitude=41.02&longitude=28.96&radius_km=0.5&page=1',
       );
     });
-    expect(screen.getByLabelText('Remove Distance: 500 m from red location pin')).toBeTruthy();
+    expect(screen.getByLabelText('Remove Distance: 500 m from Harbor Memory red location pin')).toBeTruthy();
 
     fireEvent.press(await screen.findByLabelText('Open timeline story: Harbor Memory'));
 

@@ -731,15 +731,19 @@ export function RootNavigator() {
   };
 
   const handleViewTimelineNearPin = useCallback(
-    (coordinates: { latitude: number; longitude: number }) => {
+    (target: { latitude: number; longitude: number; label?: string }) => {
       updateFilters(
         {
           query: '',
           location: '',
           locationBounds: undefined,
           proximityRadiusKm: 0.5,
-          proximityCoordinates: coordinates,
+          proximityCoordinates: {
+            latitude: target.latitude,
+            longitude: target.longitude,
+          },
           proximitySource: 'map_pin',
+          proximityLabel: target.label,
           timeFrom: '',
           timeTo: '',
           tags: [],
