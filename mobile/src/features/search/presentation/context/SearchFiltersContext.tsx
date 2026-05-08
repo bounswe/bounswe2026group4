@@ -21,6 +21,7 @@ export interface SearchFiltersState {
   proximityCoordinates?: ProximityCoordinates;
   proximitySource?: ProximitySource;
   proximityLabel?: string;
+  proximityStoryId?: string;
   timeFrom: string;
   timeTo: string;
   tags: string[];
@@ -45,6 +46,7 @@ const initialFilters: SearchFiltersState = {
   proximityCoordinates: undefined,
   proximitySource: undefined,
   proximityLabel: undefined,
+  proximityStoryId: undefined,
   timeFrom: '',
   timeTo: '',
   tags: [],
@@ -60,6 +62,13 @@ const storageKeyByScope: Record<SearchFilterScope, string> = {
   feed: storageKeys.feedSearchFilters,
   map: storageKeys.mapSearchFilters,
   main: storageKeys.mainSearchFilters,
+};
+const clearedProximityFilters = {
+  proximityRadiusKm: undefined,
+  proximityCoordinates: undefined,
+  proximitySource: undefined,
+  proximityLabel: undefined,
+  proximityStoryId: undefined,
 };
 
 const SearchFiltersContext = createContext<SearchFiltersContextValue | undefined>(undefined);
@@ -156,10 +165,7 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
             ...currentFilters,
             [key]: key === 'tags' ? [] : '',
             ...(key === 'location' ? { locationBounds: undefined } : {}),
-            ...(key === 'proximityRadiusKm' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
-            ...(key === 'proximityCoordinates' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
-            ...(key === 'proximitySource' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
-            ...(key === 'proximityLabel' ? { proximityRadiusKm: undefined, proximityCoordinates: undefined, proximitySource: undefined, proximityLabel: undefined } : {}),
+            ...(isProximityFilterKey(key) ? clearedProximityFilters : {}),
           }),
           { refresh: true },
         );
@@ -240,6 +246,7 @@ function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): S
     proximityCoordinates: normalizeProximityCoordinates(filters?.proximityCoordinates),
     proximitySource: normalizeProximitySource(filters?.proximitySource),
     proximityLabel: normalizeOptionalString(filters?.proximityLabel),
+    proximityStoryId: normalizeOptionalString(filters?.proximityStoryId),
     timeFrom: filters?.timeFrom ?? '',
     timeTo: filters?.timeTo ?? '',
     tags: normalizeTags(filters?.tags),
@@ -254,6 +261,16 @@ function normalizeTags(tags?: string[] | null): string[] {
   return tags
     .map((tag) => tag.trim())
     .filter((tag, index, values): tag is string => tag.length > 0 && values.indexOf(tag) === index);
+}
+
+function isProximityFilterKey(key: keyof SearchFiltersState) {
+  return (
+    key === 'proximityRadiusKm' ||
+    key === 'proximityCoordinates' ||
+    key === 'proximitySource' ||
+    key === 'proximityLabel' ||
+    key === 'proximityStoryId'
+  );
 }
 
 function normalizeProximityRadius(radius?: number | null): ProximityRadiusKm | undefined {

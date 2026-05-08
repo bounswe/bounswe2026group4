@@ -17,7 +17,7 @@ interface MapCardProps {
   userLocation?: { latitude: number; longitude: number };
   onSelectMarker: (markerId: string) => void;
   onOpenStory: (storyId: string) => void;
-  onViewTimeline?: (target: { latitude: number; longitude: number; label?: string }) => void;
+  onViewTimeline?: (target: { latitude: number; longitude: number; label?: string; storyId?: string }) => void;
   onRegionChangeComplete?: (region: Region) => void;
   onPreviewLayout?: (event: LayoutChangeEvent) => void;
   onMapTouchChange?: (isTouchingMap: boolean) => void;
@@ -26,6 +26,7 @@ interface MapCardProps {
 const PREVIEW_MAX_LENGTH = 140;
 const MAP_GESTURE_SUPPRESSION_MS = 1200;
 const passivePreviewTextProps = { pointerEvents: 'none' as const };
+type MapMarkerVisualRole = 'timeline' | 'selected';
 export function MapCard({
   region,
   markers,
@@ -47,15 +48,21 @@ export function MapCard({
   const selectedMarker = selectedMarkerId ? markers.find((marker) => marker.id === selectedMarkerId) : undefined;
   const mapMarkers = useMemo(
     () =>
-      markers.map((marker) => ({
-        id: marker.id,
-        latitude: marker.latitude,
-        longitude: marker.longitude,
-        selected: marker.id === (highlightedMarkerId ?? selectedMarkerId),
-        label: marker.isCluster && marker.id !== highlightedMarkerId && marker.id !== selectedMarkerId
-          ? String(marker.count)
-          : undefined,
-      })),
+      markers.map((marker) => {
+        const visualRole: MapMarkerVisualRole | undefined =
+          marker.id === highlightedMarkerId ? 'timeline' : marker.id === selectedMarkerId ? 'selected' : undefined;
+
+        return {
+          id: marker.id,
+          latitude: marker.latitude,
+          longitude: marker.longitude,
+          selected: Boolean(visualRole),
+          visualRole,
+          label: marker.isCluster && marker.id !== highlightedMarkerId && marker.id !== selectedMarkerId
+            ? String(marker.count)
+            : undefined,
+        };
+      }),
     [highlightedMarkerId, markers, selectedMarkerId],
   );
   const clearMapTouchReleaseTimer = useCallback(() => {
@@ -210,19 +217,6 @@ export function MapCard({
           </Text>
         ) : selectedMarker.isCluster ? (
           <>
-            <Button
-              variant="outline"
-              accessibilityLabel={`View timeline near ${selectedMarker.count} nearby stories`}
-              onPress={() =>
-                onViewTimeline?.({
-                  latitude: selectedMarker.latitude,
-                  longitude: selectedMarker.longitude,
-                  label: `${selectedMarker.count} nearby stories`,
-                })
-              }
-            >
-              View Group Timeline
-            </Button>
             <ScrollView
               style={{ maxHeight: 240 }}
               contentContainerStyle={{ gap: spacing.sm }}
@@ -261,6 +255,7 @@ export function MapCard({
                           latitude: story.latitude,
                           longitude: story.longitude,
                           label: story.title,
+                          storyId: story.id,
                         })
                       }
                     >
@@ -295,6 +290,7 @@ export function MapCard({
                     latitude: selectedMarker.stories[0].latitude,
                     longitude: selectedMarker.stories[0].longitude,
                     label: selectedMarker.stories[0].title,
+                    storyId: selectedMarker.stories[0].id,
                   })
                 }
               >

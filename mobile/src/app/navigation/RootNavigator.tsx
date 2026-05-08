@@ -731,7 +731,7 @@ export function RootNavigator() {
   };
 
   const handleViewTimelineNearPin = useCallback(
-    (target: { latitude: number; longitude: number; label?: string }) => {
+    (target: { latitude: number; longitude: number; label?: string; storyId?: string }) => {
       updateFilters(
         {
           query: '',
@@ -744,6 +744,7 @@ export function RootNavigator() {
           },
           proximitySource: 'map_pin',
           proximityLabel: target.label,
+          proximityStoryId: target.storyId,
           timeFrom: '',
           timeTo: '',
           tags: [],
