@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,27 +18,36 @@ function PublishedStoriesTab({ userId }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
+  const requestIdRef = useRef(0);
+
+  function handleBookmarkChange(storyId, newBookmarked) {
+    setStories((prev) =>
+      prev.map((s) => (s.id === storyId ? { ...s, user_has_saved: newBookmarked } : s))
+    );
+  }
 
   const fetchStories = useCallback(
     async (pg) => {
+      const id = ++requestIdRef.current;
       if (pg === 1) setLoading(true);
       else setLoadingMore(true);
       setError(null);
       try {
         const data = await getUserStories(userId, { page: pg, pageSize: PAGE_SIZE });
+        if (id !== requestIdRef.current) return;
         setStories((prev) => (pg === 1 ? data.results : [...prev, ...data.results]));
-        setTotalCount(data.count);
         setHasNext(Boolean(data.next));
         setPage(pg);
       } catch (err) {
+        if (id !== requestIdRef.current) return;
         setError(
           is404(err)
             ? "This profile is unavailable or no longer active."
             : "Failed to load published stories. Please try again."
         );
       } finally {
+        if (id !== requestIdRef.current) return;
         setLoading(false);
         setLoadingMore(false);
       }
@@ -77,16 +86,9 @@ function PublishedStoriesTab({ userId }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <BookOpen className="h-4 w-4" aria-hidden="true" />
-        <span>
-          {totalCount} published {totalCount === 1 ? "story" : "stories"}
-        </span>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stories.map((story) => (
-          <StoryCard key={story.id} story={story} />
+          <StoryCard key={story.id} story={story} onBookmarkChange={handleBookmarkChange} />
         ))}
       </div>
 

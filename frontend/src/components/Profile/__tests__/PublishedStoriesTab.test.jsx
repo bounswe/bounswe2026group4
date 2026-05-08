@@ -10,9 +10,13 @@ vi.mock("@/services/storyService", () => ({
 }));
 
 vi.mock("@/components/StoryCard/StoryCard", () => ({
-  default: ({ story }) => (
-    <div data-testid="story-card" data-story-id={story.id}>
+  default: ({ story, onBookmarkChange }) => (
+    <div data-testid="story-card" data-story-id={story.id} data-saved={String(story.user_has_saved)}>
       <span>{story.title}</span>
+      <button
+        data-testid="bookmark-toggle"
+        onClick={() => onBookmarkChange?.(story.id, !story.user_has_saved)}
+      />
     </div>
   ),
 }));
@@ -78,26 +82,6 @@ describe("PublishedStoriesTab", () => {
     expect(screen.getByText("Story 2")).toBeInTheDocument();
   });
 
-  it("shows total count of published stories", async () => {
-    getUserStories.mockResolvedValue(
-      makeStoriesResponse({ stories: [makeStory(1)], count: 7 })
-    );
-    renderTab();
-    await waitFor(() =>
-      expect(screen.getByText(/7 published stories/i)).toBeInTheDocument()
-    );
-  });
-
-  it("shows singular 'story' for count of 1", async () => {
-    getUserStories.mockResolvedValue(
-      makeStoriesResponse({ stories: [makeStory(1)], count: 1 })
-    );
-    renderTab();
-    await waitFor(() =>
-      expect(screen.getByText(/1 published story/i)).toBeInTheDocument()
-    );
-  });
-
   it("shows generic error state on fetch failure", async () => {
     getUserStories.mockRejectedValue(new Error("Network error"));
     renderTab();
@@ -115,6 +99,23 @@ describe("PublishedStoriesTab", () => {
       expect(
         screen.getByText("This profile is unavailable or no longer active.")
       ).toBeInTheDocument()
+    );
+  });
+
+  it("retries fetch when 'Try again' is clicked after an error", async () => {
+    const user = userEvent.setup();
+    getUserStories
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce(
+        makeStoriesResponse({ stories: [makeStory(1)], count: 1 })
+      );
+    renderTab();
+    await waitFor(() =>
+      expect(screen.getByText(/failed to load published stories/i)).toBeInTheDocument()
+    );
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId("story-card")).toBeInTheDocument()
     );
   });
 
@@ -173,7 +174,7 @@ describe("PublishedStoriesTab", () => {
     );
   });
 
-  it("reflects user_has_liked and user_has_saved from story data", async () => {
+  it("passes story data (including user_has_liked and user_has_saved) to StoryCard", async () => {
     getUserStories.mockResolvedValue(
       makeStoriesResponse({
         stories: [makeStory(1, { user_has_liked: true, user_has_saved: true })],
@@ -183,5 +184,20 @@ describe("PublishedStoriesTab", () => {
     renderTab();
     await waitFor(() => expect(screen.getByTestId("story-card")).toBeInTheDocument());
     expect(screen.getByTestId("story-card")).toHaveAttribute("data-story-id", "1");
+  });
+
+  it("syncs user_has_saved in local state when onBookmarkChange is called", async () => {
+    const user = userEvent.setup();
+    getUserStories.mockResolvedValue(
+      makeStoriesResponse({
+        stories: [makeStory(1, { user_has_saved: false })],
+        count: 1,
+      })
+    );
+    renderTab();
+    await waitFor(() => expect(screen.getByTestId("story-card")).toBeInTheDocument());
+    expect(screen.getByTestId("story-card")).toHaveAttribute("data-saved", "false");
+    await user.click(screen.getByTestId("bookmark-toggle"));
+    expect(screen.getByTestId("story-card")).toHaveAttribute("data-saved", "true");
   });
 });

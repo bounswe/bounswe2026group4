@@ -140,12 +140,15 @@ describe("StoryCard", () => {
     expect(screen.getByText("historian_01")).toBeInTheDocument();
   });
 
-  it("renders 'Anonymous' when contributor_name is null (private profile)", () => {
+  it("renders an 'Anonymous' badge when contributor_name is null", () => {
     renderCard(makeStory({ contributor_name: null }));
-    expect(screen.getByText("Anonymous")).toBeInTheDocument();
+    const badge = screen.getByText("Anonymous");
+    expect(badge).toBeInTheDocument();
+    expect(badge.tagName).toBe("SPAN");
+    expect(badge).toHaveClass("bg-muted");
   });
 
-  it("renders 'Anonymous' when contributor_name is absent", () => {
+  it("renders an 'Anonymous' badge when contributor_name is absent", () => {
     const story = makeStory();
     delete story.contributor_name;
     renderCard(story);
