@@ -7,7 +7,7 @@ import { FilterPanel, ProximityRadiusOption } from '../../../../shared/component
 import { FilterChipItem, FilterChips } from '../../../../shared/components/FilterChips';
 import { SearchInput } from '../../../../shared/components/SearchInput';
 import { geocodeLocationQuery, LocationBounds, LocationSuggestion, searchLocationSuggestions, searchTags, SearchTag } from '../../application/services';
-import { SearchFilterScope, useSearchFilters } from '../context/SearchFiltersContext';
+import { ProximitySource, SearchFilterScope, SearchFiltersState, useSearchFilters } from '../context/SearchFiltersContext';
 
 function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): FilterChipItem[] {
   const chips: FilterChipItem[] = [];
@@ -49,10 +49,11 @@ function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): Fi
 interface StorySearchControlsProps {
   helperText?: string;
   hideHeading?: boolean;
+  onFiltersApplied?: (filters: SearchFiltersState) => void;
   scope: SearchFilterScope;
 }
 
-export function StorySearchControls({ helperText, hideHeading = false, scope }: StorySearchControlsProps) {
+export function StorySearchControls({ helperText, hideHeading = false, onFiltersApplied, scope }: StorySearchControlsProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { height } = useWindowDimensions();
   const { filters, updateFilters, removeFilter, clearFilters, applyFilters } = useSearchFilters(scope);
@@ -69,6 +70,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
   const [isProximityResolving, setIsProximityResolving] = useState(false);
   const [proximityStatusText, setProximityStatusText] = useState<string | undefined>();
   const [isProximityError, setIsProximityError] = useState(false);
+  const [draftProximitySource, setDraftProximitySource] = useState<ProximitySource | undefined>();
   const [draftTimeFrom, setDraftTimeFrom] = useState('');
   const [draftTimeTo, setDraftTimeTo] = useState('');
   const [draftTags, setDraftTags] = useState<string[]>([]);
@@ -95,9 +97,8 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     setIsLocationResolving(false);
     setDraftProximityRadiusKm(filters.proximityRadiusKm);
     setDraftProximityCoordinates(filters.proximityCoordinates);
-    setProximityStatusText(
-      filters.proximityRadiusKm && filters.proximityCoordinates ? 'Using your current location.' : undefined,
-    );
+    setDraftProximitySource(filters.proximitySource);
+    setProximityStatusText(getProximityStatusText(filters));
     setIsProximityError(false);
     setIsProximityResolving(false);
     setDraftTimeFrom(filters.timeFrom);
@@ -136,27 +137,19 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
     setLocationStatusText('Filtering by map area.');
   };
 
-  const handleProximityRadiusChange = async (radiusKm?: ProximityRadiusOption) => {
+  const resolveCurrentProximityCoordinates = async (radiusKm: ProximityRadiusOption) => {
     const requestId = proximityRequestIdRef.current + 1;
     proximityRequestIdRef.current = requestId;
-    setDraftProximityRadiusKm(radiusKm);
     setIsProximityError(false);
-
-    if (!radiusKm) {
-      setDraftProximityCoordinates(undefined);
-      setIsProximityResolving(false);
-      setProximityStatusText(undefined);
-      return;
-    }
-
     setDraftProximityCoordinates(undefined);
+    setDraftProximitySource('current_location');
     setIsProximityResolving(true);
     setProximityStatusText('Fetching your current location...');
 
     const result = await getCurrentDeviceCoordinates();
 
     if (proximityRequestIdRef.current !== requestId) {
-      return;
+      return undefined;
     }
 
     setIsProximityResolving(false);
@@ -166,7 +159,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
       setProximityStatusText(
         `Filtering within ${formatDistance(radiusKm)} of ${result.coordinates.latitude.toFixed(4)}, ${result.coordinates.longitude.toFixed(4)}.`,
       );
-      return;
+      return result.coordinates;
     }
 
     setIsProximityError(true);
@@ -175,6 +168,57 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
         ? 'Location disabled. Enable location permission to use proximity filtering.'
         : 'Current location is unavailable. Try again or choose Anywhere.',
     );
+    return undefined;
+  };
+
+  const handleProximityRadiusChange = async (radiusKm?: ProximityRadiusOption) => {
+    setDraftProximityRadiusKm(radiusKm);
+
+    if (!radiusKm) {
+      proximityRequestIdRef.current += 1;
+      setDraftProximityCoordinates(undefined);
+      setDraftProximitySource(undefined);
+      setIsProximityError(false);
+      setIsProximityResolving(false);
+      setProximityStatusText(undefined);
+      return;
+    }
+
+    await resolveCurrentProximityCoordinates(radiusKm);
+  };
+
+  const handleApplyFilters = async () => {
+    let nextProximityCoordinates = draftProximityRadiusKm ? draftProximityCoordinates : undefined;
+    let nextProximitySource = draftProximityRadiusKm ? draftProximitySource : undefined;
+
+    if (draftProximityRadiusKm && draftProximitySource === 'map_pin') {
+      nextProximityCoordinates = await resolveCurrentProximityCoordinates(draftProximityRadiusKm);
+
+      if (!nextProximityCoordinates) {
+        return;
+      }
+
+      nextProximitySource = 'current_location';
+    }
+
+    const nextFilters: SearchFiltersState = {
+      ...filters,
+      location: draftLocation,
+      locationBounds: draftLocation.trim() ? draftLocationBounds : undefined,
+      proximityRadiusKm: draftProximityRadiusKm,
+      proximityCoordinates: nextProximityCoordinates,
+      proximitySource: nextProximitySource,
+      proximityLabel: nextProximitySource === 'map_pin' ? filters.proximityLabel : undefined,
+      proximityStoryId: nextProximitySource === 'map_pin' ? filters.proximityStoryId : undefined,
+      timeFrom: draftTimeFrom,
+      timeTo: draftTimeTo,
+      tags: draftTags,
+    };
+
+    updateFilters(nextFilters, { refresh: true });
+    applyFilters();
+    onFiltersApplied?.(nextFilters);
+    setShowFilters(false);
   };
 
   useEffect(() => {
@@ -378,6 +422,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
                   setIsLocationError(false);
                   setDraftProximityRadiusKm(undefined);
                   setDraftProximityCoordinates(undefined);
+                  setDraftProximitySource(undefined);
                   setProximityStatusText(undefined);
                   setIsProximityError(false);
                   setDraftTimeFrom('');
@@ -386,21 +431,7 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
                   setDraftTagQuery('');
                   clearFilters();
                 }}
-                onApply={() => {
-                  updateFilters({
-                    location: draftLocation,
-                    locationBounds: draftLocation.trim() ? draftLocationBounds : undefined,
-                    proximityRadiusKm: draftProximityRadiusKm,
-                    proximityCoordinates: draftProximityRadiusKm ? draftProximityCoordinates : undefined,
-                    proximitySource: draftProximityRadiusKm ? 'current_location' : undefined,
-                    proximityLabel: undefined,
-                    timeFrom: draftTimeFrom,
-                    timeTo: draftTimeTo,
-                    tags: draftTags,
-                  }, { refresh: true });
-                  applyFilters();
-                  setShowFilters(false);
-                }}
+                onApply={handleApplyFilters}
               />
             </ScrollView>
           </Pressable>
@@ -428,6 +459,18 @@ export function StorySearchControls({ helperText, hideHeading = false, scope }: 
 
 function formatDistance(radiusKm: number) {
   return radiusKm <= 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
+}
+
+function getProximityStatusText(filters: ReturnType<typeof useSearchFilters>['filters']) {
+  if (!filters.proximityRadiusKm || !filters.proximityCoordinates) {
+    return undefined;
+  }
+
+  if (filters.proximitySource === 'map_pin') {
+    return `Filtering within ${formatDistance(filters.proximityRadiusKm)} of the selected story. Choose a distance to use your current location.`;
+  }
+
+  return 'Using your current location.';
 }
 
 function buildFallbackBounds(latitude: number, longitude: number): LocationBounds {

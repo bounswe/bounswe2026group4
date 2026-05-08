@@ -15,7 +15,7 @@ import { MapScreen } from '../../features/map';
 import { StoryScreen } from '../../features/stories';
 import { TimelineScreen } from '../../features/timeline';
 import { StorySearchControls } from '../../features/search/presentation/components/StorySearchControls';
-import { useSearchFilters } from '../../features/search/presentation/context/SearchFiltersContext';
+import { SearchFiltersState, useSearchFilters } from '../../features/search/presentation/context/SearchFiltersContext';
 import { useToast } from '../../shared/hooks/useToast';
 import { APP_NAME } from '../../core/constants/app';
 import { NotificationScreen, notificationService } from '../../features/notifications';
@@ -855,6 +855,18 @@ export function RootNavigator() {
     [navigateToSnapshot, updateFilters],
   );
 
+  const handleMainFiltersApplied = useCallback(
+    (filters: SearchFiltersState) => {
+      if (!filters.proximityRadiusKm || !filters.proximityCoordinates) {
+        return;
+      }
+
+      scrollMainPagerToRoute(ROUTES.MAP);
+      navigateToSnapshot({ route: ROUTES.MAP }, { resetStack: true, preserveCurrent: false });
+    },
+    [navigateToSnapshot, scrollMainPagerToRoute],
+  );
+
   if (!hasResolvedInitialSession && loading) {
     return (
       <Screen>
@@ -1197,7 +1209,7 @@ export function RootNavigator() {
             <TopIconButton label="Login" onPress={() => handleNavigate(ROUTES.AUTH)} />
           )}
         </View>
-      {isMainRoute ? <StorySearchControls hideHeading scope="main" /> : null}
+      {isMainRoute ? <StorySearchControls hideHeading onFiltersApplied={handleMainFiltersApplied} scope="main" /> : null}
       </View>
       <View style={{ flex: 1, backgroundColor: colors.background }}>{content}</View>
       {isMainRoute ? (
