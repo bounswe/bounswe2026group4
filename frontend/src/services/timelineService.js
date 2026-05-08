@@ -43,14 +43,15 @@ export function getTimelineHistoricalYear(story) {
   return Number.MAX_SAFE_INTEGER;
 }
 
-function hasUnsupportedTimelineFilters({ q, tags, location, latMin, latMax, lngMin, lngMax, latitude, longitude, radiusKm }) {
-  if (q?.trim()) return true;
-  if (Array.isArray(tags) && tags.length > 0) return true;
-  if (latitude != null && longitude != null && radiusKm != null) return true;
+function hasUnsupportedTimelineFilters(filters) {
+  if (filters.q?.trim()) return true;
+  if (Array.isArray(filters.tags) && filters.tags.length > 0) return true;
+  if (filters.latitude != null && filters.longitude != null && filters.radiusKm != null) return true;
   // A location string with no bbox can't be passed to /stories/timeline/ —
   // that endpoint doesn't accept a `location` text param.
-  const hasBbox = latMin != null && latMax != null && lngMin != null && lngMax != null;
-  if (location?.trim() && !hasBbox) return true;
+  const hasBbox =
+    filters.latMin != null && filters.latMax != null && filters.lngMin != null && filters.lngMax != null;
+  if (filters.location?.trim() && !hasBbox) return true;
   return false;
 }
 
@@ -156,9 +157,12 @@ async function getTimelineViaFallback({
 
   const response = await api.get(path, { params });
   const allResults = Array.isArray(response.data?.results) ? response.data.results : [];
-  const sorted = [...allResults].sort(
-    (a, b) => getTimelineHistoricalYear(a) - getTimelineHistoricalYear(b),
-  );
+  // Decorate-sort-undecorate: compute the historical year once per story,
+  // not twice per comparison.
+  const sorted = allResults
+    .map((story) => [getTimelineHistoricalYear(story), story])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, story]) => story);
 
   const startIndex = (page - 1) * pageSize;
   const pageResults = sorted.slice(startIndex, startIndex + pageSize);
