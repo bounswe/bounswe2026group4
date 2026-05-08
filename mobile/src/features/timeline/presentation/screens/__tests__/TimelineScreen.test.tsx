@@ -103,7 +103,7 @@ describe('TimelineScreen', () => {
     expect(screen.queryByText('190X')).toBeNull();
   });
 
-  it('applies decade selection to timeline requests after a complete year is entered', async () => {
+  it('applies decade selection after Done is pressed', async () => {
     const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
 
     renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
@@ -112,12 +112,27 @@ describe('TimelineScreen', () => {
     const callCountAfterInitialLoad = getTimeline.mock.calls.length;
 
     fireEvent.press(screen.getByLabelText('Timeline mode Decade'));
+    const callCountAfterModeSwitch = getTimeline.mock.calls.length;
+    expect(callCountAfterModeSwitch).toBe(callCountAfterInitialLoad);
+
     fireEvent.changeText(screen.getByLabelText('Timeline decade'), '19');
 
-    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterInitialLoad);
+    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterModeSwitch);
+    fireEvent(screen.getByLabelText('Timeline decade'), 'submitEditing');
+
+    await waitFor(() => {
+      expect(getTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          decade: 10,
+        }),
+      );
+    });
     expect(screen.queryByText('Enter a valid decade base year.')).toBeNull();
 
     fireEvent.changeText(screen.getByLabelText('Timeline decade'), '1920');
+    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterModeSwitch + 1);
+    fireEvent(screen.getByLabelText('Timeline decade'), 'submitEditing');
 
     await waitFor(() => {
       expect(getTimeline).toHaveBeenLastCalledWith(
@@ -130,7 +145,57 @@ describe('TimelineScreen', () => {
     expect(screen.getAllByText('1920s').length).toBeGreaterThan(0);
   });
 
-  it('keeps range typing local until both years are complete', async () => {
+  it('accepts short and negative historical decade years', async () => {
+    const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
+
+    renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
+
+    await screen.findByText('Timeline Story 1');
+
+    fireEvent.press(screen.getByLabelText('Timeline mode Decade'));
+    fireEvent.changeText(screen.getByLabelText('Timeline decade'), '445');
+    fireEvent(screen.getByLabelText('Timeline decade'), 'submitEditing');
+
+    await waitFor(() => {
+      expect(getTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          decade: 440,
+        }),
+      );
+    });
+
+    fireEvent.changeText(screen.getByLabelText('Timeline decade'), '-7500');
+    fireEvent(screen.getByLabelText('Timeline decade'), 'submitEditing');
+
+    await waitFor(() => {
+      expect(getTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          decade: -7500,
+        }),
+      );
+    });
+  });
+
+  it('keeps period inputs mounted while a typed filter is loading', async () => {
+    const getTimeline = jest
+      .fn<Promise<TimelinePageEntity>, [any]>()
+      .mockResolvedValueOnce(makeTimelinePage({ items: [], totalCount: 0 }))
+      .mockImplementation(() => new Promise<TimelinePageEntity>(() => undefined));
+
+    renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
+
+    await screen.findByText('Timeline is empty');
+
+    fireEvent.press(screen.getByLabelText('Timeline mode Decade'));
+    fireEvent.changeText(screen.getByLabelText('Timeline decade'), '1');
+
+    expect(screen.queryByLabelText('Loading timeline stories')).toBeNull();
+    expect(screen.getByLabelText('Timeline decade')).toBeTruthy();
+  });
+
+  it('keeps range typing local until both years are provided', async () => {
     const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
 
     renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
@@ -139,21 +204,61 @@ describe('TimelineScreen', () => {
     const callCountAfterInitialLoad = getTimeline.mock.calls.length;
 
     fireEvent.press(screen.getByLabelText('Timeline mode Range'));
-    fireEvent.changeText(screen.getByLabelText('Timeline start year'), '191');
-    fireEvent.changeText(screen.getByLabelText('Timeline end year'), '1918');
+    const callCountAfterRangeMode = getTimeline.mock.calls.length;
+    expect(callCountAfterRangeMode).toBe(callCountAfterInitialLoad);
 
-    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterInitialLoad);
+    fireEvent.changeText(screen.getByLabelText('Timeline start year'), '445');
 
-    fireEvent.changeText(screen.getByLabelText('Timeline start year'), '1914');
+    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterRangeMode);
+
+    fireEvent.changeText(screen.getByLabelText('Timeline end year'), '1110');
+
+    expect(getTimeline).toHaveBeenCalledTimes(callCountAfterRangeMode);
+    fireEvent(screen.getByLabelText('Timeline end year'), 'submitEditing');
 
     await waitFor(() => {
       expect(getTimeline).toHaveBeenLastCalledWith(
         expect.objectContaining({
           page: 1,
-          yearRange: { from: 1914, to: 1918 },
+          yearRange: { from: 445, to: 1110 },
         }),
       );
     });
+  });
+
+  it('clears the previous period mode when switching between controls', async () => {
+    const getTimeline = jest.fn<Promise<TimelinePageEntity>, [any]>().mockResolvedValue(makeTimelinePage());
+
+    renderScreen(<TimelineScreen getTimeline={getTimeline} showSearchControls={false} />);
+
+    await screen.findByText('Timeline Story 1');
+
+    fireEvent.press(screen.getByLabelText('Timeline mode Year'));
+    fireEvent.changeText(screen.getByLabelText('Timeline year'), '100');
+    fireEvent(screen.getByLabelText('Timeline year'), 'submitEditing');
+
+    await waitFor(() => {
+      expect(getTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          year: 100,
+        }),
+      );
+    });
+
+    fireEvent.press(screen.getByLabelText('Timeline mode Range'));
+
+    await waitFor(() => {
+      const lastRequest = getTimeline.mock.calls[getTimeline.mock.calls.length - 1][0];
+
+      expect(lastRequest).toEqual(expect.objectContaining({ page: 1 }));
+      expect(lastRequest.year).toBeUndefined();
+      expect(lastRequest.yearRange).toBeUndefined();
+      expect(lastRequest.decade).toBeUndefined();
+    });
+    expect(screen.queryByLabelText('Timeline year')).toBeNull();
+    expect(screen.getByLabelText('Timeline start year').props.value).toBe('');
+    expect(screen.getByLabelText('Timeline end year').props.value).toBe('');
   });
 
   it('loads the next timeline page when the list reaches the end', async () => {

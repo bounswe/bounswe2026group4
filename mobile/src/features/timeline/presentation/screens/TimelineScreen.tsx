@@ -53,8 +53,9 @@ export function TimelineScreen({
   const debouncedQuery = useDebounce(filters.query, 350);
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [periodSelection, setPeriodSelection] = useState<TimelinePeriodSelection>(EMPTY_TIMELINE_PERIOD_SELECTION);
+  const [appliedPeriodSelection, setAppliedPeriodSelection] = useState<TimelinePeriodSelection>(EMPTY_TIMELINE_PERIOD_SELECTION);
   const [imageFilter, setImageFilter] = useState<TimelineImageFilter>(() => getInitialImageFilter(initialFilters));
-  const periodDescriptor = useMemo(() => describePeriodSelection(periodSelection), [periodSelection]);
+  const periodDescriptor = useMemo(() => describePeriodSelection(appliedPeriodSelection), [appliedPeriodSelection]);
   const [state, setState] = useState<TimelineUiState>(() => createInitialTimelineUiState(initialFilters));
   const stateRef = useRef(state);
   const hasRequestedNextPage = useRef(false);
@@ -103,7 +104,7 @@ export function TimelineScreen({
       activeFilters.radiusKm ||
       activeFilters.tags?.length ||
       activeFilters.hasMedia !== undefined ||
-      (periodSelection.mode !== 'all' && periodDescriptor.isReady),
+      (periodDescriptor.isReady && Object.keys(periodDescriptor.request).length > 0),
   );
 
   const loadPage = useCallback(
@@ -186,6 +187,24 @@ export function TimelineScreen({
     });
   };
 
+  const handlePeriodSelectionChange = (nextSelection: TimelinePeriodSelection) => {
+    setPeriodSelection((currentSelection) => {
+      if (nextSelection.mode !== currentSelection.mode) {
+        if (nextSelection.mode === 'all') {
+          setAppliedPeriodSelection(nextSelection);
+        } else if (Object.keys(periodDescriptor.request).length > 0) {
+          setAppliedPeriodSelection(EMPTY_TIMELINE_PERIOD_SELECTION);
+        }
+      }
+
+      return nextSelection;
+    });
+  };
+
+  const handlePeriodSelectionSubmit = () => {
+    setAppliedPeriodSelection(periodSelection);
+  };
+
   const handleRetry = () => {
     if (periodDescriptor.error || !periodDescriptor.isReady) {
       return;
@@ -209,7 +228,8 @@ export function TimelineScreen({
 
       <TimelinePeriodSelector
         value={periodSelection}
-        onChange={setPeriodSelection}
+        onChange={handlePeriodSelectionChange}
+        onSubmit={handlePeriodSelectionSubmit}
         error={periodDescriptor.error}
         headerAccessory={
           <TimelineImageFilterToggle
@@ -241,7 +261,9 @@ export function TimelineScreen({
     return <Loader message="Restoring timeline filters..." />;
   }
 
-  if (state.isLoading && !state.items.length) {
+  const shouldShowInitialSkeleton = state.isLoading && !state.items.length && !hasActiveFilters;
+
+  if (shouldShowInitialSkeleton) {
     return (
       <View accessibilityLabel="Loading timeline stories" style={{ flex: 1, gap: spacing.md }}>
         {controls}
@@ -291,9 +313,9 @@ export function TimelineScreen({
       testID="timeline-list"
       data={state.items}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <View style={{ paddingHorizontal: spacing.lg }}>
-          <TimelineCard story={item} onPress={onOpenStory} />
+          <TimelineCard story={item} onPress={onOpenStory} isLast={index === state.items.length - 1} />
         </View>
       )}
       ListHeaderComponent={controls}
@@ -318,13 +340,21 @@ export function TimelineScreen({
 }
 
 function parseCompleteYear(value: string) {
-  if (!/^\d{4}$/.test(value.trim())) {
+  if (!/^-?\d{1,5}$/.test(value.trim())) {
     return undefined;
   }
 
   const parsed = Number(value);
 
-  return Number.isFinite(parsed) ? parsed : undefined;
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function formatDescriptorYear(year: number) {
+  return year < 0 ? `${Math.abs(year)} BC` : String(year);
 }
 
 function describePeriodSelection(selection: TimelinePeriodSelection): PeriodDescriptor {
@@ -332,15 +362,23 @@ function describePeriodSelection(selection: TimelinePeriodSelection): PeriodDesc
     case 'all':
       return { request: {}, label: 'All time periods', key: 'all', isReady: true };
     case 'year': {
+      if (!selection.year) {
+        return { request: {}, label: 'All time periods', key: 'year-empty', isReady: true };
+      }
+
       const year = parseCompleteYear(selection.year);
 
       if (year === undefined) {
-        return { request: {}, label: 'Enter a 4-digit year', key: `year-draft-${selection.year}`, isReady: false };
+        return { request: {}, label: 'Enter a year', key: `year-draft-${selection.year}`, isReady: false };
       }
 
-      return { request: { year }, label: `Year ${year}`, key: `year-${year}`, isReady: true };
+      return { request: { year }, label: `Year ${formatDescriptorYear(year)}`, key: `year-${year}`, isReady: true };
     }
     case 'range': {
+      if (!selection.rangeFrom && !selection.rangeTo) {
+        return { request: {}, label: 'All time periods', key: 'range-empty', isReady: true };
+      }
+
       const from = parseCompleteYear(selection.rangeFrom);
       const to = parseCompleteYear(selection.rangeTo);
 
@@ -363,18 +401,23 @@ function describePeriodSelection(selection: TimelinePeriodSelection): PeriodDesc
         };
       }
 
-      return { request: { yearRange: { from, to } }, label: `${from}-${to}`, key: `range-${from}-${to}`, isReady: true };
+      return { request: { yearRange: { from, to } }, label: `${formatDescriptorYear(from)}-${formatDescriptorYear(to)}`, key: `range-${from}-${to}`, isReady: true };
     }
     case 'decade': {
+      if (!selection.decade) {
+        return { request: {}, label: 'All time periods', key: 'decade-empty', isReady: true };
+      }
+
       const decadeYear = parseCompleteYear(selection.decade);
 
       if (decadeYear === undefined) {
-        return { request: {}, label: 'Enter a 4-digit decade year', key: `decade-draft-${selection.decade}`, isReady: false };
+        return { request: {}, label: 'Enter a decade year', key: `decade-draft-${selection.decade}`, isReady: false };
       }
 
-      const decade = Math.floor(decadeYear / 10) * 10;
+      const decade = Math.floor(Math.abs(decadeYear) / 10) * 10;
+      const requestDecade = decadeYear < 0 ? -decade : decade;
 
-      return { request: { decade }, label: `${decade}s`, key: `decade-${decade}`, isReady: true };
+      return { request: { decade: requestDecade }, label: decadeYear < 0 ? `${decade}s BC` : `${decade}s`, key: `decade-${requestDecade}`, isReady: true };
     }
     default:
       return { request: {}, label: 'All time periods', key: 'all', isReady: true };

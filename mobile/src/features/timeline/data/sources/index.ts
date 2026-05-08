@@ -70,12 +70,11 @@ export function resolveTimelinePeriodYears(request: TimelineRequest) {
   }
 
   if (request.decade !== undefined && Number.isFinite(request.decade)) {
-    const decade = Math.floor(request.decade / 10) * 10;
+    const decade = Math.floor(Math.abs(request.decade) / 10) * 10;
 
-    return {
-      yearFrom: decade,
-      yearTo: decade + 9,
-    };
+    return request.decade < 0
+      ? { yearFrom: -(decade + 9), yearTo: -decade }
+      : { yearFrom: decade, yearTo: decade + 9 };
   }
 
   if (request.approximatePeriod && Number.isFinite(request.approximatePeriod.century)) {
@@ -505,43 +504,21 @@ function isRecordWithinYearWindow(record: Record<string, unknown>, yearFrom?: nu
     return true;
   }
 
-  const interval = getRecordYearInterval(record);
+  const historicalYear = getTimelineHistoricalYear(record);
 
-  if (!interval) {
+  if (historicalYear === undefined) {
     return true;
   }
 
-  if (yearFrom !== undefined && interval.end < yearFrom) {
+  if (yearFrom !== undefined && historicalYear < yearFrom) {
     return false;
   }
 
-  if (yearTo !== undefined && interval.start > yearTo) {
+  if (yearTo !== undefined && historicalYear > yearTo) {
     return false;
   }
 
   return true;
-}
-
-function getRecordYearInterval(record: Record<string, unknown>) {
-  const timeType = asString(record.time_type) || asString(record.timeType);
-  const year = asNumber(record.year);
-  const yearStart = asNumber(record.year_start) ?? asNumber(record.yearStart);
-  const yearEnd = asNumber(record.year_end) ?? asNumber(record.yearEnd);
-  const dateValue = asString(record.date_value) || asString(record.dateValue);
-  const dateYear = dateValue ? asNumber(dateValue.slice(0, 4)) : undefined;
-
-  switch (timeType) {
-    case 'decade':
-      return year !== undefined ? { start: year, end: year + 9 } : undefined;
-    case 'year_range':
-      return yearStart !== undefined && yearEnd !== undefined
-        ? { start: Math.min(yearStart, yearEnd), end: Math.max(yearStart, yearEnd) }
-        : undefined;
-    case 'exact_date':
-      return dateYear !== undefined ? { start: dateYear, end: dateYear } : undefined;
-    default:
-      return year !== undefined ? { start: year, end: year } : undefined;
-  }
 }
 
 function isRecordWithinBounds(

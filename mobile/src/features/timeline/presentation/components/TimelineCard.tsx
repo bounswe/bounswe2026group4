@@ -6,17 +6,22 @@ import { TimelineEntity } from '../../domain/entities';
 interface TimelineCardProps {
   story: TimelineEntity;
   onPress?: (storyId: string) => void;
+  isLast?: boolean;
 }
 
 function getBadgeLabel(story: TimelineEntity) {
   if (story.historicalYear !== undefined) {
-    return String(story.historicalYear);
+    return formatHistoricalYear(story.historicalYear);
   }
 
   return story.timePeriod || 'Time';
 }
 
-export function TimelineCard({ story, onPress }: TimelineCardProps) {
+function formatHistoricalYear(year: number) {
+  return year < 0 ? `${Math.abs(year)} BC` : String(year);
+}
+
+export function TimelineCard({ story, onPress, isLast = false }: TimelineCardProps) {
   const { colors, spacing, typography } = useAppTheme();
 
   return (
@@ -30,19 +35,19 @@ export function TimelineCard({ story, onPress }: TimelineCardProps) {
         opacity: pressed ? 0.86 : 1,
       })}
     >
-      <View style={{ width: 58, alignItems: 'center' }}>
+      <View style={{ width: 76, alignItems: 'center' }}>
         <View
           style={{
             position: 'absolute',
             top: 0,
-            bottom: -spacing.md,
+            ...(isLast ? { height: spacing.lg } : { bottom: -spacing.md }),
             width: 2,
             backgroundColor: colors.border,
           }}
         />
         <View
           style={{
-            minWidth: 54,
+            minWidth: 72,
             paddingHorizontal: spacing.sm,
             paddingVertical: spacing.xs + 2,
             borderRadius: 999,
