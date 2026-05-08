@@ -44,7 +44,7 @@ function TagChip({ name, onRemove }) {
  * Renders removable chips for each active search/filter value.
  * Returns null when no filters are active.
  *
- * onRemove receives a key: "q" | "year_range" | "year_from" | "year_to" | "location"
+ * onRemove receives a key: "q" | "year_range" | "year_from" | "year_to" | "location" | "proximity" | "has_image"
  * onRemoveTag receives a tag name string
  */
 function ActiveFilters({
@@ -55,6 +55,7 @@ function ActiveFilters({
   radiusKm = null,
   hasProximity = false,
   tags = [],
+  hasImage = false,
   onRemove,
   onRemoveTag,
   onClearAll,
@@ -80,6 +81,10 @@ function ActiveFilters({
   if (hasProximity && radiusKm != null) {
     const distanceLabel = radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
     chips.push({ key: "proximity", label: `Within ${distanceLabel}` });
+  }
+
+  if (hasImage) {
+    chips.push({ key: "has_image", label: "Has image" });
   }
 
   if (chips.length === 0 && tags.length === 0) return null;

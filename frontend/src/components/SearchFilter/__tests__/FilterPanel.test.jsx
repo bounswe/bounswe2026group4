@@ -512,4 +512,62 @@ describe("FilterPanel", () => {
       expect(screen.getByLabelText(/location filter/i)).toBeInTheDocument();
     });
   });
+
+  describe("showHasImage prop", () => {
+    it("does not render the 'has image' checkbox by default (Feed/Map untouched)", async () => {
+      const user = userEvent.setup();
+      renderPanel();
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      expect(screen.queryByLabelText(/only stories with an image/i)).not.toBeInTheDocument();
+    });
+
+    it("renders the 'has image' checkbox when showHasImage is true", async () => {
+      const user = userEvent.setup();
+      renderPanel({ showHasImage: true });
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      expect(screen.getByLabelText(/only stories with an image/i)).toBeInTheDocument();
+    });
+
+    it("emits hasImage in onApply only when showHasImage is true", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      renderPanel({ showHasImage: true, onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByLabelText(/only stories with an image/i));
+      await user.click(screen.getByRole("button", { name: /^apply$/i }));
+
+      expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ hasImage: true }));
+    });
+
+    it("omits hasImage from onApply when showHasImage is false", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      renderPanel({ onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByRole("button", { name: /^apply$/i }));
+
+      const arg = onApply.mock.calls[0][0];
+      expect(arg).not.toHaveProperty("hasImage");
+    });
+
+    it("seeds the checkbox from the hasImage prop", async () => {
+      const user = userEvent.setup();
+      renderPanel({ showHasImage: true, hasImage: true });
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      expect(screen.getByLabelText(/only stories with an image/i)).toBeChecked();
+    });
+
+    it("Reset clears hasImage", async () => {
+      const user = userEvent.setup();
+      const onApply = vi.fn();
+      renderPanel({ showHasImage: true, hasImage: true, onApply });
+
+      await user.click(screen.getByRole("button", { name: /^filters$/i }));
+      await user.click(screen.getByRole("button", { name: /reset filters/i }));
+
+      expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ hasImage: false }));
+    });
+  });
 });
