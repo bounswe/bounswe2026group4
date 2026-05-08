@@ -47,9 +47,10 @@ function PublishedStoriesTab({ userId }) {
             : "Failed to load published stories. Please try again."
         );
       } finally {
-        if (id !== requestIdRef.current) return;
-        setLoading(false);
-        setLoadingMore(false);
+        if (id === requestIdRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [userId]
