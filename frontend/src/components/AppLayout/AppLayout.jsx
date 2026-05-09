@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Menu, MapPin, LogOut, User, Plus } from "lucide-react";
+import { Menu, MapPin, LogOut, User, Plus, Shield } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -52,8 +52,12 @@ function AppLayout() {
     navigate("/");
   };
 
+  const isAdmin = user?.role === "admin";
+  const baseLinks = isAdmin
+    ? [...publicLinks, { to: "/admin", label: "Admin", icon: Shield }]
+    : publicLinks;
   const isFilterPage = location.pathname === "/" || location.pathname === "/map";
-  const links = publicLinks.map((link) =>
+  const links = baseLinks.map((link) =>
     link.preserveSearch && isFilterPage && location.search
       ? { ...link, basePath: link.to, to: `${link.to}${location.search}` }
       : link
