@@ -402,85 +402,85 @@ function SubmitStoryPage() {
 
           {/* Year / date inputs */}
           {timeType === "exact_date" ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="dateValue">Date</Label>
-                <Input
-                  id="dateValue"
-                  type="date"
-                  value={dateValue}
-                  onChange={(e) => {
-                    setDateValue(e.target.value);
-                    if (fieldErrors.dateValue)
-                      setFieldErrors((prev) => ({ ...prev, dateValue: "" }));
-                  }}
-                  disabled={isSubmitting}
-                />
-                {fieldErrors.dateValue && (
-                  <p className="text-sm text-destructive">{fieldErrors.dateValue}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="timeValue">Time (optional)</Label>
-                <Input
-                  id="timeValue"
-                  type="time"
-                  value={timeValue}
-                  onChange={(e) => {
-                    setTimeValue(e.target.value);
-                    if (fieldErrors.timeValue)
-                      setFieldErrors((prev) => ({ ...prev, timeValue: "" }));
-                  }}
-                  disabled={isSubmitting || !dateValue}
-                />
-                {fieldErrors.timeValue && (
-                  <p className="text-sm text-destructive">{fieldErrors.timeValue}</p>
-                )}
-              </div>
-            </div>
-          ) : timeType === "year_range" ? (
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="yearStart">Start Year</Label>
+                  <Label htmlFor="dateValue">Date</Label>
                   <Input
-                    id="yearStart"
-                    type="number"
-                    value={yearStart}
+                    id="dateValue"
+                    type="date"
+                    value={dateValue}
                     onChange={(e) => {
-                      setYearStart(e.target.value);
-                      if (fieldErrors.yearStart)
-                        setFieldErrors((prev) => ({ ...prev, yearStart: "" }));
+                      setDateValue(e.target.value);
+                      if (fieldErrors.dateValue)
+                        setFieldErrors((prev) => ({ ...prev, dateValue: "" }));
                     }}
-                    placeholder="e.g. 1400 or -300"
                     disabled={isSubmitting}
                   />
-                  {fieldErrors.yearStart && (
-                    <p className="text-sm text-destructive">{fieldErrors.yearStart}</p>
+                  {fieldErrors.dateValue && (
+                    <p className="text-sm text-destructive">{fieldErrors.dateValue}</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="yearEnd">End Year</Label>
+                  <Label htmlFor="timeValue">Time (optional)</Label>
                   <Input
-                    id="yearEnd"
-                    type="number"
-                    value={yearEnd}
+                    id="timeValue"
+                    type="time"
+                    value={timeValue}
                     onChange={(e) => {
-                      setYearEnd(e.target.value);
-                      if (fieldErrors.yearEnd)
-                        setFieldErrors((prev) => ({ ...prev, yearEnd: "" }));
+                      setTimeValue(e.target.value);
+                      if (fieldErrors.timeValue)
+                        setFieldErrors((prev) => ({ ...prev, timeValue: "" }));
                     }}
-                    placeholder="e.g. 1500 or -100"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !dateValue}
                   />
-                  {fieldErrors.yearEnd && (
-                    <p className="text-sm text-destructive">{fieldErrors.yearEnd}</p>
+                  {fieldErrors.timeValue && (
+                    <p className="text-sm text-destructive">{fieldErrors.timeValue}</p>
                   )}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Use a negative year for BC (e.g. -300 = 300 BC).
+                BC dates are not supported for the Specific Date type. Use Exact Year, Approximate Year, Decade, or Year Range for BC.
               </p>
+            </div>
+          ) : timeType === "year_range" ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="yearStart">Start Year</Label>
+                <Input
+                  id="yearStart"
+                  type="number"
+                  value={yearStart}
+                  onChange={(e) => {
+                    setYearStart(e.target.value);
+                    if (fieldErrors.yearStart)
+                      setFieldErrors((prev) => ({ ...prev, yearStart: "" }));
+                  }}
+                  placeholder="e.g. 1400 or -300"
+                  disabled={isSubmitting}
+                />
+                {fieldErrors.yearStart && (
+                  <p className="text-sm text-destructive">{fieldErrors.yearStart}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="yearEnd">End Year</Label>
+                <Input
+                  id="yearEnd"
+                  type="number"
+                  value={yearEnd}
+                  onChange={(e) => {
+                    setYearEnd(e.target.value);
+                    if (fieldErrors.yearEnd)
+                      setFieldErrors((prev) => ({ ...prev, yearEnd: "" }));
+                  }}
+                  placeholder="e.g. 1500 or -100"
+                  disabled={isSubmitting}
+                />
+                {fieldErrors.yearEnd && (
+                  <p className="text-sm text-destructive">{fieldErrors.yearEnd}</p>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-2">
@@ -497,9 +497,6 @@ function SubmitStoryPage() {
                 placeholder="e.g. 1453 or -300 for BC"
                 disabled={isSubmitting}
               />
-              <p className="text-xs text-muted-foreground">
-                Use a negative year for BC (e.g. -300 = 300 BC).
-              </p>
               {fieldErrors.year && (
                 <p className="text-sm text-destructive">{fieldErrors.year}</p>
               )}

@@ -117,6 +117,27 @@ describe("TimelineEntry", () => {
     expect(screen.getByText("50s BC")).toBeInTheDocument();
   });
 
+  it("formats the date_value fallback as 'X BC' instead of leaking the raw negative", () => {
+    renderEntry({
+      id: 1,
+      title: "Story with malformed BC date_value",
+      time_type: "exact_date",
+      year: null,
+      year_start: null,
+      year_end: null,
+      // Malformed BC date_value triggers the bulletLabel fallback path. Without
+      // the fix, the fallback would emit the raw "-0044" match.
+      date_value: "-0044-03-15",
+      location_lat: null,
+      location_lng: null,
+      photo_url: null,
+      temporal_coverage: null,
+    });
+
+    expect(screen.getAllByText("44 BC").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/-0044/)).not.toBeInTheDocument();
+  });
+
   it("renders the photo when photo_url is provided", () => {
     renderEntry({
       id: 1,

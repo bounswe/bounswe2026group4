@@ -12,7 +12,9 @@ import {
 } from "@/services/deviceLocationService";
 import TagFilterInput from "./TagFilterInput";
 
-// Negative years represent BC, so no lower bound. Upper bound caps typos.
+// Negative years represent BC. Bounds keep typos like "-99999" or "20300"
+// from passing through silently; -9999 covers any plausible BC era.
+const YEAR_MIN = -9999;
 const YEAR_MAX = 2030;
 const YEAR_SPINNER_FROM = 1980;
 const YEAR_SPINNER_TO = new Date().getFullYear();
@@ -94,7 +96,9 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     if (value === "") return value;
     const num = Number(value);
     if (isNaN(num)) return value;
-    return num > YEAR_MAX ? YEAR_MAX : num;
+    if (num > YEAR_MAX) return YEAR_MAX;
+    if (num < YEAR_MIN) return YEAR_MIN;
+    return num;
   }
 
   function handleLocationChange(value) {

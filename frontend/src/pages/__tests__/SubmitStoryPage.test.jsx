@@ -770,6 +770,17 @@ describe("SubmitStoryPage", () => {
     expect(screen.getByLabelText(/time \(optional\)/i)).toBeInTheDocument();
   });
 
+  it("explains that BC dates are not supported for the Specific Date type", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(screen.getByLabelText(/time type/i), "exact_date");
+
+    expect(
+      screen.getByText(/BC dates are not supported for the Specific Date type/i)
+    ).toBeInTheDocument();
+  });
+
   it("disables the time input until a date is chosen", async () => {
     const user = userEvent.setup();
     renderPage();

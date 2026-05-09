@@ -17,7 +17,7 @@ function bulletLabel(story) {
   if (story.year_start != null) return formatHistoricalYear(story.year_start);
   if (typeof story.date_value === "string") {
     const match = story.date_value.match(/-?\d{4}/);
-    if (match) return match[0];
+    if (match) return formatHistoricalYear(Number(match[0]));
   }
   return "";
 }

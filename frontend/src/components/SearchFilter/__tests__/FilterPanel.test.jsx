@@ -317,6 +317,16 @@ describe("FilterPanel", () => {
     expect(screen.getByLabelText("From year")).toHaveValue(2020);
   });
 
+  it("clamps absurd BC inputs (below -9999) up to -9999", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("From year"), "-99999");
+
+    expect(screen.getByLabelText("From year")).toHaveValue(-9999);
+  });
+
   describe("Distance / proximity", () => {
     it("renders the predefined options (Anywhere, 500 m, 1 km, 10 km, 100 km) matching mobile", async () => {
       const user = userEvent.setup();
