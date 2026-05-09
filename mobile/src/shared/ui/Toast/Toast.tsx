@@ -1,11 +1,12 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { AlertCircle, CheckCircle, Info, X } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../../core/hooks/useAppTheme';
 import { ToastItem, ToastVariant, useToastContext } from '../../toast/ToastContext';
 
 const BOTTOM_CHROME_CLEARANCE = 112;
+const FALLBACK_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
 
 function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: number) => void }) {
   const { colors, spacing, typography } = useAppTheme();
@@ -107,7 +108,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: num
 export function Toaster() {
   const { toasts, removeToast } = useToastContext();
   const { spacing } = useAppTheme();
-  const insets = useSafeAreaInsets();
+  const insets = React.useContext(SafeAreaInsetsContext) ?? FALLBACK_SAFE_AREA_INSETS;
 
   if (toasts.length === 0) {
     return null;
