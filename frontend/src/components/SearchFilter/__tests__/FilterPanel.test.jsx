@@ -8,10 +8,17 @@ vi.mock("@/hooks/useLocationSuggestions", () => ({
 
 vi.mock("@/services/deviceLocationService", () => ({
   getCurrentDeviceCoordinates: vi.fn(),
+  // Default to "external" semantics so tests that pass externally-supplied
+  // coords get the right copy. Individual cases can override by calling
+  // `isProximityFromDeviceLocation.mockReturnValue(true)`.
+  isProximityFromDeviceLocation: vi.fn(() => false),
 }));
 
 import FilterPanel from "../FilterPanel";
-import { getCurrentDeviceCoordinates } from "@/services/deviceLocationService";
+import {
+  getCurrentDeviceCoordinates,
+  isProximityFromDeviceLocation,
+} from "@/services/deviceLocationService";
 
 vi.mock("@/services/tagService", () => ({
   searchTags: vi.fn().mockResolvedValue([
@@ -36,6 +43,7 @@ function renderPanel(props = {}) {
 describe("FilterPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isProximityFromDeviceLocation.mockReturnValue(false);
   });
 
   it("renders a Filters toggle button", () => {
@@ -490,6 +498,147 @@ describe("FilterPanel", () => {
       expect(onApply).toHaveBeenCalledWith(
         expect.objectContaining({ latitude: null, longitude: null, radiusKm: null }),
       );
+    });
+
+    describe("externally-supplied coords (e.g. from a map-pin View Timeline link)", () => {
+      const externalProps = { latitude: 41.0, longitude: 28.9, radiusKm: 0.5 };
+
+      it("uses the 'selected location' status copy on open", async () => {
+        const user = userEvent.setup();
+        // Mock returns false → coords are NOT from this session's geolocation.
+        isProximityFromDeviceLocation.mockReturnValue(false);
+        renderPanel(externalProps);
+
+        await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+        expect(
+          screen.getByText(/using a location selected on the map/i),
+        ).toBeInTheDocument();
+      });
+
+      it("labels the radio group 'Distance from selected location'", async () => {
+        const user = userEvent.setup();
+        isProximityFromDeviceLocation.mockReturnValue(false);
+        renderPanel(externalProps);
+
+        await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+        expect(
+          screen.getByRole("radiogroup", { name: /distance from selected location/i }),
+        ).toBeInTheDocument();
+      });
+
+      it("renders a 'Use my location instead' affordance", async () => {
+        const user = userEvent.setup();
+        isProximityFromDeviceLocation.mockReturnValue(false);
+        renderPanel(externalProps);
+
+        await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+        expect(
+          screen.getByRole("button", { name: /use my location instead/i }),
+        ).toBeInTheDocument();
+      });
+
+      it("does not render 'Use my location instead' when coords are from device geolocation", async () => {
+        const user = userEvent.setup();
+        isProximityFromDeviceLocation.mockReturnValue(true);
+        renderPanel(externalProps);
+
+        await user.click(screen.getByRole("button", { name: /^filters$/i }));
+
+        expect(
+          screen.queryByRole("button", { name: /use my location instead/i }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.getByText(/using your current location/i),
+        ).toBeInTheDocument();
+      });
+
+      it("clicking 'Use my location instead' resolves device coords and flips the status copy + radio label", async () => {
+        const user = userEvent.setup();
+        isProximityFromDeviceLocation.mockReturnValue(false);
+        getCurrentDeviceCoordinates.mockResolvedValueOnce({
+          status: "granted",
+          coordinates: { latitude: 40.5, longitude: 27.5 },
+        });
+        renderPanel(externalProps);
+
+        await user.click(screen.getByRole("button", { name: /^filters$/i }));
+        await user.click(
+          screen.getByRole("button", { name: /use my location instead/i }),
+        );
+
+        await waitFor(() =>
+          expect(
+            screen.getByText(/using your current location/i),
+          ).toBeInTheDocument(),
+        );
+        expect(
+          screen.getByRole("radiogroup", { name: /distance from current location/i }),
+        ).toBeInTheDocument();
+        expect(
+          screen.queryByRole("button", { name: /use my location instead/i }),
+        ).not.toBeInTheDocument();
+      });
+
+      it("Apply commits the device-resolved coords after switching, not the external ones", async () => {
+        const user = userEvent.setup();
+        const onApply = vi.fn();
+        isProximityFromDeviceLocation.mockReturnValue(false);
+        getCurrentDeviceCoordinates.mockResolvedValueOnce({
+          status: "granted",
+          coordinates: { latitude: 40.5, longitude: 27.5 },
+        });
+        renderPanel({ ...externalProps, onApply });
+
+        await user.click(screen.getByRole("button", { name: /^filters$/i }));
+        await user.click(
+          screen.getByRole("button", { name: /use my location instead/i }),
+        );
+        await waitFor(() =>
+          expect(
+            screen.getByText(/using your current location/i),
+          ).toBeInTheDocument(),
+        );
+        await user.click(screen.getByRole("button", { name: /^apply$/i }));
+
+        expect(onApply).toHaveBeenCalledWith(
+          expect.objectContaining({
+            latitude: 40.5,
+            longitude: 27.5,
+            radiusKm: 0.5,
+          }),
+        );
+      });
+
+      it("falls back to a 0.5 km radius if 'Use my location instead' is clicked without a radius selected", async () => {
+        const user = userEvent.setup();
+        const onApply = vi.fn();
+        isProximityFromDeviceLocation.mockReturnValue(false);
+        getCurrentDeviceCoordinates.mockResolvedValueOnce({
+          status: "granted",
+          coordinates: { latitude: 40.5, longitude: 27.5 },
+        });
+        // Externally-supplied coords with no radiusKm — atypical but
+        // possible if a future caller hands over coords alone.
+        renderPanel({ latitude: 41.0, longitude: 28.9, onApply });
+
+        await user.click(screen.getByRole("button", { name: /^filters$/i }));
+        await user.click(
+          screen.getByRole("button", { name: /use my location instead/i }),
+        );
+        await waitFor(() =>
+          expect(
+            screen.getByText(/using your current location/i),
+          ).toBeInTheDocument(),
+        );
+        await user.click(screen.getByRole("button", { name: /^apply$/i }));
+
+        expect(onApply).toHaveBeenCalledWith(
+          expect.objectContaining({ radiusKm: 0.5 }),
+        );
+      });
     });
   });
 

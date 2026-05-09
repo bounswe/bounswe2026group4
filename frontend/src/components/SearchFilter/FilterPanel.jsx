@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useLocationSuggestions } from "@/hooks/useLocationSuggestions";
-import { getCurrentDeviceCoordinates } from "@/services/deviceLocationService";
+import {
+  getCurrentDeviceCoordinates,
+  isProximityFromDeviceLocation,
+} from "@/services/deviceLocationService";
 import TagFilterInput from "./TagFilterInput";
 
 const YEAR_MIN = 1000;
@@ -14,9 +17,14 @@ const YEAR_MAX = 2030;
 const YEAR_SPINNER_FROM = 1980;
 const YEAR_SPINNER_TO = new Date().getFullYear();
 
+// Smallest meaningful radius — picked when the user switches the centre to
+// their device location without having selected one beforehand. Kept in sync
+// with the smallest non-null entry in PROXIMITY_OPTIONS below.
+const DEFAULT_PROXIMITY_RADIUS_KM = 0.5;
+
 const PROXIMITY_OPTIONS = [
   { value: null, label: "Anywhere" },
-  { value: 0.5, label: "500 m" },
+  { value: DEFAULT_PROXIMITY_RADIUS_KM, label: "500 m" },
   { value: 1, label: "1 km" },
   { value: 10, label: "10 km" },
   { value: 100, label: "100 km" },
@@ -46,12 +54,23 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
   const [localCoords, setLocalCoords] = useState(
     () => (latitude != null && longitude != null ? { latitude, longitude } : null)
   );
+  // Tracks where the active proximity centre came from. "device" means the
+  // user granted geolocation in this session (via this panel or earlier);
+  // "external" means coords arrived pre-set in the URL — for now, only the
+  // map-pin "View Timeline" link does this. The distinction drives the
+  // status copy, the radio-group aria-label, and whether we surface a
+  // "Use my location instead" affordance.
+  const [localCoordsSource, setLocalCoordsSource] = useState(() => {
+    if (latitude == null || longitude == null) return null;
+    return isProximityFromDeviceLocation(latitude, longitude) ? "device" : "external";
+  });
   const [proximityResolving, setProximityResolving] = useState(false);
-  const [proximityStatus, setProximityStatus] = useState(
-    radiusKm != null && latitude != null && longitude != null
+  const [proximityStatus, setProximityStatus] = useState(() => {
+    if (radiusKm == null || latitude == null || longitude == null) return null;
+    return isProximityFromDeviceLocation(latitude, longitude)
       ? { kind: "ok", message: "Using your current location." }
-      : null
-  );
+      : { kind: "ok", message: "Using a location selected on the map." };
+  });
   const proximityRequestIdRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -111,25 +130,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     }
   }
 
-  async function handleProximityRadiusChange(nextRadiusKm) {
-    const requestId = proximityRequestIdRef.current + 1;
-    proximityRequestIdRef.current = requestId;
-    setLocalRadiusKm(nextRadiusKm);
-
-    if (nextRadiusKm == null) {
-      setLocalCoords(null);
-      setProximityResolving(false);
-      setProximityStatus(null);
-      return;
-    }
-
-    // Reuse coordinates if we already have them so toggling between radii
-    // doesn't re-prompt the user for permission on every click.
-    if (localCoords) {
-      setProximityStatus({ kind: "ok", message: "Using your current location." });
-      return;
-    }
-
+  async function resolveDeviceCoordinates(requestId) {
     setProximityResolving(true);
     setProximityStatus({ kind: "info", message: "Fetching your current location..." });
 
@@ -143,6 +144,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
 
     if (result.status === "granted") {
       setLocalCoords(result.coordinates);
+      setLocalCoordsSource("device");
       setProximityStatus({ kind: "ok", message: "Using your current location." });
       return;
     }
@@ -152,6 +154,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     // Apply gates on coords being present, so a selected-but-unresolved
     // radius stays a no-op until a future attempt succeeds.
     setLocalCoords(null);
+    setLocalCoordsSource(null);
     setProximityStatus({
       kind: "error",
       message:
@@ -159,6 +162,46 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
           ? "Location disabled. Enable location permission, then pick a radius again."
           : "Current location is unavailable. Try again or choose Anywhere.",
     });
+  }
+
+  async function handleProximityRadiusChange(nextRadiusKm) {
+    const requestId = proximityRequestIdRef.current + 1;
+    proximityRequestIdRef.current = requestId;
+    setLocalRadiusKm(nextRadiusKm);
+
+    if (nextRadiusKm == null) {
+      setLocalCoords(null);
+      setLocalCoordsSource(null);
+      setProximityResolving(false);
+      setProximityStatus(null);
+      return;
+    }
+
+    // Reuse coordinates if we already have them so toggling between radii
+    // doesn't re-prompt the user for permission (or override an externally
+    // supplied centre) on every click.
+    if (localCoords) {
+      setProximityStatus(
+        localCoordsSource === "external"
+          ? { kind: "ok", message: "Using a location selected on the map." }
+          : { kind: "ok", message: "Using your current location." },
+      );
+      return;
+    }
+
+    await resolveDeviceCoordinates(requestId);
+  }
+
+  async function handleSwitchToDeviceLocation() {
+    const requestId = proximityRequestIdRef.current + 1;
+    proximityRequestIdRef.current = requestId;
+    // If the user hasn't picked a radius yet (somehow ended up here without
+    // one), default to the smallest meaningful option so the filter has
+    // something to apply.
+    if (localRadiusKm == null) setLocalRadiusKm(DEFAULT_PROXIMITY_RADIUS_KM);
+    setLocalCoords(null);
+    setLocalCoordsSource(null);
+    await resolveDeviceCoordinates(requestId);
   }
 
   function handleApply() {
@@ -185,6 +228,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
       proximityRequestIdRef.current += 1;
       setLocalRadiusKm(null);
       setLocalCoords(null);
+      setLocalCoordsSource(null);
       setProximityResolving(false);
       setProximityStatus(null);
     }
@@ -217,6 +261,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     setLockedBbox(null);
     setLocalRadiusKm(null);
     setLocalCoords(null);
+    setLocalCoordsSource(null);
     setProximityResolving(false);
     setProximityStatus(null);
     setLocalTags([]);
@@ -417,7 +462,11 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
               <legend className="mb-2 text-sm font-medium">Distance</legend>
               <div
                 role="radiogroup"
-                aria-label="Distance from current location"
+                aria-label={
+                  localCoordsSource === "external"
+                    ? "Distance from selected location"
+                    : "Distance from current location"
+                }
                 className="flex flex-wrap gap-1.5"
               >
                 {PROXIMITY_OPTIONS.map((option) => {
@@ -463,6 +512,17 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                   )}
                   {proximityStatus?.message}
                 </p>
+              )}
+              {localCoordsSource === "external" && !proximityResolving && (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  onClick={handleSwitchToDeviceLocation}
+                  className="mt-1 h-auto p-0 text-xs"
+                >
+                  Use my location instead
+                </Button>
               )}
             </fieldset>
 

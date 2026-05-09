@@ -4,10 +4,15 @@ import StoryPopup from "./StoryPopup";
 
 function featureToStory(feature) {
   const props = feature.properties ?? {};
+  const coords = feature.geometry?.coordinates;
+  // GeoJSON RFC 7946: coordinates are [longitude, latitude].
+  const [lng, lat] = Array.isArray(coords) ? coords : [];
   return {
     id: feature.id,
     title: props.title,
     location_name: props.location_name,
+    location_lat: lat,
+    location_lng: lng,
     time_type: props.time_type,
     year: props.year,
     year_start: props.year_start,

@@ -11,6 +11,8 @@ describe("StoryPopup", () => {
     id: 42,
     title: "The Old Bridge",
     location_name: "Istanbul",
+    location_lat: 41.01,
+    location_lng: 28.97,
     time_type: "exact_year",
     year: 1920,
   };
@@ -35,5 +37,41 @@ describe("StoryPopup", () => {
 
     const link = screen.getByText("Read more");
     expect(link.closest("a")).toHaveAttribute("href", "/stories/42");
+  });
+
+  it("renders a 'View Timeline' link to /timeline with the pin's proximity params pre-applied", () => {
+    renderPopup(baseStory);
+
+    const link = screen.getByText("View Timeline");
+    // Coords are rounded to 6 decimals (toFixed(6)) before going into the URL.
+    expect(link.closest("a")).toHaveAttribute(
+      "href",
+      "/timeline?latitude=41.010000&longitude=28.970000&radius_km=0.5",
+    );
+  });
+
+  it("rounds raw GeoJSON-precision coordinates to 6 decimals in the View Timeline href", () => {
+    renderPopup({
+      ...baseStory,
+      location_lat: 41.0123456789,
+      location_lng: 28.9876543210,
+    });
+
+    expect(screen.getByText("View Timeline").closest("a")).toHaveAttribute(
+      "href",
+      "/timeline?latitude=41.012346&longitude=28.987654&radius_km=0.5",
+    );
+  });
+
+  it("omits the 'View Timeline' link when coordinates are missing", () => {
+    renderPopup({ ...baseStory, location_lat: undefined, location_lng: undefined });
+
+    expect(screen.queryByText("View Timeline")).not.toBeInTheDocument();
+  });
+
+  it("omits the 'View Timeline' link when coordinates are non-numeric", () => {
+    renderPopup({ ...baseStory, location_lat: "n/a", location_lng: "n/a" });
+
+    expect(screen.queryByText("View Timeline")).not.toBeInTheDocument();
   });
 });

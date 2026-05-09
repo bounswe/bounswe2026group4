@@ -9,6 +9,13 @@ vi.mock("@/services/tagService", () => ({
   searchTags: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("@/services/deviceLocationService", () => ({
+  getCurrentDeviceCoordinates: vi.fn(),
+  // Default to device semantics so the existing chip assertions that expect
+  // "Within X" (rather than "Within X of selected location") keep passing.
+  isProximityFromDeviceLocation: vi.fn(() => true),
+}));
+
 function renderSearchFilter(initialEntries = ["/"]) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>

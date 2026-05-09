@@ -6,11 +6,23 @@ import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 // future addition of user-controlled content (e.g. story body text) must be
 // escaped or sanitized here to avoid XSS at that innerHTML boundary.
 //
-// Uses a plain <a> tag (not <Link>) so the component does not require a
+// Uses plain <a> tags (not <Link>) so the component does not require a
 // react-router context during static rendering. Clicks are intercepted by
 // StoryLinkInterceptor in MapView to perform client-side navigation.
 function StoryPopup({ story }) {
   const timePeriod = formatTimePeriod(story);
+  const lat = Number(story.location_lat);
+  const lng = Number(story.location_lng);
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+  // Open the existing /timeline page with proximity params pre-applied —
+  // useFilterState reads latitude/longitude/radius_km directly from the URL,
+  // matching the behaviour of tapping a proximity filter chip elsewhere.
+  // Coords are rounded to 6 decimals (~10 cm precision) so raw GeoJSON
+  // floats don't pollute the address bar with 15-digit tails, and so the
+  // tolerance window in isProximityFromDeviceLocation behaves predictably.
+  const nearbyHref = hasCoords
+    ? `/timeline?latitude=${lat.toFixed(6)}&longitude=${lng.toFixed(6)}&radius_km=0.5`
+    : null;
 
   return (
     <div className="max-w-xs">
@@ -21,12 +33,22 @@ function StoryPopup({ story }) {
       {timePeriod && (
         <p className="text-xs text-muted-foreground mb-1">{timePeriod}</p>
       )}
-      <a
-        href={`/stories/${story.id}`}
-        className="text-xs font-medium text-primary hover:underline"
-      >
-        Read more
-      </a>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <a
+          href={`/stories/${story.id}`}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Read more
+        </a>
+        {nearbyHref && (
+          <a
+            href={nearbyHref}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View Timeline
+          </a>
+        )}
+      </div>
     </div>
   );
 }

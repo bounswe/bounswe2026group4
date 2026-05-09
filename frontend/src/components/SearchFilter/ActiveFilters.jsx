@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTagColorClass } from "@/utils/tagUtils";
+import { formatDistanceKm } from "@/utils/distance";
+import { isProximityFromDeviceLocation } from "@/services/deviceLocationService";
 import { cn } from "@/lib/utils";
 
 function FilterChip({ label, onRemove }) {
@@ -52,6 +54,8 @@ function ActiveFilters({
   yearFrom = "",
   yearTo = "",
   location = "",
+  latitude = null,
+  longitude = null,
   radiusKm = null,
   hasProximity = false,
   tags = [],
@@ -79,8 +83,14 @@ function ActiveFilters({
   }
 
   if (hasProximity && radiusKm != null) {
-    const distanceLabel = radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
-    chips.push({ key: "proximity", label: `Within ${distanceLabel}` });
+    // The chip wording differentiates the device-location case (the implicit
+    // "around me" reading) from coords supplied by an external trigger like a
+    // map pin click — otherwise "Within 500 m" is misleading.
+    const fromDevice = isProximityFromDeviceLocation(latitude, longitude);
+    const label = fromDevice
+      ? `Within ${formatDistanceKm(radiusKm)}`
+      : `Within ${formatDistanceKm(radiusKm)} of selected location`;
+    chips.push({ key: "proximity", label });
   }
 
   if (hasImage) {
