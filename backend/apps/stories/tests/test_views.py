@@ -1208,7 +1208,7 @@ class TestStoryTimelineView:
         card = response.data['results'][0]
         for field in ('id', 'title', 'time_type', 'year', 'year_start', 'year_end',
                       'date_value', 'time_value', 'temporal_coverage',
-                      'location_lat', 'location_lng', 'photo_url'):
+                      'location_lat', 'location_lng', 'location_name', 'photo_url'):
             assert field in card, f'Missing field: {field}'
 
     def test_response_card_omits_feed_specific_fields(self, client):
