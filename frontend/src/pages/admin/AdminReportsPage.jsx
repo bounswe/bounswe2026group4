@@ -163,7 +163,7 @@ function AdminReportsPage() {
 
       <ConfirmDialog
         open={Boolean(activeReport)}
-        onOpenChange={(open) => { if (!open) setActiveReport(null); }}
+        onOpenChange={(open) => { if (!open && !submitting) setActiveReport(null); }}
         title="Resolve report"
         description={
           activeReport

@@ -143,7 +143,7 @@ function AdminStoriesPage() {
 
       <ConfirmDialog
         open={Boolean(target)}
-        onOpenChange={(open) => { if (!open) setTarget(null); }}
+        onOpenChange={(open) => { if (!open && !submitting) setTarget(null); }}
         title="Remove story"
         description={target ? `This will remove "${target.title}". This action is logged.` : ""}
         confirmLabel="Remove"

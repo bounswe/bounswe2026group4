@@ -22,7 +22,7 @@ describe("AdminUsersPage", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("looks up a user by ID and renders their info", async () => {
-    getPublicProfile.mockResolvedValue({ id: 12, username: "carol", is_active: true });
+    getPublicProfile.mockResolvedValue({ id: 12, username: "carol" });
     renderPage();
     await userEvent.type(screen.getByLabelText(/user id/i), "12");
     await userEvent.click(screen.getByRole("button", { name: /look up/i }));
@@ -39,7 +39,7 @@ describe("AdminUsersPage", () => {
   });
 
   it("bans a user after confirmation", async () => {
-    getPublicProfile.mockResolvedValue({ id: 7, username: "dave", is_active: true });
+    getPublicProfile.mockResolvedValue({ id: 7, username: "dave" });
     banUser.mockResolvedValue({ id: 7, is_active: false });
     renderPage();
 

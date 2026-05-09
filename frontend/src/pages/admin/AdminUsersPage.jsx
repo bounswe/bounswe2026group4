@@ -100,7 +100,6 @@ function AdminUsersPage() {
                 <div className="font-medium">{profile.username || "Unknown"}</div>
                 <div className="text-sm text-muted-foreground">
                   ID #{profile.id ?? profile._lookupId}
-                  {profile.email ? ` · ${profile.email}` : ""}
                 </div>
                 <div className="mt-1 text-sm">
                   Status: {isBanned ? (

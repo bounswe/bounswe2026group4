@@ -126,7 +126,7 @@ function AdminTagsPage() {
 
       <Pagination
         page={page}
-        count={tags.length}
+        count={tags.count ?? tags.length}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
         disabled={loading}

@@ -18,7 +18,7 @@ export async function resolveReport(reportId, resolutionNote = "") {
   return response.data;
 }
 
-/** DELETE /moderation/stories/<id>/ — body { moderation_reason }. */
+/** DELETE /moderation/stories/<id>/ — body { moderation_reason }. Soft-delete: sets status=REMOVED, content is preserved server-side. */
 export async function removeStory(storyId, moderationReason) {
   await api.delete(`/moderation/stories/${storyId}/`, {
     data: { moderation_reason: moderationReason },
