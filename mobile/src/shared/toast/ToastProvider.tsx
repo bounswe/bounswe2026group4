@@ -8,6 +8,11 @@ export function ToastProvider({ children }: PropsWithChildren) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const timersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
+  const clearToastTimers = () => {
+    Object.values(timersRef.current).forEach(clearTimeout);
+    timersRef.current = {};
+  };
+
   const removeToast = (id: number) => {
     const timer = timersRef.current[id];
     if (timer) {
@@ -23,7 +28,8 @@ export function ToastProvider({ children }: PropsWithChildren) {
     const variant = options?.variant ?? 'default';
     const duration = options?.duration ?? 3000;
 
-    setToasts((current) => [...current, { id, message, variant }]);
+    clearToastTimers();
+    setToasts([{ id, message, variant }]);
 
     timersRef.current[id] = setTimeout(() => {
       removeToast(id);
@@ -34,8 +40,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     return () => {
-      Object.values(timersRef.current).forEach(clearTimeout);
-      timersRef.current = {};
+      clearToastTimers();
     };
   }, []);
 
