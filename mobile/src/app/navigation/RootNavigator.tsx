@@ -1183,12 +1183,23 @@ export function RootNavigator() {
           {canGoBack ? (
             <BackButton onPress={handleBack} />
           ) : (
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${APP_NAME} home`}
+              onPress={() => handleNavigate(ROUTES.FEED)}
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.sm + 2,
+                opacity: pressed ? 0.72 : 1,
+              })}
+            >
               <MapPin color={colors.text} size={28} strokeWidth={2.25} />
               <Text style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>
                 {APP_NAME}
               </Text>
-            </View>
+            </Pressable>
           )}
           {isAuthenticated ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>

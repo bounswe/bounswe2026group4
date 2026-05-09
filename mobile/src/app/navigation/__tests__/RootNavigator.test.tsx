@@ -560,6 +560,19 @@ describe('RootNavigator auth flow', () => {
     expect(screen.queryByText('Story map and feed')).toBeNull();
   });
 
+  it('uses the StoryMap brand as a home button to return to feed', async () => {
+    renderNavigator();
+
+    await screen.findByLabelText('Timeline');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
+
+    fireEvent.press(screen.getByLabelText('StoryMap home'));
+
+    expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(false);
+  });
+
   it('allows access to protected screens after login and returns to a public route on logout', async () => {
     renderNavigator();
 
