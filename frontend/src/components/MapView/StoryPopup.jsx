@@ -14,10 +14,11 @@ function StoryPopup({ story }) {
   const lat = Number(story.location_lat);
   const lng = Number(story.location_lng);
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-  // URL keys mirror useFilterState's `latitude` / `longitude` so the target
-  // page can pick them up via the same hook the rest of the app uses.
+  // Open the existing /timeline page with proximity params pre-applied —
+  // useFilterState reads latitude/longitude/radius_km directly from the URL,
+  // matching the behaviour of tapping a proximity filter chip elsewhere.
   const nearbyHref = hasCoords
-    ? `/nearby-timeline?latitude=${lat}&longitude=${lng}`
+    ? `/timeline?latitude=${lat}&longitude=${lng}&radius_km=0.5`
     : null;
 
   return (

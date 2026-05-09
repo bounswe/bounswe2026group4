@@ -39,7 +39,7 @@ const MIN_PROXIMITY_HALF_DELTA = 0.01;
 // client-side navigation instead of a full page reload. Captures the
 // current map URL (including search params) as `from` state so back-
 // navigation preserves active filters.
-const POPUP_LINK_SELECTOR = "a[href^='/stories/'], a[href^='/nearby-timeline']";
+const POPUP_LINK_SELECTOR = "a[href^='/stories/'], a[href^='/timeline']";
 
 function StoryLinkInterceptor() {
   const map = useMap();

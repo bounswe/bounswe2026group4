@@ -454,12 +454,12 @@ describe("featurePopupHtml", () => {
     expect(html).not.toContain("Location 7");
   });
 
-  it("includes a View Timeline link with the feature's coordinates", () => {
+  it("includes a View Timeline link to /timeline with proximity params pre-set", () => {
     // makeFeature(7) → coordinates [28.97, 41.07] (lng, lat per RFC 7946)
     const html = featurePopupHtml(makeFeature(7));
     expect(html).toContain("View Timeline");
     expect(html).toContain(
-      'href="/nearby-timeline?latitude=41.07&amp;longitude=28.97"',
+      'href="/timeline?latitude=41.07&amp;longitude=28.97&amp;radius_km=0.5"',
     );
   });
 });
@@ -489,7 +489,7 @@ describe("StoryLinkInterceptor", () => {
             }
           />
           <Route path="/stories/:id" element={<LocationProbe />} />
-          <Route path="/nearby-timeline" element={<LocationProbe />} />
+          <Route path="/timeline" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     );
@@ -516,20 +516,21 @@ describe("StoryLinkInterceptor", () => {
     );
   });
 
-  it("intercepts clicks on /nearby-timeline anchors inside the map and navigates via react-router", async () => {
+  it("intercepts clicks on /timeline anchors inside the map and navigates via react-router", async () => {
     const user = userEvent.setup();
     render(<Harness initialEntries={["/map?category=nature"]} />);
 
     const anchor = document.createElement("a");
-    anchor.setAttribute("href", "/nearby-timeline?lat=41&lng=29");
+    anchor.setAttribute(
+      "href",
+      "/timeline?latitude=41&longitude=29&radius_km=0.5",
+    );
     anchor.textContent = "View Timeline";
     fakeMapContainer.appendChild(anchor);
 
     await user.click(anchor);
 
-    expect(screen.getByTestId("current-pathname").textContent).toBe(
-      "/nearby-timeline",
-    );
+    expect(screen.getByTestId("current-pathname").textContent).toBe("/timeline");
     expect(screen.getByTestId("current-state-from").textContent).toBe(
       "/map?category=nature",
     );

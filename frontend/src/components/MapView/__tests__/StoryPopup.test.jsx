@@ -39,13 +39,13 @@ describe("StoryPopup", () => {
     expect(link.closest("a")).toHaveAttribute("href", "/stories/42");
   });
 
-  it("renders a 'View Timeline' link with the pin coordinates when both are present", () => {
+  it("renders a 'View Timeline' link to /timeline with the pin's proximity params pre-applied", () => {
     renderPopup(baseStory);
 
     const link = screen.getByText("View Timeline");
     expect(link.closest("a")).toHaveAttribute(
       "href",
-      "/nearby-timeline?latitude=41.01&longitude=28.97",
+      "/timeline?latitude=41.01&longitude=28.97&radius_km=0.5",
     );
   });
 
