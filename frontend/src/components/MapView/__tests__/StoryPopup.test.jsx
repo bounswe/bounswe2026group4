@@ -43,9 +43,23 @@ describe("StoryPopup", () => {
     renderPopup(baseStory);
 
     const link = screen.getByText("View Timeline");
+    // Coords are rounded to 6 decimals (toFixed(6)) before going into the URL.
     expect(link.closest("a")).toHaveAttribute(
       "href",
-      "/timeline?latitude=41.01&longitude=28.97&radius_km=0.5",
+      "/timeline?latitude=41.010000&longitude=28.970000&radius_km=0.5",
+    );
+  });
+
+  it("rounds raw GeoJSON-precision coordinates to 6 decimals in the View Timeline href", () => {
+    renderPopup({
+      ...baseStory,
+      location_lat: 41.0123456789,
+      location_lng: 28.9876543210,
+    });
+
+    expect(screen.getByText("View Timeline").closest("a")).toHaveAttribute(
+      "href",
+      "/timeline?latitude=41.012346&longitude=28.987654&radius_km=0.5",
     );
   });
 

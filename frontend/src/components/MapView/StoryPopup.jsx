@@ -17,8 +17,11 @@ function StoryPopup({ story }) {
   // Open the existing /timeline page with proximity params pre-applied —
   // useFilterState reads latitude/longitude/radius_km directly from the URL,
   // matching the behaviour of tapping a proximity filter chip elsewhere.
+  // Coords are rounded to 6 decimals (~10 cm precision) so raw GeoJSON
+  // floats don't pollute the address bar with 15-digit tails, and so the
+  // tolerance window in isProximityFromDeviceLocation behaves predictably.
   const nearbyHref = hasCoords
-    ? `/timeline?latitude=${lat}&longitude=${lng}&radius_km=0.5`
+    ? `/timeline?latitude=${lat.toFixed(6)}&longitude=${lng.toFixed(6)}&radius_km=0.5`
     : null;
 
   return (

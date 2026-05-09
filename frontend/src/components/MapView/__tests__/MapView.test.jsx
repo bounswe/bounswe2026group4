@@ -456,13 +456,15 @@ describe("featurePopupHtml", () => {
 
   it("includes a View Timeline link to /timeline with proximity params pre-set", () => {
     // makeFeature(7) → coordinates [28.97, 41.07] (lng, lat per RFC 7946).
+    // Coords are rounded via toFixed(6) before the URL is built, so the
+    // displayed precision is "41.070000" / "28.970000".
     // Note: featurePopupHtml runs through renderToStaticMarkup, which escapes
     // the `&` query-string separators as `&amp;`. The browser unescapes them
     // when parsing the rendered HTML, so the live href is still `…&…`.
     const html = featurePopupHtml(makeFeature(7));
     expect(html).toContain("View Timeline");
     expect(html).toContain(
-      'href="/timeline?latitude=41.07&amp;longitude=28.97&amp;radius_km=0.5"',
+      'href="/timeline?latitude=41.070000&amp;longitude=28.970000&amp;radius_km=0.5"',
     );
   });
 });
@@ -537,5 +539,27 @@ describe("StoryLinkInterceptor", () => {
     expect(screen.getByTestId("current-state-from").textContent).toBe(
       "/map?category=nature",
     );
+  });
+
+  it("does not intercept anchors whose href starts with '/timeline' but isn't the /timeline?... route", async () => {
+    const user = userEvent.setup();
+    render(<Harness initialEntries={["/map"]} />);
+
+    // /timelines/... or /timeline-of-events would share the prefix string but
+    // are not the proximity-pre-applied route the popup builds.
+    const anchor = document.createElement("a");
+    anchor.setAttribute("href", "/timelines/123");
+    anchor.textContent = "Sibling route";
+    // Suppress jsdom's "navigation to another Document" warning — the
+    // assertion below is "pathname did not change", and the default
+    // navigation would (in jsdom) be a no-op anyway.
+    anchor.addEventListener("click", (e) => e.preventDefault());
+    fakeMapContainer.appendChild(anchor);
+
+    await user.click(anchor);
+
+    // The interceptor must NOT navigate via react-router for this anchor —
+    // pathname stays unchanged.
+    expect(screen.getByTestId("current-pathname").textContent).toBe("/map");
   });
 });

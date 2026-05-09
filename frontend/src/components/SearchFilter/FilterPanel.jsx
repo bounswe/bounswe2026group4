@@ -17,9 +17,14 @@ const YEAR_MAX = 2030;
 const YEAR_SPINNER_FROM = 1980;
 const YEAR_SPINNER_TO = new Date().getFullYear();
 
+// Smallest meaningful radius — picked when the user switches the centre to
+// their device location without having selected one beforehand. Kept in sync
+// with the smallest non-null entry in PROXIMITY_OPTIONS below.
+const DEFAULT_PROXIMITY_RADIUS_KM = 0.5;
+
 const PROXIMITY_OPTIONS = [
   { value: null, label: "Anywhere" },
-  { value: 0.5, label: "500 m" },
+  { value: DEFAULT_PROXIMITY_RADIUS_KM, label: "500 m" },
   { value: 1, label: "1 km" },
   { value: 10, label: "10 km" },
   { value: 100, label: "100 km" },
@@ -193,7 +198,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     // If the user hasn't picked a radius yet (somehow ended up here without
     // one), default to the smallest meaningful option so the filter has
     // something to apply.
-    if (localRadiusKm == null) setLocalRadiusKm(0.5);
+    if (localRadiusKm == null) setLocalRadiusKm(DEFAULT_PROXIMITY_RADIUS_KM);
     setLocalCoords(null);
     setLocalCoordsSource(null);
     await resolveDeviceCoordinates(requestId);
