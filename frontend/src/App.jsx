@@ -1,7 +1,13 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import AppLayout from "@/components/AppLayout/AppLayout";
+import AdminLayout from "@/components/AdminPanel/AdminLayout";
+import AdminReportsPage from "@/pages/admin/AdminReportsPage";
+import AdminStoriesPage from "@/pages/admin/AdminStoriesPage";
+import AdminUsersPage from "@/pages/admin/AdminUsersPage";
+import AdminTagsPage from "@/pages/admin/AdminTagsPage";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { Toaster } from "@/components/ui/toaster";
@@ -71,6 +77,20 @@ function App() {
               <Route path="/profile/:userId" element={<ProfilePage />} />
               <Route path="/stories/:id" element={<StoryDetailPage />} />
               <Route path="/tags/:slug" element={<TagPage />} />
+              <Route
+                path="/admin"
+                element={(
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                )}
+              >
+                <Route index element={<AdminReportsPage />} />
+                <Route path="reports" element={<AdminReportsPage />} />
+                <Route path="stories" element={<AdminStoriesPage />} />
+                <Route path="users" element={<AdminUsersPage />} />
+                <Route path="tags" element={<AdminTagsPage />} />
+              </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
