@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import TimelineView from "@/components/Timeline/TimelineView";
-import SearchBar from "@/components/SearchFilter/SearchBar";
 import FilterPanel from "@/components/SearchFilter/FilterPanel";
 import ActiveFilters from "@/components/SearchFilter/ActiveFilters";
 import { useFilterState } from "@/hooks/useFilterState";
@@ -23,7 +22,6 @@ function countActiveFilters({ yearFrom, yearTo, location, hasProximity, tags, ha
 
 function TimelinePage() {
   const {
-    q,
     yearFrom,
     yearTo,
     location,
@@ -65,7 +63,6 @@ function TimelinePage() {
         const data = await getTimeline({
           yearFrom: yearFrom === "" ? undefined : yearFrom,
           yearTo: yearTo === "" ? undefined : yearTo,
-          q,
           location,
           tags,
           latMin: latMin ?? undefined,
@@ -101,7 +98,6 @@ function TimelinePage() {
     [
       yearFrom,
       yearTo,
-      q,
       location,
       tags,
       latMin,
@@ -127,13 +123,6 @@ function TimelinePage() {
   function handleRetry() {
     fetchPage(1, { append: false });
   }
-
-  const handleSearchChange = useCallback(
-    (value) => {
-      setFilters({ q: value }, { replace: true });
-    },
-    [setFilters],
-  );
 
   function handleFilterApply({
     yearFrom: yf,
@@ -249,20 +238,12 @@ function TimelinePage() {
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Timeline</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Stories ordered by when they happened.
-          </p>
-        </div>
-
-        <div className="mb-6 space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <SearchBar
-                defaultValue={q}
-                onSearch={handleSearchChange}
-                placeholder="Search by title or place…"
-              />
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Timeline</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Stories ordered by when they happened.
+              </p>
             </div>
             <FilterPanel
               key={filterPanelKey}
@@ -284,7 +265,6 @@ function TimelinePage() {
             />
           </div>
           <ActiveFilters
-            q={q}
             yearFrom={yearFrom}
             yearTo={yearTo}
             location={location}

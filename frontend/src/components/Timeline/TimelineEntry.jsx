@@ -21,15 +21,8 @@ function bulletLabel(story) {
   return "";
 }
 
-function decadeChip(story) {
-  const yearForDecade = story.year ?? story.year_start;
-  if (yearForDecade == null) return null;
-  return `${Math.floor(yearForDecade / 10) * 10}s`;
-}
-
 function TimelineEntry({ story }) {
   const label = bulletLabel(story);
-  const decade = story.time_type === "decade" ? null : decadeChip(story);
   const hasCoords =
     story.location_lat != null && story.location_lng != null;
   const locationName =
@@ -78,23 +71,13 @@ function TimelineEntry({ story }) {
             {story.title}
           </h3>
 
-          <div className="flex flex-wrap gap-1.5">
-            {label && (
+          {label && (
+            <div className="flex flex-wrap gap-1.5">
               <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 {label}
               </span>
-            )}
-            {decade && decade !== label && (
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {decade}
-              </span>
-            )}
-            {story.temporal_coverage && (
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {story.temporal_coverage}
-              </span>
-            )}
-          </div>
+            </div>
+          )}
 
           {locationText && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

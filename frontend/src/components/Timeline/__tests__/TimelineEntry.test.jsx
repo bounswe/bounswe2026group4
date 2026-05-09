@@ -82,6 +82,44 @@ describe("TimelineEntry", () => {
     expect(screen.getAllByText("1870s").length).toBeGreaterThan(0);
   });
 
+  it("renders only the formatTimePeriod label chip — no decade chip for non-decade stories", () => {
+    renderEntry({
+      id: 1,
+      title: "T",
+      time_type: "exact_year",
+      year: 1920,
+      year_start: null,
+      year_end: null,
+      location_lat: null,
+      location_lng: null,
+      photo_url: null,
+      temporal_coverage: "1920",
+    });
+
+    // "1920" appears as the bullet label and as one chip — nothing else
+    const chips = screen.getAllByText("1920");
+    // bullet + one chip = 2 occurrences at most; the decade "1920s" must not appear
+    expect(chips.length).toBeLessThanOrEqual(2);
+    expect(screen.queryByText("1920s")).not.toBeInTheDocument();
+  });
+
+  it("does not render a temporal_coverage chip even when the field is present", () => {
+    renderEntry({
+      id: 1,
+      title: "T",
+      time_type: "approx_year",
+      year: 1920,
+      year_start: null,
+      year_end: null,
+      location_lat: null,
+      location_lng: null,
+      photo_url: null,
+      temporal_coverage: "~1920",
+    });
+
+    expect(screen.queryByText("~1920")).not.toBeInTheDocument();
+  });
+
   it("renders the photo when photo_url is provided", () => {
     renderEntry({
       id: 1,
