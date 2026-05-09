@@ -214,17 +214,35 @@ describe("FilterPanel", () => {
     expect(screen.getByLabelText("To year")).toHaveValue(null);
   });
 
-  it("both inputs have min=1000 and max=2030", async () => {
+  it("inputs have no lower bound (BC dates allowed) and max=2030", async () => {
     const user = userEvent.setup();
     renderPanel();
 
     await user.click(screen.getByRole("button", { name: /^filters$/i }));
 
-    expect(screen.getByLabelText("From year")).toHaveAttribute("min", "1000");
-    expect(screen.getByLabelText("To year")).toHaveAttribute("min", "1000");
+    expect(screen.getByLabelText("From year")).not.toHaveAttribute("min");
+    expect(screen.getByLabelText("To year")).not.toHaveAttribute("min");
     expect(screen.getByLabelText("From year")).toHaveAttribute("max", "2030");
     expect(screen.getByLabelText("To year")).toHaveAttribute("max", "2030");
   });
+
+  it("accepts negative (BC) years and forwards them to onApply", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    renderPanel({ onApply });
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.clear(screen.getByLabelText("From year"));
+    await user.type(screen.getByLabelText("From year"), "-300");
+    await user.clear(screen.getByLabelText("To year"));
+    await user.type(screen.getByLabelText("To year"), "-100");
+    await user.click(screen.getByRole("button", { name: /apply/i }));
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ yearFrom: -300, yearTo: -100 }),
+    );
+  });
+
 
   it("ArrowUp on empty From year sets it to 1980", async () => {
     const user = userEvent.setup();
@@ -246,7 +264,7 @@ describe("FilterPanel", () => {
     expect(screen.getByLabelText("To year")).toHaveValue(2026);
   });
 
-  it("shows validation error when year is below 1000", async () => {
+  it("accepts a single ancient AD year (e.g. 500) without validation error", async () => {
     const user = userEvent.setup();
     const onApply = vi.fn();
     renderPanel({ onApply });
@@ -255,8 +273,10 @@ describe("FilterPanel", () => {
     await user.type(screen.getByLabelText("From year"), "500");
     await user.click(screen.getByRole("button", { name: /apply/i }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/1000 or later/i);
-    expect(onApply).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ yearFrom: 500 }),
+    );
   });
 
   it("clamps typed year above 2030 to 2030 on From year field", async () => {
@@ -287,6 +307,16 @@ describe("FilterPanel", () => {
     await user.type(screen.getByLabelText("From year"), "2020");
 
     expect(screen.getByLabelText("From year")).toHaveValue(2020);
+  });
+
+  it("clamps absurd BC inputs (below -9999) up to -9999", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /^filters$/i }));
+    await user.type(screen.getByLabelText("From year"), "-99999");
+
+    expect(screen.getByLabelText("From year")).toHaveValue(-9999);
   });
 
   describe("Distance / proximity", () => {

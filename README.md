@@ -87,6 +87,23 @@ docker compose exec web python manage.py flush --noinput
 docker compose down -v && docker compose up
 ```
 
+### Seed data
+
+The seed command populates the database with demo users, stories, tags, images, and interactions for local development and presentations.
+
+```bash
+# Add missing seed data (safe to re-run — skips already-existing records)
+docker compose run --rm --entrypoint="" web sh -c "python manage.py seed_data"
+
+# Wipe all seed data first, then re-seed from scratch
+docker compose run --rm --entrypoint="" web sh -c "python manage.py seed_data --clear"
+
+# Seed without downloading images (works offline)
+docker compose run --rm --entrypoint="" web sh -c "python manage.py seed_data --no-images"
+```
+
+> **Note:** Image downloads come from Wikimedia Commons and may be slow (~1 s per image to respect rate limits). If a download fails the story is created without an image — no error is raised.
+
 ---
 
 ## Mobile

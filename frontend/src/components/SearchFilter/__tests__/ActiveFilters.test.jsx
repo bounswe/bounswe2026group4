@@ -60,6 +60,16 @@ describe("ActiveFilters", () => {
     expect(screen.getByText("To 2000")).toBeInTheDocument();
   });
 
+  it("renders BC year ranges with a single 'BC' suffix and no minus signs", () => {
+    renderFilters({ yearFrom: -300, yearTo: -100 });
+    expect(screen.getByText("300–100 BC")).toBeInTheDocument();
+  });
+
+  it("renders single-sided BC year chip with 'BC' suffix", () => {
+    renderFilters({ yearFrom: -44 });
+    expect(screen.getByText("From 44 BC")).toBeInTheDocument();
+  });
+
   it("shows a location chip", () => {
     renderFilters({ location: "Kadıköy" });
     expect(screen.getByText("Location: Kadıköy")).toBeInTheDocument();

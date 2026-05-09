@@ -3,6 +3,7 @@ import { MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
+import { formatHistoricalYear } from "@/utils/year";
 
 /**
  * Best-effort label for the bullet on the timeline. Prefers the formatted
@@ -12,11 +13,11 @@ import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 function bulletLabel(story) {
   const formatted = formatTimePeriod(story);
   if (formatted) return formatted;
-  if (story.year != null) return String(story.year);
-  if (story.year_start != null) return String(story.year_start);
+  if (story.year != null) return formatHistoricalYear(story.year);
+  if (story.year_start != null) return formatHistoricalYear(story.year_start);
   if (typeof story.date_value === "string") {
     const match = story.date_value.match(/-?\d{4}/);
-    if (match) return match[0];
+    if (match) return formatHistoricalYear(Number(match[0]));
   }
   return "";
 }
