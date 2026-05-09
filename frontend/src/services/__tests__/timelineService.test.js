@@ -94,6 +94,34 @@ describe("timelineService", () => {
     });
   });
 
+  it("passes tags array through as-is for paramsSerializer to handle", async () => {
+    api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+    await getTimeline({ tags: ["nature", "folklore"] });
+
+    expect(api.get).toHaveBeenCalledWith("/stories/timeline/", {
+      params: { tags: ["nature", "folklore"] },
+    });
+  });
+
+  it("omits tags when array is empty", async () => {
+    api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+    await getTimeline({ tags: [] });
+
+    expect(api.get).toHaveBeenCalledWith("/stories/timeline/", { params: {} });
+  });
+
+  it("passes proximity params through", async () => {
+    api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+    await getTimeline({ latitude: 41.0, longitude: 28.9, radiusKm: 5 });
+
+    expect(api.get).toHaveBeenCalledWith("/stories/timeline/", {
+      params: { latitude: 41.0, longitude: 28.9, radius_km: 5 },
+    });
+  });
+
   it("throws on API error", async () => {
     api.get.mockRejectedValue(new Error("Network error"));
 
@@ -149,39 +177,6 @@ describe("timelineService", () => {
       );
       expect(result.results.map((s) => s.id)).toEqual(["earlier", "middle", "later"]);
       expect(result.count).toBe(3);
-    });
-
-    it("routes to /stories/feed/ when only tags are set, and forwards them", async () => {
-      api.get.mockResolvedValue({
-        data: { count: 0, next: null, previous: null, results: [] },
-      });
-
-      await getTimeline({ tags: ["mosque", "ottoman"], page: 1, pageSize: 10 });
-
-      expect(api.get).toHaveBeenCalledWith(
-        "/stories/feed/",
-        expect.objectContaining({
-          params: expect.objectContaining({
-            sort_by: "recent",
-            tags: ["mosque", "ottoman"],
-          }),
-        }),
-      );
-    });
-
-    it("routes to /stories/feed/ when proximity is set, and forwards lat/lng/radius", async () => {
-      api.get.mockResolvedValue({
-        data: { count: 0, next: null, previous: null, results: [] },
-      });
-
-      await getTimeline({ latitude: 41, longitude: 29, radiusKm: 1, page: 1, pageSize: 10 });
-
-      expect(api.get).toHaveBeenCalledWith(
-        "/stories/feed/",
-        expect.objectContaining({
-          params: expect.objectContaining({ latitude: 41, longitude: 29, radius_km: 1 }),
-        }),
-      );
     });
 
     it("falls back when location text is set without a bbox", async () => {

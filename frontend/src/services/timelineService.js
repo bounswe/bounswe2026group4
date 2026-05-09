@@ -8,6 +8,10 @@ const KEY_MAP = {
   latMax: "lat_max",
   lngMin: "lng_min",
   lngMax: "lng_max",
+  tags: "tags",
+  latitude: "latitude",
+  longitude: "longitude",
+  radiusKm: "radius_km",
   hasImage: "has_image",
   page: "page",
   pageSize: "page_size",
@@ -90,8 +94,6 @@ export function storyOverlapsYearWindow(story, yearFrom, yearTo) {
 
 function hasUnsupportedTimelineFilters(filters) {
   if (filters.q?.trim()) return true;
-  if (Array.isArray(filters.tags) && filters.tags.length > 0) return true;
-  if (filters.latitude != null && filters.longitude != null && filters.radiusKm != null) return true;
   // A location string with no bbox can't be passed to /stories/timeline/ —
   // that endpoint doesn't accept a `location` text param.
   const hasBbox =
@@ -103,13 +105,13 @@ function hasUnsupportedTimelineFilters(filters) {
 /**
  * Fetch stories ordered by time period for the timeline view.
  *
- * When the active filter set is supported by `/stories/timeline/` (year +
- * bbox), this proxies that endpoint directly so the server's historical
- * ordering and pagination are preserved. When the filter set includes text
- * search, tags, proximity, or a location string without a bbox, the timeline
- * endpoint can't honour it — so we fall back to `/stories/search/` (when q
- * is present) or `/stories/feed/`, then re-sort client-side by historical
- * midpoint and paginate locally. This mirrors the strategy in
+ * When the active filter set is supported by `/stories/timeline/` (year,
+ * bbox, tags, proximity), this proxies that endpoint directly so the
+ * server's historical ordering and pagination are preserved. When the filter
+ * set includes text search (`q`) or a location string without a bbox, the
+ * timeline endpoint can't honour it — so we fall back to `/stories/search/`
+ * (when q is present) or `/stories/feed/`, then re-sort client-side by
+ * historical midpoint and paginate locally. This mirrors the strategy in
  * `mobile/src/features/timeline/data/sources/index.ts`.
  */
 export async function getTimeline({
@@ -142,6 +144,10 @@ export async function getTimeline({
       latMax,
       lngMin,
       lngMax,
+      tags,
+      latitude,
+      longitude,
+      radiusKm,
       page,
       pageSize,
       ...(hasImage ? { hasImage: true } : {}),
@@ -149,6 +155,7 @@ export async function getTimeline({
     const params = {};
     for (const [key, value] of Object.entries(args)) {
       if (value === undefined) continue;
+      if (Array.isArray(value) && value.length === 0) continue;
       params[KEY_MAP[key]] = value;
     }
     const response = await api.get("/stories/timeline/", { params });

@@ -1361,3 +1361,91 @@ class TestStoryTimelineView:
         response = client.get(TIMELINE_URL, {'year_to': 1900})
         assert response.data['count'] == 1
         assert response.data['results'][0]['title'] == 'Old Date'
+
+
+@pytest.mark.django_db
+class TestStoryTimelineViewTagFilter:
+    def test_tag_filter_returns_only_matching_stories(self, client):
+        tag = Tag.objects.create(name='ottoman-era')
+        tagged = make_story(title='Tagged', year=1900)
+        StoryTag.objects.create(story=tagged, tag=tag)
+        make_story(title='Untagged', year=1910)
+        response = client.get(TIMELINE_URL + '?tags=ottoman-era')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Tagged'
+
+    def test_tag_filter_and_semantics(self, client):
+        tag1 = Tag.objects.create(name='timeline-tag-alpha')
+        tag2 = Tag.objects.create(name='timeline-tag-beta')
+        both = make_story(title='Both Tags', year=1900)
+        StoryTag.objects.create(story=both, tag=tag1)
+        StoryTag.objects.create(story=both, tag=tag2)
+        one = make_story(title='One Tag', year=1910)
+        StoryTag.objects.create(story=one, tag=tag1)
+        response = client.get(TIMELINE_URL + '?tags=timeline-tag-alpha&tags=timeline-tag-beta')
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'Both Tags'
+
+    def test_tag_filter_response_includes_photo_url_and_temporal_coverage(self, client):
+        tag = Tag.objects.create(name='nature')
+        story = make_story(title='Tagged With Photo', year=1900)
+        StoryTag.objects.create(story=story, tag=tag)
+        make_timeline_media(story)
+        response = client.get(TIMELINE_URL + '?tags=nature')
+        assert response.data['count'] == 1
+        card = response.data['results'][0]
+        assert card['photo_url'] is not None
+        assert card['photo_url'].startswith('http')
+        assert card['temporal_coverage'] == '1900'
+
+    def test_tag_filter_case_insensitive(self, client):
+        tag = Tag.objects.create(name='folklore')
+        story = make_story(title='Folklore Story', year=1900)
+        StoryTag.objects.create(story=story, tag=tag)
+        response = client.get(TIMELINE_URL + '?tags=FolkLore')
+        assert response.data['count'] == 1
+
+    def test_tag_filter_no_match_returns_empty(self, client):
+        make_story(title='No Tags', year=1900)
+        response = client.get(TIMELINE_URL + '?tags=nonexistent-tag')
+        assert response.data['count'] == 0
+
+
+@pytest.mark.django_db
+class TestStoryTimelineViewGeoFilter:
+    def _geo_params(self, radius_km=1.0):
+        return f'latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}&radius_km={radius_km}'
+
+    def test_geo_filter_returns_only_nearby_stories(self, client):
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='Near Story')
+        make_geo_story(_GEO_FAR_LAT, _GEO_FAR_LNG, title='Far Story')
+        response = client.get(f'{TIMELINE_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        titles = [s['title'] for s in response.data['results']]
+        assert 'Near Story' in titles
+        assert 'Far Story' not in titles
+
+    def test_geo_filter_response_includes_photo_url_and_temporal_coverage(self, client):
+        story = make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='Near With Photo')
+        make_timeline_media(story)
+        response = client.get(f'{TIMELINE_URL}?{self._geo_params()}')
+        assert response.status_code == status.HTTP_200_OK
+        card = response.data['results'][0]
+        assert card['photo_url'] is not None
+        assert card['photo_url'].startswith('http')
+        assert 'temporal_coverage' in card
+
+    def test_geo_filter_partial_params_returns_400(self, client):
+        response = client.get(f'{TIMELINE_URL}?latitude={_GEO_CENTER_LAT}&longitude={_GEO_CENTER_LNG}')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_geo_filter_combined_with_tag_filter(self, client):
+        tag = Tag.objects.create(name='timeline-geo-tag')
+        near_tagged = make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='TaggedNear')
+        StoryTag.objects.create(story=near_tagged, tag=tag)
+        make_geo_story(_GEO_NEAR_LAT, _GEO_NEAR_LNG, title='UntaggedNear')
+        response = client.get(f'{TIMELINE_URL}?{self._geo_params()}&tags=timeline-geo-tag')
+        assert response.status_code == status.HTTP_200_OK
+        titles = [s['title'] for s in response.data['results']]
+        assert 'TaggedNear' in titles
+        assert 'UntaggedNear' not in titles

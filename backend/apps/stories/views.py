@@ -245,6 +245,10 @@ class StoryTimelineView(APIView):
             lng_min=params.get('lng_min'),
             lng_max=params.get('lng_max'),
             has_image=params.get('has_image'),
+            tags=params.get('tags'),
+            latitude=params.get('latitude'),
+            longitude=params.get('longitude'),
+            radius_km=params.get('radius_km'),
         ).prefetch_related('media_items')
 
         paginator = StoryPagination()
