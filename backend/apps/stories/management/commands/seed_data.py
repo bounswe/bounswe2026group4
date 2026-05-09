@@ -979,9 +979,14 @@ class Command(BaseCommand):
             commenters = random.sample(regular, random.randint(1, min(4, len(regular))))
             is_personal = story.title in _PERSONAL_TITLES
             specific_comments = STORY_COMMENTS.get(story.title)
+            if specific_comments:
+                shuffled = random.sample(specific_comments, min(len(commenters), len(specific_comments)))
+                comment_iter = iter(shuffled + random.sample(specific_comments, max(0, len(commenters) - len(shuffled))))
+            else:
+                comment_iter = None
             for commenter in commenters:
-                if specific_comments:
-                    text = random.choice(specific_comments)
+                if comment_iter is not None:
+                    text = next(comment_iter)
                 elif is_personal:
                     pool = COMMENTS_PERSONAL_TR if random.random() < 0.6 else COMMENTS_PERSONAL_EN
                     text = random.choice(pool)
