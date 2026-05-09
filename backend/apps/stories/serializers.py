@@ -467,10 +467,10 @@ class StoryTimelineSerializer(serializers.ModelSerializer):
     Minimal read-only serializer for timeline cards.
 
     Returns only the fields needed to render a story on the timeline: identity,
-    title, all time fields (including EDTF temporal_coverage), coordinates, and
-    a representative photo URL. Feed-specific fields (preview_text,
-    contributor_name, like/save state, status, submitted_at) are intentionally
-    excluded.
+    title, all time fields (including EDTF temporal_coverage), coordinates,
+    location name, and a representative photo URL. Feed-specific fields
+    (preview_text, contributor_name, like/save state, status, submitted_at)
+    are intentionally excluded.
     """
 
     photo_url = serializers.SerializerMethodField()
@@ -490,6 +490,7 @@ class StoryTimelineSerializer(serializers.ModelSerializer):
             'temporal_coverage',
             'location_lat',
             'location_lng',
+            'location_name',
             'photo_url',
         ]
         read_only_fields = fields
