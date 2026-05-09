@@ -96,10 +96,9 @@ describe("TimelineEntry", () => {
       temporal_coverage: "1920",
     });
 
-    // "1920" appears as the bullet label and as one chip — nothing else
+    // "1920" appears only as the bullet — the in-card chip is removed
     const chips = screen.getAllByText("1920");
-    // bullet + one chip = 2 occurrences at most; the decade "1920s" must not appear
-    expect(chips.length).toBeLessThanOrEqual(2);
+    expect(chips.length).toBe(1);
     expect(screen.queryByText("1920s")).not.toBeInTheDocument();
   });
 

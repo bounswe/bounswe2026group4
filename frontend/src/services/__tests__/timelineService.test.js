@@ -7,11 +7,7 @@ vi.mock("../api", () => ({
 }));
 
 import api from "../api";
-import {
-  getTimeline,
-  getTimelineHistoricalYear,
-  storyOverlapsYearWindow,
-} from "../timelineService";
+import { getTimeline } from "../timelineService";
 
 function story(overrides = {}) {
   return {
@@ -309,88 +305,4 @@ describe("timelineService", () => {
     });
   });
 
-  describe("storyOverlapsYearWindow", () => {
-    it("returns true when both bounds are null (no filter)", () => {
-      expect(storyOverlapsYearWindow(story({ time_type: "exact_year", year: 1875 }), null, null)).toBe(
-        true,
-      );
-    });
-
-    it("exact_year — point in [yearFrom, yearTo]", () => {
-      const s = story({ time_type: "exact_year", year: 1875 });
-      expect(storyOverlapsYearWindow(s, 1870, 1880)).toBe(true);
-      expect(storyOverlapsYearWindow(s, 1880, 1890)).toBe(false);
-      expect(storyOverlapsYearWindow(s, 1860, 1870)).toBe(false);
-    });
-
-    it("decade — interval [Y, Y+9] overlaps window (the bug we're fixing)", () => {
-      const s = story({ time_type: "decade", year: 1870 });
-      // Window 1875-1885 overlaps 1870-1879 → INCLUDED
-      expect(storyOverlapsYearWindow(s, 1875, 1885)).toBe(true);
-      // Window 1865-1872 overlaps 1870-1879 → INCLUDED
-      expect(storyOverlapsYearWindow(s, 1865, 1872)).toBe(true);
-      // Window entirely after the decade → EXCLUDED
-      expect(storyOverlapsYearWindow(s, 1880, 1890)).toBe(false);
-      // Window entirely before the decade → EXCLUDED
-      expect(storyOverlapsYearWindow(s, 1850, 1869)).toBe(false);
-    });
-
-    it("year_range — interval [year_start, year_end] overlaps window", () => {
-      const s = story({ time_type: "year_range", year_start: 1850, year_end: 1900 });
-      expect(storyOverlapsYearWindow(s, 1875, 1885)).toBe(true);
-      expect(storyOverlapsYearWindow(s, 1820, 1860)).toBe(true);
-      expect(storyOverlapsYearWindow(s, 1910, 1920)).toBe(false);
-      expect(storyOverlapsYearWindow(s, 1800, 1849)).toBe(false);
-    });
-
-    it("exact_date — year extracted from date_value", () => {
-      const s = story({ time_type: "exact_date", date_value: "1923-10-29" });
-      expect(storyOverlapsYearWindow(s, 1920, 1925)).toBe(true);
-      expect(storyOverlapsYearWindow(s, 1924, 1930)).toBe(false);
-    });
-
-    it("one-sided window — only yearFrom or only yearTo", () => {
-      const s = story({ time_type: "exact_year", year: 1875 });
-      expect(storyOverlapsYearWindow(s, 1870, null)).toBe(true);
-      expect(storyOverlapsYearWindow(s, 1880, null)).toBe(false);
-      expect(storyOverlapsYearWindow(s, null, 1880)).toBe(true);
-      expect(storyOverlapsYearWindow(s, null, 1870)).toBe(false);
-    });
-
-    it("excludes stories with no usable time info when a window is set", () => {
-      expect(storyOverlapsYearWindow(story({ time_type: "exact_year", year: null }), 1870, 1880)).toBe(
-        false,
-      );
-      expect(storyOverlapsYearWindow(null, 1870, 1880)).toBe(false);
-    });
-  });
-
-  describe("getTimelineHistoricalYear", () => {
-    it("returns year for exact_year stories", () => {
-      expect(getTimelineHistoricalYear(story({ time_type: "exact_year", year: 1875 }))).toBe(1875);
-    });
-
-    it("returns midpoint for year_range stories", () => {
-      expect(
-        getTimelineHistoricalYear(story({ time_type: "year_range", year_start: 1850, year_end: 1900 })),
-      ).toBe(1875);
-    });
-
-    it("returns year + 5 for decade stories", () => {
-      expect(getTimelineHistoricalYear(story({ time_type: "decade", year: 1870 }))).toBe(1875);
-    });
-
-    it("extracts the year from exact_date stories", () => {
-      expect(
-        getTimelineHistoricalYear(story({ time_type: "exact_date", date_value: "1923-10-29" })),
-      ).toBe(1923);
-    });
-
-    it("returns MAX_SAFE_INTEGER for stories with no usable time info (so they sink)", () => {
-      expect(getTimelineHistoricalYear(story({ time_type: "exact_year", year: null }))).toBe(
-        Number.MAX_SAFE_INTEGER,
-      );
-      expect(getTimelineHistoricalYear(null)).toBe(Number.MAX_SAFE_INTEGER);
-    });
-  });
 });

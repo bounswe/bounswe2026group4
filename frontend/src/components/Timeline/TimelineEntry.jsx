@@ -71,14 +71,6 @@ function TimelineEntry({ story }) {
             {story.title}
           </h3>
 
-          {label && (
-            <div className="flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {label}
-              </span>
-            </div>
-          )}
-
           {locationText && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

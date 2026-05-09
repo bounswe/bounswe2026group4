@@ -28,66 +28,6 @@ const KEY_MAP = {
 // backend count. Same trade-off mobile makes.
 const FALLBACK_FETCH_PAGE_SIZE = 100;
 
-/**
- * Compute the historical-year midpoint for a story so the client can sort
- * fallback-fetched results the same way the timeline endpoint does on the
- * server. Returns Number.MAX_SAFE_INTEGER for stories with no usable time
- * info so they sink to the bottom rather than crash the comparator.
- *
- * Mirrors the server-side CASE expression in
- * `backend/apps/stories/services.py::get_story_timeline`.
- */
-export function getTimelineHistoricalYear(story) {
-  if (!story || typeof story !== "object") return Number.MAX_SAFE_INTEGER;
-  const { time_type, year, year_start, year_end, date_value } = story;
-  if (time_type === "year_range" && Number.isFinite(year_start) && Number.isFinite(year_end)) {
-    return (year_start + year_end) / 2;
-  }
-  if (time_type === "decade" && Number.isFinite(year)) {
-    return year + 5;
-  }
-  if (time_type === "exact_date" && typeof date_value === "string") {
-    const parsedYear = Number.parseInt(date_value.slice(0, 4), 10);
-    return Number.isFinite(parsedYear) ? parsedYear : Number.MAX_SAFE_INTEGER;
-  }
-  if (Number.isFinite(year)) return year;
-  return Number.MAX_SAFE_INTEGER;
-}
-
-function getStoryYearInterval(story) {
-  if (!story || typeof story !== "object") return null;
-  const { time_type, year, year_start, year_end, date_value } = story;
-  if (time_type === "year_range" && Number.isFinite(year_start) && Number.isFinite(year_end)) {
-    return [year_start, year_end];
-  }
-  if (time_type === "decade" && Number.isFinite(year)) {
-    return [year, year + 9];
-  }
-  if (time_type === "exact_date" && typeof date_value === "string") {
-    const parsedYear = Number.parseInt(date_value.slice(0, 4), 10);
-    return Number.isFinite(parsedYear) ? [parsedYear, parsedYear] : null;
-  }
-  if (Number.isFinite(year)) return [year, year];
-  return null;
-}
-
-/**
- * Same interval-overlap year filter the /stories/timeline/ endpoint applies
- * server-side. Re-applied client-side for the fallback path because
- * /stories/feed/ and /stories/search/ use a simpler `year__gte` / `year__lte`
- * check that silently excludes decade and exact_date stories whose intervals
- * the timeline endpoint would include. yearFrom/yearTo of null mean "no bound."
- */
-export function storyOverlapsYearWindow(story, yearFrom, yearTo) {
-  if (yearFrom == null && yearTo == null) return true;
-  const interval = getStoryYearInterval(story);
-  if (!interval) return false;
-  const [start, end] = interval;
-  if (yearFrom != null && end < yearFrom) return false;
-  if (yearTo != null && start > yearTo) return false;
-  return true;
-}
-
 function hasUnsupportedTimelineFilters(filters) {
   if (filters.q?.trim()) return true;
   // A location string with no bbox can't be passed to /stories/timeline/ —

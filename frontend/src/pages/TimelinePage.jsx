@@ -45,7 +45,8 @@ function TimelinePage() {
 
   const routerLocation = useLocation();
   const navigate = useNavigate();
-  const mapBack = routerLocation.state?.from?.startsWith("/map") ? routerLocation.state.from : null;
+  const _from = routerLocation.state?.from;
+  const mapBack = _from === "/map" || _from?.startsWith("/map?") ? _from : null;
 
   const [stories, setStories] = useState([]);
   const [count, setCount] = useState(0);
