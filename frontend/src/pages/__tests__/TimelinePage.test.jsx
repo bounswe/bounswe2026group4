@@ -40,6 +40,14 @@ function renderPage(initialEntries = ["/timeline"]) {
   );
 }
 
+function renderPageWithState(state) {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: "/timeline", state }]}>
+      <TimelinePage />
+    </MemoryRouter>,
+  );
+}
+
 describe("TimelinePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -213,5 +221,22 @@ describe("TimelinePage", () => {
     expect(args.latMax).toBe(41);
     expect(args.lngMin).toBe(28);
     expect(args.lngMax).toBe(29);
+  });
+
+  describe("back-to-map button", () => {
+    it("shows a back arrow when navigated from /map", async () => {
+      renderPageWithState({ from: "/map?lat_min=40&lat_max=41" });
+      expect(screen.getByRole("button", { name: /back to map/i })).toBeInTheDocument();
+    });
+
+    it("does not show a back arrow when there is no router state", async () => {
+      renderPage();
+      expect(screen.queryByRole("button", { name: /back to map/i })).not.toBeInTheDocument();
+    });
+
+    it("does not show a back arrow when navigated from a non-map page", async () => {
+      renderPageWithState({ from: "/timeline?year_from=1900" });
+      expect(screen.queryByRole("button", { name: /back to map/i })).not.toBeInTheDocument();
+    });
   });
 });
