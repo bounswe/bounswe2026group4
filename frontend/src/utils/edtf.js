@@ -4,7 +4,7 @@
  * Mirrors backend/apps/stories/temporal.py — keep both in sync.
  *
  * EDTF examples:
- *   exact_year:       "1965"
+ *   exact_year:       "1965"   (negative year = BC, e.g. -44 = 44 BC)
  *   approximate_year: "1965~"
  *   decade:           "196X"          (year=1960 → "196X")
  *   year_range:       "1950/1975"

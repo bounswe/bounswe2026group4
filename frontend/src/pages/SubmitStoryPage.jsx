@@ -402,41 +402,46 @@ function SubmitStoryPage() {
 
           {/* Year / date inputs */}
           {timeType === "exact_date" ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="dateValue">Date</Label>
-                <Input
-                  id="dateValue"
-                  type="date"
-                  value={dateValue}
-                  onChange={(e) => {
-                    setDateValue(e.target.value);
-                    if (fieldErrors.dateValue)
-                      setFieldErrors((prev) => ({ ...prev, dateValue: "" }));
-                  }}
-                  disabled={isSubmitting}
-                />
-                {fieldErrors.dateValue && (
-                  <p className="text-sm text-destructive">{fieldErrors.dateValue}</p>
-                )}
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="dateValue">Date</Label>
+                  <Input
+                    id="dateValue"
+                    type="date"
+                    value={dateValue}
+                    onChange={(e) => {
+                      setDateValue(e.target.value);
+                      if (fieldErrors.dateValue)
+                        setFieldErrors((prev) => ({ ...prev, dateValue: "" }));
+                    }}
+                    disabled={isSubmitting}
+                  />
+                  {fieldErrors.dateValue && (
+                    <p className="text-sm text-destructive">{fieldErrors.dateValue}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="timeValue">Time (optional)</Label>
+                  <Input
+                    id="timeValue"
+                    type="time"
+                    value={timeValue}
+                    onChange={(e) => {
+                      setTimeValue(e.target.value);
+                      if (fieldErrors.timeValue)
+                        setFieldErrors((prev) => ({ ...prev, timeValue: "" }));
+                    }}
+                    disabled={isSubmitting || !dateValue}
+                  />
+                  {fieldErrors.timeValue && (
+                    <p className="text-sm text-destructive">{fieldErrors.timeValue}</p>
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="timeValue">Time (optional)</Label>
-                <Input
-                  id="timeValue"
-                  type="time"
-                  value={timeValue}
-                  onChange={(e) => {
-                    setTimeValue(e.target.value);
-                    if (fieldErrors.timeValue)
-                      setFieldErrors((prev) => ({ ...prev, timeValue: "" }));
-                  }}
-                  disabled={isSubmitting || !dateValue}
-                />
-                {fieldErrors.timeValue && (
-                  <p className="text-sm text-destructive">{fieldErrors.timeValue}</p>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground">
+                BC dates are not supported for the Specific Date type. Use Exact Year, Approximate Year, Decade, or Year Range for BC.
+              </p>
             </div>
           ) : timeType === "year_range" ? (
             <div className="grid grid-cols-2 gap-4">
@@ -451,7 +456,7 @@ function SubmitStoryPage() {
                     if (fieldErrors.yearStart)
                       setFieldErrors((prev) => ({ ...prev, yearStart: "" }));
                   }}
-                  placeholder="e.g. 1400"
+                  placeholder="e.g. 1400 or -300"
                   disabled={isSubmitting}
                 />
                 {fieldErrors.yearStart && (
@@ -469,7 +474,7 @@ function SubmitStoryPage() {
                     if (fieldErrors.yearEnd)
                       setFieldErrors((prev) => ({ ...prev, yearEnd: "" }));
                   }}
-                  placeholder="e.g. 1500"
+                  placeholder="e.g. 1500 or -100"
                   disabled={isSubmitting}
                 />
                 {fieldErrors.yearEnd && (
@@ -489,7 +494,7 @@ function SubmitStoryPage() {
                   if (fieldErrors.year)
                     setFieldErrors((prev) => ({ ...prev, year: "" }));
                 }}
-                placeholder="e.g. 1453"
+                placeholder="e.g. 1453 or -300 for BC"
                 disabled={isSubmitting}
               />
               {fieldErrors.year && (

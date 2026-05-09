@@ -102,6 +102,32 @@ describe("formatTimePeriod", () => {
   it("returns empty string for unknown time_type", () => {
     expect(formatTimePeriod({ time_type: "unknown" })).toBe("");
   });
+
+  it("formats exact_year BC dates with 'BC' suffix", () => {
+    expect(formatTimePeriod({ time_type: "exact_year", year: -44 })).toBe("44 BC");
+  });
+
+  it("formats approximate_year BC dates with 'c.' prefix and 'BC' suffix", () => {
+    const result = formatTimePeriod({ time_type: "approximate_year", year: -300 });
+    expect(result).toMatch(/^c\.\s*300 BC$/);
+  });
+
+  it("formats decade BC and rounds toward older", () => {
+    expect(formatTimePeriod({ time_type: "decade", year: -50 })).toBe("50s BC");
+    expect(formatTimePeriod({ time_type: "decade", year: -444 })).toBe("450s BC");
+  });
+
+  it("formats BC year_range with one shared 'BC' suffix", () => {
+    expect(
+      formatTimePeriod({ time_type: "year_range", year_start: -300, year_end: -100 })
+    ).toBe("300–100 BC");
+  });
+
+  it("formats year_range crossing BC/AD with both era suffixes", () => {
+    expect(
+      formatTimePeriod({ time_type: "year_range", year_start: -100, year_end: 50 })
+    ).toBe("100 BC – 50 AD");
+  });
 });
 
 // --- StoryCard rendering tests ---
