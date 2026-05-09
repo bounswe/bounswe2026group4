@@ -442,6 +442,14 @@ class TimelineQuerySerializer(serializers.Serializer):
     lng_min = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
     lng_max = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
     has_image = serializers.BooleanField(required=False, allow_null=True, default=None)
+    tags = serializers.ListField(
+        child=serializers.CharField(allow_blank=False),
+        required=False,
+        allow_empty=False,
+    )
+    latitude = serializers.FloatField(required=False, min_value=-90.0, max_value=90.0)
+    longitude = serializers.FloatField(required=False, min_value=-180.0, max_value=180.0)
+    radius_km = serializers.FloatField(required=False, min_value=0.001, max_value=500.0)
 
     def validate(self, data):
         year_from = data.get('year_from')
@@ -457,6 +465,14 @@ class TimelineQuerySerializer(serializers.Serializer):
             missing = bbox_fields - provided
             raise serializers.ValidationError(
                 {f: 'Required when performing bounding-box filtering.' for f in missing}
+            )
+
+        geo_fields = {'latitude', 'longitude', 'radius_km'}
+        provided = {k for k in geo_fields if data.get(k) is not None}
+        if provided and provided != geo_fields:
+            missing = geo_fields - provided
+            raise serializers.ValidationError(
+                {f: 'Required when performing radius filtering.' for f in missing}
             )
 
         return data

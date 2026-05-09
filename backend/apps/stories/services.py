@@ -162,6 +162,10 @@ def get_story_timeline(
     lng_min=None,
     lng_max=None,
     has_image=None,
+    tags=None,
+    latitude=None,
+    longitude=None,
+    radius_km=None,
 ):
     """
     Return published stories sorted by effective historical midpoint ascending.
@@ -221,6 +225,16 @@ def get_story_timeline(
             media_type=MediaType.IMAGE,
         )
         qs = qs.filter(Exists(has_image_subq))
+
+    if tags:
+        from apps.tags.models import StoryTag
+        for tag in tags:
+            # Exists subquery per tag gives AND semantics without JOIN duplication.
+            # Avoids .distinct() which conflicts with ORDER BY on an annotated column in MySQL.
+            qs = qs.filter(Exists(StoryTag.objects.filter(story=OuterRef('pk'), tag__name__iexact=tag)))
+
+    if latitude is not None and longitude is not None and radius_km is not None:
+        qs = _apply_radius_filter(qs, latitude, longitude, radius_km)
 
     # Build a synthetic sort key using the midpoint of each story's time interval.
     from django.db.models import F
