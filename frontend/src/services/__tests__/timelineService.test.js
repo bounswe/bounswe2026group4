@@ -145,26 +145,26 @@ describe("timelineService", () => {
       expect(params).not.toHaveProperty("has_image");
     });
 
-    it("does NOT forward has_image to the fallback endpoint (search/feed reject it)", async () => {
+    it("forwards has_image=true to /stories/timeline/ even on the fallback path", async () => {
       api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
-      // q triggers the fallback path; has_image must not leak through.
+      // q triggers the fallback path; has_image must still reach the timeline endpoint.
       await getTimeline({ q: "galata", hasImage: true });
       const params = api.get.mock.calls[0][1].params;
-      expect(params).not.toHaveProperty("has_image");
+      expect(params).toHaveProperty("has_image", true);
     });
   });
 
   describe("fallback path (filters not supported by /stories/timeline/)", () => {
-    it("routes to /stories/search/ when q is set, sorted by historical year", async () => {
+    it("routes to /stories/timeline/ when q is set and applies q as client-side filter", async () => {
       api.get.mockResolvedValue({
         data: {
           count: 3,
           next: null,
           previous: null,
           results: [
-            story({ id: "later", year: 2000 }),
-            story({ id: "earlier", year: 1900 }),
-            story({ id: "middle", year: 1950 }),
+            story({ id: "match-title", year: 1900, title: "Galata Tower story" }),
+            story({ id: "match-location", year: 1950, title: "Other", location_name: "Galata" }),
+            story({ id: "no-match", year: 2000, title: "Unrelated" }),
           ],
         },
       });
@@ -172,24 +172,34 @@ describe("timelineService", () => {
       const result = await getTimeline({ q: "Galata", page: 1, pageSize: 10 });
 
       expect(api.get).toHaveBeenCalledWith(
-        "/stories/search/",
-        expect.objectContaining({ params: expect.objectContaining({ q: "Galata" }) }),
+        "/stories/timeline/",
+        expect.objectContaining({ params: expect.not.objectContaining({ q: expect.anything() }) }),
       );
-      expect(result.results.map((s) => s.id)).toEqual(["earlier", "middle", "later"]);
-      expect(result.count).toBe(3);
+      expect(result.results.map((s) => s.id)).toEqual(["match-title", "match-location"]);
+      expect(result.count).toBe(2);
     });
 
-    it("falls back when location text is set without a bbox", async () => {
+    it("routes to /stories/timeline/ when location text is set without a bbox and filters client-side", async () => {
       api.get.mockResolvedValue({
-        data: { count: 0, next: null, previous: null, results: [] },
+        data: {
+          count: 2,
+          next: null,
+          previous: null,
+          results: [
+            story({ id: "in-galata", year: 1900, location_name: "Galata District" }),
+            story({ id: "elsewhere", year: 1950, location_name: "Kadikoy" }),
+          ],
+        },
       });
 
-      await getTimeline({ location: "Galata", page: 1, pageSize: 10 });
+      const result = await getTimeline({ location: "Galata", page: 1, pageSize: 10 });
 
       expect(api.get).toHaveBeenCalledWith(
-        "/stories/feed/",
-        expect.objectContaining({ params: expect.objectContaining({ location: "Galata" }) }),
+        "/stories/timeline/",
+        expect.objectContaining({ params: expect.not.objectContaining({ location: expect.anything() }) }),
       );
+      expect(result.results.map((s) => s.id)).toEqual(["in-galata"]);
+      expect(result.count).toBe(1);
     });
 
     it("does NOT fall back when location string has a matching bbox", async () => {
@@ -216,13 +226,13 @@ describe("timelineService", () => {
     it("client-paginates the fallback results", async () => {
       const all = [];
       for (let i = 0; i < 25; i++) {
-        all.push(story({ id: `s${i}`, year: 1900 + i }));
+        all.push(story({ id: `s${i}`, year: 1900 + i, location_name: "Galata" }));
       }
       api.get.mockResolvedValue({
         data: { count: 25, next: null, previous: null, results: all },
       });
 
-      const page2 = await getTimeline({ q: "x", page: 2, pageSize: 10 });
+      const page2 = await getTimeline({ location: "Galata", page: 2, pageSize: 10 });
 
       expect(page2.count).toBe(25);
       expect(page2.results).toHaveLength(10);
@@ -230,12 +240,12 @@ describe("timelineService", () => {
       expect(page2.next).toBe("client-next-page");
       expect(page2.previous).toBe("client-previous-page");
 
-      const page3 = await getTimeline({ q: "x", page: 3, pageSize: 10 });
+      const page3 = await getTimeline({ location: "Galata", page: 3, pageSize: 10 });
       expect(page3.results).toHaveLength(5);
       expect(page3.next).toBeNull();
     });
 
-    it("requests at most page_size=100 from the fallback endpoint (documenting the cap)", async () => {
+    it("requests at most page_size=100 from /stories/timeline/ in the fallback (documenting the cap)", async () => {
       api.get.mockResolvedValue({
         data: { count: 0, next: null, previous: null, results: [] },
       });
@@ -245,92 +255,57 @@ describe("timelineService", () => {
       const params = api.get.mock.calls[0][1].params;
       // The fallback always asks for the cap regardless of the caller's
       // requested pageSize — the slice happens client-side. Stories beyond
-      // the 100th in the underlying endpoint's order are not reachable.
+      // the 100th in the timeline's historical order are not reachable.
       expect(params.page_size).toBe(100);
     });
 
     it("count reflects only stories within the fallback fetch window (cap is observable)", async () => {
-      // Simulate a corpus where the underlying endpoint has 100 results to
-      // hand back (max page size). The timeline view's `count` will read 100,
-      // not the true backend count of any larger result set.
-      const stories = Array.from({ length: 100 }, (_, i) => story({ id: `s${i}`, year: 1900 + i }));
+      // Simulate a corpus where the timeline endpoint hands back 100 results.
+      // The view's `count` will read 100, not the true backend total.
+      const stories = Array.from({ length: 100 }, (_, i) =>
+        story({ id: `s${i}`, year: 1900 + i, title: "Galata story" }),
+      );
       api.get.mockResolvedValue({
         data: { count: 999, next: "url-to-page-2", previous: null, results: stories },
       });
 
-      const result = await getTimeline({ q: "x", page: 1, pageSize: 10 });
+      const result = await getTimeline({ q: "Galata", page: 1, pageSize: 10 });
       expect(result.count).toBe(100);
     });
   });
 
   describe("fallback path year semantics (matches /stories/timeline/ behaviour)", () => {
-    it("does NOT forward year_from/year_to to the fallback endpoint", async () => {
+    it("forwards year_from/year_to to /stories/timeline/ in the fallback", async () => {
       api.get.mockResolvedValue({
         data: { count: 0, next: null, previous: null, results: [] },
       });
 
       await getTimeline({ q: "Galata", yearFrom: 1870, yearTo: 1880, page: 1, pageSize: 10 });
 
-      // Feed/search use simpler year semantics; we filter client-side instead.
+      // The timeline endpoint handles interval-overlap year semantics, so we
+      // forward year params and let the server filter correctly.
       const calledWith = api.get.mock.calls[0][1];
-      expect(calledWith.params).not.toHaveProperty("year_from");
-      expect(calledWith.params).not.toHaveProperty("year_to");
+      expect(calledWith.params).toHaveProperty("year_from", 1870);
+      expect(calledWith.params).toHaveProperty("year_to", 1880);
     });
 
-    it("includes a decade story whose interval overlaps the year window (semantic parity with /stories/timeline/)", async () => {
+    it("server-side year filtering is trusted — results returned by the endpoint are not re-filtered", async () => {
+      // The timeline endpoint already applies interval-overlap semantics for
+      // decade and exact_date stories. The frontend trusts whatever it returns.
       api.get.mockResolvedValue({
         data: {
-          count: 1,
+          count: 2,
           next: null,
           previous: null,
           results: [
-            // Decade 1870 = represents 1870-1879. /stories/feed/ would have
-            // dropped it for year_from=1875 because year (1870) < 1875. But
-            // /stories/timeline/ includes it via interval overlap. After this
-            // fix, the fallback path also includes it.
-            story({ id: "d", time_type: "decade", year: 1870 }),
+            story({ id: "d", time_type: "decade", year: 1870, title: "Galata story" }),
+            story({ id: "ed", time_type: "exact_date", date_value: "1923-10-29", title: "Galata story" }),
           ],
         },
       });
 
-      const result = await getTimeline({ q: "x", yearFrom: 1875, yearTo: 1885, page: 1, pageSize: 10 });
-      expect(result.results.map((s) => s.id)).toEqual(["d"]);
-    });
-
-    it("includes an exact_date story whose year falls in the window", async () => {
-      api.get.mockResolvedValue({
-        data: {
-          count: 1,
-          next: null,
-          previous: null,
-          results: [
-            // /stories/feed/ would drop this — year is null on exact_date —
-            // but /stories/timeline/ matches via date_value__year. Parity.
-            story({ id: "ed", time_type: "exact_date", date_value: "1923-10-29" }),
-          ],
-        },
-      });
-
-      const result = await getTimeline({ q: "x", yearFrom: 1920, yearTo: 1925, page: 1, pageSize: 10 });
-      expect(result.results.map((s) => s.id)).toEqual(["ed"]);
-    });
-
-    it("excludes stories whose interval falls outside the year window", async () => {
-      api.get.mockResolvedValue({
-        data: {
-          count: 3,
-          next: null,
-          previous: null,
-          results: [
-            story({ id: "before", time_type: "exact_year", year: 1850 }),
-            story({ id: "in", time_type: "exact_year", year: 1875 }),
-            story({ id: "after", time_type: "exact_year", year: 1950 }),
-          ],
-        },
-      });
-
-      const result = await getTimeline({ q: "x", yearFrom: 1870, yearTo: 1880, page: 1, pageSize: 10 });
-      expect(result.results.map((s) => s.id)).toEqual(["in"]);
+      const result = await getTimeline({ q: "Galata", yearFrom: 1875, yearTo: 1885, page: 1, pageSize: 10 });
+      expect(result.results.map((s) => s.id)).toEqual(["d", "ed"]);
     });
   });
 
