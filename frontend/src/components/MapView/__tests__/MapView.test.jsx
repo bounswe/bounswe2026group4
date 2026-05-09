@@ -11,6 +11,8 @@ const { fakeMapContainer, fakeMap, leafletMocks } = vi.hoisted(() => {
       fitBounds: undefined,
       addLayer: undefined,
       removeLayer: undefined,
+      zoomIn: undefined,
+      zoomOut: undefined,
       getContainer: () => container,
     },
     leafletMocks: {
@@ -97,6 +99,8 @@ beforeEach(() => {
   fakeMap.fitBounds = vi.fn();
   fakeMap.addLayer = vi.fn();
   fakeMap.removeLayer = vi.fn();
+  fakeMap.zoomIn = vi.fn();
+  fakeMap.zoomOut = vi.fn();
   fakeMap.getContainer = () => fakeMapContainer;
 });
 
@@ -139,6 +143,28 @@ describe("MapView", () => {
   it("hides loading overlay when loading is false", () => {
     renderMapView({ loading: false });
     expect(screen.queryByLabelText("Loading map pins")).not.toBeInTheDocument();
+  });
+});
+
+describe("MapView zoom buttons", () => {
+  it("renders zoom in and zoom out buttons", () => {
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
+  });
+
+  it("calls map.zoomIn() when the zoom-in button is clicked", async () => {
+    const user = userEvent.setup();
+    renderMapView();
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(fakeMap.zoomIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls map.zoomOut() when the zoom-out button is clicked", async () => {
+    const user = userEvent.setup();
+    renderMapView();
+    await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(fakeMap.zoomOut).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -466,6 +492,31 @@ describe("featurePopupHtml", () => {
     expect(html).toContain(
       'href="/timeline?latitude=41.070000&amp;longitude=28.970000&amp;radius_km=0.5"',
     );
+  });
+
+  it("renders an exact_date story using date_value from feature properties", () => {
+    const feature = makeFeature(5, {
+      time_type: "exact_date",
+      date_value: "1453-05-29",
+      year: null,
+    });
+    const html = featurePopupHtml(feature);
+    expect(html).toContain("May 29, 1453");
+  });
+
+  it("renders preview_text from feature properties", () => {
+    const feature = makeFeature(6, { preview_text: "A brief story summary." });
+    const html = featurePopupHtml(feature);
+    expect(html).toContain("A brief story summary.");
+  });
+
+  it("renders BC dates correctly from feature properties", () => {
+    const feature = makeFeature(8, {
+      time_type: "exact_year",
+      year: -44,
+    });
+    const html = featurePopupHtml(feature);
+    expect(html).toContain("44 BC");
   });
 });
 

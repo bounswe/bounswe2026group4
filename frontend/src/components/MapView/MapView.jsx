@@ -158,6 +158,28 @@ function FitBoundsToFeatures({ features, bbox, proximity }) {
   return null;
 }
 
+function ZoomButtons() {
+  const map = useMap();
+  return (
+    <div className="absolute bottom-6 right-3 z-[1000] flex flex-col gap-1">
+      <button
+        onClick={() => map.zoomIn()}
+        aria-label="Zoom in"
+        className="flex h-8 w-8 items-center justify-center rounded-md bg-background shadow-md border border-border text-foreground text-lg font-medium hover:bg-muted transition-colors"
+      >
+        +
+      </button>
+      <button
+        onClick={() => map.zoomOut()}
+        aria-label="Zoom out"
+        className="flex h-8 w-8 items-center justify-center rounded-md bg-background shadow-md border border-border text-foreground text-lg font-medium hover:bg-muted transition-colors"
+      >
+        −
+      </button>
+    </div>
+  );
+}
+
 function ClusteredMarkers({ features }) {
   const map = useMap();
   const groupRef = useRef(null);
@@ -200,6 +222,7 @@ function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false
       <MapContainer
         center={ISTANBUL_CENTER}
         zoom={DEFAULT_ZOOM}
+        zoomControl={false}
         className="h-full w-full"
         data-testid="map-container"
       >
@@ -210,6 +233,7 @@ function MapView({ featureCollection = EMPTY_FEATURE_COLLECTION, loading = false
         <ClusteredMarkers features={features} />
         <FitBoundsToFeatures features={features} bbox={bbox} proximity={proximity} />
         <StoryLinkInterceptor />
+        <ZoomButtons />
       </MapContainer>
       {loading && (
         <div
