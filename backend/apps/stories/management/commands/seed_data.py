@@ -13,6 +13,8 @@ from urllib.error import URLError
 
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
+
+from .personal_stories_data import PERSONAL_STORIES, STORY_COMMENTS
 from django.db import transaction
 
 from apps.gamification.constants import (
@@ -139,7 +141,7 @@ USERS = [
 
 # ── Extra tags beyond predefined ───────────────────────────────────────────────
 
-EXTRA_TAGS = ['osmanlı', 'cumhuriyet', 'bizans', 'selçuklu', 'anadolu-tarihi']
+EXTRA_TAGS = ['osmanlı', 'cumhuriyet', 'bizans', 'selçuklu', 'anadolu-tarihi', 'nostalgia', 'family', 'neighborhood', 'youth']
 
 # ── Stories ────────────────────────────────────────────────────────────────────
 
@@ -699,8 +701,12 @@ STORIES = [
     },
 ]
 
+# Merge personal stories so get_or_create deduplication handles re-runs safely
+STORIES = STORIES + PERSONAL_STORIES
+
 # ── Comments pool ───────────────────────────────────────────────────────────────
 
+# Historical story comments
 COMMENTS_TR = [
     'Çok etkileyici bir hikâye, teşekkürler!',
     'Bu tarihi bilgileri paylaştığınız için teşekkür ederim.',
@@ -726,6 +732,36 @@ COMMENTS_EN = [
     'Really brought the place to life for me.',
     'Wonderful storytelling, very informative.',
 ]
+
+# Personal/nostalgic story comments
+COMMENTS_PERSONAL_TR = [
+    'Bu anıyı okuyunca içim sıkıştı, çok tanıdık geldi.',
+    'Benim de böyle bir yerim var, tam anlayabildim sizi.',
+    'Çocukluğumu hatırlattı, teşekkür ederim.',
+    'Bu tür anıların kaybolmaması için çok önemli bir platform.',
+    'Yazdığınız için mutlu oldum, kendinizi çok iyi ifade etmişsiniz.',
+    'Okurken gözlerim doldu, çok güzel bir anı.',
+    'Aynı duyguyu ben de yaşadım, kelimeleriniz beni çok etkiledi.',
+    'İnsanın içini ısıtan bir yazı, elinize sağlık.',
+    'Bu yeri ben de çok seviyorum, paylaştığınız için teşekkürler.',
+    'Tam benim de anlatmak istediğim şeydi, siz yazdınız.',
+]
+
+COMMENTS_PERSONAL_EN = [
+    'This made me think of my own childhood, beautifully written.',
+    'I felt like I was right there with you reading this.',
+    'Stories like this are exactly why this platform matters.',
+    'The way you described this place gave me chills.',
+    'Thank you for not letting this memory disappear.',
+    'This is the kind of story that stays with you.',
+    'I have a place just like this in my memory too.',
+    'Reading this felt like opening an old photo album.',
+    'So beautifully written, I could picture every moment.',
+    'This is what community memory is all about, thank you.',
+]
+
+# Titles of personal stories — used to pick the right comment pool
+_PERSONAL_TITLES = {s['title'] for s in PERSONAL_STORIES}
 
 
 def _check_internet() -> bool:
@@ -939,11 +975,19 @@ class Command(BaseCommand):
         for story, _ in stories:
             author = story.user
 
-            # Comments
+            # Comments — use story-specific list when available, else fall back to pool
             commenters = random.sample(regular, random.randint(1, min(4, len(regular))))
+            is_personal = story.title in _PERSONAL_TITLES
+            specific_comments = STORY_COMMENTS.get(story.title)
             for commenter in commenters:
-                pool = COMMENTS_TR if random.random() < 0.6 else COMMENTS_EN
-                text = random.choice(pool)
+                if specific_comments:
+                    text = random.choice(specific_comments)
+                elif is_personal:
+                    pool = COMMENTS_PERSONAL_TR if random.random() < 0.6 else COMMENTS_PERSONAL_EN
+                    text = random.choice(pool)
+                else:
+                    pool = COMMENTS_TR if random.random() < 0.6 else COMMENTS_EN
+                    text = random.choice(pool)
                 _, is_new = Comment.objects.get_or_create(
                     story=story,
                     author=commenter,
