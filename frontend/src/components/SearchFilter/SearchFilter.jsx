@@ -91,6 +91,8 @@ function SearchFilter({ className }) {
         yearFrom={yearFrom}
         yearTo={yearTo}
         location={location}
+        latitude={latitude}
+        longitude={longitude}
         radiusKm={radiusKm}
         hasProximity={hasProximity}
         tags={tags}

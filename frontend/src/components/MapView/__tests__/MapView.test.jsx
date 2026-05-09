@@ -455,7 +455,10 @@ describe("featurePopupHtml", () => {
   });
 
   it("includes a View Timeline link to /timeline with proximity params pre-set", () => {
-    // makeFeature(7) → coordinates [28.97, 41.07] (lng, lat per RFC 7946)
+    // makeFeature(7) → coordinates [28.97, 41.07] (lng, lat per RFC 7946).
+    // Note: featurePopupHtml runs through renderToStaticMarkup, which escapes
+    // the `&` query-string separators as `&amp;`. The browser unescapes them
+    // when parsing the rendered HTML, so the live href is still `…&…`.
     const html = featurePopupHtml(makeFeature(7));
     expect(html).toContain("View Timeline");
     expect(html).toContain(

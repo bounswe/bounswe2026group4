@@ -3,7 +3,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("@/services/deviceLocationService", () => ({
+  // Default to "device" semantics for the existing assertions that expect a
+  // plain "Within X" chip. The external-source case has its own targeted
+  // tests that override this with mockReturnValue(false).
+  isProximityFromDeviceLocation: vi.fn(() => true),
+}));
+
 import ActiveFilters from "../ActiveFilters";
+import { isProximityFromDeviceLocation } from "@/services/deviceLocationService";
 
 function renderFilters(props = {}) {
   return render(
@@ -24,6 +32,7 @@ function renderFilters(props = {}) {
 describe("ActiveFilters", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isProximityFromDeviceLocation.mockReturnValue(true);
   });
 
   it("renders nothing when no filters are active", () => {
@@ -180,6 +189,34 @@ describe("ActiveFilters", () => {
     await user.click(screen.getByRole("button", { name: /remove filter: within 1 km/i }));
 
     expect(onRemove).toHaveBeenCalledWith("proximity");
+  });
+
+  it("appends 'of selected location' to the proximity chip when coords are not from geolocation this session", () => {
+    isProximityFromDeviceLocation.mockReturnValue(false);
+    renderFilters({
+      radiusKm: 0.5,
+      hasProximity: true,
+      latitude: 41.01,
+      longitude: 28.97,
+    });
+    expect(
+      screen.getByText(/within 500 m of selected location/i),
+    ).toBeInTheDocument();
+    expect(isProximityFromDeviceLocation).toHaveBeenCalledWith(41.01, 28.97);
+  });
+
+  it("uses the plain 'Within X' chip when coords match the granted device location", () => {
+    isProximityFromDeviceLocation.mockReturnValue(true);
+    renderFilters({
+      radiusKm: 1,
+      hasProximity: true,
+      latitude: 41.01,
+      longitude: 28.97,
+    });
+    expect(screen.getByText("Within 1 km")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/of selected location/i),
+    ).not.toBeInTheDocument();
   });
 
   it("renders a 'Has image' chip when hasImage is true", () => {
