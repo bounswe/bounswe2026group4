@@ -82,6 +82,41 @@ describe("TimelineEntry", () => {
     expect(screen.getAllByText("1870s").length).toBeGreaterThan(0);
   });
 
+  it("renders BC years on the bullet without a minus sign", () => {
+    renderEntry({
+      id: 1,
+      title: "Roman story",
+      time_type: "exact_year",
+      year: -44,
+      year_start: null,
+      year_end: null,
+      location_lat: null,
+      location_lng: null,
+      photo_url: null,
+      temporal_coverage: null,
+    });
+
+    expect(screen.getAllByText("44 BC").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^-44/)).not.toBeInTheDocument();
+  });
+
+  it("derives the decade chip from a BC year as 'XXs BC'", () => {
+    renderEntry({
+      id: 1,
+      title: "Roman story",
+      time_type: "exact_year",
+      year: -44,
+      year_start: null,
+      year_end: null,
+      location_lat: null,
+      location_lng: null,
+      photo_url: null,
+      temporal_coverage: null,
+    });
+
+    expect(screen.getByText("50s BC")).toBeInTheDocument();
+  });
+
   it("renders the photo when photo_url is provided", () => {
     renderEntry({
       id: 1,

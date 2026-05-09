@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTagColorClass } from "@/utils/tagUtils";
 import { formatDistanceKm } from "@/utils/distance";
+import { formatHistoricalYear, formatHistoricalYearRange } from "@/utils/year";
 import { isProximityFromDeviceLocation } from "@/services/deviceLocationService";
 import { cn } from "@/lib/utils";
 
@@ -71,11 +72,11 @@ function ActiveFilters({
   }
 
   if (yearFrom && yearTo) {
-    chips.push({ key: "year_range", label: `${yearFrom}–${yearTo}` });
+    chips.push({ key: "year_range", label: formatHistoricalYearRange(yearFrom, yearTo) });
   } else if (yearFrom) {
-    chips.push({ key: "year_from", label: `From ${yearFrom}` });
+    chips.push({ key: "year_from", label: `From ${formatHistoricalYear(yearFrom)}` });
   } else if (yearTo) {
-    chips.push({ key: "year_to", label: `To ${yearTo}` });
+    chips.push({ key: "year_to", label: `To ${formatHistoricalYear(yearTo)}` });
   }
 
   if (location) {

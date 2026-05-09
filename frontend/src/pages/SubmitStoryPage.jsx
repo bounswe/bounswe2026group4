@@ -439,43 +439,48 @@ function SubmitStoryPage() {
               </div>
             </div>
           ) : timeType === "year_range" ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="yearStart">Start Year</Label>
-                <Input
-                  id="yearStart"
-                  type="number"
-                  value={yearStart}
-                  onChange={(e) => {
-                    setYearStart(e.target.value);
-                    if (fieldErrors.yearStart)
-                      setFieldErrors((prev) => ({ ...prev, yearStart: "" }));
-                  }}
-                  placeholder="e.g. 1400"
-                  disabled={isSubmitting}
-                />
-                {fieldErrors.yearStart && (
-                  <p className="text-sm text-destructive">{fieldErrors.yearStart}</p>
-                )}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="yearStart">Start Year</Label>
+                  <Input
+                    id="yearStart"
+                    type="number"
+                    value={yearStart}
+                    onChange={(e) => {
+                      setYearStart(e.target.value);
+                      if (fieldErrors.yearStart)
+                        setFieldErrors((prev) => ({ ...prev, yearStart: "" }));
+                    }}
+                    placeholder="e.g. 1400 or -300"
+                    disabled={isSubmitting}
+                  />
+                  {fieldErrors.yearStart && (
+                    <p className="text-sm text-destructive">{fieldErrors.yearStart}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="yearEnd">End Year</Label>
+                  <Input
+                    id="yearEnd"
+                    type="number"
+                    value={yearEnd}
+                    onChange={(e) => {
+                      setYearEnd(e.target.value);
+                      if (fieldErrors.yearEnd)
+                        setFieldErrors((prev) => ({ ...prev, yearEnd: "" }));
+                    }}
+                    placeholder="e.g. 1500 or -100"
+                    disabled={isSubmitting}
+                  />
+                  {fieldErrors.yearEnd && (
+                    <p className="text-sm text-destructive">{fieldErrors.yearEnd}</p>
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="yearEnd">End Year</Label>
-                <Input
-                  id="yearEnd"
-                  type="number"
-                  value={yearEnd}
-                  onChange={(e) => {
-                    setYearEnd(e.target.value);
-                    if (fieldErrors.yearEnd)
-                      setFieldErrors((prev) => ({ ...prev, yearEnd: "" }));
-                  }}
-                  placeholder="e.g. 1500"
-                  disabled={isSubmitting}
-                />
-                {fieldErrors.yearEnd && (
-                  <p className="text-sm text-destructive">{fieldErrors.yearEnd}</p>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Use a negative year for BC (e.g. -300 = 300 BC).
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -489,9 +494,12 @@ function SubmitStoryPage() {
                   if (fieldErrors.year)
                     setFieldErrors((prev) => ({ ...prev, year: "" }));
                 }}
-                placeholder="e.g. 1453"
+                placeholder="e.g. 1453 or -300 for BC"
                 disabled={isSubmitting}
               />
+              <p className="text-xs text-muted-foreground">
+                Use a negative year for BC (e.g. -300 = 300 BC).
+              </p>
               {fieldErrors.year && (
                 <p className="text-sm text-destructive">{fieldErrors.year}</p>
               )}

@@ -12,7 +12,7 @@ import {
 } from "@/services/deviceLocationService";
 import TagFilterInput from "./TagFilterInput";
 
-const YEAR_MIN = 1000;
+// Negative years represent BC, so no lower bound. Upper bound caps typos.
 const YEAR_MAX = 2030;
 const YEAR_SPINNER_FROM = 1980;
 const YEAR_SPINNER_TO = new Date().getFullYear();
@@ -208,8 +208,8 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
     const from = localYearFrom === "" ? "" : Number(localYearFrom);
     const to = localYearTo === "" ? "" : Number(localYearTo);
 
-    if ((from !== "" && (isNaN(from) || from < YEAR_MIN)) || (to !== "" && (isNaN(to) || to < YEAR_MIN))) {
-      setYearError(`Year must be ${YEAR_MIN} or later.`);
+    if ((from !== "" && isNaN(from)) || (to !== "" && isNaN(to))) {
+      setYearError("Year must be a valid number.");
       return;
     }
     if (from !== "" && to !== "" && from > to) {
@@ -327,7 +327,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                   <Input
                     id="year-from"
                     type="number"
-                    placeholder="From"
+                    placeholder="From (e.g. 1900 or -300 for BC)"
                     value={localYearFrom}
                     onKeyDown={(e) => {
                       if ((e.key === "ArrowUp" || e.key === "ArrowDown") && localYearFrom === "") {
@@ -339,15 +339,9 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val === "") { setLocalYearFrom(""); setYearError(""); return; }
-                      // When mouse-spinner is clicked on empty field the browser fires YEAR_MIN; override with default
-                      if (localYearFrom === "" && Number(val) === YEAR_MIN) {
-                        setLocalYearFrom(YEAR_SPINNER_FROM);
-                      } else {
-                        setLocalYearFrom(clampYear(val));
-                      }
+                      setLocalYearFrom(clampYear(val));
                       setYearError("");
                     }}
-                    min={YEAR_MIN}
                     max={YEAR_MAX}
                     aria-label="From year"
                   />
@@ -374,20 +368,17 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val === "") { setLocalYearTo(""); setYearError(""); return; }
-                      // When mouse-spinner is clicked on empty field the browser fires YEAR_MIN; override with default
-                      if (localYearTo === "" && Number(val) === YEAR_MIN) {
-                        setLocalYearTo(YEAR_SPINNER_TO);
-                      } else {
-                        setLocalYearTo(clampYear(val));
-                      }
+                      setLocalYearTo(clampYear(val));
                       setYearError("");
                     }}
-                    min={YEAR_MIN}
                     max={YEAR_MAX}
                     aria-label="To year"
                   />
                 </div>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use a negative year for BC (e.g. -300 = 300 BC).
+              </p>
               {yearError && (
                 <p className="mt-1 text-xs text-destructive" role="alert">
                   {yearError}

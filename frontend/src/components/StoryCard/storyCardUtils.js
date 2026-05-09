@@ -1,3 +1,9 @@
+import {
+  formatHistoricalDecade,
+  formatHistoricalYear,
+  formatHistoricalYearRange,
+} from "@/utils/year";
+
 export function truncateAtWord(text, maxChars = 80) {
   if (text.length <= maxChars) return text;
   const truncated = text.slice(0, maxChars);
@@ -18,10 +24,10 @@ function formatExactDate(dateValue, timeValue) {
   const monthIdx = Number(m[2]) - 1;
   const day = Number(m[3]);
   const month = MONTHS[monthIdx] ?? m[2];
-  const base = `${month}\u00a0${day},\u00a0${year}`;
+  const base = `${month} ${day}, ${year}`;
   if (typeof timeValue === "string") {
     const t = timeValue.match(/^(\d{2}):(\d{2})/);
-    if (t) return `${base}\u00a0${t[1]}:${t[2]}`;
+    if (t) return `${base} ${t[1]}:${t[2]}`;
   }
   return base;
 }
@@ -30,14 +36,15 @@ export function formatTimePeriod(story) {
   const { time_type, year, year_start, year_end, date_value, time_value } = story;
   switch (time_type) {
     case "exact_year":
-      return String(year);
-    case "approximate_year":
-      return `c.\u00a0${year}`;
+      return formatHistoricalYear(year);
+    case "approximate_year": {
+      const formatted = formatHistoricalYear(year);
+      return formatted ? `c. ${formatted}` : "";
+    }
     case "decade":
-      return `${Math.floor(year / 10) * 10}s`;
+      return formatHistoricalDecade(year);
     case "year_range":
-      if (year_start == null || year_end == null) return "";
-      return `${year_start}\u2013${year_end}`;
+      return formatHistoricalYearRange(year_start, year_end);
     case "exact_date":
       return formatExactDate(date_value, time_value);
     default:
