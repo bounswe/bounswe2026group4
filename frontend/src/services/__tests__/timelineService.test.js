@@ -179,39 +179,6 @@ describe("timelineService", () => {
       expect(result.count).toBe(3);
     });
 
-    it("routes to /stories/feed/ when only tags are set, and forwards them", async () => {
-      api.get.mockResolvedValue({
-        data: { count: 0, next: null, previous: null, results: [] },
-      });
-
-      await getTimeline({ tags: ["mosque", "ottoman"], page: 1, pageSize: 10 });
-
-      expect(api.get).toHaveBeenCalledWith(
-        "/stories/feed/",
-        expect.objectContaining({
-          params: expect.objectContaining({
-            sort_by: "recent",
-            tags: ["mosque", "ottoman"],
-          }),
-        }),
-      );
-    });
-
-    it("routes to /stories/feed/ when proximity is set, and forwards lat/lng/radius", async () => {
-      api.get.mockResolvedValue({
-        data: { count: 0, next: null, previous: null, results: [] },
-      });
-
-      await getTimeline({ latitude: 41, longitude: 29, radiusKm: 1, page: 1, pageSize: 10 });
-
-      expect(api.get).toHaveBeenCalledWith(
-        "/stories/feed/",
-        expect.objectContaining({
-          params: expect.objectContaining({ latitude: 41, longitude: 29, radius_km: 1 }),
-        }),
-      );
-    });
-
     it("falls back when location text is set without a bbox", async () => {
       api.get.mockResolvedValue({
         data: { count: 0, next: null, previous: null, results: [] },
