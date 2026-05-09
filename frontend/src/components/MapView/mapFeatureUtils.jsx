@@ -17,6 +17,9 @@ function featureToStory(feature) {
     year: props.year,
     year_start: props.year_start,
     year_end: props.year_end,
+    date_value: props.date_value,
+    time_value: props.time_value,
+    preview_text: props.preview_text,
   };
 }
 
