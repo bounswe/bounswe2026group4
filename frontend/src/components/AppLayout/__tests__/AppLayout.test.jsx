@@ -25,6 +25,7 @@ function renderWithRouter(initialRoute = "/") {
         <Route element={<AppLayout />}>
           <Route path="/" element={<div>Feed Content</div>} />
           <Route path="/map" element={<div>Map Content</div>} />
+          <Route path="/timeline" element={<div>Timeline Content</div>} />
           <Route path="/login" element={<div>Login Content</div>} />
           <Route path="/register" element={<div>Register Content</div>} />
           <Route path="/profile" element={<div>Profile Content</div>} />
@@ -131,6 +132,29 @@ describe("AppLayout", () => {
     renderWithRouter("/map?q=galata&year_from=1980");
 
     const feedLinks = screen.getAllByRole("link", { name: /^feed$/i });
+    expect(feedLinks[0]).toHaveAttribute("href", "/?q=galata&year_from=1980");
+  });
+
+  it("Timeline link carries current search params when on the Feed page", () => {
+    renderWithRouter("/?q=galata&year_from=1980");
+
+    const timelineLinks = screen.getAllByRole("link", { name: /^timeline$/i });
+    expect(timelineLinks[0]).toHaveAttribute("href", "/timeline?q=galata&year_from=1980");
+  });
+
+  it("Timeline link carries current search params when on the Map page", () => {
+    renderWithRouter("/map?tags=ottoman-era");
+
+    const timelineLinks = screen.getAllByRole("link", { name: /^timeline$/i });
+    expect(timelineLinks[0]).toHaveAttribute("href", "/timeline?tags=ottoman-era");
+  });
+
+  it("Map and Feed links carry current search params when on the Timeline page", () => {
+    renderWithRouter("/timeline?q=galata&year_from=1980");
+
+    const mapLinks = screen.getAllByRole("link", { name: /^map$/i });
+    const feedLinks = screen.getAllByRole("link", { name: /^feed$/i });
+    expect(mapLinks[0]).toHaveAttribute("href", "/map?q=galata&year_from=1980");
     expect(feedLinks[0]).toHaveAttribute("href", "/?q=galata&year_from=1980");
   });
 
