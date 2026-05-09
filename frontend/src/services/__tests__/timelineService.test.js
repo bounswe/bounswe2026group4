@@ -94,6 +94,34 @@ describe("timelineService", () => {
     });
   });
 
+  it("passes tags array through as-is for paramsSerializer to handle", async () => {
+    api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+    await getTimeline({ tags: ["nature", "folklore"] });
+
+    expect(api.get).toHaveBeenCalledWith("/stories/timeline/", {
+      params: { tags: ["nature", "folklore"] },
+    });
+  });
+
+  it("omits tags when array is empty", async () => {
+    api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+    await getTimeline({ tags: [] });
+
+    expect(api.get).toHaveBeenCalledWith("/stories/timeline/", { params: {} });
+  });
+
+  it("passes proximity params through", async () => {
+    api.get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+    await getTimeline({ latitude: 41.0, longitude: 28.9, radiusKm: 5 });
+
+    expect(api.get).toHaveBeenCalledWith("/stories/timeline/", {
+      params: { latitude: 41.0, longitude: 28.9, radius_km: 5 },
+    });
+  });
+
   it("throws on API error", async () => {
     api.get.mockRejectedValue(new Error("Network error"));
 
