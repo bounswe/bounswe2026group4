@@ -331,7 +331,7 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                   <Input
                     id="year-from"
                     type="number"
-                    placeholder="From (e.g. 1900 or -300 for BC)"
+                    placeholder="From"
                     value={localYearFrom}
                     onKeyDown={(e) => {
                       if ((e.key === "ArrowUp" || e.key === "ArrowDown") && localYearFrom === "") {
@@ -380,9 +380,6 @@ function FilterPanel({ yearFrom = "", yearTo = "", location = "", latMin = null,
                   />
                 </div>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Use a negative year for BC (e.g. -300 = 300 BC).
-              </p>
               {yearError && (
                 <p className="mt-1 text-xs text-destructive" role="alert">
                   {yearError}

@@ -243,14 +243,6 @@ describe("FilterPanel", () => {
     );
   });
 
-  it("renders a hint that negative years mean BC", async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    await user.click(screen.getByRole("button", { name: /^filters$/i }));
-
-    expect(screen.getByText(/negative year for BC/i)).toBeInTheDocument();
-  });
 
   it("ArrowUp on empty From year sets it to 1980", async () => {
     const user = userEvent.setup();
