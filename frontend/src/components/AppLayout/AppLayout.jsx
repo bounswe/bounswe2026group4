@@ -56,7 +56,7 @@ function AppLayout() {
   const baseLinks = isAdmin
     ? [...publicLinks, { to: "/admin", label: "Admin", icon: Shield }]
     : publicLinks;
-  const isFilterPage = location.pathname === "/" || location.pathname === "/map";
+  const isFilterPage = location.pathname === "/" || location.pathname === "/map" || location.pathname === "/timeline";
   const links = baseLinks.map((link) =>
     link.preserveSearch && isFilterPage && location.search
       ? { ...link, basePath: link.to, to: `${link.to}${location.search}` }

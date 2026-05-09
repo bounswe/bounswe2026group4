@@ -82,6 +82,43 @@ describe("TimelineEntry", () => {
     expect(screen.getAllByText("1870s").length).toBeGreaterThan(0);
   });
 
+  it("renders only the formatTimePeriod label chip — no decade chip for non-decade stories", () => {
+    renderEntry({
+      id: 1,
+      title: "T",
+      time_type: "exact_year",
+      year: 1920,
+      year_start: null,
+      year_end: null,
+      location_lat: null,
+      location_lng: null,
+      photo_url: null,
+      temporal_coverage: "1920",
+    });
+
+    // "1920" appears only as the bullet — the in-card chip is removed
+    const chips = screen.getAllByText("1920");
+    expect(chips.length).toBe(1);
+    expect(screen.queryByText("1920s")).not.toBeInTheDocument();
+  });
+
+  it("does not render a temporal_coverage chip even when the field is present", () => {
+    renderEntry({
+      id: 1,
+      title: "T",
+      time_type: "approx_year",
+      year: 1920,
+      year_start: null,
+      year_end: null,
+      location_lat: null,
+      location_lng: null,
+      photo_url: null,
+      temporal_coverage: "~1920",
+    });
+
+    expect(screen.queryByText("~1920")).not.toBeInTheDocument();
+  });
+
   it("renders BC years on the bullet without a minus sign", () => {
     renderEntry({
       id: 1,
@@ -104,7 +141,7 @@ describe("TimelineEntry", () => {
     renderEntry({
       id: 1,
       title: "Roman story",
-      time_type: "exact_year",
+      time_type: "decade",
       year: -44,
       year_start: null,
       year_end: null,

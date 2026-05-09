@@ -3,7 +3,7 @@ import { MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
-import { formatHistoricalDecade, formatHistoricalYear } from "@/utils/year";
+import { formatHistoricalYear } from "@/utils/year";
 
 /**
  * Best-effort label for the bullet on the timeline. Prefers the formatted
@@ -22,15 +22,8 @@ function bulletLabel(story) {
   return "";
 }
 
-function decadeChip(story) {
-  const yearForDecade = story.year ?? story.year_start;
-  if (yearForDecade == null) return null;
-  return formatHistoricalDecade(yearForDecade);
-}
-
 function TimelineEntry({ story }) {
   const label = bulletLabel(story);
-  const decade = story.time_type === "decade" ? null : decadeChip(story);
   const hasCoords =
     story.location_lat != null && story.location_lng != null;
   const locationName =
@@ -78,24 +71,6 @@ function TimelineEntry({ story }) {
           <h3 className="text-base font-semibold leading-snug text-foreground line-clamp-2">
             {story.title}
           </h3>
-
-          <div className="flex flex-wrap gap-1.5">
-            {label && (
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {label}
-              </span>
-            )}
-            {decade && decade !== label && (
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {decade}
-              </span>
-            )}
-            {story.temporal_coverage && (
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {story.temporal_coverage}
-              </span>
-            )}
-          </div>
 
           {locationText && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

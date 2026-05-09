@@ -40,6 +40,14 @@ function renderPage(initialEntries = ["/timeline"]) {
   );
 }
 
+function renderPageWithState(state) {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: "/timeline", state }]}>
+      <TimelinePage />
+    </MemoryRouter>,
+  );
+}
+
 describe("TimelinePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,10 +69,10 @@ describe("TimelinePage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders the shared SearchBar + Filters button + ActiveFilters pattern", async () => {
+  it("renders the Filters button but no search bar input", async () => {
     renderPage();
-    expect(screen.getByPlaceholderText(/search by title or place/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^filters$/i })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/search by title or place/i)).not.toBeInTheDocument();
   });
 
   it("fetches with no year params on first render (no URL filters)", async () => {
@@ -92,19 +100,10 @@ describe("TimelinePage", () => {
     expect(getTimeline.mock.calls[0][0].hasImage).toBe(true);
   });
 
-  it("forwards q from the URL on mount and reacts to typed input (debounced)", async () => {
-    const user = userEvent.setup();
+  it("does not pass q to getTimeline even when q is present in the URL", async () => {
     renderPage(["/timeline?q=hagia"]);
     await waitFor(() => expect(getTimeline).toHaveBeenCalled());
-    expect(getTimeline.mock.calls[0][0].q).toBe("hagia");
-
-    await user.clear(screen.getByPlaceholderText(/search by title or place/i));
-    await user.type(screen.getByPlaceholderText(/search by title or place/i), "galata");
-
-    await waitFor(() => {
-      const matched = getTimeline.mock.calls.some(([a]) => a?.q === "galata");
-      expect(matched).toBe(true);
-    });
+    expect(getTimeline.mock.calls[0][0].q).toBeUndefined();
   });
 
   it("forwards URL filters (location, tags, proximity) to getTimeline", async () => {
@@ -120,18 +119,18 @@ describe("TimelinePage", () => {
     expect(args.radiusKm).toBe(1);
   });
 
-  it("renders dismissible chips for q / year_range / location / tags / has_image", async () => {
+  it("renders dismissible chips for year_range / location / tags / has_image (no q chip)", async () => {
     renderPage([
-      "/timeline?q=war&year_from=1850&year_to=1900&location=Galata&tags=ottoman&has_image=true",
+      "/timeline?year_from=1850&year_to=1900&location=Galata&tags=ottoman&has_image=true",
     ]);
     await waitFor(() => expect(getTimeline).toHaveBeenCalled());
 
     expect(screen.getByLabelText(/active filters/i)).toBeInTheDocument();
-    expect(screen.getByText('"war"')).toBeInTheDocument();
     expect(screen.getByText("1850–1900")).toBeInTheDocument();
     expect(screen.getByText(/location: galata/i)).toBeInTheDocument();
     expect(screen.getByText("ottoman")).toBeInTheDocument();
     expect(screen.getByText(/^has image$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/"war"/)).not.toBeInTheDocument();
   });
 
   it("removing the year-range chip clears year_from / year_to and refetches", async () => {
@@ -222,5 +221,22 @@ describe("TimelinePage", () => {
     expect(args.latMax).toBe(41);
     expect(args.lngMin).toBe(28);
     expect(args.lngMax).toBe(29);
+  });
+
+  describe("back-to-map button", () => {
+    it("shows a back arrow when navigated from /map", async () => {
+      renderPageWithState({ from: "/map?lat_min=40&lat_max=41" });
+      expect(screen.getByRole("button", { name: /back to map/i })).toBeInTheDocument();
+    });
+
+    it("does not show a back arrow when there is no router state", async () => {
+      renderPage();
+      expect(screen.queryByRole("button", { name: /back to map/i })).not.toBeInTheDocument();
+    });
+
+    it("does not show a back arrow when navigated from a non-map page", async () => {
+      renderPageWithState({ from: "/timeline?year_from=1900" });
+      expect(screen.queryByRole("button", { name: /back to map/i })).not.toBeInTheDocument();
+    });
   });
 });
