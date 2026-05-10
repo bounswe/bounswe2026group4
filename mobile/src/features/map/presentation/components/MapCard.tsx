@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, LayoutChangeEvent, ScrollView, StyleProp, Text, TextStyle, View } from 'react-native';
 import { Region } from 'react-native-maps';
+import { Calendar, MapPin } from 'lucide-react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { Button } from '../../../../shared/ui/Button';
 import { WebMapView } from '../../../../shared/components/WebMapView';
 import { MapMarkerGroup } from '../../domain/entities';
+import { StoryMapPin } from '../../../stories/domain/entities';
 
 interface MapCardProps {
   region: Region;
@@ -236,8 +238,7 @@ export function MapCard({
                   }}
                 >
                   <Text {...passivePreviewTextProps} style={{ color: colors.text, fontWeight: '700' }}>{story.title}</Text>
-                  <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.placeName}</Text>
-                  <Text {...passivePreviewTextProps} style={{ marginTop: spacing.xs, color: colors.muted }}>{story.timePeriod}</Text>
+                  <PreviewMeta story={story} />
                   <Text {...passivePreviewTextProps} style={{ marginTop: spacing.sm, color: colors.text }}>{truncatePreview(story.previewText)}</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
                     <Button
@@ -271,8 +272,7 @@ export function MapCard({
             <Text {...passivePreviewTextProps} style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '700' }}>
               {selectedMarker.stories[0].title}
             </Text>
-            <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].placeName}</Text>
-            <Text {...passivePreviewTextProps} style={{ color: colors.muted }}>{selectedMarker.stories[0].timePeriod}</Text>
+            <PreviewMeta story={selectedMarker.stories[0]} />
             <Text {...passivePreviewTextProps} style={{ color: colors.text }}>{truncatePreview(selectedMarker.stories[0].previewText)}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               <Button
@@ -300,6 +300,55 @@ export function MapCard({
           </>
         )}
       </View>
+    </View>
+  );
+}
+
+function PreviewMeta({ story }: { story: StoryMapPin }) {
+  const { colors, spacing, typography } = useAppTheme();
+  const iconColor = colors.muted;
+  const iconSize = 15;
+
+  return (
+    <View style={{ gap: spacing.xs, marginTop: spacing.xs }}>
+      <PreviewMetaItem
+        accessibilityLabel={`Preview location: ${story.placeName}`}
+        icon={<MapPin size={iconSize} color={iconColor} strokeWidth={2.2} />}
+        value={story.placeName}
+        textStyle={{ color: colors.muted, fontSize: typography.caption + 1 }}
+      />
+      <PreviewMetaItem
+        accessibilityLabel={`Preview date: ${story.timePeriod}`}
+        icon={<Calendar size={iconSize} color={iconColor} strokeWidth={2.2} />}
+        value={story.timePeriod}
+        textStyle={{ color: colors.muted, fontSize: typography.caption + 1 }}
+      />
+    </View>
+  );
+}
+
+function PreviewMetaItem({
+  accessibilityLabel,
+  icon,
+  value,
+  textStyle,
+}: {
+  accessibilityLabel: string;
+  icon: React.ReactNode;
+  value: string;
+  textStyle: StyleProp<TextStyle>;
+}) {
+  const { spacing } = useAppTheme();
+
+  return (
+    <View
+      accessibilityLabel={accessibilityLabel}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
+    >
+      {icon}
+      <Text {...passivePreviewTextProps} numberOfLines={2} style={[{ flex: 1 }, textStyle]}>
+        {value}
+      </Text>
     </View>
   );
 }

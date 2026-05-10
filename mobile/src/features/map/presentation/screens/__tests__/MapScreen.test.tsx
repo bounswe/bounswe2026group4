@@ -414,6 +414,8 @@ describe('MapScreen', () => {
     const selectedStoryTitle = await screen.findByText('The Day the Harbor Fell Silent');
     expect(selectedStoryTitle).toBeTruthy();
     expect(selectedStoryTitle.props.pointerEvents).toBe('none');
+    expect(screen.getByLabelText('Preview location: Golden Horn Docklands')).toBeTruthy();
+    expect(screen.getByLabelText('Preview date: Late 1970s')).toBeTruthy();
     fireEvent.press(screen.getByText('Read full story'));
 
     expect(onOpenStory).toHaveBeenCalledWith('story-001');
