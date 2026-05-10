@@ -403,7 +403,7 @@ describe('TimelineScreen', () => {
 
     await screen.findByText('Timeline Story 1');
     openFilters();
-    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Only stories with an image'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -418,7 +418,7 @@ describe('TimelineScreen', () => {
     });
 
     openFilters();
-    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Only stories with an image'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {

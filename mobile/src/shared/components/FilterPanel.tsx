@@ -191,12 +191,101 @@ export function FilterPanel({
         </Text>
       </View>
 
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flex: 1, gap: spacing.sm }}>
+          <Text style={{ color: colors.text, fontWeight: '600' }}>Year range</Text>
+          <Input
+            value={timeFrom}
+            onChangeText={handleTimeFromChange}
+            onBlur={() => onTimeFromChange(clampYearValue(timeFrom))}
+            placeholder="From"
+            keyboardType="numbers-and-punctuation"
+            accessibilityLabel="From year"
+            trailingElement={
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease start year"
+                  onPress={() => stepYear(timeFrom, onTimeFromChange, -1, DEFAULT_FROM_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>-</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase start year"
+                  accessibilityState={{ disabled: Number(timeFrom || DEFAULT_FROM_YEAR) >= MAX_YEAR }}
+                  onPress={() => stepYear(timeFrom, onTimeFromChange, 1, DEFAULT_FROM_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
+                </Pressable>
+              </View>
+            }
+          />
+        </View>
+        <View style={{ flex: 1, gap: spacing.sm }}>
+          <Text style={{ color: colors.text, fontWeight: '600', opacity: 0 }}>Year range</Text>
+          <Input
+            value={timeTo}
+            onChangeText={handleTimeToChange}
+            onBlur={() => onTimeToChange(clampYearValue(timeTo))}
+            placeholder="To"
+            keyboardType="numbers-and-punctuation"
+            accessibilityLabel="To year"
+            trailingElement={
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease end year"
+                  onPress={() => stepYear(timeTo, onTimeToChange, -1, DEFAULT_TO_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>-</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase end year"
+                  accessibilityState={{ disabled: Number(timeTo || DEFAULT_TO_YEAR) >= MAX_YEAR }}
+                  onPress={() => stepYear(timeTo, onTimeToChange, 1, DEFAULT_TO_YEAR)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
+                </Pressable>
+              </View>
+            }
+          />
+        </View>
+      </View>
+
+      {hasInvalidRange ? (
+        <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: typography.caption + 1 }}>
+          Start year cannot be later than end year.
+        </Text>
+      ) : null}
+
       <View style={{ gap: spacing.sm }}>
         <Text style={{ color: colors.text, fontWeight: '600' }}>Location</Text>
         <Input
           value={location}
           onChangeText={onLocationChange}
-          placeholder="Neighborhood, district, or city"
+          placeholder="Neighbourhood, district, city..."
           accessibilityLabel="Location filter"
           trailingElement={
             isLocationResolving ? (
@@ -253,6 +342,59 @@ export function FilterPanel({
               </Pressable>
             ))}
           </View>
+        ) : null}
+      </View>
+
+      <View style={{ gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: colors.text, fontWeight: '600' }}>Distance</Text>
+          {isProximityResolving ? (
+            <ActivityIndicator
+              accessibilityLabel="Fetching current location"
+              color={colors.primary}
+              size="small"
+            />
+          ) : null}
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {PROXIMITY_OPTIONS.map((option) => {
+            const isSelected = proximityRadiusKm === option.value || (!proximityRadiusKm && !option.value);
+
+            return (
+              <Pressable
+                key={option.label}
+                accessibilityRole="button"
+                accessibilityLabel={`Distance ${option.label}`}
+                accessibilityState={{ selected: isSelected, disabled: isProximityResolving }}
+                disabled={isProximityResolving}
+                onPress={() => onProximityRadiusChange?.(option.value)}
+                style={({ pressed }) => ({
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                  backgroundColor: isSelected ? colors.infoSurface : colors.surface,
+                  opacity: isProximityResolving ? 0.55 : pressed ? 0.75 : 1,
+                })}
+              >
+                <Text style={{ color: isSelected ? colors.primary : colors.text, fontWeight: '700' }}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {proximityStatusText ? (
+          <Text
+            accessibilityRole={isProximityError ? 'alert' : undefined}
+            style={{
+              color: isProximityError ? colors.danger : colors.muted,
+              fontSize: typography.caption + 1,
+            }}
+          >
+            {proximityStatusText}
+          </Text>
         ) : null}
       </View>
 
@@ -416,154 +558,12 @@ export function FilterPanel({
         ) : null}
       </View>
 
-      <View style={{ gap: spacing.sm }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: colors.text, fontWeight: '600' }}>Proximity</Text>
-          {isProximityResolving ? (
-            <ActivityIndicator
-              accessibilityLabel="Fetching current location"
-              color={colors.primary}
-              size="small"
-            />
-          ) : null}
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          {PROXIMITY_OPTIONS.map((option) => {
-            const isSelected = proximityRadiusKm === option.value || (!proximityRadiusKm && !option.value);
-
-            return (
-              <Pressable
-                key={option.label}
-                accessibilityRole="button"
-                accessibilityLabel={`Distance ${option.label}`}
-                accessibilityState={{ selected: isSelected, disabled: isProximityResolving }}
-                disabled={isProximityResolving}
-                onPress={() => onProximityRadiusChange?.(option.value)}
-                style={({ pressed }) => ({
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  backgroundColor: isSelected ? colors.infoSurface : colors.surface,
-                  opacity: isProximityResolving ? 0.55 : pressed ? 0.75 : 1,
-                })}
-              >
-                <Text style={{ color: isSelected ? colors.primary : colors.text, fontWeight: '700' }}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {proximityStatusText ? (
-          <Text
-            accessibilityRole={isProximityError ? 'alert' : undefined}
-            style={{
-              color: isProximityError ? colors.danger : colors.muted,
-              fontSize: typography.caption + 1,
-            }}
-          >
-            {proximityStatusText}
-          </Text>
-        ) : null}
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <View style={{ flex: 1, gap: spacing.sm }}>
-          <Text style={{ color: colors.text, fontWeight: '600' }}>From year</Text>
-          <Input
-            value={timeFrom}
-            onChangeText={handleTimeFromChange}
-            onBlur={() => onTimeFromChange(clampYearValue(timeFrom))}
-            placeholder={DEFAULT_FROM_YEAR}
-            keyboardType="numbers-and-punctuation"
-            accessibilityLabel="Start year"
-            trailingElement={
-              <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Decrease start year"
-                  onPress={() => stepYear(timeFrom, onTimeFromChange, -1, DEFAULT_FROM_YEAR)}
-                  style={({ pressed }) => ({
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.sm,
-                    opacity: pressed ? 0.75 : 1,
-                  })}
-                >
-                  <Text style={{ color: colors.text, fontWeight: '700' }}>-</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Increase start year"
-                  accessibilityState={{ disabled: Number(timeFrom || DEFAULT_FROM_YEAR) >= MAX_YEAR }}
-                  onPress={() => stepYear(timeFrom, onTimeFromChange, 1, DEFAULT_FROM_YEAR)}
-                  style={({ pressed }) => ({
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.sm,
-                    opacity: pressed ? 0.75 : 1,
-                  })}
-                >
-                  <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
-                </Pressable>
-              </View>
-            }
-          />
-        </View>
-        <View style={{ flex: 1, gap: spacing.sm }}>
-          <Text style={{ color: colors.text, fontWeight: '600' }}>To year</Text>
-          <Input
-            value={timeTo}
-            onChangeText={handleTimeToChange}
-            onBlur={() => onTimeToChange(clampYearValue(timeTo))}
-            placeholder={DEFAULT_TO_YEAR}
-            keyboardType="numbers-and-punctuation"
-            accessibilityLabel="End year"
-            trailingElement={
-              <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Decrease end year"
-                  onPress={() => stepYear(timeTo, onTimeToChange, -1, DEFAULT_TO_YEAR)}
-                  style={({ pressed }) => ({
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.sm,
-                    opacity: pressed ? 0.75 : 1,
-                  })}
-                >
-                  <Text style={{ color: colors.text, fontWeight: '700' }}>-</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Increase end year"
-                  accessibilityState={{ disabled: Number(timeTo || DEFAULT_TO_YEAR) >= MAX_YEAR }}
-                  onPress={() => stepYear(timeTo, onTimeToChange, 1, DEFAULT_TO_YEAR)}
-                  style={({ pressed }) => ({
-                    paddingHorizontal: spacing.sm,
-                    paddingVertical: spacing.sm,
-                    opacity: pressed ? 0.75 : 1,
-                  })}
-                >
-                  <Text style={{ color: colors.text, fontWeight: '700' }}>+</Text>
-                </Pressable>
-              </View>
-            }
-          />
-        </View>
-      </View>
-
-      {hasInvalidRange ? (
-        <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: typography.caption + 1 }}>
-          Start year cannot be later than end year.
-        </Text>
-      ) : null}
-
       {showMediaFilter ? (
         <View style={{ gap: spacing.sm }}>
-          <Text style={{ color: colors.text, fontWeight: '600' }}>Media</Text>
+          <Text style={{ color: colors.text, fontWeight: '600' }}>Image presence</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Filter stories with image"
+            accessibilityLabel="Only stories with an image"
             accessibilityState={{ selected: hasMedia === true }}
             onPress={() => onHasMediaChange?.(hasMedia === true ? undefined : true)}
             style={({ pressed }) => ({
@@ -578,7 +578,7 @@ export function FilterPanel({
             })}
           >
             <Text style={{ color: hasMedia === true ? colors.primary : colors.text, fontWeight: '700' }}>
-              With image
+              Only stories with an image
             </Text>
           </Pressable>
         </View>
@@ -588,7 +588,7 @@ export function FilterPanel({
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Pressable accessibilityRole="button" onPress={onClearAll}>
-          <Text style={{ color: colors.text, fontWeight: '700' }}>Reset filter form</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Reset filters</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
