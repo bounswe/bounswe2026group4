@@ -189,9 +189,10 @@ def get_story_timeline(
 
     if year_from is not None:
         date_q = (
-            # MySQL YEAR() only handles non-negative years; skip for BC boundaries
+            # MySQL YEAR() only handles non-negative years; for BC boundaries
+            # include all exact-date stories (date_value is always a positive year).
             Q(time_type=Story.TIME_DATE, date_value__year__gte=year_from)
-            if year_from >= 0 else Q()
+            if year_from >= 0 else Q(time_type=Story.TIME_DATE)
         )
         qs = qs.filter(
             # decade: interval ends at year+9; include if year+9 >= year_from ↔ year >= year_from-9
