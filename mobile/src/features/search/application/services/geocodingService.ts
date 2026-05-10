@@ -1,3 +1,5 @@
+import { apiClient } from '../../../../core/api/client';
+
 export interface LocationBounds {
   latMin: number;
   latMax: number;
@@ -14,21 +16,22 @@ export interface LocationSuggestion {
   bounds?: LocationBounds;
 }
 
-interface NominatimSearchResult {
-  boundingbox?: unknown;
-  place_id?: number | string;
-  osm_id?: number | string;
-  display_name?: string;
-  name?: string;
-  lat?: string;
-  lon?: string;
-}
+type BackendBounds = {
+  lat_min?: unknown;
+  lat_max?: unknown;
+  lng_min?: unknown;
+  lng_max?: unknown;
+  latMin?: unknown;
+  latMax?: unknown;
+  lngMin?: unknown;
+  lngMax?: unknown;
+};
 
-const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
-const NOMINATIM_HEADERS = {
-  Accept: 'application/json',
-  'Accept-Language': 'en',
-  'User-Agent': 'local-history-story-map-mobile/0.1.0',
+type BackendLocationSuggestion = {
+  id?: unknown;
+  title?: unknown;
+  subtitle?: unknown;
+  bbox?: unknown;
 };
 
 export async function geocodeLocationQuery(query: string): Promise<LocationBounds | null> {
@@ -38,25 +41,11 @@ export async function geocodeLocationQuery(query: string): Promise<LocationBound
     return null;
   }
 
-  const params = new URLSearchParams({
-    q: normalizedQuery,
-    format: 'jsonv2',
-    limit: '1',
-    addressdetails: '1',
-  });
+  const response = await apiClient.get<BackendBounds | null>(
+    `/geocode/?q=${encodeURIComponent(normalizedQuery)}`,
+  );
 
-  const response = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`, {
-    headers: NOMINATIM_HEADERS,
-  });
-
-  if (!response.ok) {
-    throw new Error('Unable to geocode location.');
-  }
-
-  const results = (await response.json()) as NominatimSearchResult[];
-  const firstResult = Array.isArray(results) ? results[0] : undefined;
-
-  return parseNominatimBounds(firstResult?.boundingbox);
+  return parseBackendBounds(response);
 }
 
 export async function searchLocationSuggestions(query: string): Promise<LocationSuggestion[]> {
@@ -66,36 +55,27 @@ export async function searchLocationSuggestions(query: string): Promise<Location
     return [];
   }
 
-  const params = new URLSearchParams({
-    q: normalizedQuery,
-    format: 'jsonv2',
-    limit: '5',
-    addressdetails: '1',
-  });
+  const response = await apiClient.get<BackendLocationSuggestion[]>(
+    `/geocode/suggestions/?q=${encodeURIComponent(normalizedQuery)}`,
+  );
 
-  const response = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`, {
-    headers: NOMINATIM_HEADERS,
-  });
-
-  if (!response.ok) {
-    throw new Error('Unable to search locations.');
-  }
-
-  const results = (await response.json()) as NominatimSearchResult[];
-
-  if (!Array.isArray(results)) {
+  if (!Array.isArray(response)) {
     return [];
   }
 
-  return results.map(parseNominatimSuggestion).filter((result): result is LocationSuggestion => result != null);
+  return response.map(parseBackendSuggestion).filter((result): result is LocationSuggestion => result != null);
 }
 
-export function parseNominatimBounds(value: unknown): LocationBounds | null {
-  if (!Array.isArray(value) || value.length < 4) {
+export function parseBackendBounds(value: unknown): LocationBounds | null {
+  if (!value || typeof value !== 'object') {
     return null;
   }
 
-  const [latMin, latMax, lngMin, lngMax] = value.map((item) => Number(item));
+  const record = value as BackendBounds;
+  const latMin = Number(record.lat_min ?? record.latMin);
+  const latMax = Number(record.lat_max ?? record.latMax);
+  const lngMin = Number(record.lng_min ?? record.lngMin);
+  const lngMax = Number(record.lng_max ?? record.lngMax);
 
   if (![latMin, latMax, lngMin, lngMax].every(Number.isFinite)) {
     return null;
@@ -109,28 +89,28 @@ export function parseNominatimBounds(value: unknown): LocationBounds | null {
   };
 }
 
-function parseNominatimSuggestion(result: NominatimSearchResult): LocationSuggestion | null {
-  const latitude = Number(result.lat);
-  const longitude = Number(result.lon);
+function parseBackendSuggestion(result: BackendLocationSuggestion): LocationSuggestion | null {
+  const bounds = parseBackendBounds(result.bbox);
+  const title = typeof result.title === 'string' ? result.title.trim() : '';
 
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+  if (!bounds || !title) {
     return null;
   }
 
-  const displayName = result.display_name?.trim();
-  const [fallbackTitle, ...fallbackRest] = displayName?.split(',').map((part) => part.trim()).filter(Boolean) ?? [];
-  const title = result.name?.trim() || fallbackTitle;
-
-  if (!title) {
-    return null;
-  }
+  const id =
+    typeof result.id === 'string' || typeof result.id === 'number'
+      ? String(result.id)
+      : `${bounds.latMin},${bounds.lngMin}`;
+  const subtitle = typeof result.subtitle === 'string' && result.subtitle.trim()
+    ? result.subtitle.trim()
+    : undefined;
 
   return {
-    id: String(result.place_id ?? result.osm_id ?? `${latitude},${longitude}`),
+    id,
     title,
-    subtitle: fallbackRest.join(', ') || undefined,
-    latitude,
-    longitude,
-    bounds: parseNominatimBounds(result.boundingbox) ?? undefined,
+    subtitle,
+    latitude: (bounds.latMin + bounds.latMax) / 2,
+    longitude: (bounds.lngMin + bounds.lngMax) / 2,
+    bounds,
   };
 }
