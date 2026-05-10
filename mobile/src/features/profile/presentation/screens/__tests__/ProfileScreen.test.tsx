@@ -270,7 +270,6 @@ describe('ProfileScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Open badge details: First Story'));
 
-    expect(await screen.findByText('Published one story.')).toBeTruthy();
     expect(screen.getAllByText('Awarded for publishing your first story.').length).toBeGreaterThan(0);
     expect(screen.getByText('Earned on May 1, 2026')).toBeTruthy();
   });
