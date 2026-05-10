@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
@@ -42,11 +40,6 @@ function TimelinePage() {
     removeTag,
     clearAll,
   } = useFilterState();
-
-  const routerLocation = useLocation();
-  const navigate = useNavigate();
-  const _from = routerLocation.state?.from;
-  const mapBack = _from === "/map" || _from?.startsWith("/map?") ? _from : null;
 
   const [stories, setStories] = useState([]);
   const [count, setCount] = useState(0);
@@ -246,23 +239,11 @@ function TimelinePage() {
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {mapBack && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => navigate(mapBack)}
-                  aria-label="Back to map"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              )}
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Timeline</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Stories ordered by when they happened.
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Timeline</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Stories ordered by when they happened.
+              </p>
             </div>
             <FilterPanel
               key={filterPanelKey}

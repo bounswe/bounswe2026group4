@@ -223,19 +223,14 @@ describe("TimelinePage", () => {
     expect(args.lngMax).toBe(29);
   });
 
-  describe("back-to-map button", () => {
-    it("shows a back arrow when navigated from /map", async () => {
+  describe("back-to-map button (removed per #624)", () => {
+    it("never renders a back-to-map button, even when navigated from /map", async () => {
       renderPageWithState({ from: "/map?lat_min=40&lat_max=41" });
-      expect(screen.getByRole("button", { name: /back to map/i })).toBeInTheDocument();
-    });
-
-    it("does not show a back arrow when there is no router state", async () => {
-      renderPage();
       expect(screen.queryByRole("button", { name: /back to map/i })).not.toBeInTheDocument();
     });
 
-    it("does not show a back arrow when navigated from a non-map page", async () => {
-      renderPageWithState({ from: "/timeline?year_from=1900" });
+    it("never renders a back-to-map button when there is no router state", async () => {
+      renderPage();
       expect(screen.queryByRole("button", { name: /back to map/i })).not.toBeInTheDocument();
     });
   });
