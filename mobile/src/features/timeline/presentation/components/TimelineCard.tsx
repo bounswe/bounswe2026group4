@@ -11,14 +11,16 @@ interface TimelineCardProps {
 
 function getBadgeLabel(story: TimelineEntity) {
   if (story.historicalYear !== undefined) {
-    return formatHistoricalYear(story.historicalYear);
+    return formatTimelineBadgeYear(story.historicalYear);
   }
 
   return story.timePeriod || 'Time';
 }
 
-function formatHistoricalYear(year: number) {
-  return year < 0 ? `${Math.abs(year)} BC` : String(year);
+function formatTimelineBadgeYear(year: number) {
+  const decade = Math.floor(Math.abs(year) / 10) * 10;
+
+  return year < 0 ? `${decade}s BC` : `${decade}s`;
 }
 
 export function TimelineCard({ story, onPress, isLast = false }: TimelineCardProps) {
@@ -82,24 +84,6 @@ export function TimelineCard({ story, onPress, isLast = false }: TimelineCardPro
           />
         ) : null}
         <View style={{ padding: spacing.md, gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            {story.timePeriod ? (
-              <View
-                style={{
-                  alignSelf: 'flex-start',
-                  paddingHorizontal: spacing.sm,
-                  paddingVertical: spacing.xs,
-                  borderRadius: 999,
-                  backgroundColor: colors.background,
-                }}
-              >
-                <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '700' }}>
-                  {story.timePeriod}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
           <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800', lineHeight: 24 }}>
             {story.title}
           </Text>

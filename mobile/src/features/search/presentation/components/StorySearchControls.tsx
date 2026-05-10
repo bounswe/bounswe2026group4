@@ -39,6 +39,10 @@ function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): Fi
     chips.push({ key: 'timeTo', label: `To: ${filters.timeTo.trim()}` });
   }
 
+  if (filters.hasMedia) {
+    chips.push({ key: 'hasMedia', label: 'Media: With image' });
+  }
+
   filters.tags.forEach((tag) => {
     chips.push({ key: `tag:${tag}`, label: `Tag: ${tag}` });
   });
@@ -49,11 +53,13 @@ function buildChips(filters: ReturnType<typeof useSearchFilters>['filters']): Fi
 interface StorySearchControlsProps {
   helperText?: string;
   hideHeading?: boolean;
+  filterPanelExtraContent?: React.ReactNode;
+  showMediaFilter?: boolean;
   onFiltersApplied?: (filters: SearchFiltersState) => void;
   scope: SearchFilterScope;
 }
 
-export function StorySearchControls({ helperText, hideHeading = false, onFiltersApplied, scope }: StorySearchControlsProps) {
+export function StorySearchControls({ helperText, hideHeading = false, filterPanelExtraContent, showMediaFilter = false, onFiltersApplied, scope }: StorySearchControlsProps) {
   const { colors, spacing, typography } = useAppTheme();
   const { height } = useWindowDimensions();
   const { filters, updateFilters, removeFilter, clearFilters, applyFilters } = useSearchFilters(scope);
@@ -73,6 +79,7 @@ export function StorySearchControls({ helperText, hideHeading = false, onFilters
   const [draftProximitySource, setDraftProximitySource] = useState<ProximitySource | undefined>();
   const [draftTimeFrom, setDraftTimeFrom] = useState('');
   const [draftTimeTo, setDraftTimeTo] = useState('');
+  const [draftHasMedia, setDraftHasMedia] = useState<boolean | undefined>();
   const [draftTags, setDraftTags] = useState<string[]>([]);
   const [draftTagQuery, setDraftTagQuery] = useState('');
   const [tagOptions, setTagOptions] = useState<SearchTag[]>([]);
@@ -103,6 +110,7 @@ export function StorySearchControls({ helperText, hideHeading = false, onFilters
     setIsProximityResolving(false);
     setDraftTimeFrom(filters.timeFrom);
     setDraftTimeTo(filters.timeTo);
+    setDraftHasMedia(filters.hasMedia);
     setDraftTags(filters.tags);
     setDraftTagQuery('');
     setTagOptions([]);
@@ -212,6 +220,7 @@ export function StorySearchControls({ helperText, hideHeading = false, onFilters
       proximityStoryId: nextProximitySource === 'map_pin' ? filters.proximityStoryId : undefined,
       timeFrom: draftTimeFrom,
       timeTo: draftTimeTo,
+      hasMedia: draftHasMedia,
       tags: draftTags,
     };
 
@@ -392,10 +401,13 @@ export function StorySearchControls({ helperText, hideHeading = false, onFilters
                 tagQuery={draftTagQuery}
                 tagOptions={tagOptions}
                 isTagsLoading={isTagsLoading}
+                hasMedia={draftHasMedia}
+                showMediaFilter={showMediaFilter}
                 onLocationChange={handleDraftLocationChange}
                 onLocationSuggestionPress={handleLocationSuggestionPress}
                 onTimeFromChange={setDraftTimeFrom}
                 onTimeToChange={setDraftTimeTo}
+                onHasMediaChange={setDraftHasMedia}
                 onTagQueryChange={setDraftTagQuery}
                 onToggleTag={toggleDraftTag}
                 onRemoveTag={(tag) => setDraftTags((currentTags) => currentTags.filter((currentTag) => currentTag !== tag))}
@@ -414,6 +426,7 @@ export function StorySearchControls({ helperText, hideHeading = false, onFilters
                   Boolean(draftProximityRadiusKm && !draftProximityCoordinates)
                 }
                 onTagPickerOpenChange={setIsTagPickerOpen}
+                extraContent={filterPanelExtraContent}
                 onClearAll={() => {
                   setDraftLocation('');
                   setDraftLocationBounds(undefined);
@@ -427,6 +440,7 @@ export function StorySearchControls({ helperText, hideHeading = false, onFilters
                   setIsProximityError(false);
                   setDraftTimeFrom('');
                   setDraftTimeTo('');
+                  setDraftHasMedia(undefined);
                   setDraftTags([]);
                   setDraftTagQuery('');
                   clearFilters();

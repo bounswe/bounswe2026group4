@@ -17,6 +17,7 @@ describe('toSearchParams', () => {
       locationBounds: undefined,
       yearFrom: undefined,
       yearTo: undefined,
+      hasMedia: undefined,
       tags: undefined,
     });
   });
@@ -44,6 +45,29 @@ describe('toSearchParams', () => {
       locationBounds,
       yearFrom: undefined,
       yearTo: undefined,
+      hasMedia: undefined,
+      tags: undefined,
+    });
+  });
+
+  it('maps the with image filter to story search params', () => {
+    expect(
+      toSearchParams({
+        query: '',
+        location: '',
+        locationBounds: undefined,
+        timeFrom: '',
+        timeTo: '',
+        hasMedia: true,
+        tags: [],
+      }),
+    ).toEqual({
+      q: undefined,
+      location: undefined,
+      locationBounds: undefined,
+      yearFrom: undefined,
+      yearTo: undefined,
+      hasMedia: true,
       tags: undefined,
     });
   });

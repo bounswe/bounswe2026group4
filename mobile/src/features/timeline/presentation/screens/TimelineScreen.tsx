@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { useAppTheme } from '../../../../core/hooks/useAppTheme';
 import { EmptyState, ErrorState, Loader, SkeletonCard } from '../../../../shared';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
@@ -39,7 +39,6 @@ interface PeriodDescriptor {
 }
 
 const EMPTY_FILTERS: StoryFilters = {};
-type TimelineImageFilter = 'all' | 'with_image';
 
 export function TimelineScreen({
   initialFilters = EMPTY_FILTERS,
@@ -54,8 +53,8 @@ export function TimelineScreen({
   const [useImmediateQuery, setUseImmediateQuery] = useState(false);
   const [periodSelection, setPeriodSelection] = useState<TimelinePeriodSelection>(EMPTY_TIMELINE_PERIOD_SELECTION);
   const [appliedPeriodSelection, setAppliedPeriodSelection] = useState<TimelinePeriodSelection>(EMPTY_TIMELINE_PERIOD_SELECTION);
-  const [imageFilter, setImageFilter] = useState<TimelineImageFilter>(() => getInitialImageFilter(initialFilters));
   const periodDescriptor = useMemo(() => describePeriodSelection(appliedPeriodSelection), [appliedPeriodSelection]);
+  const draftPeriodDescriptor = useMemo(() => describePeriodSelection(periodSelection), [periodSelection]);
   const [state, setState] = useState<TimelineUiState>(() => createInitialTimelineUiState(initialFilters));
   const stateRef = useRef(state);
   const hasRequestedNextPage = useRef(false);
@@ -90,9 +89,8 @@ export function TimelineScreen({
     () => ({
       ...initialFilters,
       ...toSearchParams({ ...filters, query: useImmediateQuery ? filters.query : debouncedQuery }),
-      hasMedia: getHasMediaFilter(imageFilter),
     }),
-    [debouncedQuery, filters, imageFilter, initialFilters, useImmediateQuery],
+    [debouncedQuery, filters, initialFilters, useImmediateQuery],
   );
 
   const hasActiveFilters = Boolean(
@@ -188,20 +186,14 @@ export function TimelineScreen({
   };
 
   const handlePeriodSelectionChange = (nextSelection: TimelinePeriodSelection) => {
-    setPeriodSelection((currentSelection) => {
-      if (nextSelection.mode !== currentSelection.mode) {
-        if (nextSelection.mode === 'all') {
-          setAppliedPeriodSelection(nextSelection);
-        } else if (Object.keys(periodDescriptor.request).length > 0) {
-          setAppliedPeriodSelection(EMPTY_TIMELINE_PERIOD_SELECTION);
-        }
-      }
-
-      return nextSelection;
-    });
+    setPeriodSelection(nextSelection);
   };
 
   const handlePeriodSelectionSubmit = () => {
+    setAppliedPeriodSelection(periodSelection);
+  };
+
+  const handleFiltersApplied = () => {
     setAppliedPeriodSelection(periodSelection);
   };
 
@@ -224,20 +216,22 @@ export function TimelineScreen({
         </Text>
       </View>
 
-      {showSearchControls ? <StorySearchControls helperText="Search by title or place." scope={searchScope} /> : null}
-
-      <TimelinePeriodSelector
-        value={periodSelection}
-        onChange={handlePeriodSelectionChange}
-        onSubmit={handlePeriodSelectionSubmit}
-        error={periodDescriptor.error}
-        headerAccessory={
-          <TimelineImageFilterToggle
-            isActive={imageFilter === 'with_image'}
-            onPress={() => setImageFilter((current) => (current === 'with_image' ? 'all' : 'with_image'))}
-          />
-        }
-      />
+      {showSearchControls ? (
+        <StorySearchControls
+          helperText="Search by title or place."
+          scope={searchScope}
+          showMediaFilter
+          onFiltersApplied={handleFiltersApplied}
+          filterPanelExtraContent={
+            <TimelinePeriodSelector
+              value={periodSelection}
+              onChange={handlePeriodSelectionChange}
+              onSubmit={handlePeriodSelectionSubmit}
+              error={draftPeriodDescriptor.error}
+            />
+          }
+        />
+      ) : null}
 
       <View
         style={{
@@ -491,8 +485,9 @@ function toSearchState(filters: StoryFilters): SearchFiltersState {
       filters.radiusKm !== undefined && filters.latitude !== undefined && filters.longitude !== undefined
         ? 'current_location'
         : undefined,
-    timeFrom: filters.yearFrom ? String(filters.yearFrom) : '',
-    timeTo: filters.yearTo ? String(filters.yearTo) : '',
+    timeFrom: filters.yearFrom !== undefined ? String(filters.yearFrom) : '',
+    timeTo: filters.yearTo !== undefined ? String(filters.yearTo) : '',
+    hasMedia: filters.hasMedia,
     tags: filters.tags ?? [],
   };
 }
@@ -505,6 +500,7 @@ function hasAnySearchFilters(filters: SearchFiltersState) {
       filters.proximityRadiusKm ||
       filters.timeFrom.trim() ||
       filters.timeTo.trim() ||
+      filters.hasMedia ||
       filters.tags.length,
   );
 }
@@ -519,48 +515,7 @@ function areSearchStatesEqual(left: SearchFiltersState, right: SearchFiltersStat
     left.proximitySource === right.proximitySource &&
     left.timeFrom === right.timeFrom &&
     left.timeTo === right.timeTo &&
+    left.hasMedia === right.hasMedia &&
     JSON.stringify(left.tags) === JSON.stringify(right.tags)
-  );
-}
-
-function getInitialImageFilter(filters: StoryFilters): TimelineImageFilter {
-  if (filters.hasMedia === true) {
-    return 'with_image';
-  }
-
-  return 'all';
-}
-
-function getHasMediaFilter(value: TimelineImageFilter) {
-  if (value === 'with_image') {
-    return true;
-  }
-
-  return undefined;
-}
-
-function TimelineImageFilterToggle({ isActive, onPress }: { isActive: boolean; onPress: () => void }) {
-  const { colors, spacing, typography } = useAppTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Timeline image filter With image"
-      accessibilityState={{ selected: isActive }}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        paddingHorizontal: spacing.sm + 2,
-        paddingVertical: spacing.xs + 2,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: isActive ? colors.text : colors.border,
-        backgroundColor: isActive ? colors.text : colors.background,
-        opacity: pressed ? 0.8 : 1,
-      })}
-    >
-      <Text style={{ color: isActive ? colors.background : colors.text, fontSize: typography.caption + 1, fontWeight: '800' }}>
-        With image
-      </Text>
-    </Pressable>
   );
 }

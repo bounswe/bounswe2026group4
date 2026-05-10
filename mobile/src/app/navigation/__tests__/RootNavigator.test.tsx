@@ -1007,6 +1007,49 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
   });
 
+  it('clears the timeline-only image filter when navigating to feed or map', async () => {
+    renderNavigator();
+
+    await screen.findByLabelText('Timeline');
+    fireEvent.press(screen.getByLabelText('Timeline'));
+
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Remove Media: With image')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Feed'));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Remove Media: With image')).toBeNull();
+    });
+
+    const latestFeedRequest = [...apiRequests]
+      .reverse()
+      .find((request) => request.startsWith('GET /stories/feed/') || request.startsWith('GET /stories/search/'));
+
+    expect(latestFeedRequest).toBeDefined();
+    expect(latestFeedRequest).not.toContain('has_image=true');
+
+    fireEvent.press(screen.getByLabelText('Timeline'));
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Remove Media: With image')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Map'));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Remove Media: With image')).toBeNull();
+    });
+  });
+
   it('keeps the timeline tab active when filters are applied there', async () => {
     (geocodeLocationQuery as jest.Mock).mockResolvedValueOnce(goldenHornBounds);
 
