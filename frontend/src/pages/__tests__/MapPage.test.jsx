@@ -25,6 +25,11 @@ vi.mock("react-leaflet", () => ({
     addLayer: vi.fn(),
     removeLayer: vi.fn(),
     fitBounds: vi.fn(),
+    getZoom: vi.fn(() => 12),
+    getMinZoom: vi.fn(() => 3),
+    getMaxZoom: vi.fn(() => 18),
+    on: vi.fn(),
+    off: vi.fn(),
   }),
 }));
 

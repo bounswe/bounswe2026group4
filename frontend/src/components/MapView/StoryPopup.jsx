@@ -25,7 +25,6 @@ function StoryPopup({ story }) {
   const nearbyHref = hasCoords
     ? `/timeline?latitude=${lat.toFixed(6)}&longitude=${lng.toFixed(6)}&radius_km=0.5`
     : null;
-  const preview = story.preview_text ?? "";
 
   return (
     <div className="max-w-xs space-y-1.5">
@@ -33,20 +32,16 @@ function StoryPopup({ story }) {
 
       {story.location_name && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">{story.location_name}</span>
         </div>
       )}
 
       {timePeriod && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>{timePeriod}</span>
         </div>
-      )}
-
-      {preview && (
-        <p className="text-xs text-foreground/80 truncate">{preview}</p>
       )}
 
       <div className="flex items-center gap-3 pt-0.5">

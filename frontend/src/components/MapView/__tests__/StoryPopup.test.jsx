@@ -204,39 +204,3 @@ describe("StoryPopup icons", () => {
   });
 });
 
-describe("StoryPopup preview text", () => {
-  it("renders preview_text when provided", () => {
-    renderPopup({
-      id: 20,
-      title: "Story",
-      time_type: null,
-      preview_text: "A short summary of the story.",
-    });
-
-    expect(screen.getByText("A short summary of the story.")).toBeInTheDocument();
-  });
-
-  it("omits the preview paragraph when preview_text is absent", () => {
-    const { container } = renderPopup({
-      id: 21,
-      title: "Story",
-      time_type: null,
-    });
-
-    // No <p> element for preview
-    expect(container.querySelector("p")).not.toBeInTheDocument();
-  });
-
-  it("applies truncate class to keep preview to a single line", () => {
-    const { container } = renderPopup({
-      id: 22,
-      title: "Story",
-      time_type: null,
-      preview_text: "A very long preview text that should be capped at one line.",
-    });
-
-    const p = container.querySelector("p");
-    expect(p).toBeInTheDocument();
-    expect(p.className).toContain("truncate");
-  });
-});

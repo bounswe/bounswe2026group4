@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import { useNavigate, useLocation } from "react-router-dom";
 import L from "leaflet";
@@ -9,6 +9,8 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+import { Plus, Minus } from "lucide-react";
 
 import { EMPTY_FEATURE_COLLECTION } from "@/services/storyService";
 import { featurePopupHtml } from "./mapFeatureUtils";
@@ -160,21 +162,36 @@ function FitBoundsToFeatures({ features, bbox, proximity }) {
 
 function ZoomButtons() {
   const map = useMap();
+  const [zoom, setZoom] = useState(() => map.getZoom());
+
+  useEffect(() => {
+    const onZoomEnd = () => setZoom(map.getZoom());
+    map.on("zoomend", onZoomEnd);
+    return () => map.off("zoomend", onZoomEnd);
+  }, [map]);
+
+  const atMin = zoom <= map.getMinZoom();
+  const atMax = zoom >= map.getMaxZoom();
+
   return (
     <div className="absolute bottom-6 right-3 z-[1000] flex flex-col gap-1">
       <button
+        type="button"
         onClick={() => map.zoomIn()}
         aria-label="Zoom in"
-        className="flex h-8 w-8 items-center justify-center rounded-md bg-background shadow-md border border-border text-foreground text-lg font-medium hover:bg-muted transition-colors"
+        disabled={atMax}
+        className="flex h-8 w-8 items-center justify-center rounded-md bg-background shadow-md border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        +
+        <Plus className="h-4 w-4" />
       </button>
       <button
+        type="button"
         onClick={() => map.zoomOut()}
         aria-label="Zoom out"
-        className="flex h-8 w-8 items-center justify-center rounded-md bg-background shadow-md border border-border text-foreground text-lg font-medium hover:bg-muted transition-colors"
+        disabled={atMin}
+        className="flex h-8 w-8 items-center justify-center rounded-md bg-background shadow-md border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        −
+        <Minus className="h-4 w-4" />
       </button>
     </div>
   );

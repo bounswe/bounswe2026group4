@@ -13,6 +13,11 @@ const { fakeMapContainer, fakeMap, leafletMocks } = vi.hoisted(() => {
       removeLayer: undefined,
       zoomIn: undefined,
       zoomOut: undefined,
+      getZoom: undefined,
+      getMinZoom: undefined,
+      getMaxZoom: undefined,
+      on: undefined,
+      off: undefined,
       getContainer: () => container,
     },
     leafletMocks: {
@@ -101,6 +106,11 @@ beforeEach(() => {
   fakeMap.removeLayer = vi.fn();
   fakeMap.zoomIn = vi.fn();
   fakeMap.zoomOut = vi.fn();
+  fakeMap.getZoom = vi.fn(() => 12);
+  fakeMap.getMinZoom = vi.fn(() => 3);
+  fakeMap.getMaxZoom = vi.fn(() => 18);
+  fakeMap.on = vi.fn();
+  fakeMap.off = vi.fn();
   fakeMap.getContainer = () => fakeMapContainer;
 });
 
@@ -165,6 +175,31 @@ describe("MapView zoom buttons", () => {
     renderMapView();
     await user.click(screen.getByRole("button", { name: "Zoom out" }));
     expect(fakeMap.zoomOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the zoom-in button when at max zoom", () => {
+    fakeMap.getZoom = vi.fn(() => 18);
+    fakeMap.getMaxZoom = vi.fn(() => 18);
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zoom out" })).not.toBeDisabled();
+  });
+
+  it("disables the zoom-out button when at min zoom", () => {
+    fakeMap.getZoom = vi.fn(() => 3);
+    fakeMap.getMinZoom = vi.fn(() => 3);
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zoom in" })).not.toBeDisabled();
+  });
+
+  it("enables both buttons when between min and max zoom", () => {
+    fakeMap.getZoom = vi.fn(() => 12);
+    fakeMap.getMinZoom = vi.fn(() => 3);
+    fakeMap.getMaxZoom = vi.fn(() => 18);
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom in" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zoom out" })).not.toBeDisabled();
   });
 });
 
@@ -502,12 +537,6 @@ describe("featurePopupHtml", () => {
     });
     const html = featurePopupHtml(feature);
     expect(html).toContain("May 29, 1453");
-  });
-
-  it("renders preview_text from feature properties", () => {
-    const feature = makeFeature(6, { preview_text: "A brief story summary." });
-    const html = featurePopupHtml(feature);
-    expect(html).toContain("A brief story summary.");
   });
 
   it("renders BC dates correctly from feature properties", () => {
