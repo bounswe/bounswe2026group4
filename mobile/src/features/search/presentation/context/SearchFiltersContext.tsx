@@ -24,6 +24,7 @@ export interface SearchFiltersState {
   proximityStoryId?: string;
   timeFrom: string;
   timeTo: string;
+  hasMedia?: boolean;
   tags: string[];
 }
 
@@ -49,6 +50,7 @@ const initialFilters: SearchFiltersState = {
   proximityStoryId: undefined,
   timeFrom: '',
   timeTo: '',
+  hasMedia: undefined,
   tags: [],
 };
 
@@ -163,7 +165,7 @@ export function SearchFiltersProvider({ children }: PropsWithChildren) {
           scope,
           (currentFilters) => ({
             ...currentFilters,
-            [key]: key === 'tags' ? [] : '',
+            [key]: key === 'tags' ? [] : key === 'hasMedia' ? undefined : '',
             ...(key === 'location' ? { locationBounds: undefined } : {}),
             ...(isProximityFilterKey(key) ? clearedProximityFilters : {}),
           }),
@@ -225,6 +227,7 @@ export function toSearchParams(filters: SearchFiltersState): StoryFilters {
     locationBounds: filters.locationBounds,
     yearFrom,
     yearTo,
+    hasMedia: filters.hasMedia,
     tags: filters.tags.length ? filters.tags : undefined,
   };
 
@@ -249,6 +252,7 @@ function normalizeStoredFilters(filters?: Partial<SearchFiltersState> | null): S
     proximityStoryId: normalizeOptionalString(filters?.proximityStoryId),
     timeFrom: filters?.timeFrom ?? '',
     timeTo: filters?.timeTo ?? '',
+    hasMedia: filters?.hasMedia === true ? true : undefined,
     tags: normalizeTags(filters?.tags),
   };
 }

@@ -10,15 +10,21 @@ interface TimelineCardProps {
 }
 
 function getBadgeLabel(story: TimelineEntity) {
-  if (story.historicalYear !== undefined) {
-    return formatHistoricalYear(story.historicalYear);
+  if (story.timePeriod) {
+    return story.timePeriod;
   }
 
-  return story.timePeriod || 'Time';
+  if (story.timeType === 'decade' && story.historicalYear !== undefined) {
+    return formatTimelineBadgeYear(story.historicalYear);
+  }
+
+  return story.historicalYear !== undefined ? String(story.historicalYear) : 'Time';
 }
 
-function formatHistoricalYear(year: number) {
-  return year < 0 ? `${Math.abs(year)} BC` : String(year);
+function formatTimelineBadgeYear(year: number) {
+  const decade = Math.floor(Math.abs(year) / 10) * 10;
+
+  return year < 0 ? `${decade}s BC` : `${decade}s`;
 }
 
 export function TimelineCard({ story, onPress, isLast = false }: TimelineCardProps) {
@@ -35,7 +41,7 @@ export function TimelineCard({ story, onPress, isLast = false }: TimelineCardPro
         opacity: pressed ? 0.86 : 1,
       })}
     >
-      <View style={{ width: 76, alignItems: 'center' }}>
+      <View style={{ width: 112, alignItems: 'center' }}>
         <View
           style={{
             position: 'absolute',
@@ -48,6 +54,7 @@ export function TimelineCard({ story, onPress, isLast = false }: TimelineCardPro
         <View
           style={{
             minWidth: 72,
+            maxWidth: 108,
             paddingHorizontal: spacing.sm,
             paddingVertical: spacing.xs + 2,
             borderRadius: 999,
@@ -57,7 +64,18 @@ export function TimelineCard({ story, onPress, isLast = false }: TimelineCardPro
             alignItems: 'center',
           }}
         >
-          <Text numberOfLines={1} style={{ color: colors.text, fontSize: typography.caption, fontWeight: '800' }}>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.65}
+            numberOfLines={1}
+            style={{
+              color: colors.text,
+              fontSize: typography.caption,
+              fontWeight: '800',
+              textAlign: 'center',
+              width: '100%',
+            }}
+          >
             {getBadgeLabel(story)}
           </Text>
         </View>
@@ -82,24 +100,6 @@ export function TimelineCard({ story, onPress, isLast = false }: TimelineCardPro
           />
         ) : null}
         <View style={{ padding: spacing.md, gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            {story.timePeriod ? (
-              <View
-                style={{
-                  alignSelf: 'flex-start',
-                  paddingHorizontal: spacing.sm,
-                  paddingVertical: spacing.xs,
-                  borderRadius: 999,
-                  backgroundColor: colors.background,
-                }}
-              >
-                <Text style={{ color: colors.text, fontSize: typography.caption, fontWeight: '700' }}>
-                  {story.timePeriod}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
           <Text style={{ color: colors.text, fontSize: typography.subtitle, fontWeight: '800', lineHeight: 24 }}>
             {story.title}
           </Text>

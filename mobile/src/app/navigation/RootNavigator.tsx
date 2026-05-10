@@ -154,6 +154,10 @@ function NotificationBellButton({
   );
 }
 
+function shouldClearTimelineOnlyFilters(route: AppRoute) {
+  return route === ROUTES.FEED || route === ROUTES.MAP;
+}
+
 function BottomNavButton({
   label,
   active,
@@ -566,6 +570,9 @@ export function RootNavigator() {
 
   const handleNavigate = (route: AppRoute) => {
     if (MAIN_PAGER_ROUTES.includes(route)) {
+      if (shouldClearTimelineOnlyFilters(route)) {
+        updateFilters({ hasMedia: undefined }, { refresh: true });
+      }
       scrollMainPagerToRoute(route);
       navigateToSnapshot({ route }, { resetStack: true, preserveCurrent: false });
       return;
@@ -1089,6 +1096,9 @@ export function RootNavigator() {
             const nextRoute = MAIN_PAGER_ROUTES[pageIndex];
 
             if (nextRoute !== currentRoute) {
+              if (shouldClearTimelineOnlyFilters(nextRoute)) {
+                updateFilters({ hasMedia: undefined }, { refresh: true });
+              }
               setCurrentRoute(nextRoute);
             }
           }}
@@ -1220,7 +1230,14 @@ export function RootNavigator() {
             <TopIconButton label="Login" onPress={() => handleNavigate(ROUTES.AUTH)} />
           )}
         </View>
-      {isMainRoute ? <StorySearchControls hideHeading onFiltersApplied={handleMainFiltersApplied} scope="main" /> : null}
+      {isMainRoute ? (
+        <StorySearchControls
+          hideHeading
+          onFiltersApplied={handleMainFiltersApplied}
+          scope="main"
+          showMediaFilter={currentRoute === ROUTES.TIMELINE}
+        />
+      ) : null}
       </View>
       <View style={{ flex: 1, backgroundColor: colors.background }}>{content}</View>
       {isMainRoute ? (

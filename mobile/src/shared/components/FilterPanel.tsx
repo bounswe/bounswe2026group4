@@ -8,7 +8,7 @@ import { formatTagLabel, TagChip } from './TagChip';
 
 export const DEFAULT_FROM_YEAR = '1980';
 export const DEFAULT_TO_YEAR = '2026';
-export const MIN_YEAR = 1000;
+export const MIN_YEAR = -9999;
 export const MAX_YEAR = 2030;
 export type ProximityRadiusOption = 0.5 | 1 | 10 | 100;
 export interface LocationFilterSuggestion {
@@ -38,11 +38,11 @@ function normalizeYearInput(value: string) {
     return value;
   }
 
-  if (!/^\d*$/.test(value)) {
+  if (!/^-?\d*$/.test(value)) {
     return null;
   }
 
-  if (value.length > 4) {
+  if (value.replace('-', '').length > 5) {
     return null;
   }
 
@@ -71,11 +71,14 @@ interface FilterPanelProps {
   tagQuery?: string;
   tagOptions?: SearchTag[];
   isTagsLoading?: boolean;
+  hasMedia?: boolean;
+  showMediaFilter?: boolean;
   onLocationChange: (value: string) => void;
   locationSuggestions?: LocationFilterSuggestion[];
   onLocationSuggestionPress?: (suggestion: LocationFilterSuggestion) => void;
   onTimeFromChange: (value: string) => void;
   onTimeToChange: (value: string) => void;
+  onHasMediaChange?: (value?: boolean) => void;
   onTagQueryChange?: (value: string) => void;
   onToggleTag?: (value: string) => void;
   onRemoveTag?: (value: string) => void;
@@ -90,6 +93,7 @@ interface FilterPanelProps {
   locationStatusText?: string;
   isApplyDisabled?: boolean;
   onTagPickerOpenChange?: (isOpen: boolean) => void;
+  extraContent?: React.ReactNode;
 }
 
 export function FilterPanel({
@@ -100,11 +104,14 @@ export function FilterPanel({
   tagQuery = '',
   tagOptions = [],
   isTagsLoading = false,
+  hasMedia,
+  showMediaFilter = false,
   onLocationChange,
   locationSuggestions = [],
   onLocationSuggestionPress,
   onTimeFromChange,
   onTimeToChange,
+  onHasMediaChange,
   onTagQueryChange,
   onToggleTag,
   onRemoveTag,
@@ -119,6 +126,7 @@ export function FilterPanel({
   locationStatusText,
   isApplyDisabled = false,
   onTagPickerOpenChange,
+  extraContent,
 }: FilterPanelProps) {
   const { colors, spacing, typography } = useAppTheme();
   const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
@@ -469,7 +477,7 @@ export function FilterPanel({
             onChangeText={handleTimeFromChange}
             onBlur={() => onTimeFromChange(clampYearValue(timeFrom))}
             placeholder={DEFAULT_FROM_YEAR}
-            keyboardType="number-pad"
+            keyboardType="numbers-and-punctuation"
             accessibilityLabel="Start year"
             trailingElement={
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
@@ -509,7 +517,7 @@ export function FilterPanel({
             onChangeText={handleTimeToChange}
             onBlur={() => onTimeToChange(clampYearValue(timeTo))}
             placeholder={DEFAULT_TO_YEAR}
-            keyboardType="number-pad"
+            keyboardType="numbers-and-punctuation"
             accessibilityLabel="End year"
             trailingElement={
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: spacing.xs }}>
@@ -549,6 +557,34 @@ export function FilterPanel({
           Start year cannot be later than end year.
         </Text>
       ) : null}
+
+      {showMediaFilter ? (
+        <View style={{ gap: spacing.sm }}>
+          <Text style={{ color: colors.text, fontWeight: '600' }}>Media</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Filter stories with image"
+            accessibilityState={{ selected: hasMedia === true }}
+            onPress={() => onHasMediaChange?.(hasMedia === true ? undefined : true)}
+            style={({ pressed }) => ({
+              alignSelf: 'flex-start',
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: hasMedia === true ? colors.primary : colors.border,
+              backgroundColor: hasMedia === true ? colors.infoSurface : colors.surface,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Text style={{ color: hasMedia === true ? colors.primary : colors.text, fontWeight: '700' }}>
+              With image
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {extraContent}
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Pressable accessibilityRole="button" onPress={onClearAll}>
