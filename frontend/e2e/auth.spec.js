@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { mockAuth, mockStories, loginViaStorage } from "./utils/mocks.js";
+import {
+  mockAuth,
+  mockStories,
+  mockNotifications,
+  loginViaStorage,
+} from "./utils/mocks.js";
 
 test.describe("Auth flows", () => {
   test("user can register with valid credentials", async ({ page }) => {
@@ -34,13 +39,7 @@ test.describe("Auth flows", () => {
     await mockAuth(page);
     // Feed page hits /stories/feed/ and tag/notification endpoints — stub them.
     await mockStories(page);
-    await page.route("**/notifications/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ results: [], count: 0 }),
-      }),
-    );
+    await mockNotifications(page);
 
     await page.goto("/login");
     await page.locator("#email").fill("e2e@example.com");
@@ -54,16 +53,36 @@ test.describe("Auth flows", () => {
     expect(accessToken).toBe("fake-access-token");
   });
 
+  test("login with wrong password shows an error and keeps the user on /login", async ({
+    page,
+  }) => {
+    // Override the success mock from mockAuth with a 401 that mimics DRF's
+    // detail-style error payload, which LoginPage surfaces via role="alert".
+    await page.route("**/auth/login/", (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Invalid credentials" }),
+      }),
+    );
+
+    await page.goto("/login");
+    await page.locator("#email").fill("wrong@example.com");
+    await page.locator("#password").fill("not-the-password");
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page.getByRole("alert")).toHaveText(/invalid credentials/i);
+    await expect(page).toHaveURL(/\/login$/);
+    const accessToken = await page.evaluate(() =>
+      window.localStorage.getItem("accessToken"),
+    );
+    expect(accessToken).toBeNull();
+  });
+
   test("logout clears tokens", async ({ page }) => {
     await mockAuth(page);
     await mockStories(page);
-    await page.route("**/notifications/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ results: [], count: 0 }),
-      }),
-    );
+    await mockNotifications(page);
     await loginViaStorage(page);
 
     await page.goto("/");

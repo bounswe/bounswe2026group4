@@ -10,9 +10,7 @@ test.describe("Story submission", () => {
     await page.goto("/submit-story");
 
     await page.locator("#title").fill("Test Story");
-    await page
-      .locator("#narrative")
-      .fill("A test story narrative for E2E coverage.");
+    await page.locator("#narrative").fill("A test story narrative.");
     await page.locator("#timeType").selectOption("exact_year");
     await page.locator("#year").fill("1453");
     await page.locator("#placeName").fill("Hagia Sophia");

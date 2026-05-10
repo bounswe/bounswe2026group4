@@ -56,6 +56,21 @@ export async function mockAuth(page, { user = FAKE_USER } = {}) {
 }
 
 /**
+ * Wire up the notifications endpoints. The feed and map pages both poll
+ * `/notifications/` on mount, so any spec that lands on those pages needs
+ * this stub to keep the network log clean and avoid a stray 404.
+ */
+export async function mockNotifications(page) {
+  await page.route("**/notifications/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [], count: 0 }),
+    }),
+  );
+}
+
+/**
  * Wire up the story endpoints. `options.features` overrides the default
  * empty FeatureCollection returned by GET /stories/map/.
  *

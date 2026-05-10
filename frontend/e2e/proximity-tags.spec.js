@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { mockStories } from "./utils/mocks.js";
+import { mockStories, mockNotifications } from "./utils/mocks.js";
 
 test.describe("Proximity & tag filters", () => {
   test("tag filter is sent to /stories/map/ as `tags=` param", async ({
     page,
   }) => {
     await mockStories(page, { features: [] });
+    await mockNotifications(page);
 
     await page.goto("/map");
     await expect(page.locator(".leaflet-container").first()).toBeVisible();
@@ -32,22 +33,20 @@ test.describe("Proximity & tag filters", () => {
       page.locator('[aria-label="Selected tag filters"]').getByText("history"),
     ).toBeVisible();
 
-    const mapRequests = [];
-    page.on("request", (req) => {
-      if (req.url().includes("/stories/")) mapRequests.push(req.url());
-    });
+    // Set up waitForRequest BEFORE clicking Apply so the matcher is armed
+    // by the time the click triggers the network request. Same pattern the
+    // proximity test below uses — no global `page.on("request", ...)`
+    // listener needed.
+    const tagFilterRequest = page.waitForRequest(
+      (req) =>
+        req.url().includes("/stories/map/") &&
+        req.url().includes("tags=history"),
+    );
 
     await page.getByRole("button", { name: "Apply", exact: true }).click();
 
-    // Wait for the URL to reflect the applied tag filter, then check the
-    // request was sent. Using expect.poll() avoids a brittle race vs.
-    // waitForRequest (which requires the callback to be set up before the
-    // request fires).
-    await expect.poll(() => page.url(), { timeout: 5000 }).toMatch(/tags=history/);
-    await expect.poll(() =>
-      mapRequests.some((url) => url.includes("/stories/map/") && url.includes("tags=history")),
-      { timeout: 10_000 },
-    ).toBe(true);
+    await tagFilterRequest;
+    await expect(page).toHaveURL(/tags=history/);
   });
 
   test("proximity filter triggers a request with radius_km when geolocation is granted", async ({
@@ -55,6 +54,7 @@ test.describe("Proximity & tag filters", () => {
     context,
   }) => {
     await mockStories(page, { features: [] });
+    await mockNotifications(page);
 
     // Grant geolocation up front and pin the position so the panel resolves
     // device coords without a real prompt.
