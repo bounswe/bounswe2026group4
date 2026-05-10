@@ -188,6 +188,12 @@ def get_story_timeline(
     qs = Story.objects.filter(status=Story.STATUS_PUBLISHED)
 
     if year_from is not None:
+        date_q = (
+            # MySQL YEAR() only handles non-negative years; for BC boundaries
+            # include all exact-date stories (date_value is always a positive year).
+            Q(time_type=Story.TIME_DATE, date_value__year__gte=year_from)
+            if year_from >= 0 else Q(time_type=Story.TIME_DATE)
+        )
         qs = qs.filter(
             # decade: interval ends at year+9; include if year+9 >= year_from ↔ year >= year_from-9
             Q(time_type=Story.TIME_DECADE, year__gte=year_from - 9) |
@@ -195,18 +201,22 @@ def get_story_timeline(
             Q(time_type__in=[Story.TIME_EXACT, Story.TIME_APPROXIMATE], year__gte=year_from) |
             # year_range: interval ends at year_end; include if year_end >= year_from
             Q(time_type=Story.TIME_RANGE, year_end__gte=year_from) |
-            # exact_date: compare by calendar year extracted from date_value
-            Q(time_type=Story.TIME_DATE, date_value__year__gte=year_from)
+            date_q
         )
 
     if year_to is not None:
         # All non-range time types start at year; year_range starts at year_start.
         # Decade starts at year too (same as exact/approx), so no special case needed here.
         # exact_date has no year field — its date_value year is compared directly.
+        # MySQL YEAR() only handles non-negative years; skip for BC boundaries.
+        date_q = (
+            Q(time_type=Story.TIME_DATE, date_value__year__lte=year_to)
+            if year_to >= 0 else Q()
+        )
         qs = qs.filter(
             Q(year__lte=year_to) |
             Q(year_start__lte=year_to) |
-            Q(time_type=Story.TIME_DATE, date_value__year__lte=year_to)
+            date_q
         )
 
     if lat_min is not None:

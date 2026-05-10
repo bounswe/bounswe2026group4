@@ -11,6 +11,13 @@ const { fakeMapContainer, fakeMap, leafletMocks } = vi.hoisted(() => {
       fitBounds: undefined,
       addLayer: undefined,
       removeLayer: undefined,
+      zoomIn: undefined,
+      zoomOut: undefined,
+      getZoom: undefined,
+      getMinZoom: undefined,
+      getMaxZoom: undefined,
+      on: undefined,
+      off: undefined,
       getContainer: () => container,
     },
     leafletMocks: {
@@ -97,6 +104,13 @@ beforeEach(() => {
   fakeMap.fitBounds = vi.fn();
   fakeMap.addLayer = vi.fn();
   fakeMap.removeLayer = vi.fn();
+  fakeMap.zoomIn = vi.fn();
+  fakeMap.zoomOut = vi.fn();
+  fakeMap.getZoom = vi.fn(() => 12);
+  fakeMap.getMinZoom = vi.fn(() => 3);
+  fakeMap.getMaxZoom = vi.fn(() => 18);
+  fakeMap.on = vi.fn();
+  fakeMap.off = vi.fn();
   fakeMap.getContainer = () => fakeMapContainer;
 });
 
@@ -139,6 +153,53 @@ describe("MapView", () => {
   it("hides loading overlay when loading is false", () => {
     renderMapView({ loading: false });
     expect(screen.queryByLabelText("Loading map pins")).not.toBeInTheDocument();
+  });
+});
+
+describe("MapView zoom buttons", () => {
+  it("renders zoom in and zoom out buttons", () => {
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
+  });
+
+  it("calls map.zoomIn() when the zoom-in button is clicked", async () => {
+    const user = userEvent.setup();
+    renderMapView();
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(fakeMap.zoomIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls map.zoomOut() when the zoom-out button is clicked", async () => {
+    const user = userEvent.setup();
+    renderMapView();
+    await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(fakeMap.zoomOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the zoom-in button when at max zoom", () => {
+    fakeMap.getZoom = vi.fn(() => 18);
+    fakeMap.getMaxZoom = vi.fn(() => 18);
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zoom out" })).not.toBeDisabled();
+  });
+
+  it("disables the zoom-out button when at min zoom", () => {
+    fakeMap.getZoom = vi.fn(() => 3);
+    fakeMap.getMinZoom = vi.fn(() => 3);
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zoom in" })).not.toBeDisabled();
+  });
+
+  it("enables both buttons when between min and max zoom", () => {
+    fakeMap.getZoom = vi.fn(() => 12);
+    fakeMap.getMinZoom = vi.fn(() => 3);
+    fakeMap.getMaxZoom = vi.fn(() => 18);
+    renderMapView();
+    expect(screen.getByRole("button", { name: "Zoom in" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Zoom out" })).not.toBeDisabled();
   });
 });
 
@@ -466,6 +527,25 @@ describe("featurePopupHtml", () => {
     expect(html).toContain(
       'href="/timeline?latitude=41.070000&amp;longitude=28.970000&amp;radius_km=0.5"',
     );
+  });
+
+  it("renders an exact_date story using date_value from feature properties", () => {
+    const feature = makeFeature(5, {
+      time_type: "exact_date",
+      date_value: "1453-05-29",
+      year: null,
+    });
+    const html = featurePopupHtml(feature);
+    expect(html).toContain("May 29, 1453");
+  });
+
+  it("renders BC dates correctly from feature properties", () => {
+    const feature = makeFeature(8, {
+      time_type: "exact_year",
+      year: -44,
+    });
+    const html = featurePopupHtml(feature);
+    expect(html).toContain("44 BC");
   });
 });
 

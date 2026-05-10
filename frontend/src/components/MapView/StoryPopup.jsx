@@ -1,3 +1,5 @@
+import { MapPin, Calendar } from "lucide-react";
+
 import { formatTimePeriod } from "@/components/StoryCard/storyCardUtils";
 
 // NOTE: This component is rendered via renderToStaticMarkup and then handed to
@@ -25,15 +27,24 @@ function StoryPopup({ story }) {
     : null;
 
   return (
-    <div className="max-w-xs">
-      <h3 className="font-semibold text-sm mb-1">{story.title}</h3>
+    <div className="max-w-xs space-y-1.5">
+      <h3 className="font-semibold text-sm line-clamp-2">{story.title}</h3>
+
       {story.location_name && (
-        <p className="text-xs text-muted-foreground mb-0.5">{story.location_name}</p>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="truncate">{story.location_name}</span>
+        </div>
       )}
+
       {timePeriod && (
-        <p className="text-xs text-muted-foreground mb-1">{timePeriod}</p>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{timePeriod}</span>
+        </div>
       )}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+
+      <div className="flex items-center gap-3 pt-0.5">
         <a
           href={`/stories/${story.id}`}
           className="text-xs font-medium text-primary hover:underline"
