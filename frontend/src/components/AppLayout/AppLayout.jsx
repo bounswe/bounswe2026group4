@@ -66,7 +66,7 @@ function AppLayout() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 w-full border-b bg-background">
-        <div className="container flex h-14 items-center px-4">
+        <div className="flex h-14 w-full items-center px-4">
           {/* Logo */}
           <Link to="/" className="mr-6 flex items-center space-x-2">
             <MapPin className="h-5 w-5" />
