@@ -364,7 +364,7 @@ export function RootNavigator() {
   const { isAuthenticated, loading, login, logout, user } = useAuth();
   const { colors, spacing } = useAppTheme();
   const { toast } = useToast();
-  const { updateFilters } = useSearchFilters('main');
+  const { filters: mainFilters, updateFilters } = useSearchFilters('main');
   const { width } = useWindowDimensions();
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(ROUTES.FEED);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
@@ -868,10 +868,16 @@ export function RootNavigator() {
         return;
       }
 
+      const isMapPinTimeline = currentRoute === ROUTES.TIMELINE && mainFilters.proximitySource === 'map_pin';
+
+      if (currentRoute !== ROUTES.MAP && !isMapPinTimeline) {
+        return;
+      }
+
       scrollMainPagerToRoute(ROUTES.MAP);
       navigateToSnapshot({ route: ROUTES.MAP }, { resetStack: true, preserveCurrent: false });
     },
-    [navigateToSnapshot, scrollMainPagerToRoute],
+    [currentRoute, mainFilters.proximitySource, navigateToSnapshot, scrollMainPagerToRoute],
   );
 
   if (!hasResolvedInitialSession && loading) {

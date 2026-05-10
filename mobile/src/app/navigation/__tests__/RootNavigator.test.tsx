@@ -1078,7 +1078,7 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
   });
 
-  it('switches to the map tab when a proximity filter is applied', async () => {
+  it('keeps the timeline tab active when a proximity filter is applied there', async () => {
     renderNavigator();
 
     await screen.findByLabelText('Timeline');
@@ -1091,9 +1091,27 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(true);
     });
-    expect(screen.getByLabelText('Timeline').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
+    expect(screen.getByLabelText('Remove Distance: 1000 m from current location blue pin')).toBeTruthy();
+  });
+
+  it('keeps the feed tab active when a proximity filter is applied there', async () => {
+    renderNavigator();
+
+    await screen.findByLabelText('Feed');
+    expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(true);
+
+    fireEvent.press(screen.getByText('Show filters'));
+    fireEvent.press(screen.getByLabelText('Distance 1 km'));
+    expect(await screen.findByText('Filtering within 1000 m of 41.0082, 28.9784.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Apply filters'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Feed').props.accessibilityState.selected).toBe(true);
+    });
+    expect(screen.getByLabelText('Map').props.accessibilityState.selected).toBe(false);
     expect(screen.getByLabelText('Remove Distance: 1000 m from current location blue pin')).toBeTruthy();
   });
 
