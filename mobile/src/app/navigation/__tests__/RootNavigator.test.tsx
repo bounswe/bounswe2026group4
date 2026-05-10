@@ -973,8 +973,8 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getByLabelText('Apply search'));
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Golden Horn');
-    fireEvent.changeText(screen.getByLabelText('Start year'), '1990');
-    fireEvent.changeText(screen.getByLabelText('End year'), '2000');
+    fireEvent.changeText(screen.getByLabelText('From year'), '1990');
+    fireEvent.changeText(screen.getByLabelText('To year'), '2000');
     expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
@@ -987,8 +987,8 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
     fireEvent.press(screen.getByText('Show filters'));
     expect(screen.getByLabelText('Location filter').props.value).toBe('Golden Horn');
-    expect(screen.getByLabelText('Start year').props.value).toBe('1990');
-    expect(screen.getByLabelText('End year').props.value).toBe('2000');
+    expect(screen.getByLabelText('From year').props.value).toBe('1990');
+    expect(screen.getByLabelText('To year').props.value).toBe('2000');
     fireEvent.press(screen.getByLabelText('Close filters'));
 
     fireEvent.press(screen.getByLabelText('Timeline'));
@@ -997,8 +997,8 @@ describe('RootNavigator auth flow', () => {
     expect(screen.getByLabelText('Search stories').props.value).toBe('harbor');
     fireEvent.press(screen.getByText('Show filters'));
     expect(screen.getByLabelText('Location filter').props.value).toBe('Golden Horn');
-    expect(screen.getByLabelText('Start year').props.value).toBe('1990');
-    expect(screen.getByLabelText('End year').props.value).toBe('2000');
+    expect(screen.getByLabelText('From year').props.value).toBe('1990');
+    expect(screen.getByLabelText('To year').props.value).toBe('2000');
     fireEvent.press(screen.getByLabelText('Close filters'));
 
     fireEvent.press(screen.getByLabelText('Feed'));
@@ -1014,7 +1014,7 @@ describe('RootNavigator auth flow', () => {
     fireEvent.press(screen.getByLabelText('Timeline'));
 
     fireEvent.press(screen.getByText('Show filters'));
-    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Only stories with an image'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -1036,7 +1036,7 @@ describe('RootNavigator auth flow', () => {
 
     fireEvent.press(screen.getByLabelText('Timeline'));
     fireEvent.press(screen.getByText('Show filters'));
-    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Only stories with an image'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {

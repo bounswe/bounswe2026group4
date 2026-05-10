@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { DEFAULT_FROM_YEAR, DEFAULT_TO_YEAR, FilterPanel, MAX_YEAR, MIN_YEAR } from '../FilterPanel';
+import { FilterPanel, MAX_YEAR, MIN_YEAR } from '../FilterPanel';
 
 describe('FilterPanel', () => {
   it('forwards location and valid year filter updates', () => {
@@ -21,8 +21,8 @@ describe('FilterPanel', () => {
     );
 
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Fatih');
-    fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
-    fireEvent.changeText(screen.getByLabelText('End year'), '1950');
+    fireEvent.changeText(screen.getByLabelText('From year'), '1900');
+    fireEvent.changeText(screen.getByLabelText('To year'), '1950');
 
     expect(onLocationChange).toHaveBeenCalledWith('Fatih');
     expect(onTimeFromChange).toHaveBeenCalledWith('1900');
@@ -42,10 +42,10 @@ describe('FilterPanel', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Start year').props.value).toBe('');
-    expect(screen.getByLabelText('Start year').props.placeholder).toBe(DEFAULT_FROM_YEAR);
-    expect(screen.getByLabelText('End year').props.value).toBe('');
-    expect(screen.getByLabelText('End year').props.placeholder).toBe(DEFAULT_TO_YEAR);
+    expect(screen.getByLabelText('From year').props.value).toBe('');
+    expect(screen.getByLabelText('From year').props.placeholder).toBe('From');
+    expect(screen.getByLabelText('To year').props.value).toBe('');
+    expect(screen.getByLabelText('To year').props.placeholder).toBe('To');
   });
 
   it('accepts signed five-digit-or-shorter numeric years for BC ranges', () => {
@@ -64,12 +64,12 @@ describe('FilterPanel', () => {
       />,
     );
 
-    fireEvent.changeText(screen.getByLabelText('Start year'), '200');
-    fireEvent.changeText(screen.getByLabelText('End year'), '9999');
-    fireEvent.changeText(screen.getByLabelText('Start year'), '-200');
-    fireEvent.changeText(screen.getByLabelText('Start year'), 'fvbnj');
-    fireEvent.changeText(screen.getByLabelText('Start year'), '999999');
-    fireEvent.changeText(screen.getByLabelText('End year'), '-100000');
+    fireEvent.changeText(screen.getByLabelText('From year'), '200');
+    fireEvent.changeText(screen.getByLabelText('To year'), '9999');
+    fireEvent.changeText(screen.getByLabelText('From year'), '-200');
+    fireEvent.changeText(screen.getByLabelText('From year'), 'fvbnj');
+    fireEvent.changeText(screen.getByLabelText('From year'), '999999');
+    fireEvent.changeText(screen.getByLabelText('To year'), '-100000');
 
     expect(onTimeFromChange).toHaveBeenCalledWith('200');
     expect(onTimeToChange).toHaveBeenCalledWith('9999');
@@ -95,8 +95,8 @@ describe('FilterPanel', () => {
       />,
     );
 
-    fireEvent(screen.getByLabelText('Start year'), 'blur');
-    fireEvent(screen.getByLabelText('End year'), 'blur');
+    fireEvent(screen.getByLabelText('From year'), 'blur');
+    fireEvent(screen.getByLabelText('To year'), 'blur');
 
     expect(onTimeFromChange).toHaveBeenCalledWith(String(MAX_YEAR));
     expect(onTimeToChange).toHaveBeenCalledWith(String(MIN_YEAR));
@@ -120,7 +120,7 @@ describe('FilterPanel', () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Only stories with an image'));
 
     expect(onHasMediaChange).toHaveBeenCalledWith(true);
 
@@ -139,7 +139,7 @@ describe('FilterPanel', () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText('Filter stories with image'));
+    fireEvent.press(screen.getByLabelText('Only stories with an image'));
 
     expect(onHasMediaChange).toHaveBeenCalledWith(undefined);
   });
@@ -207,7 +207,7 @@ describe('FilterPanel', () => {
     expect(onTimeToChange).toHaveBeenCalledWith('2025');
   });
 
-  it('allows entering an end year even before the start year and shows the range warning', () => {
+  it('allows entering a to year even before the from year and shows the range warning', () => {
     const onTimeFromChange = jest.fn();
     const onTimeToChange = jest.fn();
 
@@ -223,7 +223,7 @@ describe('FilterPanel', () => {
       />,
     );
 
-    fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
+    fireEvent.changeText(screen.getByLabelText('From year'), '1900');
 
     expect(onTimeFromChange).toHaveBeenCalledWith('1900');
 
@@ -239,8 +239,8 @@ describe('FilterPanel', () => {
       />,
     );
 
-    fireEvent.changeText(screen.getByLabelText('End year'), '1800');
-    fireEvent.changeText(screen.getByLabelText('End year'), '1950');
+    fireEvent.changeText(screen.getByLabelText('To year'), '1800');
+    fireEvent.changeText(screen.getByLabelText('To year'), '1950');
 
     expect(onTimeToChange).toHaveBeenCalledWith('1800');
     expect(onTimeToChange).toHaveBeenCalledWith('1950');
@@ -275,7 +275,7 @@ describe('FilterPanel', () => {
       />,
     );
 
-    fireEvent.press(screen.getByText('Reset filter form'));
+    fireEvent.press(screen.getByText('Reset filters'));
 
     expect(onClearAll).toHaveBeenCalledTimes(1);
   });

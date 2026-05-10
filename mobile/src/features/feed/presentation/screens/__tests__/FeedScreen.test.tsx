@@ -428,8 +428,8 @@ describe('FeedScreen', () => {
     await screen.findByText('Story 1');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
-    fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
-    fireEvent.changeText(screen.getByLabelText('End year'), '1950');
+    fireEvent.changeText(screen.getByLabelText('From year'), '1900');
+    fireEvent.changeText(screen.getByLabelText('To year'), '1950');
     expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
@@ -588,7 +588,7 @@ describe('FeedScreen', () => {
     fireEvent.press(screen.getByLabelText('Distance 10 km'));
     expect(await screen.findByText('Filtering within 10 km of 41.0082, 28.9784.')).toBeTruthy();
 
-    fireEvent.press(screen.getByText('Reset filter form'));
+    fireEvent.press(screen.getByText('Reset filters'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
@@ -633,10 +633,10 @@ describe('FeedScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Search stories'), 'harbor');
     fireEvent.press(screen.getByText('Show filters'));
     fireEvent.changeText(screen.getByLabelText('Location filter'), 'Istanbul');
-    fireEvent.changeText(screen.getByLabelText('Start year'), '1900');
-    fireEvent.changeText(screen.getByLabelText('End year'), '1950');
+    fireEvent.changeText(screen.getByLabelText('From year'), '1900');
+    fireEvent.changeText(screen.getByLabelText('To year'), '1950');
     expect(await screen.findByText('Filtering by map area.')).toBeTruthy();
-    fireEvent.press(screen.getByText('Reset filter form'));
+    fireEvent.press(screen.getByText('Reset filters'));
     fireEvent.press(screen.getByLabelText('Apply filters'));
 
     await waitFor(() => {
