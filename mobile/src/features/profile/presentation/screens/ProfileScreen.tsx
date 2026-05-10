@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Award, BookOpen, Star, Trophy } from 'lucide-react-native';
 import { GestureResponderEvent } from 'react-native';
 import { navigationRef } from '../../../../app/navigation/navigationRef';
 import { ROUTES } from '../../../../app/navigation/routes';
@@ -273,6 +274,42 @@ function getBadgePalette(badge: BadgeEntity) {
     ribbonEdge: '#6B21A8',
     text: '#581C87',
     shine: '#FAF5FF',
+  };
+}
+
+function getBadgeVisual(badge: BadgeEntity) {
+  if (badge.criteriaType === 'registration') {
+    return {
+      Icon: Award,
+      haloBackground: '#DBEAFE',
+      haloBorder: '#BFDBFE',
+      iconColor: '#1D4ED8',
+    };
+  }
+
+  if (badge.criteriaType === 'story_count' || badge.criteriaType === 'stories_published') {
+    return {
+      Icon: BookOpen,
+      haloBackground: '#D1FAE5',
+      haloBorder: '#A7F3D0',
+      iconColor: '#047857',
+    };
+  }
+
+  if (badge.criteriaType === 'points' || badge.criteriaType === 'points_total') {
+    return {
+      Icon: Star,
+      haloBackground: '#FEF3C7',
+      haloBorder: '#FDE68A',
+      iconColor: '#B45309',
+    };
+  }
+
+  return {
+    Icon: Trophy,
+    haloBackground: '#F3E8FF',
+    haloBorder: '#E9D5FF',
+    iconColor: '#7E22CE',
   };
 }
 
@@ -706,13 +743,17 @@ function BadgesSection({
       ) : null}
 
       {badges.length > 0 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.sm }}
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: spacing.sm,
+          }}
         >
           {badges.map((badge) => {
-            const badgePalette = getBadgePalette(badge);
+            const badgeVisual = getBadgeVisual(badge);
+            const description = badge.description ?? describeBadgeCondition(badge);
+            const Icon = badgeVisual.Icon;
 
             return (
               <Pressable
@@ -721,108 +762,40 @@ function BadgesSection({
                 accessibilityLabel={`Open badge details: ${badge.name}`}
                 onPress={() => onSelectBadge(badge)}
                 style={({ pressed }) => ({
-                  width: 88,
+                  flexBasis: '31%',
+                  flexGrow: 1,
+                  minWidth: 96,
+                  maxWidth: '48%',
                   alignItems: 'center',
-                  gap: spacing.xs,
+                  gap: spacing.sm,
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.md,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
                   opacity: pressed ? 0.76 : 1,
                   transform: [{ scale: pressed ? 0.96 : 1 }],
                 })}
               >
                 <View
                   style={{
-                    width: 72,
-                    height: 78,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
                     alignItems: 'center',
-                    justifyContent: 'flex-start',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: badgeVisual.haloBorder,
+                    backgroundColor: badgeVisual.haloBackground,
                   }}
                 >
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 42,
-                      left: 18,
-                      flexDirection: 'row',
-                      zIndex: 0,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 16,
-                        height: 30,
-                        borderBottomLeftRadius: 4,
-                        borderBottomRightRadius: 4,
-                        borderWidth: 1,
-                        borderColor: badgePalette.ribbonEdge,
-                        backgroundColor: badgePalette.ribbon,
-                        transform: [{ rotate: '10deg' }],
-                      }}
-                    />
-                    <View
-                      style={{
-                        width: 16,
-                        height: 30,
-                        marginLeft: -2,
-                        borderBottomLeftRadius: 4,
-                        borderBottomRightRadius: 4,
-                        borderWidth: 1,
-                        borderColor: badgePalette.ribbonEdge,
-                        backgroundColor: badgePalette.ribbon,
-                        transform: [{ rotate: '-10deg' }],
-                      }}
-                    />
-                  </View>
-                  <View
-                    style={{
-                      width: 58,
-                      height: 58,
-                      borderRadius: 29,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: 2,
-                      borderColor: badgePalette.border,
-                      backgroundColor: badgePalette.background,
-                      shadowColor: badgePalette.border,
-                      shadowOpacity: 0.24,
-                      shadowRadius: 9,
-                      shadowOffset: { width: 0, height: 3 },
-                      elevation: 3,
-                      zIndex: 1,
-                    }}
-                  >
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 8,
-                        left: 10,
-                        width: 17,
-                        height: 9,
-                        borderRadius: 9,
-                        backgroundColor: badgePalette.shine,
-                        opacity: 0.9,
-                      }}
-                    />
-                    <View
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 21,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderWidth: 1,
-                        borderColor: badgePalette.border,
-                        backgroundColor: badgePalette.inner,
-                      }}
-                    >
-                      <Text style={{ color: badgePalette.text, fontSize: 17, fontWeight: '900' }}>
-                        {getBadgeInitial(badge)}
-                      </Text>
-                    </View>
-                  </View>
+                  <Icon color={badgeVisual.iconColor} size={18} strokeWidth={2.2} />
                 </View>
                 <Text
                   numberOfLines={2}
                   style={{
-                    minHeight: 34,
+                    minHeight: 36,
                     color: colors.text,
                     fontSize: typography.caption,
                     fontWeight: '800',
@@ -831,10 +804,21 @@ function BadgesSection({
                 >
                   {badge.name}
                 </Text>
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    color: colors.muted,
+                    fontSize: 11,
+                    lineHeight: 16,
+                    textAlign: 'center',
+                  }}
+                >
+                  {description}
+                </Text>
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       ) : null}
     </View>
   );
