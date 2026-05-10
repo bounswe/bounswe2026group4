@@ -142,7 +142,7 @@ function formatTimePeriod(record: TimelineApiRecord) {
     case 'exact_year':
       return year !== undefined ? formatHistoricalYear(year) : '';
     case 'approximate_year':
-      return year !== undefined ? `c. ${formatHistoricalYear(year)}` : '';
+      return year !== undefined ? formatHistoricalYear(year) : '';
     case 'decade':
       return year !== undefined ? formatDecade(year) : '';
     case 'year_range':

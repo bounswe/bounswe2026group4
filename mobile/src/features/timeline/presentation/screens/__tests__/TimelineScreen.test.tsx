@@ -79,13 +79,13 @@ describe('TimelineScreen', () => {
     expect(await screen.findByText('Timeline Story 1')).toBeTruthy();
     expect(screen.getByText('Location 1')).toBeTruthy();
     expect(screen.queryByText('Choose a time window')).toBeNull();
-    expect(screen.getAllByText('1950s').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1950').length).toBeGreaterThan(0);
     fireEvent.press(screen.getByLabelText('Open timeline story: Timeline Story 1'));
 
     expect(onOpenStory).toHaveBeenCalledWith('1');
   });
 
-  it('uses the left timeline badge for period labels and hides card year chips', async () => {
+  it('uses the story time period in the left timeline badge and hides card year chips', async () => {
     renderScreen(
       <TimelineScreen
         getTimeline={async () =>
@@ -107,6 +107,35 @@ describe('TimelineScreen', () => {
     expect(await screen.findByText('1900s')).toBeTruthy();
     expect(screen.queryByText('190X')).toBeNull();
     expect(screen.queryByText('1905')).toBeNull();
+  });
+
+  it('preserves exact date and range labels in the left timeline badge', async () => {
+    renderScreen(
+      <TimelineScreen
+        getTimeline={async () =>
+          makeTimelinePage({
+            items: [
+              makeStory('range', {
+                timeType: 'year_range',
+                timePeriod: '1914-1918',
+                historicalYear: 1916,
+              }),
+              makeStory('date', {
+                timeType: 'exact_date',
+                timePeriod: '1923-10-29 09:30',
+                historicalYear: 1923,
+              }),
+            ],
+          })
+        }
+        showSearchControls={false}
+      />,
+    );
+
+    expect(await screen.findByText('1914-1918')).toBeTruthy();
+    expect(screen.getByText('1923-10-29 09:30')).toBeTruthy();
+    expect(screen.queryByText('1910s')).toBeNull();
+    expect(screen.queryByText('1920s')).toBeNull();
   });
 
   it('applies decade selection after Done is pressed', async () => {

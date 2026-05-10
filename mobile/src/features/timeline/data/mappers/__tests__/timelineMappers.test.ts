@@ -25,7 +25,7 @@ describe('timeline mappers', () => {
         time_type: 'approximate_year',
         year: 1870,
       }).timePeriod,
-    ).toBe('c. 1870');
+    ).toBe('1870');
   });
 
   it('maps decade, range, and exact date periods', () => {
