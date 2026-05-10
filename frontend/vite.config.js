@@ -20,5 +20,9 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./src/test/setup.js",
     css: true,
+    // Playwright specs live in `e2e/` and run via `npm run test:e2e`. Excluding
+    // the directory keeps Vitest from importing @playwright/test, which would
+    // crash with "test.describe() is not expected here".
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
   },
 });

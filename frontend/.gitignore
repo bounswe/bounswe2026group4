@@ -23,3 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 FRONTEND.md
+
+# Playwright
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
