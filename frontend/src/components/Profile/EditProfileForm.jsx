@@ -13,7 +13,6 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import PhotoUpload from "@/components/Profile/PhotoUpload";
 import VisibilityToggle from "@/components/Profile/VisibilityToggle";
-import DeleteAccountDialog from "@/components/Profile/DeleteAccountDialog";
 
 const MAX_BIO_LENGTH = 500;
 
@@ -24,7 +23,6 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
 
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [username, setUsername] = useState(() => initialProfile?.username ?? "");
   const [firstName, setFirstName] = useState(() => prof.first_name ?? "");
@@ -297,29 +295,6 @@ function EditProfileForm({ initialProfile, onSave, onCancel }) {
         </Button>
       </div>
 
-      {/* Danger zone — visually de-emphasised so it isn't an accidental tap target. */}
-      <div className="mt-4 border-t pt-6">
-        <h3 className="text-sm font-medium">Danger zone</h3>
-        <div className="mt-2 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-          <p className="text-xs text-muted-foreground">
-            Permanently delete your account, stories, comments, and uploads.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={saving}
-          >
-            Delete account
-          </Button>
-        </div>
-      </div>
-
-      <DeleteAccountDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-      />
     </form>
   );
 }

@@ -6,12 +6,6 @@ vi.mock("@/services/userService", () => ({
   updateProfile: vi.fn(),
   uploadProfilePhoto: vi.fn(),
   removeProfilePhoto: vi.fn(),
-  deleteAccount: vi.fn(),
-}));
-
-vi.mock("@/components/Profile/DeleteAccountDialog", () => ({
-  default: ({ open }) =>
-    open ? <div data-testid="delete-account-dialog" /> : null,
 }));
 
 vi.mock("@/hooks/useToast", () => ({
@@ -22,11 +16,7 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: vi.fn(),
 }));
 
-import {
-  updateProfile,
-  uploadProfilePhoto,
-  removeProfilePhoto,
-} from "@/services/userService";
+import { updateProfile, uploadProfilePhoto, removeProfilePhoto } from "@/services/userService";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
 import EditProfileForm from "../EditProfileForm";
@@ -537,23 +527,4 @@ describe("EditProfileForm", () => {
     });
   });
 
-  describe("danger zone — delete account", () => {
-    it("renders a de-emphasised 'Delete account' trigger in a Danger zone section", () => {
-      renderForm();
-      expect(screen.getByRole("heading", { name: /danger zone/i })).toBeInTheDocument();
-      const trigger = screen.getByRole("button", { name: /^delete account$/i });
-      expect(trigger).toBeInTheDocument();
-      expect(trigger).toHaveAttribute("type", "button");
-    });
-
-    it("opens the DeleteAccountDialog when the trigger is clicked", async () => {
-      const user = userEvent.setup();
-      renderForm();
-      expect(screen.queryByTestId("delete-account-dialog")).not.toBeInTheDocument();
-
-      await user.click(screen.getByRole("button", { name: /^delete account$/i }));
-
-      expect(screen.getByTestId("delete-account-dialog")).toBeInTheDocument();
-    });
-  });
 });
