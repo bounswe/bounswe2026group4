@@ -195,4 +195,6 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Local History Story Map API',
     'DESCRIPTION': 'API for the Local History Story Map platform.',
     'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SORT_OPERATIONS': False,
 }
