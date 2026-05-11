@@ -48,6 +48,15 @@ vi.mock("@/components/Profile/EditProfileForm", () => ({
   ),
 }));
 
+vi.mock("@/components/Profile/DeleteAccountDialog", () => ({
+  default: ({ open, onOpenChange }) =>
+    open ? (
+      <div data-testid="delete-account-dialog">
+        <button type="button" onClick={() => onOpenChange(false)}>mock-close-delete</button>
+      </div>
+    ) : null,
+}));
+
 vi.mock("@/components/Profile/SavedStoriesTab", () => ({
   default: ({ userId }) => (
     <div data-testid="saved-stories-tab" data-user-id={userId} />
@@ -414,6 +423,70 @@ describe("ProfilePage", () => {
         expect(screen.queryByTestId("edit-profile-form")).not.toBeInTheDocument()
       );
       expect(getProfile).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("delete profile", () => {
+    it("shows Delete Profile button on own profile", async () => {
+      useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      renderPage();
+
+      const btn = await screen.findByRole("button", { name: /Delete Profile/i });
+      expect(btn).toBeInTheDocument();
+    });
+
+    it("does NOT show Delete Profile button on another user's profile", async () => {
+      useAuth.mockReturnValue({ user: { id: 99 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText("historian")).toBeInTheDocument());
+      expect(screen.queryByRole("button", { name: /Delete Profile/i })).not.toBeInTheDocument();
+    });
+
+    it("opens DeleteAccountDialog when Delete Profile button is clicked", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      renderPage();
+
+      await user.click(await screen.findByRole("button", { name: /Delete Profile/i }));
+
+      expect(screen.getByTestId("delete-account-dialog")).toBeInTheDocument();
+    });
+
+    it("closes DeleteAccountDialog when onOpenChange(false) is called", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      renderPage();
+
+      await user.click(await screen.findByRole("button", { name: /Delete Profile/i }));
+      await user.click(screen.getByRole("button", { name: /mock-close-delete/i }));
+
+      expect(screen.queryByTestId("delete-account-dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("reset password", () => {
+    it("shows Reset Password link on own profile", async () => {
+      useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      renderPage();
+
+      const link = await screen.findByRole("link", { name: /Reset Password/i });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute("href", "/forgot-password");
+    });
+
+    it("does NOT show Reset Password link on another user's profile", async () => {
+      useAuth.mockReturnValue({ user: { id: 99 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText("historian")).toBeInTheDocument());
+      expect(screen.queryByRole("link", { name: /Reset Password/i })).not.toBeInTheDocument();
     });
   });
 

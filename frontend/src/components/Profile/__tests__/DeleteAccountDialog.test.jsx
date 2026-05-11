@@ -96,11 +96,11 @@ describe("DeleteAccountDialog", () => {
 
     await waitFor(() => expect(clearTokens).toHaveBeenCalledTimes(1));
     expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(successToast).toHaveBeenCalledWith("Your account has been deleted.");
+    expect(successToast).toHaveBeenCalledWith("Account deleted successfully.");
     expect(navigateMock).toHaveBeenCalledWith("/");
   });
 
-  it("surfaces a backend 'incorrect password' error inline and does not navigate", async () => {
+  it("surfaces an inline 'wrong password' error and does not navigate", async () => {
     deleteAccount.mockRejectedValue({
       response: { status: 400, data: { password: ["Incorrect password."] } },
     });
@@ -112,9 +112,27 @@ describe("DeleteAccountDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/incorrect password/i)
+      expect(screen.getByRole("alert")).toHaveTextContent(/wrong password, please try again/i)
     );
     expect(clearTokens).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("shows 'wrong password' for a 400 response with no password array (raw Axios message suppressed)", async () => {
+    deleteAccount.mockRejectedValue({
+      response: { status: 400, data: {} },
+      message: "Request failed with status code 400",
+    });
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText(/confirm with your password/i), {
+      target: { value: "wrong" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/wrong password, please try again/i)
+    );
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
@@ -219,7 +237,7 @@ describe("DeleteAccountDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
 
       await waitFor(() =>
-        expect(screen.getByRole("alert")).toHaveTextContent(/incorrect password/i)
+        expect(screen.getByRole("alert")).toHaveTextContent(/wrong password, please try again/i)
       );
       expect(screen.getByRole("alertdialog")).toBeInTheDocument();
       expect(screen.getByLabelText(/confirm with your password/i)).toBeInTheDocument();

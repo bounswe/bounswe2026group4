@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
-import { User, BookOpen, CalendarDays, MapPin, Star, Pencil, Lock, Loader2, Bell } from "lucide-react";
+import { User, BookOpen, CalendarDays, MapPin, Star, Pencil, Lock, Loader2, Bell, KeyRound, Trash2 } from "lucide-react";
 
 import { SkeletonPage } from "@/components/ui/loading-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -11,6 +11,7 @@ import StructuredData from "@/components/StructuredData/StructuredData";
 import FollowButton from "@/components/Follow/FollowButton";
 import FollowListSheet from "@/components/Follow/FollowListSheet";
 import EditProfileForm from "@/components/Profile/EditProfileForm";
+import DeleteAccountDialog from "@/components/Profile/DeleteAccountDialog";
 import SavedStoriesTab from "@/components/Profile/SavedStoriesTab";
 import PublishedStoriesTab from "@/components/Profile/PublishedStoriesTab";
 import BadgeGrid from "@/components/Profile/BadgeGrid";
@@ -52,6 +53,7 @@ function ProfilePage() {
   const [listSheet, setListSheet] = useState({ open: false, mode: "followers" });
   const [editMode, setEditMode] = useState(false);
   const [ownProfileData, setOwnProfileData] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     if (!targetUserId) return;
@@ -269,7 +271,7 @@ function ProfilePage() {
                   })()}
                 </div>
               </div>
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 flex-wrap gap-2">
                 {isOwnProfile && (
                   <>
                     <Button variant="outline" size="sm" asChild>
@@ -285,6 +287,20 @@ function ProfilePage() {
                     >
                       <Pencil className="h-4 w-4" />
                       Edit Profile
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/forgot-password">
+                        <KeyRound className="h-4 w-4" />
+                        Reset Password
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Profile
                     </Button>
                   </>
                 )}
@@ -354,6 +370,13 @@ function ProfilePage() {
             setListSheet((s) => ({ ...s, open }))
           }
         />
+
+        {isOwnProfile && (
+          <DeleteAccountDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+          />
+        )}
       </div>
     </main>
   );

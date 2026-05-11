@@ -43,15 +43,17 @@ function DeleteAccountForm({ onOpenChange }) {
       // AuthContext listens for to drop the in-memory user.
       clearTokens();
       onOpenChange(false);
-      toast.success("Your account has been deleted.");
+      toast.success("Account deleted successfully.");
       navigate("/");
     } catch (err) {
+      const status = err?.response?.status;
       const data = err?.response?.data;
-      const message =
-        (Array.isArray(data?.password) && data.password[0]) ||
-        data?.detail ||
-        err?.message ||
-        "Failed to delete account. Please try again.";
+      const isPasswordError =
+        status === 400 ||
+        (Array.isArray(data?.password) && data.password.length > 0);
+      const message = isPasswordError
+        ? "Wrong password, please try again."
+        : (data?.detail || err?.message || "Failed to delete account. Please try again.");
       setError(message);
       setSubmitting(false);
     }
