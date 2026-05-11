@@ -48,12 +48,16 @@ function DeleteAccountForm({ onOpenChange }) {
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
-      const isPasswordError =
-        status === 400 ||
-        (Array.isArray(data?.password) && data.password.length > 0);
-      const message = isPasswordError
-        ? "Wrong password, please try again."
-        : (data?.detail || err?.message || "Failed to delete account. Please try again.");
+      const passwordFieldError =
+        Array.isArray(data?.password) && data.password.length > 0
+          ? data.password[0]
+          : null;
+      const message =
+        passwordFieldError
+          ?? data?.detail
+          ?? (status === 400 ? "Wrong password, please try again." : null)
+          ?? err?.message
+          ?? "Failed to delete account. Please try again.";
       setError(message);
       setSubmitting(false);
     }

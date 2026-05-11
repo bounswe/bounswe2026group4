@@ -100,7 +100,7 @@ describe("DeleteAccountDialog", () => {
     expect(navigateMock).toHaveBeenCalledWith("/");
   });
 
-  it("surfaces an inline 'wrong password' error and does not navigate", async () => {
+  it("surfaces the backend password field message and does not navigate", async () => {
     deleteAccount.mockRejectedValue({
       response: { status: 400, data: { password: ["Incorrect password."] } },
     });
@@ -112,9 +112,27 @@ describe("DeleteAccountDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/wrong password, please try again/i)
+      expect(screen.getByRole("alert")).toHaveTextContent(/incorrect password\./i)
     );
     expect(clearTokens).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("shows a detail message when the backend returns 400 with a detail field", async () => {
+    deleteAccount.mockRejectedValue({
+      response: { status: 400, data: { detail: "Account already scheduled for deletion." } },
+      message: "Request failed with status code 400",
+    });
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText(/confirm with your password/i), {
+      target: { value: "hunter2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/account already scheduled for deletion/i)
+    );
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
@@ -237,7 +255,7 @@ describe("DeleteAccountDialog", () => {
       fireEvent.click(screen.getByRole("button", { name: /delete my account/i }));
 
       await waitFor(() =>
-        expect(screen.getByRole("alert")).toHaveTextContent(/wrong password, please try again/i)
+        expect(screen.getByRole("alert")).toHaveTextContent(/incorrect password\./i)
       );
       expect(screen.getByRole("alertdialog")).toBeInTheDocument();
       expect(screen.getByLabelText(/confirm with your password/i)).toBeInTheDocument();

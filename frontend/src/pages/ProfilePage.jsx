@@ -295,7 +295,7 @@ function ProfilePage() {
                       </Link>
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
                       onClick={() => setDeleteDialogOpen(true)}
                     >

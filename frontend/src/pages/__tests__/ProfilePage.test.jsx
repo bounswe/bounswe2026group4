@@ -409,6 +409,21 @@ describe("ProfilePage", () => {
       expect(getOwnProfile).toHaveBeenCalledTimes(2);
     });
 
+    it("hides action buttons while in edit mode", async () => {
+      const user = userEvent.setup();
+      useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      getOwnProfile.mockResolvedValue({ profile: {} });
+      renderPage();
+
+      await user.click(await screen.findByRole("button", { name: /Edit Profile/i }));
+
+      expect(screen.queryByRole("button", { name: /Edit Profile/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Delete Profile/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Reset Password/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Notifications/i })).not.toBeInTheDocument();
+    });
+
     it("hides EditProfileForm without re-fetching when onCancel is called", async () => {
       const user = userEvent.setup();
       useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
