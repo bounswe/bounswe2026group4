@@ -1,3 +1,4 @@
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -52,7 +53,23 @@ class StoryFeedView(APIView):
     
     
 
-    #storyfeedview
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('sort_by', str, description="'recent' (default) or 'popular'"),
+            OpenApiParameter('year_from', int, description='Include stories from this year onwards'),
+            OpenApiParameter('year_to', int, description='Include stories up to and including this year'),
+            OpenApiParameter('location', str, description='Case-insensitive substring match on location_name'),
+            OpenApiParameter('tags', str, many=True, description='AND tag filter; repeat for each tag'),
+            OpenApiParameter('latitude', float, description='WGS-84 latitude of the user\'s position'),
+            OpenApiParameter('longitude', float, description='WGS-84 longitude of the user\'s position'),
+            OpenApiParameter('radius_km', float, description='Filter radius in kilometres (requires latitude + longitude)'),
+            OpenApiParameter('lat_min', float, description='Bounding box south edge'),
+            OpenApiParameter('lat_max', float, description='Bounding box north edge'),
+            OpenApiParameter('lng_min', float, description='Bounding box west edge'),
+            OpenApiParameter('lng_max', float, description='Bounding box east edge'),
+        ],
+        responses=StoryFeedSerializer(many=True),
+    )
     def get(self, request):
         query_serializer = FeedQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
@@ -106,6 +123,22 @@ class StoryMapView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('year_from', int, description='Include stories from this year onwards'),
+            OpenApiParameter('year_to', int, description='Include stories up to and including this year'),
+            OpenApiParameter('location', str, description='Case-insensitive substring match on location_name'),
+            OpenApiParameter('tags', str, many=True, description='AND tag filter; repeat for each tag'),
+            OpenApiParameter('latitude', float, description='WGS-84 latitude of the user\'s position'),
+            OpenApiParameter('longitude', float, description='WGS-84 longitude of the user\'s position'),
+            OpenApiParameter('radius_km', float, description='Filter radius in kilometres (requires latitude + longitude)'),
+            OpenApiParameter('lat_min', float, description='Bounding box south edge'),
+            OpenApiParameter('lat_max', float, description='Bounding box north edge'),
+            OpenApiParameter('lng_min', float, description='Bounding box west edge'),
+            OpenApiParameter('lng_max', float, description='Bounding box east edge'),
+        ],
+        responses=StoryMapGeoJSONSerializer(many=True),
+    )
     def get(self, request):
         query_serializer = FeedQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
@@ -148,6 +181,24 @@ class StorySearchView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('q', str, required=True, description='Search query against title and location_name (min 1 char)'),
+            OpenApiParameter('sort_by', str, description="'recent' (default) or 'popular'"),
+            OpenApiParameter('year_from', int, description='Include stories from this year onwards'),
+            OpenApiParameter('year_to', int, description='Include stories up to and including this year'),
+            OpenApiParameter('location', str, description='Case-insensitive substring match on location_name'),
+            OpenApiParameter('tags', str, many=True, description='AND tag filter; repeat for each tag'),
+            OpenApiParameter('latitude', float, description='WGS-84 latitude of the user\'s position'),
+            OpenApiParameter('longitude', float, description='WGS-84 longitude of the user\'s position'),
+            OpenApiParameter('radius_km', float, description='Filter radius in kilometres (requires latitude + longitude)'),
+            OpenApiParameter('lat_min', float, description='Bounding box south edge'),
+            OpenApiParameter('lat_max', float, description='Bounding box north edge'),
+            OpenApiParameter('lng_min', float, description='Bounding box west edge'),
+            OpenApiParameter('lng_max', float, description='Bounding box east edge'),
+        ],
+        responses=StoryFeedSerializer(many=True),
+    )
     def get(self, request):
         query_serializer = SearchQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
@@ -232,6 +283,22 @@ class StoryTimelineView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('year_from', int, description='Include stories whose interval starts at or after this year'),
+            OpenApiParameter('year_to', int, description='Include stories whose interval ends at or before this year'),
+            OpenApiParameter('tags', str, many=True, description='AND tag filter; repeat for each tag'),
+            OpenApiParameter('latitude', float, description='WGS-84 latitude of the user\'s position'),
+            OpenApiParameter('longitude', float, description='WGS-84 longitude of the user\'s position'),
+            OpenApiParameter('radius_km', float, description='Filter radius in kilometres (requires latitude + longitude)'),
+            OpenApiParameter('lat_min', float, description='Bounding box south edge'),
+            OpenApiParameter('lat_max', float, description='Bounding box north edge'),
+            OpenApiParameter('lng_min', float, description='Bounding box west edge'),
+            OpenApiParameter('lng_max', float, description='Bounding box east edge'),
+            OpenApiParameter('has_image', bool, description='If true, only return stories that have an image attached'),
+        ],
+        responses=StoryTimelineSerializer(many=True),
+    )
     def get(self, request):
         query_serializer = TimelineQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
