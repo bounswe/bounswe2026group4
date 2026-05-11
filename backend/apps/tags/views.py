@@ -1,3 +1,4 @@
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -10,11 +11,21 @@ from .serializers import TagSerializer
 from .services import create_tag, delete_tag, list_tags
 
 
+@extend_schema_view(
+    list=extend_schema(
+        description='Public. No authentication required.',
+        parameters=[
+            OpenApiParameter('is_predefined', bool, description='Filter by predefined status'),
+            OpenApiParameter('q', str, description='Search tags by name'),
+        ],
+    ),
+    create=extend_schema(
+        description='Requires authentication (registered user). Admins create predefined tags.',
+        request={'application/json': TagSerializer},
+    ),
+)
 class TagListCreateView(generics.ListCreateAPIView):
-    """
-    GET  AllowAny         — list tags; supports ?is_predefined=true/false and ?q=<search>.
-    POST IsRegisteredUser — create tag (idempotent); admin caller gets is_predefined=True.
-    """
+    """List existing tags with GET or create a new one with POST."""
 
     serializer_class = TagSerializer
 
@@ -38,8 +49,9 @@ class TagListCreateView(generics.ListCreateAPIView):
         return Response(TagSerializer(tag).data, status=code)
 
 
+@extend_schema_view(destroy=extend_schema(description='Requires admin privileges.'))
 class TagDetailView(generics.DestroyAPIView):
-    """DELETE IsAdminUser — delete tag by pk."""
+    """Delete a tag by ID."""
 
     permission_classes = [IsAdminUser]
     queryset = Tag.objects.all()

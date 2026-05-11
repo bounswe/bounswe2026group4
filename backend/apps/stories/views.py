@@ -1,4 +1,5 @@
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
+from rest_framework import fields as drf_fields
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -69,6 +70,7 @@ class StoryFeedView(APIView):
             OpenApiParameter('lng_max', float, description='Bounding box east edge'),
         ],
         responses=StoryFeedSerializer(many=True),
+        description="Public. No authentication required.",
     )
     def get(self, request):
         query_serializer = FeedQuerySerializer(data=request.query_params)
@@ -137,7 +139,16 @@ class StoryMapView(APIView):
             OpenApiParameter('lng_min', float, description='Bounding box west edge'),
             OpenApiParameter('lng_max', float, description='Bounding box east edge'),
         ],
-        responses=StoryMapGeoJSONSerializer(many=True),
+        responses={
+            200: inline_serializer(
+                name='GeoJSONFeatureCollection',
+                fields={
+                    'type': drf_fields.CharField(),
+                    'features': drf_fields.ListField(child=drf_fields.DictField()),
+                },
+            )
+        },
+        description="Public. No authentication required.",
     )
     def get(self, request):
         query_serializer = FeedQuerySerializer(data=request.query_params)
@@ -198,6 +209,7 @@ class StorySearchView(APIView):
             OpenApiParameter('lng_max', float, description='Bounding box east edge'),
         ],
         responses=StoryFeedSerializer(many=True),
+        description="Public. No authentication required.",
     )
     def get(self, request):
         query_serializer = SearchQuerySerializer(data=request.query_params)
@@ -227,6 +239,13 @@ class StorySearchView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+@extend_schema_view(
+    list=extend_schema(description='Public. No authentication required.'),
+    create=extend_schema(
+        description='Requires authentication (registered user).',
+        request={'application/json': StorySerializer},
+    ),
+)
 class StoryListCreateView(generics.ListCreateAPIView):
     serializer_class = StorySerializer
     pagination_class = StoryPagination
@@ -245,6 +264,14 @@ class StoryListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
+@extend_schema_view(
+    retrieve=extend_schema(description='Public. No authentication required.'),
+    partial_update=extend_schema(
+        description='Requires authentication (story owner or admin).',
+        request={'application/json': StoryDetailSerializer},
+    ),
+    destroy=extend_schema(description='Requires authentication (story owner or admin).'),
+)
 class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Story.objects.select_related('user').prefetch_related('media_items', 'tags')
     serializer_class = StoryDetailSerializer
@@ -298,6 +325,7 @@ class StoryTimelineView(APIView):
             OpenApiParameter('has_image', bool, description='If true, only return stories that have an image attached'),
         ],
         responses=StoryTimelineSerializer(many=True),
+        description="Public. No authentication required.",
     )
     def get(self, request):
         query_serializer = TimelineQuerySerializer(data=request.query_params)
