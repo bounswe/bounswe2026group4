@@ -194,7 +194,7 @@ SIMPLE_JWT = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Story Map API Documentation',
     'DESCRIPTION': """
-API for the Local History Story Map platform.
+API for the Story Map platform.
 
 ## How to authenticate
 
