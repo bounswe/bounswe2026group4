@@ -70,8 +70,8 @@ function FeedPage() {
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight">Story Feed</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Explore local history stories from communities around the world.
@@ -81,7 +81,7 @@ function FeedPage() {
           <div
             role="group"
             aria-label="Sort order"
-            className="flex overflow-hidden rounded-md border border-input text-sm font-medium"
+            className="flex shrink-0 overflow-hidden rounded-md border border-input text-sm font-medium"
           >
             <button
               aria-pressed={sortBy === "recent"}
