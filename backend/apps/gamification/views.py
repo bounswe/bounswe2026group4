@@ -1,5 +1,6 @@
 from django.http import Http404
 
+from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,6 +27,10 @@ class UserPointsView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        description='Public. No authentication required.',
+        responses={200: PointSummarySerializer},
+    )
     def get(self, request, user_id):
         data = get_user_points(user_id)
         return Response(PointSummarySerializer(data).data)
@@ -36,6 +41,10 @@ class UserBadgesView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        description='Public. No authentication required.',
+        responses={200: UserBadgeSerializer(many=True)},
+    )
     def get(self, request, user_id):
         qs = get_user_badges(user_id)
         paginator = StoryPagination()
@@ -54,6 +63,10 @@ class UserPointHistoryView(APIView):
 
     permission_classes = [IsOwnerOrAdmin]
 
+    @extend_schema(
+        description='Requires authentication (account owner or admin). Point breakdowns are private.',
+        responses={200: PointTransactionSerializer(many=True)},
+    )
     def get(self, request, user_id):
         try:
             target_user = User.objects.get(pk=user_id, is_active=True)
@@ -71,6 +84,10 @@ class BadgeCatalogView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        description='Public. No authentication required.',
+        responses={200: BadgeCatalogSerializer(many=True)},
+    )
     def get(self, request):
         qs = get_badge_catalog()
         paginator = StoryPagination()

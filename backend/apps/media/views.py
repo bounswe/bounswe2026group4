@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import fields as drf_fields
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,12 +11,31 @@ from apps.stories.models import Story
 from common.permissions import IsOwnerOrAdmin
 
 
+def _error_response():
+    return inline_serializer('MediaValidationError', {
+        'success': drf_fields.BooleanField(),
+        'message': drf_fields.CharField(),
+        'errors': drf_fields.DictField(),
+    })
+
+
 class StoryImageUploadView(APIView):
     """POST /stories/<story_id>/images/ — upload an image to a story (owner only)."""
 
     # has_permission enforces authentication; has_object_permission enforces ownership.
     permission_classes = [IsOwnerOrAdmin]
 
+    @extend_schema(
+        # Image upload — must use multipart/form-data, not JSON
+        request={'multipart/form-data': ImageUploadSerializer},
+        responses={
+            201: inline_serializer('ImageUploadResponse', {
+                'message': drf_fields.CharField(),
+                'image': MediaItemResponseSerializer(),
+            }),
+            400: _error_response(),
+        },
+    )
     def post(self, request, story_id):
         # Fetch the story; removed stories are treated as non-existent.
         story = get_object_or_404(
@@ -42,6 +63,17 @@ class StoryMediaUploadView(APIView):
 
     permission_classes = [IsOwnerOrAdmin]
 
+    @extend_schema(
+        # Audio/video upload — must use multipart/form-data, not JSON
+        request={'multipart/form-data': MediaFileUploadSerializer},
+        responses={
+            201: inline_serializer('MediaUploadResponse', {
+                'message': drf_fields.CharField(),
+                'media': MediaItemResponseSerializer(),
+            }),
+            400: _error_response(),
+        },
+    )
     def post(self, request, story_id):
         story = get_object_or_404(
             Story.objects.exclude(status=Story.STATUS_REMOVED),

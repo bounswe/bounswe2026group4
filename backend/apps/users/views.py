@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import fields as drf_fields
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -49,10 +51,30 @@ from common.pagination import StoryPagination
 from common.permissions import IsRegisteredUser
 
 
+def _error_response():
+    """Standard error envelope: {success, message, errors}."""
+    return inline_serializer('ValidationError', {
+        'success': drf_fields.BooleanField(),
+        'message': drf_fields.CharField(),
+        'errors': drf_fields.DictField(),
+    })
+
+
 class RegisterView(APIView):
     # Anyone can register — no prior authentication required
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request={'application/json': RegisterSerializer},
+        responses={
+            201: inline_serializer('RegisterResponse', {
+                'message': drf_fields.CharField(),
+                'user': UserResponseSerializer(),
+                'email_sent': drf_fields.BooleanField(),
+            }),
+            400: _error_response(),
+        },
+    )
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -78,6 +100,13 @@ class VerifyEmailView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'verify_email'
 
+    @extend_schema(
+        request={'application/json': VerifyEmailSerializer},
+        responses={
+            200: inline_serializer('VerifyEmailResponse', {'message': drf_fields.CharField()}),
+            400: _error_response(),
+        },
+    )
     def post(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -95,6 +124,13 @@ class ResendVerificationView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'verify_email'
 
+    @extend_schema(
+        request={'application/json': ResendVerificationSerializer},
+        responses={
+            200: inline_serializer('ResendVerificationResponse', {'message': drf_fields.CharField()}),
+            400: _error_response(),
+        },
+    )
     def post(self, request):
         serializer = ResendVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -110,6 +146,17 @@ class LoginView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'login'
 
+    @extend_schema(
+        request={'application/json': LoginSerializer},
+        responses={
+            200: inline_serializer('TokenResponse', {
+                'access': drf_fields.CharField(),
+                'refresh': drf_fields.CharField(),
+            }),
+            400: _error_response(),
+            401: _error_response(),
+        },
+    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -124,6 +171,10 @@ class LogoutView(APIView):
     # Must be authenticated so anonymous requests cannot abuse the blacklist endpoint
     permission_classes = [IsRegisteredUser]
 
+    @extend_schema(
+        request={'application/json': LogoutSerializer},
+        responses={204: None, 400: _error_response()},
+    )
     def post(self, request):
         serializer = LogoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -136,11 +187,16 @@ class CurrentUserView(APIView):
 
     permission_classes = [IsRegisteredUser]
 
+    @extend_schema(responses={200: CurrentUserSerializer})
     def get(self, request):
         user = get_own_profile(request.user)
         serializer = CurrentUserSerializer(user, context={'request': request})
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request={'application/json': UpdateCurrentUserSerializer},
+        responses={200: CurrentUserSerializer, 400: _error_response()},
+    )
     def patch(self, request):
         serializer = UpdateCurrentUserSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -151,6 +207,10 @@ class CurrentUserView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(
+        request={'application/json': DeleteAccountSerializer},
+        responses={204: None, 400: _error_response()},
+    )
     def delete(self, request):
         """Hard-deletes (default) or soft-deletes the authenticated user's account."""
         serializer = DeleteAccountSerializer(data=request.data, context={'request': request})
@@ -168,6 +228,17 @@ class ProfilePhotoView(APIView):
 
     permission_classes = [IsRegisteredUser]
 
+    @extend_schema(
+        # File upload — must use multipart/form-data, not JSON
+        request={'multipart/form-data': ProfilePhotoSerializer},
+        responses={
+            200: inline_serializer('PhotoUploadResponse', {
+                'success': drf_fields.BooleanField(),
+                'photo_url': drf_fields.CharField(),
+            }),
+            400: _error_response(),
+        },
+    )
     def post(self, request):
         serializer = ProfilePhotoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -177,6 +248,7 @@ class ProfilePhotoView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(responses={204: None})
     def delete(self, request):
         delete_profile_photo(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -187,6 +259,7 @@ class UserPublicProfileView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(responses={200: PublicUserProfileSerializer, 404: _error_response()})
     def get(self, request, user_id):
         user = get_public_profile(user_id)
         return Response(
@@ -200,12 +273,14 @@ class FollowView(APIView):
 
     permission_classes = [IsRegisteredUser]
 
+    @extend_schema(responses={201: FollowUserSerializer, 404: _error_response()})
     def post(self, request, user_id):
         follow, created = follow_user(request.user, user_id)
         serializer = FollowUserSerializer(follow)
         http_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response({'success': True, 'data': serializer.data}, status=http_status)
 
+    @extend_schema(responses={204: None})
     def delete(self, request, user_id):
         unfollow_user(request.user, user_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -216,6 +291,7 @@ class FollowerListView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(responses={200: FollowedUserSerializer(many=True)})
     def get(self, request, user_id):
         qs = get_followers(user_id)
         paginator = StoryPagination()
@@ -229,6 +305,7 @@ class FollowingListView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(responses={200: FollowedUserSerializer(many=True)})
     def get(self, request, user_id):
         qs = get_following(user_id)
         paginator = StoryPagination()
@@ -242,6 +319,7 @@ class UserBookmarksView(APIView):
 
     permission_classes = [IsRegisteredUser]
 
+    @extend_schema(responses={200: StoryFeedSerializer(many=True)})
     def get(self, request, user_id):
         qs = annotate_user_interactions(get_user_bookmarks(user_id, request.user), request.user)
         paginator = StoryPagination()
@@ -255,6 +333,7 @@ class UserStoriesView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(responses={200: StoryFeedSerializer(many=True)})
     def get(self, request, user_id):
         qs = get_user_published_stories(user_id)
         is_owner = request.user.is_authenticated and request.user.pk == user_id
@@ -275,6 +354,13 @@ class PasswordResetRequestView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'password_reset'
 
+    @extend_schema(
+        request={'application/json': PasswordResetRequestSerializer},
+        responses={
+            200: inline_serializer('PasswordResetRequestResponse', {'message': drf_fields.CharField()}),
+            400: _error_response(),
+        },
+    )
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -292,6 +378,13 @@ class PasswordResetConfirmView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'password_reset'
 
+    @extend_schema(
+        request={'application/json': PasswordResetConfirmSerializer},
+        responses={
+            200: inline_serializer('PasswordResetConfirmResponse', {'message': drf_fields.CharField()}),
+            400: _error_response(),
+        },
+    )
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

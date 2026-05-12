@@ -47,7 +47,7 @@ class _UserSummarySerializer(serializers.Serializer):
     username = serializers.CharField()
 
 
-class ReportListSerializer(serializers.ModelSerializer):
+class ReportSerializer(serializers.ModelSerializer):
     """Read-only serializer for the admin report list and resolve response."""
 
     reporter = _UserSummarySerializer(read_only=True)

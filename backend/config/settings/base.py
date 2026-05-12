@@ -192,7 +192,28 @@ SIMPLE_JWT = {
 
 # API documentation
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Local History Story Map API',
-    'DESCRIPTION': 'API for the Local History Story Map platform.',
+    'TITLE': 'Story Map API Documentation',
+    'DESCRIPTION': """
+API for the Story Map platform.
+
+## How to authenticate
+
+Some endpoints require a JWT access token. To obtain one:
+
+1. Find **POST /auth/login/** below and click **Try it out**.
+2. Enter your `email` and `password`, then click **Execute**.
+3. Copy the `access` value from the response body.
+4. Click the **Authorize** button at the top of this page.
+5. In the **Value** field paste **only the token** (do NOT type "Bearer", Swagger adds it automatically) and click **Authorize**.
+
+Access tokens expire after **15 minutes**. Use **POST /auth/token/refresh/** with your `refresh` token to get a new one.
+""",
     'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SORT_OPERATIONS': False,
+    'ENUM_NAME_MAPPING': {
+        'Status6b8Enum': 'StoryStatus',
+    },
+    # Global security enables Swagger UI to send the JWT token on all requests.
+    'SECURITY': [{'jwtAuth': []}],
 }

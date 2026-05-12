@@ -10,7 +10,7 @@ from apps.interactions.models import Comment
 from apps.reports.models import Report, ReportReason, ReportStatus
 from apps.reports.serializers import (
     ReportCreateSerializer,
-    ReportListSerializer,
+    ReportSerializer,
     ReportResolveSerializer,
     ReportResponseSerializer,
 )
@@ -206,10 +206,10 @@ class TestReportResponseSerializer:
         assert data['status'] == ReportStatus.PENDING
 
 
-# ── ReportListSerializer ──────────────────────────────────────────────────────
+# ── ReportSerializer ──────────────────────────────────────────────────────
 
 @pytest.mark.django_db
-class TestReportListSerializer:
+class TestReportSerializer:
 
     def setup_method(self):
         self.reporter = _make_user('reporter@example.com', 'reporter')
@@ -228,7 +228,7 @@ class TestReportListSerializer:
             story=self.story,
             reason=ReportReason.SPAM,
         )
-        data = ReportListSerializer(report).data
+        data = ReportSerializer(report).data
 
         assert data['id'] == report.pk
         assert data['target_type'] == 'story'
@@ -246,7 +246,7 @@ class TestReportListSerializer:
             comment=self.comment,
             reason=ReportReason.HARASSMENT,
         )
-        data = ReportListSerializer(report).data
+        data = ReportSerializer(report).data
 
         assert data['target_type'] == 'comment'
         assert data['target_id'] == self.comment.pk
@@ -257,7 +257,7 @@ class TestReportListSerializer:
             story=self.story,
             reason=ReportReason.OTHER,
         )
-        data = ReportListSerializer(report).data
+        data = ReportSerializer(report).data
 
         assert data['reporter'] is None
 
@@ -270,7 +270,7 @@ class TestReportListSerializer:
             resolved_by=self.admin,
             resolved_at=timezone.now(),
         )
-        data = ReportListSerializer(report).data
+        data = ReportSerializer(report).data
 
         assert data['resolved_by']['email'] == self.admin.email
         assert data['resolved_by']['username'] == self.admin.username
@@ -281,7 +281,7 @@ class TestReportListSerializer:
             story=self.story,
             reason=ReportReason.SPAM,
         )
-        data = ReportListSerializer(report).data
+        data = ReportSerializer(report).data
 
         assert data['resolved_by'] is None
 
