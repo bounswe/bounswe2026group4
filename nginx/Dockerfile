@@ -7,7 +7,7 @@ RUN npm ci
 COPY frontend/ .
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
-ARG VITE_SITE_URL
+ARG VITE_SITE_URL=https://storymap.page
 ENV VITE_SITE_URL=$VITE_SITE_URL
 RUN npm run build
 
