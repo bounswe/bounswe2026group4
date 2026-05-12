@@ -46,6 +46,13 @@ docker compose up           # subsequent runs
 |---------|-----|
 | API | http://localhost:8000 |
 | Frontend | http://localhost:5173 |
+| Mailpit inbox | http://localhost:8025 |
+
+When running with Docker Compose, registration and email verification messages
+are captured by Mailpit. Open `http://localhost:8025` to view verification
+emails; no real email is sent in local development. If you run the backend
+directly without Docker, the default local email backend prints messages to the
+backend console instead.
 
 ### Stop
 
@@ -208,6 +215,7 @@ ALLOWED_HOSTS=yourdomain.com
 CORS_ALLOWED_ORIGINS=https://yourdomain.com
 VITE_API_URL=https://yourdomain.com/api
 NGINX_HOST=yourdomain.com
+FRONTEND_URL=https://yourdomain.com
 ```
 
 Generate a secret key:
