@@ -214,6 +214,7 @@ Fill in all values. The fields that must match your domain:
 ALLOWED_HOSTS=yourdomain.com
 CORS_ALLOWED_ORIGINS=https://yourdomain.com
 VITE_API_URL=https://yourdomain.com/api
+VITE_SITE_URL=https://yourdomain.com
 NGINX_HOST=yourdomain.com
 FRONTEND_URL=https://yourdomain.com
 NOMINATIM_CONTACT_EMAIL=your-email@yourdomain.com
