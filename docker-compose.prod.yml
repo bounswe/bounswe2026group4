@@ -40,6 +40,7 @@ services:
       dockerfile: nginx/Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL}
+        VITE_SITE_URL: ${VITE_SITE_URL:-https://storymap.page}
     restart: unless-stopped
     ports:
       - "80:80"
