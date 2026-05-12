@@ -135,7 +135,7 @@ EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='Local History Story Map <noreply@yourdomain.example>')
 RESEND_API_KEY = env('RESEND_API_KEY', default='')
 
-FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
 
 # Nominatim geocoding proxy
 NOMINATIM_CONTACT_EMAIL = env('NOMINATIM_CONTACT_EMAIL')
