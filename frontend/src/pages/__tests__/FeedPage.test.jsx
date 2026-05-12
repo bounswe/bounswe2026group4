@@ -254,6 +254,18 @@ describe("FeedPage", () => {
     expect(popularBtn).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("wraps the sort toggle below the title on narrow viewports", () => {
+    // Regression guard for #650: prevents the Most Recent/Most Popular
+    // toggle from being clipped at the right edge on mobile widths.
+    getStories.mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    const sortGroup = screen.getByRole("group", { name: /sort order/i });
+    const header = sortGroup.parentElement;
+    expect(header).toHaveClass("flex-wrap");
+    expect(sortGroup).toHaveClass("shrink-0");
+  });
+
   it("clicking 'Most Popular' fetches with sort_by=popular", async () => {
     const user = userEvent.setup();
     getStories.mockResolvedValue(makeResponse());

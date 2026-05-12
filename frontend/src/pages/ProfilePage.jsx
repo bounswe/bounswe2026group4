@@ -150,8 +150,8 @@ function ProfilePage() {
               </div>
             )
           ) : (
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 items-start gap-4">
                 {/* Photo — own profile: show regardless of is_photo_public */}
                 <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                   {(isOwnProfile ? ownProfileData?.profile?.profile_photo : profile.profile_photo) ? (

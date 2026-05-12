@@ -505,6 +505,27 @@ describe("ProfilePage", () => {
     });
   });
 
+  describe("action button row layout", () => {
+    // Regression guard for #650: with 4 own-profile actions (Notifications,
+    // Edit Profile, Reset Password, Delete Profile), the row must stay
+    // stacked under the user info until lg viewports and the buttons must
+    // be allowed to wrap so they never clip the surrounding card.
+    it("keeps the header column-stacked below lg and lets buttons wrap", async () => {
+      useAuth.mockReturnValue({ user: { id: 1 }, isAuthenticated: true });
+      getProfile.mockResolvedValue(mockProfileData);
+      renderPage();
+
+      const editBtn = await screen.findByRole("button", { name: /Edit Profile/i });
+      const buttonRow = editBtn.parentElement;
+      expect(buttonRow).toHaveClass("flex-wrap");
+
+      const headerRow = buttonRow.parentElement;
+      expect(headerRow).toHaveClass("flex-col");
+      expect(headerRow).toHaveClass("lg:flex-row");
+      expect(headerRow).not.toHaveClass("sm:flex-row");
+    });
+  });
+
   describe("public profile fields", () => {
     beforeEach(() => {
       // View as a different user so own-profile logic doesn't interfere
