@@ -2,13 +2,16 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.static import static
+from drf_spectacular.renderers import OpenApiJsonRenderer2
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
     # No 'api/' prefix here — nginx strips it before forwarding to Django.
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # JSON-only schema renderer. The relative UI schema URL resolves to
+    # /schema/ locally and /api/schema/ behind production nginx.
+    path('schema/', SpectacularAPIView.as_view(renderer_classes=[OpenApiJsonRenderer2]), name='schema'),
+    path('docs/', SpectacularSwaggerView.as_view(url='../schema/?format=json'), name='swagger-ui'),
+    path('redoc/', SpectacularRedocView.as_view(url='../schema/?format=json'), name='redoc'),
     path('admin/', admin.site.urls),
     path('auth/', include('apps.users.urls', namespace='users')),
     path('users/', include('apps.users.profile_urls')),
