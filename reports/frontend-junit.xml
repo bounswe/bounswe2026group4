@@ -1,0 +1,1480 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="549" failures="0" errors="0" time="49.030348197">
+    <testsuite name="src/hooks/__tests__/useFilterState.test.jsx" timestamp="2026-05-15T21:45:52.460Z" hostname="KMPCH" tests="23" failures="0" errors="0" skipped="0" time="0.138844692">
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; returns default values when URL has no params" time="0.033876855">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; parses URL params correctly" time="0.007074543">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; parses tags from URL as an array" time="0.004526989">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; hasActiveFilters is true when only tags are set" time="0.003875725">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; setFilters with tags array joins them as comma-separated in URL" time="0.010488796">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; setFilters with empty tags array removes the param" time="0.005111219">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; removeTag removes a single tag and keeps others" time="0.005298145">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; removeTag deletes the tags param when the last tag is removed" time="0.004147547">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; setFilters updates URL params" time="0.006866801">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; setFilters resets page to 1 when non-page params change" time="0.004356327">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; setFilters does NOT reset page when only page changes" time="0.003082205">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; removeFilter removes a single param and resets page" time="0.005435471">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; clearAll removes all params including tags" time="0.006515591">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; setFilters removes param when value is empty string" time="0.0034641">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; hasActiveFilters is true when any filter param is set" time="0.002151129">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; parses bbox query params as numbers" time="0.00210187">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; returns null for bbox params when absent from URL" time="0.002142568">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; parses proximity query params as numbers" time="0.00201696">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; returns null for proximity params when absent from URL" time="0.003184548">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; does not flag proximity as active when only some of latitude/longitude/radiusKm are present" time="0.003390632">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; parses has_image=true as a boolean true" time="0.002630381">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; treats absent / non-true has_image values as false" time="0.007313458">
+        </testcase>
+        <testcase classname="src/hooks/__tests__/useFilterState.test.jsx" name="useFilterState &gt; removes has_image when setFilters is called with empty value" time="0.003543465">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/AdminTagsPage.test.jsx" timestamp="2026-05-15T21:45:52.473Z" hostname="KMPCH" tests="3" failures="0" errors="0" skipped="0" time="0.882604567">
+        <testcase classname="src/pages/__tests__/AdminTagsPage.test.jsx" name="AdminTagsPage &gt; renders tags with their story counts" time="0.137342711">
+        </testcase>
+        <testcase classname="src/pages/__tests__/AdminTagsPage.test.jsx" name="AdminTagsPage &gt; filters via search input" time="0.44862379">
+        </testcase>
+        <testcase classname="src/pages/__tests__/AdminTagsPage.test.jsx" name="AdminTagsPage &gt; removes a tag after confirmation" time="0.290829727">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/FeedPage.test.jsx" timestamp="2026-05-15T21:45:52.475Z" hostname="KMPCH" tests="27" failures="0" errors="0" skipped="0" time="2.529874138">
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows loading skeletons while fetching" time="0.145969147">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; renders story cards after successful fetch" time="0.116805644">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows empty state when results are empty" time="0.053759176">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows &apos;no results&apos; empty state when filters are active and results are empty" time="0.058740641">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows error state when API throws" time="0.265594436">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; retry button calls service again after error" time="0.157285948">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows pagination controls when stories are present" time="0.137070313">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; previous button is disabled on page 1" time="0.114161994">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; next button is disabled when next is null" time="0.115100085">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; next button is enabled when next is not null" time="0.104180672">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; clicking next button fetches page 2" time="0.181051013">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; clicking previous button fetches previous page" time="0.259031035">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; displays current page and total pages" time="0.046913156">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows both sort options with &apos;Most Recent&apos; active by default" time="0.042174293">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; wraps the sort toggle below the title on narrow viewports" time="0.029133519">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; clicking &apos;Most Popular&apos; fetches with sort_by=popular" time="0.116997093">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows &apos;Most Popular&apos; as active when sort_by=popular is in URL" time="0.040081503">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; calls getStories with sort_by=popular from URL" time="0.033855228">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; clicking &apos;Most Recent&apos; when on popular switches back and re-fetches" time="0.116210017">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; switching sort resets page to 1" time="0.119803232">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; renders the page heading" time="0.033558067">
+            <system-err>
+An update to FeedPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FeedPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FeedPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FeedPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to FeedPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; each story card is a link to /stories/:id" time="0.062480768">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; renders the search bar" time="0.034399181">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; calls getStories with q param from URL" time="0.035308295">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; calls getStories with year filter params from URL" time="0.037392322">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; shows result count when filters are active and stories exist" time="0.042266713">
+        </testcase>
+        <testcase classname="src/pages/__tests__/FeedPage.test.jsx" name="FeedPage &gt; forwards latitude, longitude and radiusKm from the URL to getStories" time="0.023416956">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/LoginPage.test.jsx" timestamp="2026-05-15T21:45:52.489Z" hostname="KMPCH" tests="19" failures="0" errors="0" skipped="0" time="4.369297727">
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; renders login form correctly" time="0.440663727">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows validation error for empty email" time="0.136174164">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows validation error for empty password" time="0.292288663">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; does not submit when email format is invalid" time="0.288869947">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; submits form with valid credentials via auth context" time="0.324207478">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows loading state during submission" time="0.349832551">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows API error message on login failure" time="0.307919064">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; toggles password visibility" time="0.050798228">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; navigates to home on successful login" time="0.319041615">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; displays API error with role=&apos;alert&apos; for accessibility" time="0.322737557">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; navigates to redirect path from location state after login" time="0.304058637">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; has link to registration page" time="0.054148984">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; has link to forgot password page" time="0.039254258">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows contextual message when redirected from submit-story" time="0.017457271">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; navigates to /submit-story after login when redirected from submit-story" time="0.289155467">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows success toast on successful login" time="0.279975516">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows error.response.data.detail when message is absent" time="0.25925674">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; shows hardcoded fallback when no response data is available" time="0.278460587">
+        </testcase>
+        <testcase classname="src/pages/__tests__/LoginPage.test.jsx" name="LoginPage &gt; redirects away from login page when already authenticated" time="0.007627896">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/MapPage.test.jsx" timestamp="2026-05-15T21:45:52.498Z" hostname="KMPCH" tests="14" failures="0" errors="0" skipped="0" time="0.949012739">
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; renders the map container" time="0.137625834">
+            <system-err>
+React does not recognize the `zoomControl` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `zoomcontrol` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+An update to MapPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to MapPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; shows loading state while fetching" time="0.033799247">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; renders markers after successful fetch" time="0.072519337">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; shows error alert when API fails" time="0.220142901">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; retry button refetches after error" time="0.187695907">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; shows no markers when API returns an empty FeatureCollection" time="0.023122719">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; search status indicator &gt; shows story count when filters are active and results exist" time="0.047757108">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; search status indicator &gt; shows singular &apos;story&apos; when exactly one result exists" time="0.037339486">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; search status indicator &gt; shows empty message when filters are active but no results exist" time="0.041695112">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; search status indicator &gt; shows cap notice when totalCount exceeds 100 with q filter" time="0.035380832">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; search status indicator &gt; does not show indicator while loading" time="0.019820247">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; search status indicator &gt; does not show indicator when no filters are active" time="0.027021012">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; proximity filter &gt; forwards latitude, longitude and radiusKm from the URL to getMapStories" time="0.029559634">
+        </testcase>
+        <testcase classname="src/pages/__tests__/MapPage.test.jsx" name="MapPage &gt; proximity filter &gt; does not forward proximity when only a partial set is in the URL" time="0.028146208">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/NotFoundPage.test.jsx" timestamp="2026-05-15T21:45:52.504Z" hostname="KMPCH" tests="5" failures="0" errors="0" skipped="0" time="0.488824126">
+        <testcase classname="src/pages/__tests__/NotFoundPage.test.jsx" name="NotFoundPage &gt; renders the 404 heading" time="0.293604528">
+        </testcase>
+        <testcase classname="src/pages/__tests__/NotFoundPage.test.jsx" name="NotFoundPage &gt; renders a friendly message" time="0.044182906">
+        </testcase>
+        <testcase classname="src/pages/__tests__/NotFoundPage.test.jsx" name="NotFoundPage &gt; renders a description paragraph" time="0.015262755">
+        </testcase>
+        <testcase classname="src/pages/__tests__/NotFoundPage.test.jsx" name="NotFoundPage &gt; renders a link back to home" time="0.038313944">
+        </testcase>
+        <testcase classname="src/pages/__tests__/NotFoundPage.test.jsx" name="NotFoundPage &gt; navigates to home when the link is clicked" time="0.092325947">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/ProfileCompletionPage.test.jsx" timestamp="2026-05-15T21:45:52.507Z" hostname="KMPCH" tests="31" failures="0" errors="0" skipped="0" time="7.896655366">
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; renders all form fields" time="0.501878753">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; renders all privacy toggles" time="0.056045829">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows the page title and description" time="0.037043393">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows errors when required fields are empty on submit" time="0.156698932">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows error when name is empty" time="0.206760453">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows error when surname is empty" time="0.149213926">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows error when location exceeds 255 characters" time="2.563216325">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; accepts a valid birth date" time="0.267128321">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows error when a non-image file is uploaded" time="0.041240538">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; accepts a valid image file upload" time="0.061244514">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows photo preview after valid image upload" time="0.026755149">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; remove photo button is not shown before a photo is selected" time="0.025067007">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; remove photo button appears after a photo is selected" time="0.06199768">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; clicking remove photo clears the preview, filename, and remove button" time="0.119962518">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; submits without a photo after removing the selected file" time="0.328123068">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; calls updateCurrentUser with required fields only" time="0.229948782">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; navigates to home after successful submission with no &apos;from&apos; state" time="0.223193647">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; navigates to original destination after successful submission when &apos;from&apos; state exists" time="0.213539316">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows success toast on profile completion" time="0.216977055">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; includes optional fields when provided" time="0.46763974">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; includes profile photo in payload when a valid image is uploaded" time="0.231447326">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; sends is_name_public in profile payload" time="0.259449802">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; sends is_username_public in userFields payload" time="0.274937319">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; sends is_location_public in profile payload when toggled off" time="0.258773423">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows generic API error on failure" time="0.229927764">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows backend field errors for profile fields" time="0.207437128">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; shows loading state and disables button during submission" time="0.225098106">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; clears name error when user starts typing" time="0.099767811">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; clears surname error when user starts typing" time="0.092568074">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; skip link points to home when no &apos;from&apos; state" time="0.026632363">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfileCompletionPage.test.jsx" name="ProfileCompletionPage &gt; skip link points to original destination when &apos;from&apos; state exists" time="0.027863638">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/ProfilePage.test.jsx" timestamp="2026-05-15T21:45:52.519Z" hostname="KMPCH" tests="45" failures="0" errors="0" skipped="0" time="3.168610689">
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; shows loading skeleton while fetching" time="0.110323358">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; displays user info after successful fetch" time="0.200322514">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; renders the published stories section with the correct userId" time="0.047194439">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; shows error state on API failure" time="0.245027842">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; retry button re-fetches data after error" time="0.116007989">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; displays story count matching published_story_count" time="0.049292584">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; displays singular &apos;story&apos; when published_story_count is 1" time="0.05372718">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; hides bio when not present" time="0.03857077">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; displays 0 points prominently when total_points is zero" time="0.038833673">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; formats large point totals with comma separators" time="0.033199198">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; renders the BadgeGrid for the profile user" time="0.032885328">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; shows a Badges section heading" time="0.083834836">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; does NOT render the follow button on the user&apos;s own profile" time="0.036789263">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; renders the follow button on someone else&apos;s profile with initial state" time="0.023853426">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; displays follower and following counts from the profile payload" time="0.092504553">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; uses singular &apos;follower&apos; when count is 1" time="0.086840895">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; opens the followers sheet when the followers count is clicked" time="0.098852902">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; opens the following sheet when the following count is clicked" time="0.090137328">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; optimistically updates the follower count when follow toggles" time="0.075726136">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; follow integration &gt; defaults follower/following counts to zero when missing from payload" time="0.071360359">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; edit profile &gt; shows Edit Profile button on own profile" time="0.060745907">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; edit profile &gt; does NOT show Edit Profile button on another user&apos;s profile" time="0.049102636">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; edit profile &gt; renders EditProfileForm when Edit Profile is clicked" time="0.119022572">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; edit profile &gt; hides EditProfileForm, re-fetches public and own profile when onSave is called" time="0.14309601">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; edit profile &gt; hides action buttons while in edit mode" time="0.109561624">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; edit profile &gt; hides EditProfileForm without re-fetching when onCancel is called" time="0.146176248">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; delete profile &gt; shows Delete Profile button on own profile" time="0.054114232">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; delete profile &gt; does NOT show Delete Profile button on another user&apos;s profile" time="0.043235146">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; delete profile &gt; opens DeleteAccountDialog when Delete Profile button is clicked" time="0.082101634">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; delete profile &gt; closes DeleteAccountDialog when onOpenChange(false) is called" time="0.130465087">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; reset password &gt; shows Reset Password link on own profile" time="0.06623715">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; reset password &gt; does NOT show Reset Password link on another user&apos;s profile" time="0.023579009">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; action button row layout &gt; keeps the header column-stacked below lg and lets buttons wrap" time="0.060263325">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; public profile fields &gt; renders profile photo when profile_photo is present" time="0.022257066">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; public profile fields &gt; renders first and last name when present" time="0.026501294">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; public profile fields &gt; renders full birth date when birth_date is present" time="0.028161516">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; public profile fields &gt; falls back to birth_year when only birth_year is present" time="0.024743557">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; public profile fields &gt; does not render birth info when both absent" time="0.023061063">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; own profile — birthday fallback when ownProfileData.birth_date is null &gt; falls back to profile.birth_year when own profile has no birth_date set but public" time="0.041803197">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; own profile — private field visibility &gt; shows private location on own profile" time="0.05266593">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; own profile — private field visibility &gt; shows Private badge next to private location" time="0.051699511">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; own profile — private field visibility &gt; shows private bio on own profile" time="0.049254515">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; own profile — private field visibility &gt; shows private birth date on own profile" time="0.042088598">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; own profile — private field visibility &gt; shows private name on own profile with Private badge" time="0.062311459">
+        </testcase>
+        <testcase classname="src/pages/__tests__/ProfilePage.test.jsx" name="ProfilePage &gt; own profile — private field visibility &gt; does NOT show private fields on another user&apos;s profile" time="0.022194143">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/SubmitStoryPage.test.jsx" timestamp="2026-05-15T21:45:52.539Z" hostname="KMPCH" tests="49" failures="0" errors="0" skipped="0" time="10.63565057">
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; renders all form fields" time="0.449841029">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows validation errors when submitting empty form" time="0.155940542">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows year input for exact_year time type" time="0.03820788">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows year range inputs when year_range is selected" time="0.099218907">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; validates year range - start must be before end" time="0.7618048">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; validates year range - both years required" time="0.131749877">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; rejects image files that are not JPG/PNG" time="0.035840226">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; rejects images larger than 2MB" time="0.032551032">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows image preview for valid image" time="0.07416349">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows previews for multiple valid images" time="0.065596844">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; caps image selection at 3" time="0.070639239">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows error when trying to add more than 3 images" time="0.065687026">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; removes an image when the remove button is clicked" time="0.124034118">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; submits form successfully and navigates" time="0.529277981">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows API error message on submission failure" time="0.524926136">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; renders the Add tag button" time="0.040938099">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; uploads image after story creation when image is selected" time="0.543153766">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; navigates and shows error toast when image upload fails after story creation" time="0.554593211">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; does not call uploadStoryImage when no image is selected" time="0.491135183">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; renders video and audio file inputs" time="0.016984342">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; rejects video files that are not MP4 or WebM" time="0.027194494">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; rejects videos larger than 50MB" time="0.106125265">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; rejects audio files that are not MP3, WAV, or OGG" time="0.025195024">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; rejects audio files larger than 10MB" time="0.043334024">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; uploads video after story creation when video is selected" time="0.535253284">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; uploads audio after story creation when audio is selected" time="0.515431179">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows error toast when video upload fails after story creation" time="0.533391705">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows error toast when audio upload fails after story creation" time="0.517046567">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows generic error toast when multiple media uploads fail" time="0.555004035">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; does not call uploadStoryMedia when no video or audio is selected" time="0.480092337">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows selected video filename after a valid video is added" time="0.047713224">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows selected audio filename after a valid audio is added" time="0.050662987">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; allows adding multiple videos up to the limit" time="0.032912723">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; allows adding multiple audios up to the limit" time="0.032855886">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; caps video selection at 3 and disables input" time="0.03806692">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows error when trying to add more than 3 videos" time="0.054405357">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; caps audio selection at 3 and disables input" time="0.050449819">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows error when trying to add more than 3 audio files" time="0.047843371">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; removes a video when the remove button is clicked" time="0.112224879">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; removes an audio when the remove button is clicked" time="0.073208038">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; uploads all selected videos after story creation" time="0.553045449">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; uploads all selected audio files after story creation" time="0.565274345">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; contributor toggle defaults to OFF when user profile is private" time="0.034099555">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; contributor toggle defaults to ON when user is null" time="0.03094684">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; shows date and time inputs when Specific Date is selected" time="0.066033623">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; explains that BC dates are not supported for the Specific Date type" time="0.045825172">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; disables the time input until a date is chosen" time="0.043426754">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; requires a date when exact_date is selected" time="0.098016502">
+        </testcase>
+        <testcase classname="src/pages/__tests__/SubmitStoryPage.test.jsx" name="SubmitStoryPage &gt; submits date_value (and optional time_value) for exact_date" time="0.506442692">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/TimelinePage.test.jsx" timestamp="2026-05-15T21:45:52.557Z" hostname="KMPCH" tests="17" failures="0" errors="0" skipped="0" time="1.042768517">
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; renders the Timeline heading" time="0.381898319">
+            <system-err>
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; does not render the legacy &apos;Choose a time window&apos; card or mode radiogroup (sezindogan review)" time="0.028272386">
+            <system-err>
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; renders the Filters button but no search bar input" time="0.049000316">
+            <system-err>
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; fetches with no year params on first render (no URL filters)" time="0.02041105">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; seeds year_from / year_to from the URL and forwards them to getTimeline" time="0.025374915">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; forwards has_image=true from the URL" time="0.0180177">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; does not pass q to getTimeline even when q is present in the URL" time="0.02627747">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; forwards URL filters (location, tags, proximity) to getTimeline" time="0.024940044">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; renders dismissible chips for year_range / location / tags / has_image (no q chip)" time="0.045021075">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; removing the year-range chip clears year_from / year_to and refetches" time="0.120043024">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; removing the Has-image chip clears has_image" time="0.080393201">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; shows empty state when count is 0" time="0.028459031">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; shows count of stories" time="0.030872522">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; Load more button appends next page results" time="0.088942435">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; passes bbox query string params through to the service" time="0.013410073">
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; back-to-map button (removed per #624) &gt; never renders a back-to-map button, even when navigated from /map" time="0.032132182">
+            <system-err>
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/pages/__tests__/TimelinePage.test.jsx" name="TimelinePage &gt; back-to-map button (removed per #624) &gt; never renders a back-to-map button when there is no router state" time="0.021980545">
+            <system-err>
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to TimelinePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/pages/__tests__/VerifyEmailPage.test.jsx" timestamp="2026-05-15T21:45:52.566Z" hostname="KMPCH" tests="14" failures="0" errors="0" skipped="0" time="1.926825185">
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; redirects to /register when no email is in route state" time="0.09313162">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; renders 6 digit boxes and the email" time="0.362033302">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; disables submit until all 6 digits are entered" time="0.172645653">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; auto-advances focus to the next box when typing a digit" time="0.034228248">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; submits with email and code" time="0.166506196">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; auto-logs in and navigates to /complete-profile when password is in state" time="0.107749328">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; forwards from-state to /complete-profile after auto-login" time="0.124821701">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; falls back to /login when auto-login fails" time="0.115539334">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; navigates to /login when password is missing from route state" time="0.122332624">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; shows inline error for invalid code" time="0.106606982">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; shows resend option when code is expired" time="0.146169394">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; handles 429 rate limiting on submit" time="0.104575895">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; shows loading state during submission" time="0.122789191">
+        </testcase>
+        <testcase classname="src/pages/__tests__/VerifyEmailPage.test.jsx" name="VerifyEmailPage &gt; resend cooldown &gt; starts 60s cooldown after a successful resend" time="0.13999343">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/services/__tests__/geocodingService.test.js" timestamp="2026-05-15T21:45:52.574Z" hostname="KMPCH" tests="15" failures="0" errors="0" skipped="0" time="0.024811086">
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="geocodeLocation &gt; returns null for empty query" time="0.003788236">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="geocodeLocation &gt; calls the backend proxy with correct params" time="0.003179953">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="geocodeLocation &gt; returns bounding box for a valid result" time="0.000787392">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="geocodeLocation &gt; returns null when backend returns null" time="0.000613555">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="geocodeLocation &gt; trims whitespace from query before sending" time="0.000887319">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="geocodeLocation &gt; caches results and does not call the backend twice for the same query" time="0.000406977">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="geocodeLocation &gt; throws when backend responds with an error" time="0.002739399">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; returns empty array for queries shorter than 3 characters" time="0.000956629">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; calls the backend proxy with correct params" time="0.001732204">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; returns parsed suggestions with title, subtitle, and bbox" time="0.002339889">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; filters out suggestions with no bbox (cannot be selected on the map)" time="0.001187663">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; sets subtitle to undefined when backend returns null subtitle" time="0.000454743">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; returns empty array when backend returns no results" time="0.000407258">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; caches results and does not call the backend twice for the same query" time="0.000456113">
+        </testcase>
+        <testcase classname="src/services/__tests__/geocodingService.test.js" name="searchLocationSuggestions &gt; throws on backend error" time="0.00062645">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/services/__tests__/storyService.test.js" timestamp="2026-05-15T21:45:52.580Z" hostname="KMPCH" tests="29" failures="0" errors="0" skipped="0" time="0.043781073">
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; returns paginated response from API" time="0.005533961">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; calls GET /stories/feed/ with default params when no q is provided" time="0.004179498">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes custom page param to feed API" time="0.002346901">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes custom pageSize to feed API" time="0.001089602">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes yearFrom and yearTo filter params to feed API" time="0.000929734">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes location filter param to feed API" time="0.001020178">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; calls GET /stories/search/ with q param when q is provided" time="0.000685379">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; trims whitespace from q before calling search API" time="0.000482884">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes year and location filters to search API when q and filters are combined" time="0.00122922">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes bbox params to search API instead of text location when bbox is provided" time="0.002585357">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; falls back to text location param when no bbox is provided (feed)" time="0.000809537">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes bbox params to feed API instead of text location when bbox is provided" time="0.000538297">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes proximity params to feed API when latitude, longitude and radiusKm are all provided" time="0.001077905">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; omits proximity params when only a partial set is provided" time="0.00051841">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; passes proximity params alongside q to the search API" time="0.00046189">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; uses feed API when q is empty string" time="0.001687922">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getStories &gt; throws on API error" time="0.004356112">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; calls GET /stories/map/ with no params by default" time="0.000934257">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; returns the GeoJSON FeatureCollection from the map endpoint with totalCount" time="0.000532887">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; passes yearFrom, yearTo and location filter params to map API" time="0.000560303">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; calls search API when q is provided and adapts results into a FeatureCollection" time="0.0022587">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; passes year and location filters to search API when q and filters are combined" time="0.00065903">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; passes bbox params to map search API when bbox is provided" time="0.000460574">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; passes bbox params to map endpoint when no q is provided" time="0.000757256">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; falls back to text location on map endpoint when no bbox is provided" time="0.000653148">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; passes proximity params to map API when latitude, longitude and radiusKm are all provided" time="0.000619779">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; getMapStories &gt; throws on API error" time="0.000707867">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; deleteStory &gt; calls api.delete with correct URL" time="0.000524772">
+        </testcase>
+        <testcase classname="src/services/__tests__/storyService.test.js" name="storyService &gt; deleteStory &gt; throws on API error" time="0.000712598">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/services/__tests__/timelineService.test.js" timestamp="2026-05-15T21:45:52.591Z" hostname="KMPCH" tests="19" failures="0" errors="0" skipped="0" time="0.04591355">
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; calls GET /stories/timeline/ and returns response data" time="0.007637376">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; converts camelCase args to snake_case query params" time="0.00213607">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; omits undefined params" time="0.001204673">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; passes bbox params through" time="0.001091697">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; passes tags array through as-is for paramsSerializer to handle" time="0.001466281">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; omits tags when array is empty" time="0.000927229">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; passes proximity params through" time="0.00159655">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; throws on API error" time="0.004758318">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; has_image filter &gt; forwards has_image=true to /stories/timeline/ on the primary path" time="0.003993018">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; has_image filter &gt; omits has_image when the toggle is false (no filter)" time="0.001576356">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; has_image filter &gt; forwards has_image=true to /stories/timeline/ even on the fallback path" time="0.001231033">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path (filters not supported by /stories/timeline/) &gt; routes to /stories/timeline/ when q is set and applies q as client-side filter" time="0.004670123">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path (filters not supported by /stories/timeline/) &gt; routes to /stories/timeline/ when location text is set without a bbox and filters client-side" time="0.002093923">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path (filters not supported by /stories/timeline/) &gt; does NOT fall back when location string has a matching bbox" time="0.001675882">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path (filters not supported by /stories/timeline/) &gt; client-paginates the fallback results" time="0.002258811">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path (filters not supported by /stories/timeline/) &gt; requests at most page_size=100 from /stories/timeline/ in the fallback (documenting the cap)" time="0.000591503">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path (filters not supported by /stories/timeline/) &gt; count reflects only stories within the fallback fetch window (cap is observable)" time="0.000679693">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path year semantics (matches /stories/timeline/ behaviour) &gt; forwards year_from/year_to to /stories/timeline/ in the fallback" time="0.000608334">
+        </testcase>
+        <testcase classname="src/services/__tests__/timelineService.test.js" name="timelineService &gt; fallback path year semantics (matches /stories/timeline/ behaviour) &gt; server-side year filtering is trusted — results returned by the endpoint are not re-filtered" time="0.000562193">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/services/__tests__/userService.test.js" timestamp="2026-05-15T21:45:52.600Z" hostname="KMPCH" tests="21" failures="0" errors="0" skipped="0" time="0.044089675">
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getPublicProfile &gt; calls GET /users/&lt;id&gt;/ and returns data" time="0.008053045">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getPublicProfile &gt; propagates API errors" time="0.004539539">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getProfile (alias) &gt; is the same function as getPublicProfile" time="0.00075975">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getOwnProfile &gt; calls GET /users/me/ and returns the unwrapped user object" time="0.001992236">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; updateProfile &gt; sends PATCH /users/me/ with only user fields when no profile fields given" time="0.001707929">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; updateProfile &gt; nests profile fields under &apos;profile&apos; key" time="0.001166024">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; updateProfile &gt; omits &apos;profile&apos; key when profileFields is empty" time="0.001957616">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; updateProfile &gt; returns response data" time="0.00192088">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; updateProfile &gt; propagates API errors" time="0.00210131">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; uploadProfilePhoto &gt; sends POST /users/me/photo/ as multipart with correct field name" time="0.004590813">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; uploadProfilePhoto &gt; propagates API errors" time="0.001548359">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; removeProfilePhoto &gt; sends DELETE /users/me/photo/" time="0.000912725">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; removeProfilePhoto &gt; propagates API errors" time="0.000588852">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getUserBadges &gt; calls GET /users/&lt;id&gt;/badges/ with page_size=100 on the first page" time="0.001181099">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getUserBadges &gt; walks the `next` link until exhausted and concatenates results" time="0.001135877">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getUserBadges &gt; returns an empty array when no badges are awarded" time="0.000369479">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; getUserBadges &gt; propagates API errors" time="0.000617749">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; deleteAccount &gt; sends DELETE /users/me/ with password, hard_delete=true, and the refresh token" time="0.000932841">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; deleteAccount &gt; sends hard_delete=false when stories should be anonymised (hardDelete=false)" time="0.001396799">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; deleteAccount &gt; forwards an empty refresh token when none is stored" time="0.00038973">
+        </testcase>
+        <testcase classname="src/services/__tests__/userService.test.js" name="userService &gt; deleteAccount &gt; propagates API errors (e.g., wrong password 400)" time="0.000542185">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/AppLayout/__tests__/AppLayout.test.jsx" timestamp="2026-05-15T21:45:52.609Z" hostname="KMPCH" tests="19" failures="0" errors="0" skipped="0" time="1.514266904">
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; renders navbar with public links" time="0.132103135">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; shows Login and Register buttons when unauthenticated" time="0.025489023">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; shows Submit Story link for unauthenticated users" time="0.022856074">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; shows username linking to profile, Logout, and Submit Story when authenticated" time="0.331243399">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; highlights active route" time="0.026260355">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; calls logout and navigates to / on logout click" time="0.09888901">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; renders page content via Outlet" time="0.01732013">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Map link carries current search params when on the Feed page" time="0.070820928">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Feed link carries current search params when on the Map page" time="0.057587223">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Timeline link carries current search params when on the Feed page" time="0.05821996">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Timeline link carries current search params when on the Map page" time="0.045829353">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Map and Feed links carry current search params when on the Timeline page" time="0.060807911">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Map and Feed links use bare paths when on a non-filter page" time="0.058144065">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Map and Feed links use bare paths when there are no active filters" time="0.046117598">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Map link is still highlighted when filters are active on /map" time="0.014638255">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; Feed link is still highlighted when filters are active on /" time="0.018058605">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; renders mobile hamburger button" time="0.014493195">
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; mobile drawer Login button navigates to /login" time="0.225063748">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/AppLayout/__tests__/AppLayout.test.jsx" name="AppLayout &gt; mobile drawer Register button navigates to /register" time="0.182904015">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/Interactions/__tests__/LikeButton.test.jsx" timestamp="2026-05-15T21:45:52.618Z" hostname="KMPCH" tests="9" failures="0" errors="0" skipped="0" time="0.562092822">
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; unauthenticated user &gt; displays the like count" time="0.065274913">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; unauthenticated user &gt; shows a login prompt instead of a toggle button" time="0.215018742">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; unauthenticated user &gt; login prompt links to /login" time="0.028538041">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; authenticated user &gt; renders a like button with the current count" time="0.037298891">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; authenticated user &gt; shows &apos;Unlike story&apos; label when already liked" time="0.021507325">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; authenticated user &gt; optimistically increments count and calls likeStory on click" time="0.063437767">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; authenticated user &gt; optimistically decrements count and calls unlikeStory when unliking" time="0.041050094">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; authenticated user &gt; reverts like on API error" time="0.046700057">
+        </testcase>
+        <testcase classname="src/components/Interactions/__tests__/LikeButton.test.jsx" name="LikeButton &gt; authenticated user &gt; reverts unlike on API error" time="0.03619106">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/MapView/__tests__/StoryPopup.test.jsx" timestamp="2026-05-15T21:45:52.624Z" hostname="KMPCH" tests="18" failures="0" errors="0" skipped="0" time="0.225315186">
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup &gt; renders title, location, and time period" time="0.080488245">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup &gt; handles missing location_name" time="0.01274865">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup &gt; &apos;Read more&apos; links to the correct story URL" time="0.014284049">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup &gt; renders a &apos;View Timeline&apos; link to /timeline with the pin&apos;s proximity params pre-applied" time="0.009229963">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup &gt; rounds raw GeoJSON-precision coordinates to 6 decimals in the View Timeline href" time="0.014161709">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup &gt; omits the &apos;View Timeline&apos; link when coordinates are missing" time="0.010087563">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup &gt; omits the &apos;View Timeline&apos; link when coordinates are non-numeric" time="0.009205359">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup date rendering &gt; renders an exact_date story with date_value correctly (bug fix: was blank before)" time="0.00783859">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup date rendering &gt; renders an exact_date with time_value showing HH:MM" time="0.008422357">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup date rendering &gt; renders a BC year correctly" time="0.006690634">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup date rendering &gt; renders a BC year_range correctly" time="0.006507033">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup date rendering &gt; renders approximate_year with &apos;c.&apos; prefix" time="0.005636195">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup date rendering &gt; renders a decade" time="0.005860016">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup date rendering &gt; omits the date row when time_type is absent" time="0.004988017">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup icons &gt; renders a MapPin icon alongside the location text" time="0.004815541">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup icons &gt; renders a Calendar icon alongside the time period" time="0.004626584">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup icons &gt; renders both MapPin and Calendar icons when location and date are present" time="0.006129742">
+        </testcase>
+        <testcase classname="src/components/MapView/__tests__/StoryPopup.test.jsx" name="StoryPopup icons &gt; renders no icons when both location and date are absent" time="0.005732802">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/Report/__tests__/ReportModal.test.jsx" timestamp="2026-05-15T21:45:52.637Z" hostname="KMPCH" tests="19" failures="0" errors="0" skipped="0" time="3.878549512">
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; renders when open" time="0.462999236">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; does not render content when closed" time="0.009101661">
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; renders all reason radio buttons" time="0.263249118">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; submit button is disabled when no reason selected" time="0.084140586">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; submit button is enabled after selecting a reason" time="0.192374296">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; shows description textarea only when Other is selected" time="0.16768366">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; hides description textarea when switching from Other to another reason" time="0.238484237">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; calls reportContent with correct args on submit" time="0.200154408">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; passes description when Other reason is selected" time="0.511552852">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; does not pass description when a non-Other reason is selected" time="0.197831901">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; shows success message after successful submission" time="0.192785075">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; shows loading state while submitting" time="0.216780725">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; shows duplicate report error" time="0.208775156">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; shows own content error" time="0.203057577">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; shows generic error on unexpected failure" time="0.190481064">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; clears error when selecting a different reason" time="0.249523925">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; calls onClose when Cancel is clicked" time="0.065998354">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; shows comment label when targetType is comment" time="0.040114623">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/components/Report/__tests__/ReportModal.test.jsx" name="ReportModal &gt; Cancel is disabled while submitting" time="0.176422568">
+            <system-err>
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/StoryCard/__tests__/StoryCard.test.jsx" timestamp="2026-05-15T21:45:52.656Z" hostname="KMPCH" tests="30" failures="0" errors="0" skipped="0" time="0.531183962">
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="truncateAtWord &gt; returns the original text when within the limit" time="0.003712301">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="truncateAtWord &gt; truncates at a word boundary and appends ellipsis" time="0.000668482">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="truncateAtWord &gt; does not cut mid-word when a space exists before the limit" time="0.000349989">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="truncateAtWord &gt; hard-cuts a single long word with no spaces" time="0.000803896">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats exact_year" time="0.000614736">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats approximate_year with c. prefix" time="0.000610035">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats decade" time="0.000435966">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats year_range" time="0.00067089">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats exact_date as a human-readable date" time="0.001007686">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats exact_date with a time when provided" time="0.000596619">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; returns empty string for unknown time_type" time="0.000396012">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats exact_year BC dates with &apos;BC&apos; suffix" time="0.000280858">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats approximate_year BC dates with &apos;c.&apos; prefix and &apos;BC&apos; suffix" time="0.000233881">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats decade BC and rounds toward older" time="0.000682488">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats BC year_range with one shared &apos;BC&apos; suffix" time="0.000233265">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="formatTimePeriod &gt; formats year_range crossing BC/AD with both era suffixes" time="0.000216749">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders the story title" time="0.109721">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders the location name" time="0.021384561">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders the formatted time period" time="0.019388302">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders preview_text with a trailing ellipsis" time="0.016312263">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders nothing for preview when preview_text is absent" time="0.018152361">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders the contributor name" time="0.017608367">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders an &apos;Anonymous&apos; badge when contributor_name is null" time="0.017748429">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders an &apos;Anonymous&apos; badge when contributor_name is absent" time="0.016709265">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; card link points to /stories/:id" time="0.228142517">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders year_range time period" time="0.009674358">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders approximate_year time period" time="0.007892742">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders decade time period" time="0.010759272">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders heart as not liked by default" time="0.007703013">
+        </testcase>
+        <testcase classname="src/components/StoryCard/__tests__/StoryCard.test.jsx" name="StoryCard &gt; renders heart as liked when user_has_liked is true" time="0.010747631">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" timestamp="2026-05-15T21:45:52.672Z" hostname="KMPCH" tests="30" failures="0" errors="0" skipped="0" time="0.892909402">
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; renders nothing when no filters are active" time="0.036030493">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows a chip for the search query" time="0.072229969">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows a combined year range chip when both yearFrom and yearTo are set" time="0.017387739">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows &apos;From N&apos; chip when only yearFrom is set" time="0.010016072">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows &apos;To N&apos; chip when only yearTo is set" time="0.010703514">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; renders BC year ranges with a single &apos;BC&apos; suffix and no minus signs" time="0.008436358">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; renders single-sided BC year chip with &apos;BC&apos; suffix" time="0.006280407">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows a location chip" time="0.006006243">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows multiple chips simultaneously" time="0.022806131">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows a Clear all button when any filter is active" time="0.259861128">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; calls onRemove(&apos;q&apos;) when search chip X is clicked" time="0.07430559">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; calls onRemove(&apos;year_range&apos;) when combined year chip X is clicked" time="0.054179342">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; calls onRemove(&apos;year_from&apos;) when From chip X is clicked" time="0.034990593">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; calls onRemove(&apos;location&apos;) when location chip X is clicked" time="0.037886991">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; calls onClearAll when Clear all button is clicked" time="0.039955109">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; renders nothing when tags is empty and no other filters" time="0.002378668">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows a chip for each selected tag" time="0.008866862">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows Clear all when only tags are active" time="0.021991958">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; calls onRemoveTag with tag name when tag chip X is clicked" time="0.04649612">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; shows both tag chips and regular filter chips simultaneously" time="0.013309819">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; renders a &apos;Within X km&apos; chip when radiusKm is a whole-km value" time="0.006441302">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; formats sub-kilometre radii in metres (500 m option)" time="0.006763266">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; does not render a proximity chip when radiusKm is null" time="0.002702797">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; does not render a proximity chip when radiusKm is set but hasProximity is false" time="0.002246417">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; emits the &apos;proximity&apos; remove key when the radius chip is dismissed" time="0.035110106">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; appends &apos;of selected location&apos; to the proximity chip when coords are not from geolocation this session" time="0.005100608">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; uses the plain &apos;Within X&apos; chip when coords match the granted device location" time="0.00578998">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; renders a &apos;Has image&apos; chip when hasImage is true" time="0.004859412">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; does not render the &apos;Has image&apos; chip when hasImage is false / unset" time="0.002005315">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/ActiveFilters.test.jsx" name="ActiveFilters &gt; calls onRemove with &apos;has_image&apos; when the Has-image chip X is clicked" time="0.030541701">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" timestamp="2026-05-15T21:45:52.691Z" hostname="KMPCH" tests="49" failures="0" errors="0" skipped="0" time="5.377221793">
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; renders a Filters toggle button" time="0.337524758">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; shows active filter count badge when activeCount &gt; 0" time="0.022566162">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; panel is initially hidden" time="0.006191284">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; opens the panel when toggle button is clicked" time="0.096968255">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; closes the panel after clicking Apply" time="0.132250332">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; calls onApply with entered values when Apply is clicked" time="0.463841816">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; shows validation error when yearFrom &gt; yearTo" time="0.281090375">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; resets form and calls onApply with empty values when Reset filters is clicked" time="0.089715879">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; shows tag section when panel is open" time="0.075244927">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; calls onApply with selected tags when Apply is clicked" time="0.096889084">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; opens tag dropdown and shows suggestions" time="0.106186604">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; selecting a tag suggestion adds it to the local tags" time="0.172061227">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; initialises form fields from props on mount" time="0.043048268">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; preserves bbox props in onApply when user only changes year without re-typing location" time="0.154892615">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; year fields are empty on first open (placeholder visible)" time="0.053725725">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; inputs have no lower bound (BC dates allowed) and max=2030" time="0.040819517">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; accepts negative (BC) years and forwards them to onApply" time="0.220697046">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; ArrowUp on empty From year sets it to 1980" time="0.086828905">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; ArrowUp on empty To year sets it to 2026" time="0.084765153">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; accepts a single ancient AD year (e.g. 500) without validation error" time="0.145854284">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; clamps typed year above 2030 to 2030 on From year field" time="0.105371011">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; clamps typed year above 2030 to 2030 on To year field" time="0.066101852">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; does not clamp years within valid range" time="0.118432021">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; clamps absurd BC inputs (below -9999) up to -9999" time="0.149045848">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; renders the predefined options (Anywhere, 500 m, 1 km, 10 km, 100 km) matching mobile" time="0.078344787">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; emits a fractional radiusKm (0.5) when 500 m is selected" time="0.145085655">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; requests geolocation, applies coordinates, and emits proximity on Apply when granted" time="0.126546781">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; shows a &apos;Location disabled&apos; error and does not apply proximity when permission is denied" time="0.135803213">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; retries geolocation when the user picks another radius after a denial, instead of resetting to Anywhere" time="0.186282873">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; shows an &apos;unavailable&apos; error when geolocation fails for non-permission reasons" time="0.092888033">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; clears proximity when Anywhere is selected after an active radius" time="0.173344419">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; does not re-prompt for permission when toggling between radii after a successful resolve" time="0.118321243">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; includes proximity in the activeCount the parent renders by emitting it on Apply" time="0.11480443">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; Reset clears proximity even when one was previously active" time="0.073888895">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; externally-supplied coords (e.g. from a map-pin View Timeline link) &gt; uses the &apos;selected location&apos; status copy on open" time="0.033539422">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; externally-supplied coords (e.g. from a map-pin View Timeline link) &gt; labels the radio group &apos;Distance from selected location&apos;" time="0.045169487">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; externally-supplied coords (e.g. from a map-pin View Timeline link) &gt; renders a &apos;Use my location instead&apos; affordance" time="0.05702307">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; externally-supplied coords (e.g. from a map-pin View Timeline link) &gt; does not render &apos;Use my location instead&apos; when coords are from device geolocation" time="0.063337011">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; externally-supplied coords (e.g. from a map-pin View Timeline link) &gt; clicking &apos;Use my location instead&apos; resolves device coords and flips the status copy + radio label" time="0.117075035">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; externally-supplied coords (e.g. from a map-pin View Timeline link) &gt; Apply commits the device-resolved coords after switching, not the external ones" time="0.107766402">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; Distance / proximity &gt; externally-supplied coords (e.g. from a map-pin View Timeline link) &gt; falls back to a 0.5 km radius if &apos;Use my location instead&apos; is clicked without a radius selected" time="0.124783855">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; hideYearRange prop &gt; renders the year-range fieldset by default" time="0.029425832">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; hideYearRange prop &gt; omits the year-range fieldset when hideYearRange is true" time="0.036950428">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; showHasImage prop &gt; does not render the &apos;has image&apos; checkbox by default (Feed/Map untouched)" time="0.035879935">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; showHasImage prop &gt; renders the &apos;has image&apos; checkbox when showHasImage is true" time="0.040706078">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; showHasImage prop &gt; emits hasImage in onApply only when showHasImage is true" time="0.114645268">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; showHasImage prop &gt; omits hasImage from onApply when showHasImage is false" time="0.076970494">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; showHasImage prop &gt; seeds the checkbox from the hasImage prop" time="0.034608917">
+        </testcase>
+        <testcase classname="src/components/SearchFilter/__tests__/FilterPanel.test.jsx" name="FilterPanel &gt; showHasImage prop &gt; Reset clears hasImage" time="0.055822308">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/StructuredData/__tests__/StructuredData.test.jsx" timestamp="2026-05-15T21:45:52.729Z" hostname="KMPCH" tests="19" failures="0" errors="0" skipped="0" time="0.175992956">
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; renders a &lt;script type=&apos;application/ld+json&apos;&gt; tag" time="0.060206324">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; returns null when neither story nor user is provided" time="0.003529856">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; escapes &lt;/script&gt; sequences in user-supplied content" time="0.01029703">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; includes author.name when contributor_name is present" time="0.007965566">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; omits author entirely when contributor_name is null (anonymous story)" time="0.011853035">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; does not emit image/audio/video keys when there are no media items" time="0.007443074">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; does not emit keywords when tags are absent or empty" time="0.009449031">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; emits keywords when tags are provided" time="0.010569807">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; splits mixed media items into image/audio/video arrays" time="0.007678693">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; exact_year yields the year as a string" time="0.004479211">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; approximate_year yields the year as a string" time="0.003754334">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; decade yields start/end of the decade" time="0.003311911">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; year_range yields start/end" time="0.004469727">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; exact_date yields the ISO date" time="0.004169106">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; exact_date with a time yields ISO date+time" time="0.004516272">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; approximate_year is rendered as a bare year (lossy ISO 8601 from EDTF)" time="0.003222139">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; story mapping &gt; temporal coverage derivation &gt; prefers temporal_coverage_iso from the backend over derivation" time="0.003413322">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; user mapping &gt; emits Person with name and the canonical @id" time="0.005373219">
+        </testcase>
+        <testcase classname="src/components/StructuredData/__tests__/StructuredData.test.jsx" name="StructuredData &gt; user mapping &gt; omits name when username is null (privacy)" time="0.003059426">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/Tags/__tests__/TagChip.test.jsx" timestamp="2026-05-15T21:45:52.739Z" hostname="KMPCH" tests="4" failures="0" errors="0" skipped="0" time="0.380054738">
+        <testcase classname="src/components/Tags/__tests__/TagChip.test.jsx" name="TagChip &gt; renders the tag name" time="0.070426112">
+        </testcase>
+        <testcase classname="src/components/Tags/__tests__/TagChip.test.jsx" name="TagChip &gt; renders as a link to /tags/:slug when no onRemove" time="0.213616544">
+        </testcase>
+        <testcase classname="src/components/Tags/__tests__/TagChip.test.jsx" name="TagChip &gt; renders a remove button when onRemove is provided" time="0.030103703">
+        </testcase>
+        <testcase classname="src/components/Tags/__tests__/TagChip.test.jsx" name="TagChip &gt; calls onRemove with the tag when X is clicked" time="0.060220939">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/Timeline/__tests__/TimelineView.test.jsx" timestamp="2026-05-15T21:45:52.741Z" hostname="KMPCH" tests="3" failures="0" errors="0" skipped="0" time="0.385221225">
+        <testcase classname="src/components/Timeline/__tests__/TimelineView.test.jsx" name="TimelineView &gt; renders one entry per story" time="0.094999412">
+        </testcase>
+        <testcase classname="src/components/Timeline/__tests__/TimelineView.test.jsx" name="TimelineView &gt; passes story prop down so each story links to its detail page" time="0.278036754">
+        </testcase>
+        <testcase classname="src/components/Timeline/__tests__/TimelineView.test.jsx" name="TimelineView &gt; renders nothing visible (no entries) when stories is empty" time="0.003589751">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/ui/__tests__/LoadingSkeleton.test.jsx" timestamp="2026-05-15T21:45:52.745Z" hostname="KMPCH" tests="5" failures="0" errors="0" skipped="0" time="0.097580089">
+        <testcase classname="src/components/ui/__tests__/LoadingSkeleton.test.jsx" name="Skeleton &gt; renders without crashing" time="0.055769842">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSkeleton.test.jsx" name="Skeleton &gt; has animate-pulse class" time="0.005751087">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSkeleton.test.jsx" name="Skeleton &gt; merges custom className" time="0.006926462">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSkeleton.test.jsx" name="SkeletonCard &gt; renders multiple skeleton blocks" time="0.011746713">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSkeleton.test.jsx" name="SkeletonPage &gt; renders without crashing" time="0.01214032">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/ui/__tests__/LoadingSpinner.test.jsx" timestamp="2026-05-15T21:45:52.748Z" hostname="KMPCH" tests="6" failures="0" errors="0" skipped="0" time="0.309053686">
+        <testcase classname="src/components/ui/__tests__/LoadingSpinner.test.jsx" name="LoadingSpinner &gt; renders with default props" time="0.262381811">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSpinner.test.jsx" name="LoadingSpinner &gt; displays a custom message" time="0.01294014">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSpinner.test.jsx" name="LoadingSpinner &gt; renders screen-reader text when no message is provided" time="0.00890718">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSpinner.test.jsx" name="LoadingSpinner &gt; applies fullPage class when fullPage prop is true" time="0.006439712">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSpinner.test.jsx" name="LoadingSpinner &gt; does not apply fullPage class by default" time="0.007793108">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/LoadingSpinner.test.jsx" name="LoadingSpinner &gt; merges custom className" time="0.003833171">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/components/ui/__tests__/Toaster.test.jsx" timestamp="2026-05-15T21:45:52.752Z" hostname="KMPCH" tests="7" failures="0" errors="0" skipped="0" time="0.513342222">
+        <testcase classname="src/components/ui/__tests__/Toaster.test.jsx" name="Toaster &gt; renders nothing when there are no toasts" time="0.051138773">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/Toaster.test.jsx" name="Toaster &gt; shows a success toast" time="0.264380701">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/Toaster.test.jsx" name="Toaster &gt; shows an error toast" time="0.051512609">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/Toaster.test.jsx" name="Toaster &gt; shows an info toast" time="0.045718511">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/Toaster.test.jsx" name="Toaster &gt; dismisses a toast when the dismiss button is clicked" time="0.067605588">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/Toaster.test.jsx" name="Toaster &gt; auto-dismisses after the specified duration" time="0.018811375">
+        </testcase>
+        <testcase classname="src/components/ui/__tests__/Toaster.test.jsx" name="useToast &gt; throws when used outside ToastProvider" time="0.008109366">
+        </testcase>
+    </testsuite>
+</testsuites>
