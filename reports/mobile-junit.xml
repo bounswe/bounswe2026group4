@@ -1,0 +1,935 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="416" failures="0" errors="0" time="42.822">
+  <testsuite name="RootNavigator auth flow" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:05" time="15.944" tests="29">
+    <testcase classname="RootNavigator auth flow shows a message instead of redirecting unauthenticated users for protected screens" name="RootNavigator auth flow shows a message instead of redirecting unauthenticated users for protected screens" time="3.482">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens the main pager on the feed tab by default" name="RootNavigator auth flow opens the main pager on the feed tab by default" time="0.054">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens the timeline tab on the first press even when stale pager momentum fires" name="RootNavigator auth flow opens the timeline tab on the first press even when stale pager momentum fires" time="0.101">
+    </testcase>
+    <testcase classname="RootNavigator auth flow keeps pull-to-refresh available away from the map and suppresses it during map gestures" name="RootNavigator auth flow keeps pull-to-refresh available away from the map and suppresses it during map gestures" time="0.242">
+    </testcase>
+    <testcase classname="RootNavigator auth flow shows only the StoryMap brand in the main header" name="RootNavigator auth flow shows only the StoryMap brand in the main header" time="0.053">
+    </testcase>
+    <testcase classname="RootNavigator auth flow uses the StoryMap brand as a home button to return to feed" name="RootNavigator auth flow uses the StoryMap brand as a home button to return to feed" time="0.084">
+    </testcase>
+    <testcase classname="RootNavigator auth flow allows access to protected screens after login and returns to a public route on logout" name="RootNavigator auth flow allows access to protected screens after login and returns to a public route on logout" time="0.28">
+    </testcase>
+    <testcase classname="RootNavigator auth flow shows notification entry point for authenticated users and opens notifications" name="RootNavigator auth flow shows notification entry point for authenticated users and opens notifications" time="0.126">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens email verification after registration and does not persist a session yet" name="RootNavigator auth flow opens email verification after registration and does not persist a session yet" time="0.125">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens profile completion after email verification auto-login succeeds" name="RootNavigator auth flow opens profile completion after email verification auto-login succeeds" time="0.189">
+    </testcase>
+    <testcase classname="RootNavigator auth flow returns to the feed after profile completion is submitted" name="RootNavigator auth flow returns to the feed after profile completion is submitted" time="0.238">
+    </testcase>
+    <testcase classname="RootNavigator auth flow falls back to login after email verification when auto-login fails" name="RootNavigator auth flow falls back to login after email verification when auto-login fails" time="0.242">
+    </testcase>
+    <testcase classname="RootNavigator auth flow does not attempt auto-login before email verification" name="RootNavigator auth flow does not attempt auto-login before email verification" time="0.124">
+    </testcase>
+    <testcase classname="RootNavigator auth flow persists search and filter state between feed, timeline, and map views" name="RootNavigator auth flow persists search and filter state between feed, timeline, and map views" time="0.714">
+    </testcase>
+    <testcase classname="RootNavigator auth flow clears the timeline-only image filter when navigating to feed or map" name="RootNavigator auth flow clears the timeline-only image filter when navigating to feed or map" time="0.15">
+    </testcase>
+    <testcase classname="RootNavigator auth flow keeps the timeline tab active when filters are applied there" name="RootNavigator auth flow keeps the timeline tab active when filters are applied there" time="0.666">
+    </testcase>
+    <testcase classname="RootNavigator auth flow keeps the timeline tab active when a proximity filter is applied there" name="RootNavigator auth flow keeps the timeline tab active when a proximity filter is applied there" time="0.154">
+    </testcase>
+    <testcase classname="RootNavigator auth flow keeps the feed tab active when a proximity filter is applied there" name="RootNavigator auth flow keeps the feed tab active when a proximity filter is applied there" time="0.129">
+    </testcase>
+    <testcase classname="RootNavigator auth flow keeps the timeline tab active when an existing filter is removed after a stale pager drag" name="RootNavigator auth flow keeps the timeline tab active when an existing filter is removed after a stale pager drag" time="0.678">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens a story from the timeline and returns to the timeline" name="RootNavigator auth flow opens a story from the timeline and returns to the timeline" time="0.19">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens a 500 m nearby timeline from a map pin and navigates to story detail" name="RootNavigator auth flow opens a 500 m nearby timeline from a map pin and navigates to story detail" time="0.2">
+    </testcase>
+    <testcase classname="RootNavigator auth flow uses the current location when a map pin timeline 500 m proximity filter is applied" name="RootNavigator auth flow uses the current location when a map pin timeline 500 m proximity filter is applied" time="0.193">
+    </testcase>
+    <testcase classname="RootNavigator auth flow shows an empty state for a map pin nearby timeline with no stories" name="RootNavigator auth flow shows an empty state for a map pin nearby timeline with no stories" time="0.147">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens a protected screen after login and returns with the back button" name="RootNavigator auth flow opens a protected screen after login and returns with the back button" time="0.138">
+    </testcase>
+    <testcase classname="RootNavigator auth flow returns from story detail to the previous route when back is pressed" name="RootNavigator auth flow returns from story detail to the previous route when back is pressed" time="0.175">
+    </testcase>
+    <testcase classname="RootNavigator auth flow keeps the selected feed sort after returning from story detail" name="RootNavigator auth flow keeps the selected feed sort after returning from story detail" time="0.134">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens a public profile from the contributor name on story detail" name="RootNavigator auth flow opens a public profile from the contributor name on story detail" time="0.383">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens story detail from a public profile published story card" name="RootNavigator auth flow opens story detail from a public profile published story card" time="0.216">
+    </testcase>
+    <testcase classname="RootNavigator auth flow opens the signed-in user profile when the contributor is the current user" name="RootNavigator auth flow opens the signed-in user profile when the contributor is the current user" time="0.231">
+    </testcase>
+  </testsuite>
+  <testsuite name="ProfileScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:21" time="3.901" tests="43">
+    <testcase classname="ProfileScreen renders a loading state while profile data is being fetched" name="ProfileScreen renders a loading state while profile data is being fetched" time="0.028">
+    </testcase>
+    <testcase classname="ProfileScreen opens the edit profile form with photo actions and privacy toggles" name="ProfileScreen opens the edit profile form with photo actions and privacy toggles" time="0.078">
+    </testcase>
+    <testcase classname="ProfileScreen shows the saved full name on the profile header when available" name="ProfileScreen shows the saved full name on the profile header when available" time="0.054">
+    </testcase>
+    <testcase classname="ProfileScreen shows the saved birth date on the signed-in user profile" name="ProfileScreen shows the saved birth date on the signed-in user profile" time="0.056">
+    </testcase>
+    <testcase classname="ProfileScreen renders points and earned badges with a badge detail modal" name="ProfileScreen renders points and earned badges with a badge detail modal" time="0.064">
+    </testcase>
+    <testcase classname="ProfileScreen shows points and the badge empty state on public profiles" name="ProfileScreen shows points and the badge empty state on public profiles" time="0.054">
+    </testcase>
+    <testcase classname="ProfileScreen shows a loading state while badges are being fetched" name="ProfileScreen shows a loading state while badges are being fetched" time="0.057">
+    </testcase>
+    <testcase classname="ProfileScreen keeps profile points visible and shows a badge error when badge loading fails" name="ProfileScreen keeps profile points visible and shows a badge error when badge loading fails" time="0.056">
+    </testcase>
+    <testcase classname="ProfileScreen renders saved stories on the signed-in user profile" name="ProfileScreen renders saved stories on the signed-in user profile" time="0.069">
+    </testcase>
+    <testcase classname="ProfileScreen scrolls to the saved stories section when the saved stat is pressed" name="ProfileScreen scrolls to the saved stories section when the saved stat is pressed" time="0.062">
+    </testcase>
+    <testcase classname="ProfileScreen opens a saved story from the profile saved list" name="ProfileScreen opens a saved story from the profile saved list" time="0.112">
+    </testcase>
+    <testcase classname="ProfileScreen renders published stories on the signed-in user profile and opens one" name="ProfileScreen renders published stories on the signed-in user profile and opens one" time="0.059">
+    </testcase>
+    <testcase classname="ProfileScreen removes a saved story with an optimistic update and confirmation toast" name="ProfileScreen removes a saved story with an optimistic update and confirmation toast" time="0.168">
+    </testcase>
+    <testcase classname="ProfileScreen restores a saved story when removing the bookmark fails" name="ProfileScreen restores a saved story when removing the bookmark fails" time="0.175">
+    </testcase>
+    <testcase classname="ProfileScreen shows the saved stories empty state and browse action" name="ProfileScreen shows the saved stories empty state and browse action" time="0.121">
+    </testcase>
+    <testcase classname="ProfileScreen loads more saved stories when more bookmark pages exist" name="ProfileScreen loads more saved stories when more bookmark pages exist" time="0.167">
+    </testcase>
+    <testcase classname="ProfileScreen falls back to the public birth year on the signed-in user profile when the full date is unavailable" name="ProfileScreen falls back to the public birth year on the signed-in user profile when the full date is unavailable" time="0.055">
+    </testcase>
+    <testcase classname="ProfileScreen shows a photo preview after selecting a valid image and can remove it before saving" name="ProfileScreen shows a photo preview after selecting a valid image and can remove it before saving" time="0.089">
+    </testcase>
+    <testcase classname="ProfileScreen validates selected photo type and size before save" name="ProfileScreen validates selected photo type and size before save" time="0.184">
+    </testcase>
+    <testcase classname="ProfileScreen validates bio length and birth date range before saving" name="ProfileScreen validates bio length and birth date range before saving" time="0.081">
+    </testcase>
+    <testcase classname="ProfileScreen saves profile changes, uploads the photo, and updates auth user state" name="ProfileScreen saves profile changes, uploads the photo, and updates auth user state" time="0.109">
+    </testcase>
+    <testcase classname="ProfileScreen renders public profile fields returned by the API and falls back to anonymous user when username is hidden" name="ProfileScreen renders public profile fields returned by the API and falls back to anonymous user when username is hidden" time="0.108">
+    </testcase>
+    <testcase classname="ProfileScreen renders published stories on a public profile and opens a story" name="ProfileScreen renders published stories on a public profile and opens a story" time="0.059">
+    </testcase>
+    <testcase classname="ProfileScreen collapses long public profile story lists behind show more and show less controls" name="ProfileScreen collapses long public profile story lists behind show more and show less controls" time="0.069">
+    </testcase>
+    <testcase classname="ProfileScreen shows the public profile published stories empty state" name="ProfileScreen shows the public profile published stories empty state" time="0.054">
+    </testcase>
+    <testcase classname="ProfileScreen loads more public profile stories when additional pages exist" name="ProfileScreen loads more public profile stories when additional pages exist" time="0.111">
+    </testcase>
+    <testcase classname="ProfileScreen shows a graceful public stories error without hiding profile details" name="ProfileScreen shows a graceful public stories error without hiding profile details" time="0.056">
+    </testcase>
+    <testcase classname="ProfileScreen ignores stale public story responses after switching profiles" name="ProfileScreen ignores stale public story responses after switching profiles" time="0.111">
+    </testcase>
+    <testcase classname="ProfileScreen does not render a follow button on the user own profile" name="ProfileScreen does not render a follow button on the user own profile" time="0.055">
+    </testcase>
+    <testcase classname="ProfileScreen renders authenticated not-following state and optimistically follows" name="ProfileScreen renders authenticated not-following state and optimistically follows" time="0.068">
+    </testcase>
+    <testcase classname="ProfileScreen shows a ban action to admins on public profiles and confirms before banning" name="ProfileScreen shows a ban action to admins on public profiles and confirms before banning" time="0.097">
+    </testcase>
+    <testcase classname="ProfileScreen keeps the following state after leaving and returning when the profile response omits it" name="ProfileScreen keeps the following state after leaving and returning when the profile response omits it" time="0.116">
+    </testcase>
+    <testcase classname="ProfileScreen infers following state from followers when the profile response omits it" name="ProfileScreen infers following state from followers when the profile response omits it" time="0.053">
+    </testcase>
+    <testcase classname="ProfileScreen renders authenticated following state and rolls back when unfollow fails" name="ProfileScreen renders authenticated following state and rolls back when unfollow fails" time="0.114">
+    </testcase>
+    <testcase classname="ProfileScreen renders unauthenticated follow state as a login prompt" name="ProfileScreen renders unauthenticated follow state as a login prompt" time="0.055">
+    </testcase>
+    <testcase classname="ProfileScreen opens followers list and navigates from a list entry" name="ProfileScreen opens followers list and navigates from a list entry" time="0.119">
+    </testcase>
+    <testcase classname="ProfileScreen does not navigate when a follower row is dragged like a scroll gesture" name="ProfileScreen does not navigate when a follower row is dragged like a scroll gesture" time="0.109">
+    </testcase>
+    <testcase classname="ProfileScreen shows the signed-in follower with the local username and You label when public username is hidden" name="ProfileScreen shows the signed-in follower with the local username and You label when public username is hidden" time="0.065">
+    </testcase>
+    <testcase classname="ProfileScreen shows the bio privacy pending note in the edit form" name="ProfileScreen shows the bio privacy pending note in the edit form" time="0.062">
+    </testcase>
+    <testcase classname="ProfileScreen shows an error state when profile loading fails" name="ProfileScreen shows an error state when profile loading fails" time="0.053">
+    </testcase>
+    <testcase classname="ProfileScreen renders delete account action and requires password before deletion" name="ProfileScreen renders delete account action and requires password before deletion" time="0.07">
+    </testcase>
+    <testcase classname="ProfileScreen sends a password reset link from the signed-in profile" name="ProfileScreen sends a password reset link from the signed-in profile" time="0.064">
+    </testcase>
+    <testcase classname="ProfileScreen can dismiss the delete account modal without triggering deletion" name="ProfileScreen can dismiss the delete account modal without triggering deletion" time="0.066">
+    </testcase>
+  </testsuite>
+  <testsuite name="MapScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:25" time="6.707" tests="40">
+    <testcase classname="MapScreen renders the map and fetched markers" name="MapScreen renders the map and fetched markers" time="0.089">
+    </testcase>
+    <testcase classname="MapScreen does not repeat active filters above the map" name="MapScreen does not repeat active filters above the map" time="0.009">
+    </testcase>
+    <testcase classname="MapScreen clusters nearby pins while zoomed out and separates them after zooming in" name="MapScreen clusters nearby pins while zoomed out and separates them after zooming in" time="0.063">
+    </testcase>
+    <testcase classname="MapScreen keeps zooming a selected cluster when stories have different coordinates" name="MapScreen keeps zooming a selected cluster when stories have different coordinates" time="0.078">
+    </testcase>
+    <testcase classname="MapScreen splits a backend grouped marker into story pins as the user keeps zooming" name="MapScreen splits a backend grouped marker into story pins as the user keeps zooming" time="0.076">
+    </testcase>
+    <testcase classname="MapScreen shows the selected marker preview and navigates to story detail" name="MapScreen shows the selected marker preview and navigates to story detail" time="0.065">
+    </testcase>
+    <testcase classname="MapScreen offers a timeline action for a selected marker" name="MapScreen offers a timeline action for a selected marker" time="0.061">
+    </testcase>
+    <testcase classname="MapScreen highlights the active map pin distance filter until the filter is removed" name="MapScreen highlights the active map pin distance filter until the filter is removed" time="0.061">
+    </testcase>
+    <testcase classname="MapScreen shows separate pins for the timeline filter and current selected story" name="MapScreen shows separate pins for the timeline filter and current selected story" time="0.062">
+    </testcase>
+    <testcase classname="MapScreen hides the selected marker preview when the same marker is pressed again" name="MapScreen hides the selected marker preview when the same marker is pressed again" time="0.065">
+    </testcase>
+    <testcase classname="MapScreen keeps manual map panning available after a marker is selected" name="MapScreen keeps manual map panning available after a marker is selected" time="0.069">
+    </testcase>
+    <testcase classname="MapScreen keeps a selected red story pin fixed when zooming out into nearby stories" name="MapScreen keeps a selected red story pin fixed when zooming out into nearby stories" time="0.066">
+    </testcase>
+    <testcase classname="MapScreen shows nearby stories when a clustered marker is pressed" name="MapScreen shows nearby stories when a clustered marker is pressed" time="0.068">
+    </testcase>
+    <testcase classname="MapScreen does not offer a group timeline action for a selected grouped marker" name="MapScreen does not offer a group timeline action for a selected grouped marker" time="0.064">
+    </testcase>
+    <testcase classname="MapScreen offers story-specific timeline actions inside a clustered marker" name="MapScreen offers story-specific timeline actions inside a clustered marker" time="0.07">
+    </testcase>
+    <testcase classname="MapScreen shows a red story pin apart from cluster pins when zoomed out" name="MapScreen shows a red story pin apart from cluster pins when zoomed out" time="0.055">
+    </testcase>
+    <testcase classname="MapScreen keeps the red story pin out of grouping after zoom changes" name="MapScreen keeps the red story pin out of grouping after zoom changes" time="0.064">
+    </testcase>
+    <testcase classname="MapScreen falls back to the story title when highlighting a map-pin timeline filter" name="MapScreen falls back to the story title when highlighting a map-pin timeline filter" time="0.056">
+    </testcase>
+    <testcase classname="MapScreen switches the red marker to the story selected from a clustered marker timeline action" name="MapScreen switches the red marker to the story selected from a clustered marker timeline action" time="0.063">
+    </testcase>
+    <testcase classname="MapScreen does not highlight a client-side group timeline coordinate after group timelines are removed" name="MapScreen does not highlight a client-side group timeline coordinate after group timelines are removed" time="0.057">
+    </testcase>
+    <testcase classname="MapScreen requests scrolling to the preview when a marker is pressed" name="MapScreen requests scrolling to the preview when a marker is pressed" time="0.221">
+    </testcase>
+    <testcase classname="MapScreen refetches markers when filters change" name="MapScreen refetches markers when filters change" time="0.067">
+    </testcase>
+    <testcase classname="MapScreen shows a floating status badge after a search returns results" name="MapScreen shows a floating status badge after a search returns results" time="0.112">
+    </testcase>
+    <testcase classname="MapScreen fits the map to all matched stories after a search" name="MapScreen fits the map to all matched stories after a search" time="0.072">
+    </testcase>
+    <testcase classname="MapScreen zooms to selected location bounds when a location filter returns stories" name="MapScreen zooms to selected location bounds when a location filter returns stories" time="0.683">
+    </testcase>
+    <testcase classname="MapScreen zooms to selected location bounds when a location filter has no stories" name="MapScreen zooms to selected location bounds when a location filter has no stories" time="0.691">
+    </testcase>
+    <testcase classname="MapScreen re-zooms to the selected location when the same location filter is applied again" name="MapScreen re-zooms to the selected location when the same location filter is applied again" time="0.764">
+    </testcase>
+    <testcase classname="MapScreen keeps a manually adjusted map view when markers refresh in the same context" name="MapScreen keeps a manually adjusted map view when markers refresh in the same context" time="0.061">
+    </testcase>
+    <testcase classname="MapScreen ignores stale marker responses after a newer filter request completes" name="MapScreen ignores stale marker responses after a newer filter request completes" time="0.07">
+    </testcase>
+    <testcase classname="MapScreen keeps unapplied location filters disabled when the place cannot be found" name="MapScreen keeps unapplied location filters disabled when the place cannot be found" time="0.581">
+    </testcase>
+    <testcase classname="MapScreen does not apply placeholder year filters when submitted unchanged" name="MapScreen does not apply placeholder year filters when submitted unchanged" time="0.075">
+    </testcase>
+    <testcase classname="MapScreen hides the badge when the active search is cleared" name="MapScreen hides the badge when the active search is cleared" time="0.128">
+    </testcase>
+    <testcase classname="MapScreen updates the badge when the visible map area changes" name="MapScreen updates the badge when the visible map area changes" time="0.059">
+    </testcase>
+    <testcase classname="MapScreen shows the user location marker when proximity filters are active" name="MapScreen shows the user location marker when proximity filters are active" time="0.055">
+    </testcase>
+    <testcase classname="MapScreen hides the user location marker when proximity filter is anywhere even if old coordinates remain" name="MapScreen hides the user location marker when proximity filter is anywhere even if old coordinates remain" time="0.056">
+    </testcase>
+    <testcase classname="MapScreen does not show the blue current-location marker for map-pin proximity filters" name="MapScreen does not show the blue current-location marker for map-pin proximity filters" time="0.057">
+    </testcase>
+    <testcase classname="MapScreen does not auto-zoom the map when a map-pin timeline filter is active" name="MapScreen does not auto-zoom the map when a map-pin timeline filter is active" time="0.059">
+    </testcase>
+    <testcase classname="MapScreen refetches all markers when a chip filter is removed" name="MapScreen refetches all markers when a chip filter is removed" time="0.645">
+    </testcase>
+    <testcase classname="MapScreen refetches all markers when clear all filters is pressed" name="MapScreen refetches all markers when clear all filters is pressed" time="0.657">
+    </testcase>
+    <testcase classname="MapScreen keeps the map visible and shows an error overlay when loading fails" name="MapScreen keeps the map visible and shows an error overlay when loading fails" time="0.059">
+    </testcase>
+  </testsuite>
+  <testsuite name="StoryScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:32" time="3.155" tests="41">
+    <testcase classname="StoryScreen renders loading state while fetching the story" name="StoryScreen renders loading state while fetching the story" time="0.007">
+    </testcase>
+    <testcase classname="StoryScreen renders the full narrative, metadata, media, and comments" name="StoryScreen renders the full narrative, metadata, media, and comments" time="0.062">
+    </testcase>
+    <testcase classname="StoryScreen keeps the story detail map marker unlabeled" name="StoryScreen keeps the story detail map marker unlabeled" time="0.07">
+    </testcase>
+    <testcase classname="StoryScreen renders audio and video media on story detail" name="StoryScreen renders audio and video media on story detail" time="0.054">
+    </testcase>
+    <testcase classname="StoryScreen opens the contributor profile when the contributor name is pressed" name="StoryScreen opens the contributor profile when the contributor name is pressed" time="0.053">
+    </testcase>
+    <testcase classname="StoryScreen opens a tag from story detail" name="StoryScreen opens a tag from story detail" time="0.055">
+    </testcase>
+    <testcase classname="StoryScreen shows the contributor profile photo when public profile metadata includes one" name="StoryScreen shows the contributor profile photo when public profile metadata includes one" time="0.056">
+    </testcase>
+    <testcase classname="StoryScreen keeps the profile action for anonymous contributor fallbacks" name="StoryScreen keeps the profile action for anonymous contributor fallbacks" time="0.054">
+    </testcase>
+    <testcase classname="StoryScreen shows deleted user when the story belongs to a deleted account" name="StoryScreen shows deleted user when the story belongs to a deleted account" time="0.053">
+    </testcase>
+    <testcase classname="StoryScreen uses backend temporal coverage metadata when present" name="StoryScreen uses backend temporal coverage metadata when present" time="0.053">
+    </testcase>
+    <testcase classname="StoryScreen shows anonymous contributor label for anonymous stories without profile action" name="StoryScreen shows anonymous contributor label for anonymous stories without profile action" time="0.056">
+    </testcase>
+    <testcase classname="StoryScreen renders safely without optional media and tags" name="StoryScreen renders safely without optional media and tags" time="0.054">
+    </testcase>
+    <testcase classname="StoryScreen shows deleted account for anonymized comments from deleted users" name="StoryScreen shows deleted account for anonymized comments from deleted users" time="0.054">
+    </testcase>
+    <testcase classname="StoryScreen marks the signed-in user on their own story even if their username is private" name="StoryScreen marks the signed-in user on their own story even if their username is private" time="0.054">
+    </testcase>
+    <testcase classname="StoryScreen uses the contributor public profile to hide private usernames" name="StoryScreen uses the contributor public profile to hide private usernames" time="0.054">
+    </testcase>
+    <testcase classname="StoryScreen shows an image fallback message when the media fails to load" name="StoryScreen shows an image fallback message when the media fails to load" time="0.065">
+    </testcase>
+    <testcase classname="StoryScreen toggles likes for authenticated users" name="StoryScreen toggles likes for authenticated users" time="0.068">
+    </testcase>
+    <testcase classname="StoryScreen prompts unauthenticated users to log in before liking" name="StoryScreen prompts unauthenticated users to log in before liking" time="0.065">
+    </testcase>
+    <testcase classname="StoryScreen reverts optimistic likes when the API request fails" name="StoryScreen reverts optimistic likes when the API request fails" time="0.115">
+    </testcase>
+    <testcase classname="StoryScreen bookmarks stories for authenticated users with an optimistic update" name="StoryScreen bookmarks stories for authenticated users with an optimistic update" time="0.073">
+    </testcase>
+    <testcase classname="StoryScreen removes bookmarks for authenticated users with an optimistic update" name="StoryScreen removes bookmarks for authenticated users with an optimistic update" time="0.07">
+    </testcase>
+    <testcase classname="StoryScreen prompts unauthenticated users to log in before bookmarking" name="StoryScreen prompts unauthenticated users to log in before bookmarking" time="0.063">
+    </testcase>
+    <testcase classname="StoryScreen reverts optimistic bookmarks when the API request fails" name="StoryScreen reverts optimistic bookmarks when the API request fails" time="0.111">
+    </testcase>
+    <testcase classname="StoryScreen renders comments in most recent first order" name="StoryScreen renders comments in most recent first order" time="0.054">
+    </testcase>
+    <testcase classname="StoryScreen submits a new comment and shows it at the top" name="StoryScreen submits a new comment and shows it at the top" time="0.12">
+    </testcase>
+    <testcase classname="StoryScreen opens the story report sheet, requires a reason, submits, and shows a success toast" name="StoryScreen opens the story report sheet, requires a reason, submits, and shows a success toast" time="0.126">
+    </testcase>
+    <testcase classname="StoryScreen closes the report sheet without submitting" name="StoryScreen closes the report sheet without submitting" time="0.076">
+    </testcase>
+    <testcase classname="StoryScreen submits comment reports with optional details for the other reason" name="StoryScreen submits comment reports with optional details for the other reason" time="0.088">
+    </testcase>
+    <testcase classname="StoryScreen shows duplicate report errors inside the report sheet" name="StoryScreen shows duplicate report errors inside the report sheet" time="0.121">
+    </testcase>
+    <testcase classname="StoryScreen shows delete controls only for the user’s own comments and deletes after confirmation" name="StoryScreen shows delete controls only for the user’s own comments and deletes after confirmation" time="0.073">
+    </testcase>
+    <testcase classname="StoryScreen lets admins delete comments written by other users" name="StoryScreen lets admins delete comments written by other users" time="0.074">
+    </testcase>
+    <testcase classname="StoryScreen scrolls to the comments section when a focused comment is provided" name="StoryScreen scrolls to the comments section when a focused comment is provided" time="0.112">
+    </testcase>
+    <testcase classname="StoryScreen marks the signed-in user on their own comments even when private" name="StoryScreen marks the signed-in user on their own comments even when private" time="0.056">
+    </testcase>
+    <testcase classname="StoryScreen shows the delete story action only to the owner or an admin" name="StoryScreen shows the delete story action only to the owner or an admin" time="0.177">
+    </testcase>
+    <testcase classname="StoryScreen does not show the report story action to the story owner" name="StoryScreen does not show the report story action to the story owner" time="0.055">
+    </testcase>
+    <testcase classname="StoryScreen confirms and deletes the story for authorized users" name="StoryScreen confirms and deletes the story for authorized users" time="0.062">
+    </testcase>
+    <testcase classname="StoryScreen shows a meaningful error when story deletion fails" name="StoryScreen shows a meaningful error when story deletion fails" time="0.07">
+    </testcase>
+    <testcase classname="StoryScreen collapses long narratives and expands them on request" name="StoryScreen collapses long narratives and expands them on request" time="0.073">
+    </testcase>
+    <testcase classname="StoryScreen prompts unauthenticated users when they try to comment" name="StoryScreen prompts unauthenticated users when they try to comment" time="0.059">
+    </testcase>
+    <testcase classname="StoryScreen prompts unauthenticated users when they try to report" name="StoryScreen prompts unauthenticated users when they try to report" time="0.063">
+    </testcase>
+    <testcase classname="StoryScreen renders the 404 state when the story does not exist" name="StoryScreen renders the 404 state when the story does not exist" time="0.052">
+    </testcase>
+  </testsuite>
+  <testsuite name="SubmissionScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:35" time="1.081" tests="22">
+    <testcase classname="SubmissionScreen shows inline validation errors when required fields are missing" name="SubmissionScreen shows inline validation errors when required fields are missing" time="0.05">
+    </testcase>
+    <testcase classname="SubmissionScreen renders compact time type options without horizontal scrolling" name="SubmissionScreen renders compact time type options without horizontal scrolling" time="0.017">
+    </testcase>
+    <testcase classname="SubmissionScreen marks blank required inputs with red outer borders" name="SubmissionScreen marks blank required inputs with red outer borders" time="0.026">
+    </testcase>
+    <testcase classname="SubmissionScreen scrolls to the topmost missing required field on failed submit" name="SubmissionScreen scrolls to the topmost missing required field on failed submit" time="0.03">
+    </testcase>
+    <testcase classname="SubmissionScreen scrolls to the year field when only year is missing" name="SubmissionScreen scrolls to the year field when only year is missing" time="0.046">
+    </testcase>
+    <testcase classname="SubmissionScreen caps future year input values at 2026" name="SubmissionScreen caps future year input values at 2026" time="0.052">
+    </testcase>
+    <testcase classname="SubmissionScreen submits the story payload and returns the user to the feed on success" name="SubmissionScreen submits the story payload and returns the user to the feed on success" time="0.133">
+    </testcase>
+    <testcase classname="SubmissionScreen opens a searchable tag picker and selects suggested tags" name="SubmissionScreen opens a searchable tag picker and selects suggested tags" time="0.04">
+    </testcase>
+    <testcase classname="SubmissionScreen offers to create a slugged tag from the tag picker search" name="SubmissionScreen offers to create a slugged tag from the tag picker search" time="0.024">
+    </testcase>
+    <testcase classname="SubmissionScreen scrolls the tag picker into view when the search input is focused" name="SubmissionScreen scrolls the tag picker into view when the search input is focused" time="0.014">
+    </testcase>
+    <testcase classname="SubmissionScreen submits specific date stories with optional time and EDTF temporal coverage" name="SubmissionScreen submits specific date stories with optional time and EDTF temporal coverage" time="0.035">
+    </testcase>
+    <testcase classname="SubmissionScreen validates specific date and optional time inputs" name="SubmissionScreen validates specific date and optional time inputs" time="0.031">
+    </testcase>
+    <testcase classname="SubmissionScreen marks both year range inputs when start year is not earlier than end year" name="SubmissionScreen marks both year range inputs when start year is not earlier than end year" time="0.024">
+    </testcase>
+    <testcase classname="SubmissionScreen debounces story location search API calls by 300ms" name="SubmissionScreen debounces story location search API calls by 300ms" time="0.009">
+    </testcase>
+    <testcase classname="SubmissionScreen updates submission coordinates and map marker when a location suggestion is selected" name="SubmissionScreen updates submission coordinates and map marker when a location suggestion is selected" time="0.025">
+    </testcase>
+    <testcase classname="SubmissionScreen shows suggestions again when a selected location query is focused" name="SubmissionScreen shows suggestions again when a selected location query is focused" time="0.012">
+    </testcase>
+    <testcase classname="SubmissionScreen shows a graceful no results state for location autocomplete" name="SubmissionScreen shows a graceful no results state for location autocomplete" time="0.009">
+    </testcase>
+    <testcase classname="SubmissionScreen handles location search errors while leaving manual map picking usable" name="SubmissionScreen handles location search errors while leaving manual map picking usable" time="0.023">
+    </testcase>
+    <testcase classname="SubmissionScreen shows an inline image validation error for oversized uploads" name="SubmissionScreen shows an inline image validation error for oversized uploads" time="0.056">
+    </testcase>
+    <testcase classname="SubmissionScreen accepts audio and video files with previews and submits them together" name="SubmissionScreen accepts audio and video files with previews and submits them together" time="0.135">
+    </testcase>
+    <testcase classname="SubmissionScreen shows inline validation errors for invalid audio and oversized video files" name="SubmissionScreen shows inline validation errors for invalid audio and oversized video files" time="0.108">
+    </testcase>
+    <testcase classname="SubmissionScreen lets the contributor visibility toggle submit anonymous stories" name="SubmissionScreen lets the contributor visibility toggle submit anonymous stories" time="0.023">
+    </testcase>
+  </testsuite>
+  <testsuite name="FeedScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:36" time="3.945" tests="28">
+    <testcase classname="FeedScreen shows loading skeletons while fetching" name="FeedScreen shows loading skeletons while fetching" time="0.06">
+    </testcase>
+    <testcase classname="FeedScreen renders story cards after a successful fetch" name="FeedScreen renders story cards after a successful fetch" time="0.059">
+    </testcase>
+    <testcase classname="FeedScreen opens a tag from a feed card" name="FeedScreen opens a tag from a feed card" time="0.053">
+    </testcase>
+    <testcase classname="FeedScreen keeps sort controls visible when search controls are disabled" name="FeedScreen keeps sort controls visible when search controls are disabled" time="0.054">
+    </testcase>
+    <testcase classname="FeedScreen shows an empty state when no stories are returned" name="FeedScreen shows an empty state when no stories are returned" time="0.053">
+    </testcase>
+    <testcase classname="FeedScreen shows a filtered empty state when search is active and no stories match" name="FeedScreen shows a filtered empty state when search is active and no stories match" time="0.054">
+    </testcase>
+    <testcase classname="FeedScreen loads the next page when the list reaches the end" name="FeedScreen loads the next page when the list reaches the end" time="0.066">
+    </testcase>
+    <testcase classname="FeedScreen uses Most Recent as the default sort request" name="FeedScreen uses Most Recent as the default sort request" time="0.053">
+    </testcase>
+    <testcase classname="FeedScreen uses the provided initial sort for the first feed request" name="FeedScreen uses the provided initial sort for the first feed request" time="0.052">
+    </testcase>
+    <testcase classname="FeedScreen switches to Most Popular and persists the selected sort in state" name="FeedScreen switches to Most Popular and persists the selected sort in state" time="0.069">
+    </testcase>
+    <testcase classname="FeedScreen applies story interaction updates to visible feed cards" name="FeedScreen applies story interaction updates to visible feed cards" time="0.06">
+    </testcase>
+    <testcase classname="FeedScreen bookmarks stories from the feed with an optimistic update" name="FeedScreen bookmarks stories from the feed with an optimistic update" time="0.061">
+    </testcase>
+    <testcase classname="FeedScreen removes feed bookmarks with an optimistic update" name="FeedScreen removes feed bookmarks with an optimistic update" time="0.063">
+    </testcase>
+    <testcase classname="FeedScreen reverts feed bookmark updates when the request fails" name="FeedScreen reverts feed bookmark updates when the request fails" time="0.108">
+    </testcase>
+    <testcase classname="FeedScreen prompts guests before bookmarking from the feed" name="FeedScreen prompts guests before bookmarking from the feed" time="0.054">
+    </testcase>
+    <testcase classname="FeedScreen updates search query filters after debounce" name="FeedScreen updates search query filters after debounce" time="0.074">
+    </testcase>
+    <testcase classname="FeedScreen applies search when the search button is pressed" name="FeedScreen applies search when the search button is pressed" time="0.076">
+    </testcase>
+    <testcase classname="FeedScreen updates advanced filters in feed requests" name="FeedScreen updates advanced filters in feed requests" time="0.606">
+    </testcase>
+    <testcase classname="FeedScreen shows location suggestions and applies the selected place" name="FeedScreen shows location suggestions and applies the selected place" time="0.647">
+    </testcase>
+    <testcase classname="FeedScreen does not apply placeholder year filters when submitted unchanged" name="FeedScreen does not apply placeholder year filters when submitted unchanged" time="0.079">
+    </testcase>
+    <testcase classname="FeedScreen applies proximity filters with current coordinates" name="FeedScreen applies proximity filters with current coordinates" time="0.139">
+    </testcase>
+    <testcase classname="FeedScreen shows loading feedback while current location is fetched" name="FeedScreen shows loading feedback while current location is fetched" time="0.073">
+    </testcase>
+    <testcase classname="FeedScreen shows an error when location permission is denied" name="FeedScreen shows an error when location permission is denied" time="0.122">
+    </testcase>
+    <testcase classname="FeedScreen clears proximity filter state when the filter form is reset" name="FeedScreen clears proximity filter state when the filter form is reset" time="0.15">
+    </testcase>
+    <testcase classname="FeedScreen closes the filter panel when tapping outside of it" name="FeedScreen closes the filter panel when tapping outside of it" time="0.061">
+    </testcase>
+    <testcase classname="FeedScreen resets only filter fields and preserves the search query" name="FeedScreen resets only filter fields and preserves the search query" time="0.663">
+    </testcase>
+    <testcase classname="FeedScreen syncs draft filters from incoming initial filters" name="FeedScreen syncs draft filters from incoming initial filters" time="0.089">
+    </testcase>
+    <testcase classname="FeedScreen opens story details when a card is pressed" name="FeedScreen opens story details when a card is pressed" time="0.053">
+    </testcase>
+  </testsuite>
+  <testsuite name="userService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:40" time="0.066" tests="14">
+    <testcase classname="userService fetches the authenticated profile from /users/me/" name="userService fetches the authenticated profile from /users/me/" time="0.001">
+    </testcase>
+    <testcase classname="userService fetches a public profile from /users/:id" name="userService fetches a public profile from /users/:id" time="0.001">
+    </testcase>
+    <testcase classname="userService preserves an unknown follow state when the public profile omits it" name="userService preserves an unknown follow state when the public profile omits it" time="0.001">
+    </testcase>
+    <testcase classname="userService follows and unfollows users with the expected endpoints" name="userService follows and unfollows users with the expected endpoints" time="0">
+    </testcase>
+    <testcase classname="userService loads followers and following lists with pagination" name="userService loads followers and following lists with pagination" time="0.002">
+    </testcase>
+    <testcase classname="userService loads saved stories from the profile bookmarks endpoint" name="userService loads saved stories from the profile bookmarks endpoint" time="0">
+    </testcase>
+    <testcase classname="userService loads public user stories from the published stories endpoint" name="userService loads public user stories from the published stories endpoint" time="0.001">
+    </testcase>
+    <testcase classname="userService loads a user point summary from the gamification endpoint" name="userService loads a user point summary from the gamification endpoint" time="0">
+    </testcase>
+    <testcase classname="userService loads earned badges from the paginated user badges endpoint" name="userService loads earned badges from the paginated user badges endpoint" time="0">
+    </testcase>
+    <testcase classname="userService updates the authenticated profile via PATCH /users/me/" name="userService updates the authenticated profile via PATCH /users/me/" time="0.001">
+    </testcase>
+    <testcase classname="userService supports profile completion updates without sending username fields" name="userService supports profile completion updates without sending username fields" time="0">
+    </testcase>
+    <testcase classname="userService uploads a profile photo via POST /users/me/photo/" name="userService uploads a profile photo via POST /users/me/photo/" time="0">
+    </testcase>
+    <testcase classname="userService removes a profile photo via DELETE /users/me/photo/" name="userService removes a profile photo via DELETE /users/me/photo/" time="0.001">
+    </testcase>
+    <testcase classname="userService deletes the authenticated account via DELETE /users/me/" name="userService deletes the authenticated account via DELETE /users/me/" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="TimelineScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:40" time="1.938" tests="14">
+    <testcase classname="TimelineScreen shows loading skeletons while fetching timeline stories" name="TimelineScreen shows loading skeletons while fetching timeline stories" time="0.058">
+    </testcase>
+    <testcase classname="TimelineScreen renders timeline cards and opens story detail" name="TimelineScreen renders timeline cards and opens story detail" time="0.056">
+    </testcase>
+    <testcase classname="TimelineScreen uses the story time period in the left timeline badge and hides card year chips" name="TimelineScreen uses the story time period in the left timeline badge and hides card year chips" time="0.053">
+    </testcase>
+    <testcase classname="TimelineScreen preserves exact date and range labels in the left timeline badge" name="TimelineScreen preserves exact date and range labels in the left timeline badge" time="0.054">
+    </testcase>
+    <testcase classname="TimelineScreen applies decade selection after Done is pressed" name="TimelineScreen applies decade selection after Done is pressed" time="0.151">
+    </testcase>
+    <testcase classname="TimelineScreen accepts short and negative historical decade years" name="TimelineScreen accepts short and negative historical decade years" time="0.139">
+    </testcase>
+    <testcase classname="TimelineScreen keeps period inputs mounted while a typed filter is loading" name="TimelineScreen keeps period inputs mounted while a typed filter is loading" time="0.079">
+    </testcase>
+    <testcase classname="TimelineScreen keeps range typing local until both years are provided" name="TimelineScreen keeps range typing local until both years are provided" time="0.087">
+    </testcase>
+    <testcase classname="TimelineScreen clears the previous period mode when switching between controls" name="TimelineScreen clears the previous period mode when switching between controls" time="0.097">
+    </testcase>
+    <testcase classname="TimelineScreen loads the next timeline page when the list reaches the end" name="TimelineScreen loads the next timeline page when the list reaches the end" time="0.057">
+    </testcase>
+    <testcase classname="TimelineScreen does not render duplicate timeline stories when pages repeat an id" name="TimelineScreen does not render duplicate timeline stories when pages repeat an id" time="0.108">
+    </testcase>
+    <testcase classname="TimelineScreen updates shared location filters in timeline requests" name="TimelineScreen updates shared location filters in timeline requests" time="0.623">
+    </testcase>
+    <testcase classname="TimelineScreen applies image availability filters from the timeline controls" name="TimelineScreen applies image availability filters from the timeline controls" time="0.108">
+    </testcase>
+    <testcase classname="TimelineScreen shows empty and error states" name="TimelineScreen shows empty and error states" time="0.107">
+    </testcase>
+  </testsuite>
+  <testsuite name="timelineRemoteSource" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:42" time="0.058" tests="12">
+    <testcase classname="timelineRemoteSource calls the timeline endpoint with period, pagination, and bounding-box params" name="timelineRemoteSource calls the timeline endpoint with period, pagination, and bounding-box params" time="0.003">
+    </testcase>
+    <testcase classname="timelineRemoteSource uses the timeline endpoint with the image availability param" name="timelineRemoteSource uses the timeline endpoint with the image availability param" time="0">
+    </testcase>
+    <testcase classname="timelineRemoteSource resolves convenience period requests" name="timelineRemoteSource resolves convenience period requests" time="0.001">
+    </testcase>
+    <testcase classname="timelineRemoteSource falls back to search for query filters and returns client-side chronological pages" name="timelineRemoteSource falls back to search for query filters and returns client-side chronological pages" time="0.001">
+    </testcase>
+    <testcase classname="timelineRemoteSource filters fallback results by the visible historical year badge" name="timelineRemoteSource filters fallback results by the visible historical year badge" time="0">
+    </testcase>
+    <testcase classname="timelineRemoteSource falls back to feed for tag filters and sends the first selected tag parameter" name="timelineRemoteSource falls back to feed for tag filters and sends the first selected tag parameter" time="0.001">
+    </testcase>
+    <testcase classname="timelineRemoteSource refines additional selected tags when fallback results include tag metadata" name="timelineRemoteSource refines additional selected tags when fallback results include tag metadata" time="0">
+    </testcase>
+    <testcase classname="timelineRemoteSource does not drop tag-filtered timeline results when fallback results omit tag fields" name="timelineRemoteSource does not drop tag-filtered timeline results when fallback results omit tag fields" time="0.001">
+    </testcase>
+    <testcase classname="timelineRemoteSource combines search, period, and tag filters in timeline fallback requests" name="timelineRemoteSource combines search, period, and tag filters in timeline fallback requests" time="0">
+    </testcase>
+    <testcase classname="timelineRemoteSource falls back with proximity params and keeps nearby stories chronological" name="timelineRemoteSource falls back with proximity params and keeps nearby stories chronological" time="0.001">
+    </testcase>
+    <testcase classname="timelineRemoteSource refines fallback results by image URL availability" name="timelineRemoteSource refines fallback results by image URL availability" time="0.001">
+    </testcase>
+    <testcase classname="timelineRemoteSource checks story details when fallback rows omit image URL metadata" name="timelineRemoteSource checks story details when fallback rows omit image URL metadata" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="storiesRemoteSource" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:42" time="0.049" tests="10">
+    <testcase classname="storiesRemoteSource attaches preview text to GeoJSON features when the map endpoint omits it" name="storiesRemoteSource attaches preview text to GeoJSON features when the map endpoint omits it" time="0.002">
+    </testcase>
+    <testcase classname="storiesRemoteSource normalizes the legacy map response shape without an extra enrichment request" name="storiesRemoteSource normalizes the legacy map response shape without an extra enrichment request" time="0.001">
+    </testcase>
+    <testcase classname="storiesRemoteSource passes geocoded location bounds to the map endpoint" name="storiesRemoteSource passes geocoded location bounds to the map endpoint" time="0">
+    </testcase>
+    <testcase classname="storiesRemoteSource passes proximity params to the map endpoint" name="storiesRemoteSource passes proximity params to the map endpoint" time="0">
+    </testcase>
+    <testcase classname="storiesRemoteSource passes the first selected tag to the map endpoint using the backend tag parameter" name="storiesRemoteSource passes the first selected tag to the map endpoint using the backend tag parameter" time="0">
+    </testcase>
+    <testcase classname="storiesRemoteSource filters map features by their tag metadata when the map payload includes tags" name="storiesRemoteSource filters map features by their tag metadata when the map payload includes tags" time="0">
+    </testcase>
+    <testcase classname="storiesRemoteSource uses feed tag metadata to filter map features when the map endpoint ignores tag filters" name="storiesRemoteSource uses feed tag metadata to filter map features when the map endpoint ignores tag filters" time="0.001">
+    </testcase>
+    <testcase classname="storiesRemoteSource keeps text search results only when the query matches title or place" name="storiesRemoteSource keeps text search results only when the query matches title or place" time="0">
+    </testcase>
+    <testcase classname="storiesRemoteSource filters map features by geocoded bounds when the backend ignores bbox params" name="storiesRemoteSource filters map features by geocoded bounds when the backend ignores bbox params" time="0.001">
+    </testcase>
+    <testcase classname="storiesRemoteSource filters map features by radius when the backend ignores proximity params" name="storiesRemoteSource filters map features by radius when the backend ignores proximity params" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="AuthProvider" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:42" time="1.011" tests="10">
+    <testcase classname="AuthProvider restores a persisted session on app launch" name="AuthProvider restores a persisted session on app launch" time="0.062">
+    </testcase>
+    <testcase classname="AuthProvider handles login and logout with persistent storage" name="AuthProvider handles login and logout with persistent storage" time="0.106">
+    </testcase>
+    <testcase classname="AuthProvider clears auth state even when the logout request fails" name="AuthProvider clears auth state even when the logout request fails" time="0.108">
+    </testcase>
+    <testcase classname="AuthProvider refreshes the session and retries the request after an expired access token" name="AuthProvider refreshes the session and retries the request after an expired access token" time="0.109">
+    </testcase>
+    <testcase classname="AuthProvider clears auth state when token refresh fails" name="AuthProvider clears auth state when token refresh fails" time="0.106">
+    </testcase>
+    <testcase classname="AuthProvider updates the stored auth user when profile data changes" name="AuthProvider updates the stored auth user when profile data changes" time="0.106">
+    </testcase>
+    <testcase classname="AuthProvider registers without creating a persisted session" name="AuthProvider registers without creating a persisted session" time="0.055">
+    </testcase>
+    <testcase classname="AuthProvider attaches the bearer token to outgoing API requests" name="AuthProvider attaches the bearer token to outgoing API requests" time="0.11">
+    </testcase>
+    <testcase classname="AuthProvider clears auth state when the API returns 401" name="AuthProvider clears auth state when the API returns 401" time="0.113">
+    </testcase>
+    <testcase classname="AuthProvider resets loading when login fails" name="AuthProvider resets loading when login fails" time="0.054">
+    </testcase>
+  </testsuite>
+  <testsuite name="feedRemoteSource" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:43" time="0.048" tests="14">
+    <testcase classname="feedRemoteSource uses the search endpoint when a text query is provided" name="feedRemoteSource uses the search endpoint when a text query is provided" time="0.002">
+    </testcase>
+    <testcase classname="feedRemoteSource sends popular sorting to the feed endpoint" name="feedRemoteSource sends popular sorting to the feed endpoint" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource uses the feed endpoint when no text query is provided" name="feedRemoteSource uses the feed endpoint when no text query is provided" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource hydrates missing feed interaction metadata from story detail" name="feedRemoteSource hydrates missing feed interaction metadata from story detail" time="0.001">
+    </testcase>
+    <testcase classname="feedRemoteSource does not hydrate interaction metadata when the feed already includes counts" name="feedRemoteSource does not hydrate interaction metadata when the feed already includes counts" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource sends bounding box params instead of text location when location was geocoded" name="feedRemoteSource sends bounding box params instead of text location when location was geocoded" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource sends proximity params when radius filtering is active" name="feedRemoteSource sends proximity params when radius filtering is active" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource sends the first selected tag using the backend tag parameter" name="feedRemoteSource sends the first selected tag using the backend tag parameter" time="0.001">
+    </testcase>
+    <testcase classname="feedRemoteSource filters by the first selected tag when the backend ignores tag but returns tag fields" name="feedRemoteSource filters by the first selected tag when the backend ignores tag but returns tag fields" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource fetches all feed pages before local tag filtering when the backend ignores paginated tag requests" name="feedRemoteSource fetches all feed pages before local tag filtering when the backend ignores paginated tag requests" time="0.001">
+    </testcase>
+    <testcase classname="feedRemoteSource does not drop tag-filtered feed results when the backend omits tag fields" name="feedRemoteSource does not drop tag-filtered feed results when the backend omits tag fields" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource refines extra selected tags when feed results include tag fields" name="feedRemoteSource refines extra selected tags when feed results include tag fields" time="0.001">
+    </testcase>
+    <testcase classname="feedRemoteSource filters feed results by geocoded bounds when the backend ignores bbox params" name="feedRemoteSource filters feed results by geocoded bounds when the backend ignores bbox params" time="0">
+    </testcase>
+    <testcase classname="feedRemoteSource filters feed results by radius when the backend ignores proximity params" name="feedRemoteSource filters feed results by radius when the backend ignores proximity params" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="FilterPanel" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:43" time="0.228" tests="11">
+    <testcase classname="FilterPanel forwards location and valid year filter updates" name="FilterPanel forwards location and valid year filter updates" time="0.017">
+    </testcase>
+    <testcase classname="FilterPanel shows the default years as placeholders until selected" name="FilterPanel shows the default years as placeholders until selected" time="0.007">
+    </testcase>
+    <testcase classname="FilterPanel accepts signed five-digit-or-shorter numeric years for BC ranges" name="FilterPanel accepts signed five-digit-or-shorter numeric years for BC ranges" time="0.007">
+    </testcase>
+    <testcase classname="FilterPanel clamps manual year entries to the supported bounds on blur" name="FilterPanel clamps manual year entries to the supported bounds on blur" time="0.006">
+    </testcase>
+    <testcase classname="FilterPanel toggles the with image filter" name="FilterPanel toggles the with image filter" time="0.013">
+    </testcase>
+    <testcase classname="FilterPanel disables increment once the maximum year is reached" name="FilterPanel disables increment once the maximum year is reached" time="0.006">
+    </testcase>
+    <testcase classname="FilterPanel increments and decrements year values with the step buttons" name="FilterPanel increments and decrements year values with the step buttons" time="0.005">
+    </testcase>
+    <testcase classname="FilterPanel activates placeholder years when step buttons are pressed from an empty value" name="FilterPanel activates placeholder years when step buttons are pressed from an empty value" time="0.006">
+    </testcase>
+    <testcase classname="FilterPanel allows entering a to year even before the from year and shows the range warning" name="FilterPanel allows entering a to year even before the from year and shows the range warning" time="0.018">
+    </testcase>
+    <testcase classname="FilterPanel resets the filter form" name="FilterPanel resets the filter form" time="0.005">
+    </testcase>
+    <testcase classname="FilterPanel supports tag search, selection, and chip removal" name="FilterPanel supports tag search, selection, and chip removal" time="0.023">
+    </testcase>
+  </testsuite>
+  <testsuite name="story mappers" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:43" time="0.041" tests="9">
+    <testcase classname="story mappers maps the backend story detail payload into the mobile story entity" name="story mappers maps the backend story detail payload into the mobile story entity" time="0.001">
+    </testcase>
+    <testcase classname="story mappers keeps anonymous fallback when a contributor exists but their public name is hidden" name="story mappers keeps anonymous fallback when a contributor exists but their public name is hidden" time="0.001">
+    </testcase>
+    <testcase classname="story mappers maps image, audio, and video media items in display order" name="story mappers maps image, audio, and video media items in display order" time="0">
+    </testcase>
+    <testcase classname="story mappers maps exact date stories to a readable time period" name="story mappers maps exact date stories to a readable time period" time="0">
+    </testcase>
+    <testcase classname="story mappers maps normalized anonymous stories with the anonymous contributor label" name="story mappers maps normalized anonymous stories with the anonymous contributor label" time="0.001">
+    </testcase>
+    <testcase classname="story mappers treats contributor visibility off as anonymous profile-hidden story" name="story mappers treats contributor visibility off as anonymous profile-hidden story" time="0">
+    </testcase>
+    <testcase classname="story mappers maps backend comments into the mobile comment shape" name="story mappers maps backend comments into the mobile comment shape" time="0">
+    </testcase>
+    <testcase classname="story mappers maps a GeoJSON feature into the mobile story map pin shape" name="story mappers maps a GeoJSON feature into the mobile story map pin shape" time="0">
+    </testcase>
+    <testcase classname="story mappers maps normalized tags and temporal coverage for GeoJSON features" name="story mappers maps normalized tags and temporal coverage for GeoJSON features" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="ModerationScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:43" time="0.669" tests="5">
+    <testcase classname="ModerationScreen blocks non-admin users" name="ModerationScreen blocks non-admin users" time="0.005">
+    </testcase>
+    <testcase classname="ModerationScreen lists reports, filters by status, and resolves a report" name="ModerationScreen lists reports, filters by status, and resolves a report" time="0.151">
+    </testcase>
+    <testcase classname="ModerationScreen opens reported comments on their parent story when story metadata is available" name="ModerationScreen opens reported comments on their parent story when story metadata is available" time="0.062">
+    </testcase>
+    <testcase classname="ModerationScreen requires a reason before removing a story" name="ModerationScreen requires a reason before removing a story" time="0.198">
+    </testcase>
+    <testcase classname="ModerationScreen removes tags after confirmation" name="ModerationScreen removes tags after confirmation" time="0.132">
+    </testcase>
+  </testsuite>
+  <testsuite name="ProfileCompletionScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:44" time="0.355" tests="4">
+    <testcase classname="ProfileCompletionScreen validates required fields before allowing submission" name="ProfileCompletionScreen validates required fields before allowing submission" time="0.035">
+    </testcase>
+    <testcase classname="ProfileCompletionScreen moves through optional steps one by one with continue" name="ProfileCompletionScreen moves through optional steps one by one with continue" time="0.024">
+    </testcase>
+    <testcase classname="ProfileCompletionScreen submits with only required fields when optional steps are left blank" name="ProfileCompletionScreen submits with only required fields when optional steps are left blank" time="0.033">
+    </testcase>
+    <testcase classname="ProfileCompletionScreen uploads a selected photo after saving the profile payload" name="ProfileCompletionScreen uploads a selected photo after saving the profile payload" time="0.13">
+    </testcase>
+  </testsuite>
+  <testsuite name="submissionsService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:44" time="0.045" tests="2">
+    <testcase classname="submissionsService creates a story with contributor visibility and uploads image, audio, and video files" name="submissionsService creates a story with contributor visibility and uploads image, audio, and video files" time="0.002">
+    </testcase>
+    <testcase classname="submissionsService creates exact date stories with date, optional time, and EDTF temporal coverage fields" name="submissionsService creates exact date stories with date, optional time, and EDTF temporal coverage fields" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="notificationService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:44" time="0.037" tests="4">
+    <testcase classname="notificationService loads and maps notifications" name="notificationService loads and maps notifications" time="0.002">
+    </testcase>
+    <testcase classname="notificationService marks one notification as read" name="notificationService marks one notification as read" time="0.001">
+    </testcase>
+    <testcase classname="notificationService marks all unread notifications as read" name="notificationService marks all unread notifications as read" time="0">
+    </testcase>
+    <testcase classname="notificationService loads and updates notification preferences" name="notificationService loads and updates notification preferences" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="StoryRepositoryImpl" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:44" time="0.039" tests="5">
+    <testcase classname="StoryRepositoryImpl fetches a story detail record and merges mapped comments" name="StoryRepositoryImpl fetches a story detail record and merges mapped comments" time="0.001">
+    </testcase>
+    <testcase classname="StoryRepositoryImpl returns null when the story is not found" name="StoryRepositoryImpl returns null when the story is not found" time="0">
+    </testcase>
+    <testcase classname="StoryRepositoryImpl deletes a story through the remote source" name="StoryRepositoryImpl deletes a story through the remote source" time="0">
+    </testcase>
+    <testcase classname="StoryRepositoryImpl maps a GeoJSON FeatureCollection into mobile story pins" name="StoryRepositoryImpl maps a GeoJSON FeatureCollection into mobile story pins" time="0.001">
+    </testcase>
+    <testcase classname="StoryRepositoryImpl returns an empty list when the GeoJSON FeatureCollection is empty" name="StoryRepositoryImpl returns an empty list when the GeoJSON FeatureCollection is empty" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="NotificationScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:44" time="0.468" tests="4">
+    <testcase classname="NotificationScreen renders notifications newest first with unread count and event labels" name="NotificationScreen renders notifications newest first with unread count and event labels" time="0.059">
+    </testcase>
+    <testcase classname="NotificationScreen marks an individual notification as read and navigates to related story" name="NotificationScreen marks an individual notification as read and navigates to related story" time="0.11">
+    </testcase>
+    <testcase classname="NotificationScreen marks all notifications as read" name="NotificationScreen marks all notifications as read" time="0.11">
+    </testcase>
+    <testcase classname="NotificationScreen shows an empty state when there are no notifications" name="NotificationScreen shows an empty state when there are no notifications" time="0.054">
+    </testcase>
+  </testsuite>
+  <testsuite name="ResetPasswordScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:45" time="0.273" tests="5">
+    <testcase classname="ResetPasswordScreen renders password fields and rules" name="ResetPasswordScreen renders password fields and rules" time="0.023">
+    </testcase>
+    <testcase classname="ResetPasswordScreen shows inline password validation errors" name="ResetPasswordScreen shows inline password validation errors" time="0.012">
+    </testcase>
+    <testcase classname="ResetPasswordScreen submits the token and matching new password" name="ResetPasswordScreen submits the token and matching new password" time="0.017">
+    </testcase>
+    <testcase classname="ResetPasswordScreen shows invalid token errors with a link to request a new reset link" name="ResetPasswordScreen shows invalid token errors with a link to request a new reset link" time="0.062">
+    </testcase>
+    <testcase classname="ResetPasswordScreen does not submit when the token is missing" name="ResetPasswordScreen does not submit when the token is missing" time="0.003">
+    </testcase>
+  </testsuite>
+  <testsuite name="AuthFormCard" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:45" time="0.087" tests="3">
+    <testcase classname="AuthFormCard toggles password visibility on sign in" name="AuthFormCard toggles password visibility on sign in" time="0.018">
+    </testcase>
+    <testcase classname="AuthFormCard toggles confirm password visibility on registration" name="AuthFormCard toggles confirm password visibility on registration" time="0.007">
+    </testcase>
+    <testcase classname="AuthFormCard shows the forgot password action on sign in only" name="AuthFormCard shows the forgot password action on sign in only" time="0.007">
+    </testcase>
+  </testsuite>
+  <testsuite name="NotificationPreferencesSection" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:45" time="0.378" tests="3">
+    <testcase classname="NotificationPreferencesSection renders all supported notification type toggles and saves changes" name="NotificationPreferencesSection renders all supported notification type toggles and saves changes" time="0.123">
+    </testcase>
+    <testcase classname="NotificationPreferencesSection supports the global stop all notifications toggle" name="NotificationPreferencesSection supports the global stop all notifications toggle" time="0.063">
+    </testcase>
+    <testcase classname="NotificationPreferencesSection collapses preferences when closed" name="NotificationPreferencesSection collapses preferences when closed" time="0.056">
+    </testcase>
+  </testsuite>
+  <testsuite name="FeedCard" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.22" tests="7">
+    <testcase classname="FeedCard renders the story fields and media indicator" name="FeedCard renders the story fields and media indicator" time="0.014">
+    </testcase>
+    <testcase classname="FeedCard navigates when the card is pressed" name="FeedCard navigates when the card is pressed" time="0.004">
+    </testcase>
+    <testcase classname="FeedCard opens a tag from the card without opening the story" name="FeedCard opens a tag from the card without opening the story" time="0.004">
+    </testcase>
+    <testcase classname="FeedCard hides the media indicator when the story has no media" name="FeedCard hides the media indicator when the story has no media" time="0.003">
+    </testcase>
+    <testcase classname="FeedCard renders the filled bookmark indicator for saved stories" name="FeedCard renders the filled bookmark indicator for saved stories" time="0.003">
+    </testcase>
+    <testcase classname="FeedCard renders the filled like indicator only when the story is liked" name="FeedCard renders the filled like indicator only when the story is liked" time="0.002">
+    </testcase>
+    <testcase classname="FeedCard calls the bookmark handler from the card bookmark button" name="FeedCard calls the bookmark handler from the card bookmark button" time="0.003">
+    </testcase>
+  </testsuite>
+  <testsuite name="VerifyEmailScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.327" tests="5">
+    <testcase classname="VerifyEmailScreen renders six digit inputs and the registered email" name="VerifyEmailScreen renders six digit inputs and the registered email" time="0.026">
+    </testcase>
+    <testcase classname="VerifyEmailScreen submits the completed verification code" name="VerifyEmailScreen submits the completed verification code" time="0.025">
+    </testcase>
+    <testcase classname="VerifyEmailScreen shows an inline invalid-code error" name="VerifyEmailScreen shows an inline invalid-code error" time="0.071">
+    </testcase>
+    <testcase classname="VerifyEmailScreen shows a resend option for expired codes" name="VerifyEmailScreen shows a resend option for expired codes" time="0.075">
+    </testcase>
+    <testcase classname="VerifyEmailScreen handles rate limiting gracefully" name="VerifyEmailScreen handles rate limiting gracefully" time="0.07">
+    </testcase>
+  </testsuite>
+  <testsuite name="timeline mappers" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.035" tests="5">
+    <testcase classname="timeline mappers maps exact and approximate years" name="timeline mappers maps exact and approximate years" time="0.001">
+    </testcase>
+    <testcase classname="timeline mappers maps decade, range, and exact date periods" name="timeline mappers maps decade, range, and exact date periods" time="0">
+    </testcase>
+    <testcase classname="timeline mappers maps location and photo fields from timeline and feed-like payloads" name="timeline mappers maps location and photo fields from timeline and feed-like payloads" time="0">
+    </testcase>
+    <testcase classname="timeline mappers keeps photoUrl undefined when no image exists and rejects invalid records" name="timeline mappers keeps photoUrl undefined when no image exists and rejects invalid records" time="0.004">
+    </testcase>
+    <testcase classname="timeline mappers maps paginated timeline responses" name="timeline mappers maps paginated timeline responses" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="profile mappers" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.033" tests="5">
+    <testcase classname="profile mappers maps older public profile payloads" name="profile mappers maps older public profile payloads" time="0.001">
+    </testcase>
+    <testcase classname="profile mappers maps normalized public profile payloads without breaking privacy fields" name="profile mappers maps normalized public profile payloads without breaking privacy fields" time="0">
+    </testcase>
+    <testcase classname="profile mappers maps normalized current profile payloads" name="profile mappers maps normalized current profile payloads" time="0.001">
+    </testcase>
+    <testcase classname="profile mappers merges normalized public summary fields into the current profile" name="profile mappers merges normalized public summary fields into the current profile" time="0">
+    </testcase>
+    <testcase classname="profile mappers keeps existing summary counts when public summary omits them" name="profile mappers keeps existing summary counts when public summary omits them" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="adminService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.037" tests="2">
+    <testcase classname="adminService hydrates comment reports with their parent story id when the report payload omits it" name="adminService hydrates comment reports with their parent story id when the report payload omits it" time="0.004">
+    </testcase>
+    <testcase classname="adminService bans a user through the moderation endpoint" name="adminService bans a user through the moderation endpoint" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="MapRepositoryImpl" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.034" tests="2">
+    <testcase classname="MapRepositoryImpl returns one marker per story pin without clustering" name="MapRepositoryImpl returns one marker per story pin without clustering" time="0.001">
+    </testcase>
+    <testcase classname="MapRepositoryImpl groups pins with duplicate coordinates into a tappable cluster marker" name="MapRepositoryImpl groups pins with duplicate coordinates into a tappable cluster marker" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="authService email verification" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.05" tests="4">
+    <testcase classname="authService email verification verifies an email through /auth/verify-email/" name="authService email verification verifies an email through /auth/verify-email/" time="0.001">
+    </testcase>
+    <testcase classname="authService email verification resends a verification code through /auth/resend-verification/" name="authService email verification resends a verification code through /auth/resend-verification/" time="0">
+    </testcase>
+    <testcase classname="authService email verification requests a password reset through /auth/password-reset/" name="authService email verification requests a password reset through /auth/password-reset/" time="0.001">
+    </testcase>
+    <testcase classname="authService email verification resets a password through /auth/password-reset/confirm/" name="authService email verification resets a password through /auth/password-reset/confirm/" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="storyService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.033" tests="5">
+    <testcase classname="storyService delegates getStories to the repository with filters" name="storyService delegates getStories to the repository with filters" time="0">
+    </testcase>
+    <testcase classname="storyService delegates getMapPins to the repository with filters" name="storyService delegates getMapPins to the repository with filters" time="0.001">
+    </testcase>
+    <testcase classname="storyService delegates deleteStory to the repository" name="storyService delegates deleteStory to the repository" time="0">
+    </testcase>
+    <testcase classname="storyService delegates getFeed to the feed service" name="storyService delegates getFeed to the feed service" time="0">
+    </testcase>
+    <testcase classname="storyService delegates getTimeline to the timeline service" name="storyService delegates getTimeline to the timeline service" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="geocodingService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:46" time="0.043" tests="5">
+    <testcase classname="geocodingService geocodes a place name through the backend API into backend-ready bounds" name="geocodingService geocodes a place name through the backend API into backend-ready bounds" time="0.001">
+    </testcase>
+    <testcase classname="geocodingService returns null when the backend has no usable result so callers can fall back to text search" name="geocodingService returns null when the backend has no usable result so callers can fall back to text search" time="0.001">
+    </testcase>
+    <testcase classname="geocodingService fetches location suggestions through the backend API and derives map centers from bbox" name="geocodingService fetches location suggestions through the backend API and derives map centers from bbox" time="0">
+    </testcase>
+    <testcase classname="geocodingService does not call the backend for short suggestion queries" name="geocodingService does not call the backend for short suggestion queries" time="0.001">
+    </testcase>
+    <testcase classname="geocodingService rejects invalid backend bounding boxes" name="geocodingService rejects invalid backend bounding boxes" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="Toast" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.152" tests="4">
+    <testcase classname="Toast shows a success toast" name="Toast shows a success toast" time="0.011">
+    </testcase>
+    <testcase classname="Toast dismisses a toast" name="Toast dismisses a toast" time="0.01">
+    </testcase>
+    <testcase classname="Toast replaces the current toast instead of stacking several notifications" name="Toast replaces the current toast instead of stacking several notifications" time="0.014">
+    </testcase>
+    <testcase classname="Toast positions toasts above bottom app chrome" name="Toast positions toasts above bottom app chrome" time="0.005">
+    </testcase>
+  </testsuite>
+  <testsuite name="ForgotPasswordScreen" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.151" tests="3">
+    <testcase classname="ForgotPasswordScreen renders the email form" name="ForgotPasswordScreen renders the email form" time="0.017">
+    </testcase>
+    <testcase classname="ForgotPasswordScreen validates email before submitting" name="ForgotPasswordScreen validates email before submitting" time="0.006">
+    </testcase>
+    <testcase classname="ForgotPasswordScreen submits the email and shows the vague confirmation message" name="ForgotPasswordScreen submits the email and shows the vague confirmation message" time="0.01">
+    </testcase>
+  </testsuite>
+  <testsuite name="feed mappers" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.033" tests="4">
+    <testcase classname="feed mappers maps backend feed card interaction metadata" name="feed mappers maps backend feed card interaction metadata" time="0.001">
+    </testcase>
+    <testcase classname="feed mappers maps paginated feed responses" name="feed mappers maps paginated feed responses" time="0">
+    </testcase>
+    <testcase classname="feed mappers maps exact date feed card time periods without changing year-based formatting" name="feed mappers maps exact date feed card time periods without changing year-based formatting" time="0">
+    </testcase>
+    <testcase classname="feed mappers maps legacy like count aliases from feed payloads" name="feed mappers maps legacy like count aliases from feed payloads" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="linking" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.038" tests="3">
+    <testcase classname="linking defines the profile and story route patterns" name="linking defines the profile and story route patterns" time="0.001">
+    </testcase>
+    <testcase classname="linking builds and parses profile and story paths" name="linking builds and parses profile and story paths" time="0.001">
+    </testcase>
+    <testcase classname="linking builds and parses password reset paths" name="linking builds and parses password reset paths" time="0.004">
+    </testcase>
+  </testsuite>
+  <testsuite name="reportService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.032" tests="1">
+    <testcase classname="reportService posts a content report to the reports endpoint and maps the response" name="reportService posts a content report to the reports endpoint and maps the response" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="submission temporal EDTF helpers" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.033" tests="3">
+    <testcase classname="submission temporal EDTF helpers formats supported year-based time types as EDTF strings" name="submission temporal EDTF helpers formats supported year-based time types as EDTF strings" time="0.001">
+    </testcase>
+    <testcase classname="submission temporal EDTF helpers formats specific dates and optional times as EDTF strings" name="submission temporal EDTF helpers formats specific dates and optional times as EDTF strings" time="0">
+    </testcase>
+    <testcase classname="submission temporal EDTF helpers rejects invalid calendar dates and malformed times" name="submission temporal EDTF helpers rejects invalid calendar dates and malformed times" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="toSearchParams" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.042" tests="3">
+    <testcase classname="toSearchParams uses text location when geocoding did not return bounds" name="toSearchParams uses text location when geocoding did not return bounds" time="0.001">
+    </testcase>
+    <testcase classname="toSearchParams keeps geocoded bounds with the location label for API normalization" name="toSearchParams keeps geocoded bounds with the location label for API normalization" time="0">
+    </testcase>
+    <testcase classname="toSearchParams maps the with image filter to story search params" name="toSearchParams maps the with image filter to story search params" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="useDebounce" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.049" tests="1">
+    <testcase classname="useDebounce returns the latest value only after the delay elapses" name="useDebounce returns the latest value only after the delay elapses" time="0.009">
+    </testcase>
+  </testsuite>
+  <testsuite name="EmptyState" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.049" tests="3">
+    <testcase classname="EmptyState renders default content" name="EmptyState renders default content" time="0.009">
+    </testcase>
+    <testcase classname="EmptyState renders custom content" name="EmptyState renders custom content" time="0.002">
+    </testcase>
+    <testcase classname="EmptyState triggers action callback" name="EmptyState triggers action callback" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="ErrorState" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.05" tests="3">
+    <testcase classname="ErrorState renders default content" name="ErrorState renders default content" time="0.007">
+    </testcase>
+    <testcase classname="ErrorState renders custom content" name="ErrorState renders custom content" time="0.001">
+    </testcase>
+    <testcase classname="ErrorState triggers retry callback" name="ErrorState triggers retry callback" time="0.003">
+    </testcase>
+  </testsuite>
+  <testsuite name="FilterChips" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.115" tests="2">
+    <testcase classname="FilterChips removes a single active filter chip" name="FilterChips removes a single active filter chip" time="0.007">
+    </testcase>
+    <testcase classname="FilterChips clears all active filters" name="FilterChips clears all active filters" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="NotFoundPage" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.051" tests="3">
+    <testcase classname="NotFoundPage renders default content" name="NotFoundPage renders default content" time="0.011">
+    </testcase>
+    <testcase classname="NotFoundPage renders custom content" name="NotFoundPage renders custom content" time="0.002">
+    </testcase>
+    <testcase classname="NotFoundPage triggers go back callback" name="NotFoundPage triggers go back callback" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="SearchInput" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.049" tests="2">
+    <testcase classname="SearchInput renders the current query and forwards text changes" name="SearchInput renders the current query and forwards text changes" time="0.011">
+    </testcase>
+    <testcase classname="SearchInput runs the explicit search action from the button" name="SearchInput runs the explicit search action from the button" time="0.003">
+    </testcase>
+  </testsuite>
+  <testsuite name="interactionsRemoteSource" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.028" tests="2">
+    <testcase classname="interactionsRemoteSource bookmarks a story through the bookmark endpoint" name="interactionsRemoteSource bookmarks a story through the bookmark endpoint" time="0.001">
+    </testcase>
+    <testcase classname="interactionsRemoteSource removes a bookmark through the bookmark endpoint" name="interactionsRemoteSource removes a bookmark through the bookmark endpoint" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="feedService" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.027" tests="1">
+    <testcase classname="feedService delegates getFeed to the repository" name="feedService delegates getFeed to the repository" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="LoadingSkeleton" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:47" time="0.062" tests="3">
+    <testcase classname="LoadingSkeleton renders Skeleton without crashing" name="LoadingSkeleton renders Skeleton without crashing" time="0.015">
+    </testcase>
+    <testcase classname="LoadingSkeleton renders SkeletonCard without crashing" name="LoadingSkeleton renders SkeletonCard without crashing" time="0.005">
+    </testcase>
+    <testcase classname="LoadingSkeleton renders SkeletonPage without crashing" name="LoadingSkeleton renders SkeletonPage without crashing" time="0.008">
+    </testcase>
+  </testsuite>
+  <testsuite name="apiClient" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:48" time="0.032" tests="1">
+    <testcase classname="apiClient returns a helpful error when the transport fails before receiving a response" name="apiClient returns a helpful error when the transport fails before receiving a response" time="0.004">
+    </testcase>
+  </testsuite>
+  <testsuite name="Loader" errors="0" failures="0" skipped="0" timestamp="2026-05-16T06:22:48" time="0.046" tests="2">
+    <testcase classname="Loader renders the default loading message" name="Loader renders the default loading message" time="0.007">
+    </testcase>
+    <testcase classname="Loader renders a custom message" name="Loader renders a custom message" time="0.001">
+    </testcase>
+  </testsuite>
+</testsuites>
