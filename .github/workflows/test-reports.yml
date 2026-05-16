@@ -79,7 +79,8 @@ jobs:
         run: |
           python -m pytest -v \
             --json-report \
-            --json-report-file=${{ github.workspace }}/backend-report.json
+            --json-report-file=${{ github.workspace }}/backend-report.json \
+            --junitxml=${{ github.workspace }}/backend-junit.xml
 
       # ── Frontend ─────────────────────────────────────────────────────────────
       - name: Install frontend dependencies
@@ -91,8 +92,9 @@ jobs:
         continue-on-error: true
         run: |
           npm run test:run -- \
-            --reporter=json \
-            --outputFile=${{ github.workspace }}/frontend-report.json
+            --reporter=json --reporter=junit \
+            --outputFile.json=${{ github.workspace }}/frontend-report.json \
+            --outputFile.junit=${{ github.workspace }}/frontend-junit.xml
 
       # ── Mobile ───────────────────────────────────────────────────────────────
       - name: Install mobile dependencies
@@ -107,12 +109,26 @@ jobs:
           TMPDIR: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
           TEMP: ${{ runner.temp }}
+          JEST_JUNIT_OUTPUT_FILE: ${{ github.workspace }}/mobile-junit.xml
         run: |
           npm test -- \
             --runInBand \
             --watchAll=false \
             --json \
-            --outputFile=${{ github.workspace }}/mobile-report.json
+            --outputFile=${{ github.workspace }}/mobile-report.json \
+            --reporters=default \
+            --reporters=jest-junit
+
+      # ── JUnit XML snapshot for the deliverable ───────────────────────────────
+      - name: Upload JUnit XML reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-reports
+          path: |
+            ${{ github.workspace }}/backend-junit.xml
+            ${{ github.workspace }}/frontend-junit.xml
+            ${{ github.workspace }}/mobile-junit.xml
+          if-no-files-found: warn
 
       # ── Report generation ────────────────────────────────────────────────────
       - name: Generate wiki page
